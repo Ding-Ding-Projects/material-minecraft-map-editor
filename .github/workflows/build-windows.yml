@@ -81,6 +81,7 @@ jobs:
         "build_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     - name: Fetch previous full package for delta
+      if: github.event_name == 'release'
       shell: pwsh
       env:
         GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
