@@ -86,11 +86,13 @@ def add(severity: str, title: str, body: str) -> Notification:
 
 
 def search(
-    query: str = "", *, regex: bool = False, include_dismissed: bool = True
+    query: str = "", *, regex: bool = False, flags: int = 0, include_dismissed: bool = True
 ) -> List[Notification]:
     query = _text(query, "query") if query else ""
     try:
-        matcher = re.compile(query if regex else re.escape(query), re.IGNORECASE)
+        matcher = re.compile(
+            query if regex else re.escape(query), int(flags) | re.IGNORECASE
+        )
     except re.error as exc:
         raise ValueError(f"Invalid notification search pattern: {exc}") from exc
     values = list_notifications(include_dismissed=include_dismissed)

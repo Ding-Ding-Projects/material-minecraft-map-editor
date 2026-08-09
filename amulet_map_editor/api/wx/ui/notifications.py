@@ -7,6 +7,7 @@ import wx
 from amulet_map_editor.api import export_actions, notifications, preferences, lang
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
+from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 
 
 def _copy(key: str, mode: str) -> str:
@@ -34,8 +35,12 @@ class NotificationHistoryDialog(wx.Dialog):
         self.search.SetHint(_copy("search_hint", self._language_mode))
         self.regex = wx.CheckBox(self, label=_copy("regex", self._language_mode))
         self.regex.SetToolTip(_copy("regex_help", self._language_mode))
+        self.regex_button = wx.Button(self, label="Regex…")
+        self.regex_button.SetName("Notification search regex builder")
+        self.regex_button.SetToolTip("Build a bounded regular-expression search")
         search_row.Add(self.search, 1, wx.EXPAND | wx.RIGHT, 8)
         search_row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
+        search_row.Add(self.regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         root.Add(search_row, 0, wx.EXPAND | wx.ALL, 12)
 
         self.list = wx.ListCtrl(self, style=wx.LC_REPORT)
@@ -80,8 +85,10 @@ class NotificationHistoryDialog(wx.Dialog):
         root.Add(actions, 0, wx.ALL, 12)
         root.Add(self.export_status, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.SetSizer(root)
+        self._search_flags = 0
         self.search.Bind(wx.EVT_TEXT, self._refresh)
         self.regex.Bind(wx.EVT_CHECKBOX, self._refresh)
+        self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self.dismiss.Bind(wx.EVT_BUTTON, self._dismiss_selected)
         self.dismiss_all.Bind(wx.EVT_BUTTON, self._dismiss_visible)
         self.export.Bind(wx.EVT_BUTTON, self._export)
@@ -90,10 +97,27 @@ class NotificationHistoryDialog(wx.Dialog):
         self._refresh()
         apply_material3(self)
 
+    def _open_regex_builder(self, _event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.search.GetValue(),
+            regex_enabled=self.regex.GetValue(),
+            flags=self._search_flags,
+            sample="Notification title or message",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.search.ChangeValue(dialog.pattern)
+            self.regex.SetValue(dialog.regex_enabled)
+            self._search_flags = dialog.flags
+        self._refresh()
+
     def _refresh(self, _event=None) -> None:
         try:
             self._items = notifications.search(
-                self.search.GetValue(), regex=self.regex.GetValue()
+                self.search.GetValue()[:4096],
+                regex=self.regex.GetValue(),
+                flags=self._search_flags,
             )
         except ValueError as exc:
             self._items = []

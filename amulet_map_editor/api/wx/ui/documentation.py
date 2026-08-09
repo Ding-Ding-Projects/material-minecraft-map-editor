@@ -16,6 +16,7 @@ from amulet_map_editor.api.docs_browser import (
 from amulet_map_editor.api import preferences
 from amulet_map_editor.api import lang
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 
 
 def _copy(key: str, mode: str) -> str:
@@ -101,9 +102,13 @@ class DocumentationDialog(wx.Dialog):
         self.query = wx.TextCtrl(self)
         self.query.SetHint(_copy("search_hint", self._language_mode))
         self.regex = wx.CheckBox(self, label=_copy("regex", self._language_mode))
+        self.regex_button = wx.Button(self, label="Regex…")
+        self.regex_button.SetName("Documentation search regex builder")
+        self.regex_button.SetToolTip("Build a bounded regular-expression search")
         self.feedback = wx.StaticText(self, label="")
         filters.Add(self.query, 1, wx.EXPAND | wx.RIGHT, 8)
         filters.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        filters.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
         filters.Add(self.feedback, 0, wx.ALIGN_CENTER_VERTICAL)
         root.Add(filters, 0, wx.EXPAND | wx.ALL, 12)
 
@@ -119,12 +124,29 @@ class DocumentationDialog(wx.Dialog):
         close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL))
         root.Add(close, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
         self.SetSizer(root)
+        self._search_flags = 0
         for control in (self.query, self.regex):
             event = wx.EVT_TEXT if control is self.query else wx.EVT_CHECKBOX
             control.Bind(event, self._refresh)
+        self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self.results.Bind(wx.EVT_LISTBOX, self._show_selected)
         self.article_view.Bind(wx.html.EVT_HTML_LINK_CLICKED, self._follow_link)
         apply_material3(self)
+        self._refresh()
+
+    def _open_regex_builder(self, _event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.query.GetValue(),
+            regex_enabled=self.regex.GetValue(),
+            flags=self._search_flags,
+            sample="Article title and body",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.query.ChangeValue(dialog.pattern)
+            self.regex.SetValue(dialog.regex_enabled)
+            self._search_flags = dialog.flags
         self._refresh()
 
     def _refresh(self, _event: wx.Event | None = None) -> None:
@@ -132,6 +154,7 @@ class DocumentationDialog(wx.Dialog):
             self._visible = (
                 self._index.search(
                     self.query.GetValue()[:4096], regex=self.regex.GetValue()
+                    , flags=self._search_flags
                 )
                 if self.query.GetValue()
                 else tuple(self._index.articles)
