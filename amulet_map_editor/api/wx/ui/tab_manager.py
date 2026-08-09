@@ -22,7 +22,7 @@ class TabManagerDialog(wx.Dialog):
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._notebook = notebook
-        self._workspace = TabWorkspace("main-window")
+        self._workspace = getattr(notebook, "_tab_workspace", TabWorkspace("main-window"))
         self._regex_flags = 0
         self._sync_notebook()
 
@@ -146,6 +146,8 @@ class TabManagerDialog(wx.Dialog):
 
     def _dock_changed(self, _event) -> None:
         self._workspace.set_dock(list(TabDock)[self.dock.GetSelection()])
+        if hasattr(self._notebook, "apply_tab_workspace"):
+            self._notebook.apply_tab_workspace()
         self._record_workspace_change("tab strip edge changed")
         self._refresh()
 

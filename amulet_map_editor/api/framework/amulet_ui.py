@@ -37,6 +37,7 @@ from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from amulet_map_editor.api.wx.ui.notifications import NotificationHistoryDialog
 from amulet_map_editor.api.wx.ui.local_history import LocalHistoryDialog
 from amulet_map_editor.api.wx.ui.tab_manager import TabManagerDialog
+from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
 from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
 from amulet_map_editor.api.wx.ui.notification_toast import NotificationToast
 from amulet_map_editor.api.wx.nonblocking import notify
@@ -381,6 +382,7 @@ class AmuletUI(wx.Frame):
         dialog.CentreOnParent()
         dialog.ShowModal()
         dialog.Destroy()
+        self._level_notebook.apply_tab_workspace()
 
     def _open_local_history(self, _event=None) -> None:
         dialog = LocalHistoryDialog(self)
@@ -598,9 +600,24 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
 
         self._main_menu = AmuletMainMenu(self)
         self._open_worlds = {}
+        self._tab_workspace = TabWorkspace("main-window")
 
     def init(self):
         self._add_world_tab(self._main_menu, lang.get("main_menu.tab_name"))
+        self.apply_tab_workspace()
+
+    def apply_tab_workspace(self) -> None:
+        """Project persisted notebook docking where AGW supports it."""
+        dock = self._tab_workspace.state.dock
+        style = NOTEBOOK_STYLE if self.GetCurrentPage() is not self._main_menu else NOTEBOOK_MENU_STYLE
+        if dock is TabDock.BOTTOM:
+            style |= flatnotebook.FNB_BOTTOM
+        self.SetAGWWindowStyleFlag(style)
+        self.SetName(f"Amulet tabs ({dock.value})")
+
+    def set_tab_dock(self, dock: TabDock | str) -> None:
+        self._tab_workspace.set_dock(dock)
+        self.apply_tab_workspace()
 
     def open_level(self, path: str):
         """Open a world panel add it to the notebook"""
@@ -673,9 +690,9 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
                     old_page.disable()
 
             if self.GetCurrentPage() is self._main_menu:
-                self.SetAGWWindowStyleFlag(NOTEBOOK_MENU_STYLE)
+                self.apply_tab_workspace()
             else:
-                self.SetAGWWindowStyleFlag(NOTEBOOK_STYLE)
+                self.apply_tab_workspace()
 
         if self.GetCurrentPage() is not None:
             self.GetCurrentPage().enable()

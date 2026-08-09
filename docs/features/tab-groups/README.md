@@ -11,9 +11,10 @@ page rather than opening a duplicate surface. Invalid regex input is handled as
 an empty result and never changes tab state.
 
 The current notebook remains the source of truth for rendering and close/dirty
-protection. The manager is the persisted organisation and discovery surface;
-future work will project the chosen edge and group headers into the live strip
-without changing the saved contract.
+protection. Persisted top/bottom docking now projects into the live AGW
+notebook. Left/right remain explicitly capability-limited because this native
+control has no side-strip renderer yet; group headers remain a follow-up while
+the saved discovery contract stays intact.
 
 ## Failure modes and security
 
@@ -26,6 +27,8 @@ without changing the saved contract.
 
 `tests/test_tab_manager_ui_contract.py` checks the native M3 shell, regex
 builder, persisted operations, View-menu route, and command-palette route.
+`tests/test_tab_workspace_projection_contract.py` checks the live bottom-dock
+projection and manager-to-notebook update path.
 The underlying `tests/test_tab_groups.py` suite covers persistence, four search
 scopes, pinning, grouping, docking, ARIA attributes, and axis-aware keyboard
 navigation.
