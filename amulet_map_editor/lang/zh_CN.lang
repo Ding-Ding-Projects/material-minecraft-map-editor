@@ -123,8 +123,6 @@ main_menu.open_world=打开世界
 main_menu.user_manual=用户手册
 main_menu.bug_tracker=错误跟踪器
 main_menu.discord=Amulet Discord
-main_menu.our_sponsors=我们的赞助商
-main_menu.sponsor_link=(赞助我们，让您的名字出现在这里)
 
 # 语言选择
 language_select.title=选择语言

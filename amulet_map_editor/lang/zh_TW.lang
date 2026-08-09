@@ -127,8 +127,6 @@ main_menu.open_world=開啟世界
 main_menu.user_manual=用戶手冊
 main_menu.bug_tracker=錯誤追蹤器
 main_menu.discord=Amulet Discord
-main_menu.our_sponsors=我們的贊助者
-main_menu.sponsor_link=(在GitHub贊助我們，讓您的名字出現在這裡)
 
 # 語言選擇
 language_select.title=選擇語言

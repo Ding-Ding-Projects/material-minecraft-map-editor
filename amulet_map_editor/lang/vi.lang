@@ -83,8 +83,6 @@ main_menu.open_world=Mở thế giới
 main_menu.user_manual=Hướng dẫn sử dụng
 main_menu.bug_tracker=Trình theo dõi lỗi
 main_menu.discord=Discord
-main_menu.our_sponsors=Các nhà tài trợ
-main_menu.sponsor_link=(Tài trợ chúng tôi để tên bạn xuất hiện ở đây)
 
 # Language Select
 language_select.title=Lựa chọn ngôn ngữ

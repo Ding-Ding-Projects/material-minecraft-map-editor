@@ -77,8 +77,6 @@ menu_bar.options.menu_name=&Параметры
 main_menu.bug_tracker=Отслеживание ошибок
 main_menu.discord=Amulet Discord
 main_menu.open_world=Открыть мир
-main_menu.our_sponsors=Наши спонсоры:
-main_menu.sponsor_link=(Станьте нашим спонсором, чтобы ваше имя появилось здесь)
 main_menu.tab_name=Главное меню
 main_menu.user_manual=Руководство пользователя
 

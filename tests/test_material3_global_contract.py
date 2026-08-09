@@ -127,6 +127,13 @@ def test_main_menu_user_manual_uses_the_bundled_offline_documentation_browser():
     assert "github.com/Amulet-Team/Amulet-Map-Editor/blob/master/amulet_map_editor/readme.md" not in source
 
 
+def test_removed_sponsor_labels_do_not_remain_in_localization_resources():
+    for path in (ROOT / "amulet_map_editor/lang").glob("*.lang"):
+        source = path.read_text(encoding="utf-8")
+        assert "main_menu.our_sponsors" not in source
+        assert "main_menu.sponsor_link" not in source
+
+
 def test_nonblocking_bridge_normalises_multiline_exception_text():
     bridge = (ROOT / "amulet_map_editor/api/wx/nonblocking.py").read_text(
         encoding="utf-8"
