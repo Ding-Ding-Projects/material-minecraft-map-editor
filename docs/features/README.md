@@ -1,0 +1,22 @@
+# Feature documentation index
+
+Feature articles are bundled into the offline documentation browser. Each
+article records behaviour, configuration, failure modes, security boundaries,
+and verification evidence.
+
+- [Appearance](appearance/README.md)
+- [Appearance presets](appearance-presets/README.md)
+- [Build scripts](build-scripts/README.md)
+- [Changelog](changelog/README.md)
+- [Command palette](command-palette/README.md)
+- [Dim-sum surprise](dim-sum-surprise/README.md)
+- [External editor](external-editor/README.md)
+- [Local history](local-history/README.md)
+- [Notification centre](notification-centre/README.md)
+- [Offline documentation](offline-documentation/README.md)
+- [Release code name](release-code-name/README.md)
+- [Scheduled settings](scheduled-settings/README.md)
+- [School mode](school-mode/README.md)
+- [Tab groups](tab-groups/README.md)
+- [TTS narrator](tts-narrator/README.md)
+- [Updater](updater/README.md)
