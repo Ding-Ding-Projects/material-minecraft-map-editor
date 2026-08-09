@@ -21,6 +21,12 @@ future documentation surface.
 - Opening a file invokes the selected editor with the file path. Opening a
   folder invokes `--folder-uri` so the folder is treated as a workspace root.
   All launches include `--reuse-window` and return a structured result.
+- Notification history, appearance-preset, changelog, and local-history
+  exports expose the same **Open export in VS Code** action after a file has
+  been written. The shared `api.export_actions.open_exported_path` adapter
+  keeps this action non-blocking: an unconfigured, stale, or failed editor
+  returns a visible `unavailable`, `invalid_target`, or `launch_failed` result
+  while the export remains on disk.
 
 ## Failure modes and security
 
@@ -39,4 +45,6 @@ python -m unittest tests.test_external_editor tests.test_external_editor_ui_cont
 
 The tests cover deterministic PATH/location discovery, duplicate suppression,
 selection persistence, folder workspace-root arguments, and safe unavailable
-results without starting a real editor process.
+results without starting a real editor process. `tests.test_export_actions`,
+`tests.test_export_ui_contract`, and the local-history export test cover the
+shared export action, native wiring, and the safe unavailable-editor path.

@@ -67,6 +67,30 @@ def test_plain_search_and_regex_filter_are_bounded_and_exportable(tmp_path):
         store.events(query="[", regex=True)
 
 
+def test_export_and_open_returns_editor_outcome_without_blocking_export(tmp_path):
+    store = LocalHistory(tmp_path / "history")
+    store.record("settings", {"theme": "dark"}, record_type="settings")
+    calls = []
+
+    def opener(path):
+        calls.append(path)
+        from amulet_map_editor.api.external_editor import EditorResult
+
+        return EditorResult(False, "unavailable", "No external editor is configured.")
+
+    target, action = store.export_and_open(
+        tmp_path / "out" / "history.md",
+        format="markdown",
+        opener=opener,
+        record_type="settings",
+    )
+
+    assert target.is_file()
+    assert calls == [target]
+    assert action.result.status == "unavailable"
+    assert "Local history" in target.read_text(encoding="utf-8")
+
+
 def test_safe_wrapper_never_blocks_primary_operation(tmp_path):
     store = LocalHistory(tmp_path / "history")
     assert store.safe_record("ok", {"saved": True}) is not None

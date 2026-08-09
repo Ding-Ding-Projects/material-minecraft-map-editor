@@ -20,6 +20,7 @@ from amulet_map_editor.api import (
     appearance_editor,
     changelog,
     external_editor,
+    export_actions,
     preferences,
     school_mode,
 )
@@ -412,6 +413,8 @@ class PreferencesDialog(wx.Dialog):
         self.appearance_preset_save = wx.Button(page, label="Save preset")
         self.appearance_preset_update = wx.Button(page, label="Update selected")
         self.appearance_preset_export = wx.Button(page, label="Export selected…")
+        self.appearance_preset_open = wx.Button(page, label="Open export in VS Code")
+        self.appearance_preset_open.Enable(False)
         self.appearance_preset_import = wx.Button(page, label="Import preset…")
         self.appearance_preset_delete = wx.Button(page, label="Delete selected")
         for control in (
@@ -419,6 +422,7 @@ class PreferencesDialog(wx.Dialog):
             self.appearance_preset_save,
             self.appearance_preset_update,
             self.appearance_preset_export,
+            self.appearance_preset_open,
             self.appearance_preset_import,
             self.appearance_preset_delete,
         ):
@@ -453,6 +457,7 @@ class PreferencesDialog(wx.Dialog):
         self.appearance_preset_export.Bind(
             wx.EVT_BUTTON, self._export_appearance_preset
         )
+        self.appearance_preset_open.Bind(wx.EVT_BUTTON, self._open_appearance_export)
         self.appearance_preset_import.Bind(
             wx.EVT_BUTTON, self._import_appearance_preset
         )
@@ -496,6 +501,7 @@ class PreferencesDialog(wx.Dialog):
             self.appearance_preset_save,
             self.appearance_preset_update,
             self.appearance_preset_export,
+            self.appearance_preset_open,
             self.appearance_preset_import,
             self.appearance_preset_delete,
         )
@@ -816,7 +822,16 @@ class PreferencesDialog(wx.Dialog):
         except OSError as exc:
             self._show_appearance_message(f"Preset was not exported: {exc}", error=True)
             return
+        self._last_appearance_export = path
+        self.appearance_preset_open.Enable(True)
         self._show_appearance_message(f'Exported "{preset.name}" to {path}.')
+
+    def _open_appearance_export(self, _event: wx.Event) -> None:
+        target = getattr(self, "_last_appearance_export", None)
+        if target is None:
+            return
+        action = export_actions.open_exported_path(target)
+        self._show_appearance_message(action.message, error=not action.ok)
 
     def _import_appearance_preset(self, _event: wx.Event) -> None:
         with wx.FileDialog(
@@ -1493,6 +1508,10 @@ class ChangelogDialog(wx.Dialog):
         export = wx.Button(self, label="Export filtered Markdown")
         export.Bind(wx.EVT_BUTTON, self._export)
         actions.Add(export, 0, wx.RIGHT, 8)
+        self.open_export = wx.Button(self, label="Open export in VS Code")
+        self.open_export.Enable(False)
+        self.open_export.Bind(wx.EVT_BUTTON, self._open_export)
+        actions.Add(self.open_export, 0, wx.RIGHT, 8)
         copy = wx.Button(self, label="Copy filtered Markdown")
         copy.Bind(wx.EVT_BUTTON, self._copy)
         actions.Add(copy, 0, wx.RIGHT, 8)
@@ -1565,7 +1584,16 @@ class ChangelogDialog(wx.Dialog):
         except OSError as exc:
             self.feedback.SetLabel(f"Could not export changelog: {exc}")
             return
+        self._last_export_path = path
+        self.open_export.Enable(True)
         self.feedback.SetLabel(f"Exported filtered changelog to {path}")
+
+    def _open_export(self, _event: wx.Event) -> None:
+        target = getattr(self, "_last_export_path", None)
+        if target is None:
+            return
+        action = export_actions.open_exported_path(target)
+        self.feedback.SetLabel(action.message)
 
     def _copy(self, _event: wx.Event) -> None:
         try:

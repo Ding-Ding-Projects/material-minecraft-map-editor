@@ -24,6 +24,11 @@ file exports. Queries and payloads are size-bounded. Regex is opt-in so a
 setting name such as `[` remains ordinary text rather than accidentally
 becoming an invalid pattern.
 
+`LocalHistory.export_and_open()` writes the selected JSON or Markdown export
+first, then uses the shared external-editor action to offer that file to VS
+Code. If the editor is unavailable, its structured result reports the safe
+failure while the export remains intact on disk.
+
 ## Failure and security boundaries
 
 History is an audit aid, not the operation's source of truth. Use
