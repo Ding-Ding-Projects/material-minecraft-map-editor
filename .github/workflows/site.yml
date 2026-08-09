@@ -4,9 +4,18 @@ on:
   push:
     branches: ['**']
   workflow_dispatch:
+    inputs:
+      site_base_url:
+        description: "Base URL for the owner-controlled static host (./ for root-relative output)"
+        required: true
+        default: "./"
+        type: string
 
 permissions:
   contents: read
+
+env:
+  SITE_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.site_base_url || './' }}
 
 concurrency:
   group: site-${{ github.ref }}
@@ -31,8 +40,22 @@ jobs:
           print("HTML parsed successfully")
           PY
 
+      - name: Prepare owner-hosted static bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/prepare_site_bundle.py \
+            --source docs/site \
+            --output build/site \
+            --base-url "$SITE_BASE_URL"
+          python3 scripts/verify_site_release_manifest.py build/site
+
+      - name: Archive exact static bundle
+        shell: bash
+        run: tar -czf "amulet-material3-static-bundle-${{ github.sha }}.tar.gz" -C build/site .
+
       - name: Build owner-hosted site image
-        run: docker build --file docs/site/Dockerfile --tag amulet-material3-site:${{ github.sha }} docs/site
+        run: docker build --file build/site/Dockerfile --tag amulet-material3-site:${{ github.sha }} build/site
 
       - name: Export site image
         run: docker save amulet-material3-site:${{ github.sha }} | gzip -9 > amulet-material3-site-${{ github.sha }}.tar.gz
@@ -42,4 +65,11 @@ jobs:
         with:
           name: amulet-material3-site-${{ github.sha }}
           path: amulet-material3-site-${{ github.sha }}.tar.gz
+          if-no-files-found: error
+
+      - name: Upload owner-hosted static bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: amulet-material3-static-bundle-${{ github.sha }}
+          path: amulet-material3-static-bundle-${{ github.sha }}.tar.gz
           if-no-files-found: error
