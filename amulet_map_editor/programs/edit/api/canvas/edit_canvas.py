@@ -297,9 +297,7 @@ class EditCanvas(BaseEditCanvas):
                     if isinstance(op.error, OperationError):
                         msg = f"Error running operation: {msg}"
                     log.info(msg)
-                    with wx.MessageDialog(self, msg, style=wx.OK) as dialog:
-                        log.debug(f"Showing operation message at {dialog.GetRect()}")
-                        dialog.ShowModal()
+                    notify(self, "Operation failed", msg, severity="error")
                 elif isinstance(op.error, BaseSilentException):
                     pass
                 elif isinstance(op.error, BaseException):

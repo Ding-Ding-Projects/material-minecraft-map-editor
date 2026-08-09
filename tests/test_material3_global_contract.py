@@ -102,3 +102,11 @@ def test_remaining_informational_paths_use_the_notification_bridge():
         source = (ROOT / relative).read_text(encoding="utf-8")
         assert "nonblocking import notify" in source
         assert "wx.MessageBox" not in source
+
+
+def test_operation_error_message_dialog_is_nonblocking():
+    source = (ROOT / "amulet_map_editor/programs/edit/api/canvas/edit_canvas.py").read_text(
+        encoding="utf-8"
+    )
+    assert "Operation failed" in source
+    assert "with wx.MessageDialog(self, msg, style=wx.OK)" not in source
