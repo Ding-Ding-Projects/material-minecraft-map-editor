@@ -94,15 +94,29 @@ class ChangelogTestCase(unittest.TestCase):
                 self.assertEqual(subject, entry.changes[0].summary)
 
     def test_date_action_and_plain_text_filters_compose(self):
-        candidates = [
-            entry
-            for entry in self.catalog.entries
-            if date(2026, 7, 1) <= entry.released_on <= date(2026, 7, 31)
-            and any(change.action == "fixed" and "registry" in change.summary.casefold() for change in entry.changes)
-        ]
-        self.assertTrue(candidates, "current catalog should retain a fixed registry change")
+        fixture = ChangelogCatalog.from_dict(
+            {
+                "schema_version": 1,
+                "repository_url": "https://github.com/example/project",
+                "source_revision": "a" * 40,
+                "entries": [
+                    {
+                        "version": "fixture",
+                        "released_on": "2026-07-31",
+                        "commit_sha": "b" * 40,
+                        "changes": [
+                            {
+                                "action": "fixed",
+                                "summary": "Fix registry paths",
+                                "commit_sha": "b" * 40,
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
         result = filter_changelog(
-            self.catalog,
+            fixture,
             ChangelogQuery(
                 start_date=date(2026, 7, 1),
                 end_date=date(2026, 7, 31),
@@ -110,7 +124,7 @@ class ChangelogTestCase(unittest.TestCase):
                 text="registry",
             ),
         )
-        self.assertEqual(tuple(entry.version for entry in candidates), tuple(entry.version for entry in result.entries))
+        self.assertEqual(("fixture",), tuple(entry.version for entry in result.entries))
         self.assertTrue(all(change.action == "fixed" for entry in result.entries for change in entry.changes))
 
     def test_text_filter_accepts_bounded_regex_builder_hook(self):
