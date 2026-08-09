@@ -4,6 +4,7 @@ import wx
 import wx.lib.agw.hyperlink
 
 from amulet_map_editor import lang
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 _padding = 20
 
@@ -32,9 +33,6 @@ class LicenceDialog(wx.Dialog):
             lang.get("licence_dialog.header"),
             style=wx.ALIGN_CENTER_HORIZONTAL,
         )
-        font = title.GetFont()
-        font.SetPointSize(25)
-        title.SetFont(font)
         self._main_sizer.Add(title, 0, wx.ALL | wx.EXPAND, 5)
 
         self._add_line(lang.get("licence_dialog.content_1"))
@@ -75,6 +73,7 @@ class LicenceDialog(wx.Dialog):
         root_sizer.Fit(self)
 
         self.Layout()
+        apply_material3(self)
 
     def _add_line(self, text: str) -> None:
         content = wx.StaticText(
@@ -83,9 +82,6 @@ class LicenceDialog(wx.Dialog):
             text,
             style=wx.ALIGN_CENTER_HORIZONTAL,
         )
-        font = content.GetFont()
-        font.SetPointSize(12)
-        content.SetFont(font)
         content.Wrap(750)
         self._main_sizer.Add(content, 0, wx.EXPAND)
 
