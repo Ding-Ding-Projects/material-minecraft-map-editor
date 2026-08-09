@@ -78,8 +78,10 @@ include:
 - a non-blocking Windows update-status bridge with an allowlisted HTTPS feed and
   explicit unsigned-package warnings; and
 - a dependency-free Material 3 documentation site with tabs, feature and
-  settings search, regex modes, persisted appearance controls, responsive
-  layouts, focus states, and reduced-motion support.
+  settings search, an attached bounded regex builder with flags, sample text,
+  and capture feedback, persisted appearance controls, responsive layouts,
+  focus states, and reduced-motion support; its owner-hosted Docker image is
+  validated by `.github/workflows/site.yml`.
 
 These are source and automated-test claims. The screenshots below are genuine
 historical captures of the desktop application, not fabricated previews of the
