@@ -11,7 +11,10 @@ from pathlib import Path
 
 HEADING = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
 MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-SUGGESTED_HEADING = re.compile(r"^##\s+Suggested articles\s*$", re.IGNORECASE)
+SUGGESTED_HEADINGS = {"suggested articles", "建議文章"}
+FENCED_BLOCK = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
+INLINE_CODE = re.compile(r"`([^`]+)`")
+TRANSLATION_ROOT = Path("docs/site/locales/zh-Hant/articles")
 RELATED_ARTICLES = {
     "appearance": ("appearance-presets", "scheduled-settings", "material-shell"),
     "appearance-presets": ("appearance", "scheduled-settings", "local-history"),
@@ -43,6 +46,16 @@ class SourceArticle:
     source_path: str
     sha256: str
     linked_slugs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class LocalizedArticle:
+    source: SourceArticle
+    title_zh_hant: str
+    summary_zh_hant: str
+    markdown_zh_hant: str
+    translation_path: str
+    translation_sha256: str
 
 
 def _summary(markdown: str) -> str:
@@ -77,7 +90,8 @@ def _summary(markdown: str) -> str:
 def _strip_suggested_section(markdown: str) -> str:
     lines = markdown.rstrip().splitlines()
     for index, line in enumerate(lines):
-        if SUGGESTED_HEADING.fullmatch(line.strip()):
+        heading = re.fullmatch(r"##\s+(.+?)\s*", line.strip())
+        if heading and heading.group(1).casefold() in SUGGESTED_HEADINGS:
             return "\n".join(lines[:index]).rstrip() + "\n"
     return markdown.rstrip() + "\n"
 
@@ -125,8 +139,60 @@ def discover_articles(root: Path) -> list[SourceArticle]:
     return articles
 
 
+def _technical_contract(markdown: str) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Return facts that a reviewed translation must preserve exactly."""
+
+    fences = tuple(match.rstrip("\n") for match in FENCED_BLOCK.findall(markdown))
+    inline = tuple(INLINE_CODE.findall(FENCED_BLOCK.sub("", markdown)))
+    links = tuple(href for href in MARKDOWN_LINK.findall(markdown))
+    return fences, inline, links
+
+
+def localize_articles(root: Path, articles: list[SourceArticle]) -> list[LocalizedArticle]:
+    translation_root = root / TRANSLATION_ROOT
+    expected = {article.slug for article in articles}
+    actual = {
+        path.stem
+        for path in translation_root.glob("*.md")
+        if path.is_file()
+    }
+    if actual != expected:
+        raise ValueError(
+            "review the Cantonese article resource inventory "
+            f"(missing={sorted(expected - actual)}, stale={sorted(actual - expected)})"
+        )
+
+    localized: list[LocalizedArticle] = []
+    for article in articles:
+        path = translation_root / f"{article.slug}.md"
+        markdown = path.read_text(encoding="utf-8")
+        source_markdown = (root / article.source_path).read_text(encoding="utf-8")
+        match = HEADING.search(markdown)
+        if not match:
+            raise ValueError(f"{path.relative_to(root)} has no level-one title")
+        if _technical_contract(source_markdown) != _technical_contract(markdown):
+            raise ValueError(
+                f"{path.relative_to(root)} changed a fenced block, inline code token, "
+                "or link destination from its reviewed English source"
+            )
+        localized.append(
+            LocalizedArticle(
+                source=article,
+                title_zh_hant=match.group(1).strip(),
+                summary_zh_hant=_summary(markdown),
+                markdown_zh_hant=_strip_suggested_section(markdown),
+                translation_path=path.relative_to(root).as_posix(),
+                translation_sha256=hashlib.sha256(
+                    markdown.encode("utf-8")
+                ).hexdigest(),
+            )
+        )
+    return localized
+
+
 def build_catalog(root: Path) -> dict:
     articles = discover_articles(root)
+    localized_articles = localize_articles(root, articles)
     slugs = {article.slug for article in articles}
     if set(RELATED_ARTICLES) != slugs:
         missing = sorted(slugs - set(RELATED_ARTICLES))
@@ -135,7 +201,8 @@ def build_catalog(root: Path) -> dict:
             f"review the suggested-article map (missing={missing}, stale={stale})"
         )
     payload: list[dict] = []
-    for article in articles:
+    for localized in localized_articles:
+        article = localized.source
         suggested = list(article.linked_slugs)
         for candidate in RELATED_ARTICLES[article.slug]:
             if len(suggested) >= 3:
@@ -145,17 +212,27 @@ def build_catalog(root: Path) -> dict:
         payload.append(
             {
                 "slug": article.slug,
-                "title": article.title,
-                "summary": article.summary,
-                "markdown": article.markdown,
+                "title": {"en": article.title, "zh-Hant": localized.title_zh_hant},
+                "summary": {
+                    "en": article.summary,
+                    "zh-Hant": localized.summary_zh_hant,
+                },
+                "markdown": {
+                    "en": article.markdown,
+                    "zh-Hant": localized.markdown_zh_hant,
+                },
                 "sourcePath": article.source_path,
                 "sha256": article.sha256,
+                "translationPath": localized.translation_path,
+                "translationSha256": localized.translation_sha256,
                 "suggested": suggested[:3],
             }
         )
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "sourceRoot": "docs/features",
+        "translationRoot": TRANSLATION_ROOT.as_posix(),
+        "languages": ["en", "zh-Hant"],
         "articleCount": len(payload),
         "articles": payload,
     }

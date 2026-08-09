@@ -50,11 +50,16 @@ def main() -> int:
     parser.add_argument(
         "--root", type=Path, default=Path(__file__).resolve().parents[1]
     )
+    parser.add_argument(
+        "--site",
+        type=Path,
+        help="validated static-site source (defaults to docs/site)",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
     root = args.root.resolve()
-    site = root / "docs" / "site"
+    site = (args.site or root / "docs" / "site").resolve()
     output = (args.output or root / "dist").resolve()
     if output == root or output == site or site in output.parents:
         raise SystemExit("output must not replace the repository or site source")

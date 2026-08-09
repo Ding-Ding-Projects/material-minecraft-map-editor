@@ -91,6 +91,7 @@ class SitePublicationContractTests(unittest.TestCase):
             "draft": False,
             "prerelease": False,
             "tag_name": manifest["releaseTag"],
+            "target_commitish": manifest["commit"],
             "html_url": manifest["releaseUrl"],
             "published_at": manifest["publishedAt"],
             "assets": [

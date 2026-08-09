@@ -6,27 +6,33 @@ on:
   workflow_dispatch:
     inputs:
       site_base_url:
-        description: "Base URL for the owner-controlled static host (./ for root-relative output)"
+        description: "Base URL for source validation (./ for root-relative output)"
         required: true
         default: "./"
         type: string
+  workflow_run:
+    workflows: ["Build Windows"]
+    types: [completed]
 
 permissions:
+  actions: read
   contents: read
 
 env:
   SITE_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.site_base_url || './' }}
 
-concurrency:
-  group: site-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  validate-and-package:
+  validate-source:
+    if: ${{ github.event_name != 'workflow_run' }}
     runs-on: ubuntu-24.04
+    concurrency:
+      group: material-site-source-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
-      - name: Checkout
+      - name: Checkout source revision
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -38,17 +44,14 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Bootstrap Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Bootstrap site validation dependencies
+      - name: Bootstrap source validation dependencies
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build/evidence-input
           python -m pip install --disable-pip-version-check --no-input pytest==9.1.1
 
-      - name: Bootstrap and inventory host tools
+      - name: Bootstrap GitHub CLI when missing
         shell: bash
         run: |
           set -euo pipefail
@@ -62,26 +65,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install --no-install-recommends -y gh
           fi
-          gh --version
-          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
-          if [[ -z "$CHROME_BIN" ]]; then
-            echo "::error::ubuntu-24.04 browser inventory has no Google Chrome or Chromium"
-            exit 1
-          fi
-          "$CHROME_BIN" --version
-          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
-
-      - name: Prove Docker daemon availability
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! command -v docker >/dev/null 2>&1; then
-            echo "::error::ubuntu-24.04 Docker CLI is unavailable"
-            exit 1
-          fi
-          docker version | tee build/evidence-input/docker-version.txt
-          docker info >> build/evidence-input/docker-version.txt
-          docker buildx version >> build/evidence-input/docker-version.txt
+          gh --version | tee build/evidence-input/github-cli-version.txt
 
       - name: Validate dependency-free site source
         shell: bash
@@ -92,6 +76,7 @@ jobs:
           node --check docs/site/regex-worker.mjs
           node --check scripts/verify_site_cdp.mjs
           node scripts/test_site_regex_worker.mjs
+          node scripts/test_site_runtime_math.mjs
           python3 scripts/generate_site_articles.py --check
           python3 scripts/verify_site_ci_inventory.py
           python3 - <<'PY'
@@ -101,7 +86,7 @@ jobs:
           print("HTML parsed successfully")
           PY
 
-      - name: Verify article, link, accessibility, and computed-colour contracts
+      - name: Verify source contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -112,9 +97,11 @@ jobs:
             tests/test_site_owner_host_completeness.py \
             tests/test_site_localization_contract.py \
             tests/test_site_regex_worker_contract.py \
+            tests/test_site_release_handoff.py \
+            tests/test_site_post_release_workflow_contract.py \
             --junitxml=build/evidence-input/site-tests.xml
 
-      - name: Compare the manifest with GitHub release evidence
+      - name: Compare committed manifest with live release evidence
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
@@ -131,36 +118,231 @@ jobs:
           python3 scripts/verify_site_release_manifest.py docs/site \
             --github-api-json build/evidence-input/release-api.json
 
-      - name: Prepare owner-hosted static bundle
+      - name: Collect bounded source evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          CI_RUN_ID: ${{ github.run_id }}
+          CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+          CI_COMMIT_SHA: ${{ github.sha }}
+          CI_JOB_STATUS: ${{ job.status }}
+          CI_RUNNER_OS: ${{ runner.os }}
+          CI_RUNNER_ARCH: ${{ runner.arch }}
+          CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          CI_RUNNER_NAME: ${{ runner.name }}
+        run: |
+          python3 scripts/collect_site_ci_evidence.py \
+            --input build/evidence-input \
+            --output build/site-evidence
+
+      - name: Upload bounded source evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: amulet-material3-site-source-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/site-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+  stage-post-release:
+    if: >-
+      ${{
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.head_branch == github.event.repository.default_branch
+      }}
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: material-site-release-${{ github.repository }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout exact release source without write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Bootstrap pinned Chrome for Testing
+        id: chrome
+        uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd
+        with:
+          chrome-version: 151.0.7922.47
+          install-chromedriver: false
+
+      - name: Bootstrap pinned Docker Engine
+        uses: docker/setup-docker-action@77e84dbf09b47d1e29270283c22f16145aa85ca1
+        with:
+          version: type=archive,version=29.6.2
+
+      - name: Bootstrap pinned Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+        with:
+          version: v0.36.1
+
+      - name: Bootstrap runtime validation dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/evidence-input
+          python -m pip install --disable-pip-version-check --no-input pytest==9.1.1
+          CHROME_BIN='${{ steps.chrome.outputs.chrome-path }}'
+          test -x "$CHROME_BIN"
+          "$CHROME_BIN" --version | tee build/evidence-input/chrome-version.txt
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+
+      - name: Bootstrap GitHub CLI when missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v gh >/dev/null 2>&1; then
+            sudo mkdir -p -m 755 /etc/apt/keyrings
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+              | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+            sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+              | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y gh
+          fi
+          gh --version | tee build/evidence-input/github-cli-version.txt
+
+      - name: Prove pinned Docker and Buildx cache-miss bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker version | tee build/evidence-input/docker-version.txt
+          docker info >> build/evidence-input/docker-version.txt
+          docker buildx version | tee -a build/evidence-input/docker-version.txt
+          docker version --format '{{.Server.Version}}' | grep -Fqx '29.6.2'
+          docker buildx version | grep -F 'v0.36.1'
+
+      - name: Resolve and validate the exact release handoff
+        id: handoff
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+          TRIGGER_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          EXPECTED_TAG="0.10.0-dev.$TRIGGER_RUN_NUMBER"
+          LATEST_RUN_ID="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow build-windows.yml \
+            --branch "$DEFAULT_BRANCH" \
+            --event push \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+          test -n "$LATEST_RUN_ID" || { echo 'No successful default-branch Build Windows run was found'; exit 1; }
+          {
+            echo "trigger_run_id=$TRIGGER_RUN_ID"
+            echo "latest_successful_run_id=$LATEST_RUN_ID"
+            echo "head_sha=$TRIGGER_HEAD_SHA"
+            echo "expected_tag=$EXPECTED_TAG"
+            echo "default_branch=$DEFAULT_BRANCH"
+          } > build/evidence-input/staging-decision.txt
+          if [[ "$LATEST_RUN_ID" != "$TRIGGER_RUN_ID" ]]; then
+            echo "stage=false" >> "$GITHUB_OUTPUT"
+            echo "Out-of-order successful run $TRIGGER_RUN_ID is a no-op; latest is $LATEST_RUN_ID."
+            exit 0
+          fi
+          mkdir -p build/release-handoff build/staging-site
+          gh run download "$TRIGGER_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "amulet-release-handoff-$TRIGGER_RUN_ID" \
+            --dir build/release-handoff
+          mapfile -t HANDOFFS < <(find build/release-handoff -type f -name 'site-release-handoff.json' -print)
+          [[ "${#HANDOFFS[@]}" -eq 1 ]] || { echo 'Expected exactly one site release handoff file'; exit 1; }
+          gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$EXPECTED_TAG" \
+            > build/evidence-input/release-api.json
+          cp -R docs/site/. build/staging-site/
+          python3 scripts/stage_site_release_handoff.py \
+            --handoff "${HANDOFFS[0]}" \
+            --release-api build/evidence-input/release-api.json \
+            --expected-repository "$GITHUB_REPOSITORY" \
+            --expected-workflow-run-id "$TRIGGER_RUN_ID" \
+            --expected-workflow-run-number "$TRIGGER_RUN_NUMBER" \
+            --expected-head-sha "$TRIGGER_HEAD_SHA" \
+            --expected-tag "$EXPECTED_TAG" \
+            --latest-successful-run-id "$LATEST_RUN_ID" \
+            --manifest-output build/staging-site/release-manifest.json \
+            --staging-output build/staging-site/site-staging.json
+          echo "stage=true" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$TRIGGER_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$EXPECTED_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Validate exact source and staged release contracts
+        if: ${{ steps.handoff.outputs.stage == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check docs/site/app.js
+          node --check docs/site/theme.mjs
+          node --check docs/site/regex-worker.mjs
+          node --check scripts/verify_site_cdp.mjs
+          node scripts/test_site_regex_worker.mjs
+          node scripts/test_site_runtime_math.mjs
+          python3 scripts/generate_site_articles.py --check
+          python3 scripts/verify_site_ci_inventory.py
+          python3 scripts/verify_site_release_manifest.py build/staging-site \
+            --github-api-json build/evidence-input/release-api.json
+          python3 -m pytest -q \
+            tests/test_site_m3_surface_tokens_contract.py \
+            tests/test_site_palette_inventory_contract.py \
+            tests/test_site_publication_contract.py \
+            tests/test_site_owner_host_completeness.py \
+            tests/test_site_localization_contract.py \
+            tests/test_site_regex_worker_contract.py \
+            tests/test_site_release_handoff.py \
+            tests/test_site_post_release_workflow_contract.py \
+            --junitxml=build/evidence-input/site-tests.xml
+
+      - name: Prepare deterministic owner and Sites staging
+        if: ${{ steps.handoff.outputs.stage == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
           python3 scripts/prepare_site_bundle.py \
-            --source docs/site \
+            --source build/staging-site \
             --output build/site \
-            --base-url "$SITE_BASE_URL"
-          python3 scripts/verify_site_release_manifest.py build/site
-
-      - name: Archive exact static bundle
-        shell: bash
-        run: tar -czf "amulet-material3-static-bundle-${{ github.sha }}.tar.gz" -C build/site .
-
-      - name: Build Sites-compatible Worker and static output
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/build_sites_bundle.py
+            --base-url './'
+          python3 scripts/verify_site_release_manifest.py build/site \
+            --github-api-json build/evidence-input/release-api.json
+          python3 scripts/build_sites_bundle.py --site build/site --output dist
           test -f dist/server/index.js
           test -f dist/client/articles.json
-          mkdir -p build/sites-package/dist/.openai
-          cp -R dist/. build/sites-package/dist/
-          cp .openai/hosting.json build/sites-package/dist/.openai/hosting.json
-          tar -czf "amulet-sites-bundle-${{ github.sha }}.tar.gz" -C build/sites-package dist
+          test -f dist/client/site-staging.json
 
       - name: Build owner-hosted site image
-        run: docker build --file build/site/Dockerfile --tag amulet-material3-site:${{ github.sha }} build/site
+        if: ${{ steps.handoff.outputs.stage == 'true' }}
+        run: >-
+          docker build
+          --file build/site/Dockerfile
+          --tag amulet-material3-site:${{ steps.handoff.outputs.source_sha }}
+          build/site
 
       - name: Exercise the actual owner-hosted image and Chromium UI
+        if: ${{ steps.handoff.outputs.stage == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -174,7 +356,7 @@ jobs:
           trap cleanup EXIT
           docker run --detach --name "$CONTAINER_NAME" \
             --publish 127.0.0.1:18080:8080 \
-            amulet-material3-site:${{ github.sha }} >/dev/null
+            "amulet-material3-site:${{ steps.handoff.outputs.source_sha }}" >/dev/null
           python3 - <<'PY'
           import time
           from urllib.request import urlopen
@@ -189,6 +371,7 @@ jobs:
               raise SystemExit("owner-hosted image did not become healthy")
           PY
           python3 scripts/verify_site_http_runtime.py http://127.0.0.1:18080 \
+            --expected-manifest build/site/release-manifest.json \
             | tee build/evidence-input/site-http-runtime.txt
           "$CHROME_BIN" --headless=new --no-sandbox --disable-dev-shm-usage \
             --disable-background-networking --remote-allow-origins='*' \
@@ -211,18 +394,59 @@ jobs:
           node scripts/verify_site_cdp.mjs \
             --origin http://127.0.0.1:18080 \
             --cdp http://127.0.0.1:19222 \
+            --expected-manifest build/site/release-manifest.json \
             --report build/evidence-input/site-cdp-report.json
 
-      - name: Export site image
-        run: docker save amulet-material3-site:${{ github.sha }} | gzip -9 > amulet-material3-site-${{ github.sha }}.tar.gz
+      - name: Reconfirm newest successful release before archiving
+        if: ${{ steps.handoff.outputs.stage == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          LATEST_RUN_ID="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow build-windows.yml \
+            --branch "$DEFAULT_BRANCH" \
+            --event push \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+          [[ "$LATEST_RUN_ID" == "$TRIGGER_RUN_ID" ]] || {
+            echo "A newer successful Build Windows run exists; refusing an out-of-order archive."
+            exit 1
+          }
+          echo "latest_successful_run_id_reconfirmed=$LATEST_RUN_ID" \
+            >> build/evidence-input/staging-decision.txt
 
-      - name: Collect bounded site evidence
+      - name: Archive exact staging bundles and owner image
+        if: ${{ steps.handoff.outputs.stage == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA='${{ steps.handoff.outputs.source_sha }}'
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+            -cf - -C build/site . | gzip -n -9 \
+            > "amulet-material3-static-bundle-$SOURCE_SHA-${GITHUB_RUN_ID}.tar.gz"
+          mkdir -p build/sites-package/dist/.openai
+          cp -R dist/. build/sites-package/dist/
+          cp .openai/hosting.json build/sites-package/dist/.openai/hosting.json
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+            -cf - -C build/sites-package dist | gzip -n -9 \
+            > "amulet-sites-bundle-$SOURCE_SHA-${GITHUB_RUN_ID}.tar.gz"
+          docker save "amulet-material3-site:$SOURCE_SHA" | gzip -n -9 \
+            > "amulet-material3-site-$SOURCE_SHA-${GITHUB_RUN_ID}.tar.gz"
+
+      - name: Collect bounded post-release evidence
         if: ${{ always() }}
         continue-on-error: true
         env:
           CI_RUN_ID: ${{ github.run_id }}
           CI_RUN_ATTEMPT: ${{ github.run_attempt }}
-          CI_COMMIT_SHA: ${{ github.sha }}
+          CI_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           CI_JOB_STATUS: ${{ job.status }}
           CI_RUNNER_OS: ${{ runner.os }}
           CI_RUNNER_ARCH: ${{ runner.arch }}
@@ -233,12 +457,12 @@ jobs:
             --input build/evidence-input \
             --output build/site-evidence
 
-      - name: Upload bounded site evidence
+      - name: Upload bounded post-release evidence
         if: ${{ always() }}
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: amulet-material3-site-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          name: amulet-material3-post-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/site-evidence/
           if-no-files-found: warn
           retention-days: 14
@@ -248,8 +472,8 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: amulet-material3-site-${{ github.sha }}
-          path: amulet-material3-site-${{ github.sha }}.tar.gz
+          name: amulet-material3-site-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}
+          path: amulet-material3-site-*.tar.gz
           if-no-files-found: warn
           retention-days: 14
 
@@ -258,17 +482,17 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: amulet-material3-static-bundle-${{ github.sha }}
-          path: amulet-material3-static-bundle-${{ github.sha }}.tar.gz
+          name: amulet-material3-static-bundle-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}
+          path: amulet-material3-static-bundle-*.tar.gz
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload Sites-compatible bundle
+      - name: Upload Sites-compatible staging bundle
         if: ${{ always() }}
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: amulet-sites-bundle-${{ github.sha }}
-          path: amulet-sites-bundle-${{ github.sha }}.tar.gz
+          name: amulet-sites-staging-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}
+          path: amulet-sites-bundle-*.tar.gz
           if-no-files-found: warn
           retention-days: 14

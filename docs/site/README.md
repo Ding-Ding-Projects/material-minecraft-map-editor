@@ -26,8 +26,9 @@ handling, and a command palette on
 
 `scripts/generate_site_articles.py` discovers every
 `docs/features/*/README.md` file and writes `articles.json` in stable slug
-order. Each record carries the canonical title, summary, Markdown body, source
-path, source SHA-256, and two or three valid suggested-article destinations.
+order. Each record carries reviewed English and Hong Kong Cantonese titles,
+summaries, and Markdown bodies; both source paths and SHA-256 digests; and two
+or three valid suggested-article destinations.
 The generated catalog currently contains all 18 feature articles. Article
 links within that set stay inside this site; no feature card sends the reader
 to a repository blob page.
@@ -62,14 +63,16 @@ page, feature-card control, setting, or article heading. The article catalog
 and suggested navigation use real buttons, and all generated destinations are
 validated before publication.
 
-The complete site chrome inventory is localized in English and natural Hong
-Kong Cantonese: headings, navigation, controls, status/error messages, release
-copy, settings, feature cards, article chrome, and accessible names. Bilingual
-mode renders separate `lang="en"` and `lang="zh-Hant"` nodes. The two persisted
-funny-level controls style complete factual messages independently at every
-level. Canonical technical article bodies preserve their reviewed English
-source language until reviewed translations exist, and the article surface
-discloses that boundary instead of claiming a full body translation.
+The complete site and article inventory is localized in English and natural
+Hong Kong Cantonese: headings, navigation, controls, status/error messages,
+release copy, settings, feature cards, full article bodies, suggested links,
+article chrome, and accessible names. Bilingual mode renders separate
+`lang="en"` and `lang="zh-Hant"` article sections while retaining one semantic
+article title and one accessible control per action. The generator fails when
+any of the 18 routes lacks either language or when a translation changes a
+fenced code block, inline technical token, or link destination. The two
+persisted funny-level controls style complete factual shell messages
+independently at every level.
 
 Each of the four search bars opens its own attached full JavaScript RegExp
 builder with guided literals, character classes, anchors, groups, alternation,
@@ -81,7 +84,7 @@ budget that includes Worker startup; timeout terminates that Worker so an
 adversarial expression cannot freeze the page or deliver a stale result after
 navigation or closure.
 
-## Verified Windows installer
+## Verified Windows installer source snapshot
 
 The checked-in release manifest identifies the immutable verified release
 `0.10.0-dev.426` at commit
@@ -94,7 +97,35 @@ size, and digest contract. The recorded workflow ran from
 `Black Sesame Bao · 芝麻包`, linked to the public catalog photo. These unsigned
 Squirrel.Windows assets can trigger the
 Windows unknown-publisher warning. This release did not produce a delta
-package, and the site does not claim otherwise.
+package, and the checked-in source snapshot does not claim otherwise. It is a
+reproducible validation fixture, not a promise that `0.10.0-dev.426` remains
+the newest release after another source change.
+
+## Exact post-release staging
+
+`Build Windows` publishes a tiny `site-release-handoff.json` artifact only
+after the release is non-draft and its API tag, target commit, immutable URLs,
+byte sizes, and SHA-256 digests match the locally built artifacts. The
+`Material 3 site` workflow listens for the completed build through
+`workflow_run`. It accepts only a successful `push` run from this repository
+whose head branch is the repository's current default branch, downloads the
+handoff by the triggering run id, checks out the exact head SHA without stored
+write credentials, and compares the handoff with a fresh release API response.
+
+The post-release job serializes without cancellation. It treats an older
+successful run as an explicit no-op, checks the newest successful build again
+after HTTP and Chromium verification, and refuses to archive an out-of-order
+result. Validation writes only to `build/` through atomic file replacement;
+the workflow has read-only repository permissions and contains no commit,
+push, release, deployment, or host-mutation command. A failed run therefore
+cannot replace a previously deployed site.
+
+The resulting owner-hosted image, static archive, and Sites-compatible archive
+all include `site-staging.json` with the exact source SHA, release tag, release
+id, and Build Windows run id. A deployment must recheck that run against the
+newest successful default-branch build before promotion. This avoids a source
+commit solely to refresh the release manifest, which would otherwise create
+another release and repeat the same race forever.
 
 ## Owner-controlled Docker deployment
 
@@ -139,7 +170,8 @@ with:
 py -3 scripts/build_sites_bundle.py
 ```
 
-The builder rejects a stale article catalog, validates the site configuration,
+The builder accepts `--site` for an already validated ephemeral staging tree.
+It rejects a stale article catalog, validates the site configuration,
 release assets, and suggested-article graph. It also refuses to replace an
 existing output directory unless that directory carries the builder's ownership
 marker, so an accidental `--output` value cannot erase unrelated files. It then
@@ -151,9 +183,12 @@ writes:
 - `dist/build-manifest.json` — deterministic paths, byte sizes, and SHA-256
   digests for every payload file.
 
-That structure is compatible with the Sites packaging helper. Creating a Sites
-project and assigning its returned `project_id` remain publication operations;
-the source tree does not guess either value.
+That structure is compatible with the Sites packaging helper. The archive must
+be committed to the separately controlled Sites source repository at the
+staging SHA before publication; it must not be committed back into this source
+repository. Creating a Sites project, assigning its returned `project_id`, and
+promoting the archive remain publication operations; this source tree does not
+guess any of those values.
 
 ## Static publication contract
 
@@ -167,14 +202,18 @@ Both staging builders refuse to replace an existing directory they did not
 create. Their small ownership markers make repeat builds deterministic without
 turning a mistyped output path into a recursive deletion request.
 
-The `Material 3 site` workflow checks JavaScript syntax, article freshness,
-HTML/link/accessibility contracts, computed contrast across representative
-accent seeds, the immutable release manifest against GitHub API asset digests
-and sizes, and both Docker and Sites-compatible builds. It builds and starts the
-actual image, asserts JavaScript MIME, the 18-card catalog, deep article route,
-palette, and verified release link, then runs the Chromium focus, visibility,
-Worker-timeout, and narrow overflow matrix. A hand-written job/dependency
-inventory proves bootstrap coverage. Safe evidence collection runs even after
-failure and records the run id, commit SHA, job status, and runner context in a
-bounded artifact. The exact static bundle and owner-hosted image are transport
-packages, not a claim that a public hostname has been configured.
+The `Material 3 site` workflow checks JavaScript syntax, bilingual article
+freshness, HTML/link/accessibility contracts, computed contrast across
+representative accent seeds, the exact staged manifest against live release API
+asset digests and sizes, and both Docker and Sites-compatible builds. It builds
+and starts the actual image, asserts JavaScript MIME, the 18-card catalog, deep
+article route, palette, and parameterized verified release link, then runs the
+Chromium focus, visibility, Worker-timeout, and narrow overflow matrix with a
+small device-pixel-ratio tolerance for CDP fractional noise. The runtime job
+bootstraps pinned Chrome for Testing 151.0.7922.47, Docker Engine 29.6.2, and
+Buildx 0.36.1 from versioned upstream paths instead of trusting the runner
+image. A hand-written two-job dependency inventory proves cache-miss coverage.
+Safe evidence collection runs even after failure and records the run id, commit
+SHA, job status, and runner context in a bounded artifact. The exact static
+bundle and owner-hosted image are transport packages, not a claim that a public
+hostname has been configured.

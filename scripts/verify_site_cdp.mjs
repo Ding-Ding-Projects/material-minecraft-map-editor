@@ -1,4 +1,6 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+
+import { dprMatches } from './site_runtime_math.mjs';
 
 function argument(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -8,6 +10,13 @@ function argument(name, fallback = null) {
 const origin = new URL(argument('--origin', 'http://127.0.0.1:8000'));
 const endpoint = new URL(argument('--cdp', 'http://127.0.0.1:9222'));
 const reportPath = argument('--report');
+const expectedManifestPath = argument('--expected-manifest', 'docs/site/release-manifest.json');
+const expectedManifest = JSON.parse(await readFile(expectedManifestPath, 'utf8'));
+const expectedSetupUrl = expectedManifest.assets?.['Setup.exe']?.url;
+const expectedPhotoUrl = expectedManifest.codeName?.photoUrl;
+if (!expectedManifest.verified || !expectedSetupUrl || !expectedPhotoUrl) {
+  throw new Error(`Expected release manifest is incomplete: ${expectedManifestPath}`);
+}
 if (!['127.0.0.1', 'localhost'].includes(origin.hostname) || origin.protocol !== 'http:') {
   throw new Error('CDP site verification is limited to a loopback HTTP origin');
 }
@@ -158,7 +167,7 @@ async function activatePalette(query) {
       id: active?.id || '',
       tag: active?.tagName || '',
       hash: location.hash,
-      article: document.querySelector('#article-title')?.textContent?.trim() || '',
+      article: document.querySelector('#article-title [lang="en"]')?.textContent?.trim() || '',
       feature: active?.closest?.('.feature-card')?.querySelector('h2 [lang="en"]')?.textContent?.trim() || '',
       setting: active?.closest?.('.setting-card')?.querySelector(':scope > span [lang="en"]')?.textContent?.trim() || '',
     };
@@ -190,8 +199,8 @@ if (
   || verified.display === 'none'
   || verified.cards !== 18
   || !verified.palette
-  || verified.href !== 'https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/Setup.exe'
-  || verified.photoHref !== 'https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/catalog-v1/hk-dish-0059-black-sesame-bao.png'
+  || verified.href !== expectedSetupUrl
+  || verified.photoHref !== expectedPhotoUrl
 ) {
   throw new Error(`Verified runtime state is wrong: ${JSON.stringify(verified)}`);
 }
@@ -222,6 +231,7 @@ if (!unverified.hidden || unverified.display !== 'none') {
 await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: unverifiedScript.identifier });
 
 const publishedManifest = await (await fetch(new URL('release-manifest.json', origin))).json();
+const publishedArticles = await (await fetch(new URL('articles.json', origin))).json();
 const setupUrl = publishedManifest.assets['Setup.exe'].url;
 const invalidReleaseUrls = {
   wrongHost: setupUrl.replace('github.com', 'downloads.example.test'),
@@ -287,6 +297,56 @@ if (!failure.hidden || failure.display !== 'none') {
 await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: failureScript.identifier });
 await reload();
 await waitFor("!document.querySelector('#release-download').hidden", 'verified manifest restore');
+
+const articleLanguageChecks = [];
+for (const mode of ['english', 'cantonese', 'bilingual']) {
+  await cdp.evaluate(`(() => {
+    const select = document.querySelector('#site-language');
+    select.value = ${JSON.stringify(mode)};
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  for (const article of publishedArticles.articles) {
+    await cdp.evaluate(`document.querySelector(${JSON.stringify(`[data-article="${article.slug}"]`)}).click()`);
+    const route = await cdp.evaluate(`(() => {
+      const visible = (element) => element && getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility !== 'hidden';
+      const title = document.querySelector('#article-title');
+      const titleNodes = [...title.querySelectorAll(':scope .article-localized-copy > [lang]')];
+      const bodyNodes = [...document.querySelectorAll('#article-content > .article-language-copy[lang]')];
+      const suggestions = [...document.querySelectorAll('#suggested-list > button')];
+      const ids = [...document.querySelectorAll('[id]')].map((element) => element.id);
+      return {
+        hash: location.hash,
+        titleText: titleNodes.filter(visible).map((node) => node.textContent.trim()),
+        titleLanguages: titleNodes.filter(visible).map((node) => node.lang),
+        bodyLanguages: bodyNodes.filter(visible).map((node) => node.lang),
+        bodyTextLengths: Object.fromEntries(bodyNodes.map((node) => [node.lang, node.textContent.trim().length])),
+        titleNodeCount: titleNodes.length,
+        bodyNodeCount: bodyNodes.length,
+        suggestionCount: suggestions.length,
+        suggestionNames: suggestions.map((button) => button.getAttribute('aria-label') || ''),
+        duplicateIds: ids.filter((id, index) => ids.indexOf(id) !== index),
+      };
+    })()`);
+    const expectedLanguages = mode === 'english' ? ['en'] : mode === 'cantonese' ? ['zh-Hant'] : ['en', 'zh-Hant'];
+    const expectedTitles = expectedLanguages.map((language) => article.title[language]);
+    if (
+      route.hash !== `#docs/${article.slug}`
+      || JSON.stringify(route.titleLanguages) !== JSON.stringify(expectedLanguages)
+      || JSON.stringify(route.bodyLanguages) !== JSON.stringify(expectedLanguages)
+      || JSON.stringify(route.titleText) !== JSON.stringify(expectedTitles)
+      || route.titleNodeCount !== 2
+      || route.bodyNodeCount !== 2
+      || route.bodyTextLengths.en <= 0
+      || route.bodyTextLengths['zh-Hant'] <= 0
+      || route.suggestionCount !== article.suggested.length
+      || route.suggestionNames.some((name) => !name.trim())
+      || route.duplicateIds.length
+    ) {
+      throw new Error(`Article language route failed: ${JSON.stringify({ mode, slug: article.slug, route })}`);
+    }
+    articleLanguageChecks.push({ mode, slug: article.slug, ...route });
+  }
+}
 
 await waitFor("document.documentElement.dataset.searchInventoryReady === 'true'", 'four full regex builders');
 const builders = await cdp.evaluate(`(() => ({
@@ -544,7 +604,7 @@ for (const width of [360, 390, 414]) {
       })()`);
       if (
         metrics.innerWidth !== width
-        || metrics.dpr !== dpr
+        || !dprMatches(metrics.dpr, dpr)
         || metrics.htmlOverflow > 0
         || metrics.bodyOverflow > 0
         || metrics.offenders.length
@@ -572,9 +632,10 @@ const report = {
   origin: origin.href,
   releaseVisibility: { verified, unverified, invalidUrls: invalidUrlVisibility, failure },
   interactions,
+  articleLanguageChecks,
   bilingualHeader,
   matrices,
 };
 if (reportPath) await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-console.log(`Chromium site contract verified: ${matrices.length} overflow cases, 4 palette destinations, Escape restoration, and 7 release states`);
+console.log(`Chromium site contract verified: ${articleLanguageChecks.length} article/language routes, ${matrices.length} overflow cases, 4 palette destinations, Escape restoration, and 7 release states`);
 cdp.socket.close();

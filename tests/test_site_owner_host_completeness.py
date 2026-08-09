@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -12,7 +13,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "docs" / "site"
 sys.path.insert(0, str(ROOT / "scripts"))
-from generate_site_articles import RELATED_ARTICLES  # noqa: E402
+from generate_site_articles import (  # noqa: E402
+    RELATED_ARTICLES,
+    TRANSLATION_ROOT,
+    _technical_contract,
+)
 
 
 class ContractParser(HTMLParser):
@@ -40,15 +45,54 @@ class ContractParser(HTMLParser):
 def test_generated_catalog_covers_every_feature_article_with_valid_suggestions():
     catalog = json.loads((SITE / "articles.json").read_text(encoding="utf-8"))
     source_paths = sorted((ROOT / "docs" / "features").glob("*/README.md"))
+    translation_paths = sorted((ROOT / TRANSLATION_ROOT).glob("*.md"))
+    assert catalog["schemaVersion"] == 2
+    assert catalog["languages"] == ["en", "zh-Hant"]
     assert catalog["articleCount"] == len(source_paths) == 18
+    assert len(translation_paths) == 18
     records = {record["slug"]: record for record in catalog["articles"]}
     assert set(records) == {path.parent.name for path in source_paths}
     assert set(RELATED_ARTICLES) == set(records)
     for path in source_paths:
         record = records[path.parent.name]
         source = path.read_text(encoding="utf-8")
+        translation_path = ROOT / record["translationPath"]
+        translation = translation_path.read_text(encoding="utf-8")
         assert record["sourcePath"] == path.relative_to(ROOT).as_posix()
         assert record["sha256"] == hashlib.sha256(source.encode("utf-8")).hexdigest()
+        assert record["translationPath"] == (
+            TRANSLATION_ROOT / f"{record['slug']}.md"
+        ).as_posix()
+        assert record["translationSha256"] == hashlib.sha256(
+            translation.encode("utf-8")
+        ).hexdigest()
+        assert set(record["title"]) == {"en", "zh-Hant"}
+        assert set(record["summary"]) == {"en", "zh-Hant"}
+        assert set(record["markdown"]) == {"en", "zh-Hant"}
+        assert all(
+            record[field][language].strip()
+            for field in ("title", "summary", "markdown")
+            for language in ("en", "zh-Hant")
+        )
+        assert record["title"]["en"] != record["title"]["zh-Hant"]
+        assert record["markdown"]["en"] != record["markdown"]["zh-Hant"]
+        source_headings = re.findall(r"^#{1,2}\s+(.+)$", source, re.MULTILINE)
+        translated_headings = re.findall(
+            r"^#{1,2}\s+(.+)$", translation, re.MULTILINE
+        )
+        assert len(source_headings) == len(translated_headings)
+        assert all(
+            source_heading != translated_heading
+            for source_heading, translated_heading in zip(
+                source_headings, translated_headings, strict=True
+            )
+        )
+        assert len(re.findall(r"^[-*]\s+", source, re.MULTILINE)) == len(
+            re.findall(r"^[-*]\s+", translation, re.MULTILINE)
+        )
+        assert len(translation) >= len(source) * 0.35
+        assert re.search(r"[\u3400-\u9fff]", translation)
+        assert _technical_contract(source) == _technical_contract(translation)
         assert 2 <= len(record["suggested"]) <= 3
         assert len(set(record["suggested"])) == len(record["suggested"])
         assert all(
@@ -78,10 +122,10 @@ def test_html_relationships_and_local_routes_are_complete():
     ids = set(parser.ids)
     assert parser.tabs
     assert all(tab.get("aria-controls") in ids for tab in parser.tabs)
-    dynamic_ids = {"article-title"}
-    assert all(target in ids | dynamic_ids for _attribute, target in parser.references)
+    assert all(target in ids for _attribute, target in parser.references)
     app = (SITE / "app.js").read_text(encoding="utf-8")
-    assert "element.id = 'article-title'" in app
+    assert parser.ids.count("article-title") == 1
+    assert "query('#article-title').replaceChildren(createArticleLocalizedCopy(article.title))" in app
     assert sum(tab.get("aria-selected") == "true" for tab in parser.tabs) == 1
     assert sum(tab.get("tabindex") == "0" for tab in parser.tabs) == 1
     assert not any(

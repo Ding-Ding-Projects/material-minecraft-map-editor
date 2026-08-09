@@ -37,13 +37,17 @@ const queryAll = (selector, root = document) => [...root.querySelectorAll(select
 const tabs = queryAll('.nav-tab');
 const pages = queryAll('.page-section');
 
-function formatMessage(template, values = {}) {
-  return String(template).replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (_match, name) => String(values[name] ?? `{${name}}`));
+function formatMessage(template, values = {}, language = 'en') {
+  return String(template).replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (_match, name) => {
+    const value = values[name];
+    if (value && typeof value === 'object') return String(value[language] ?? value.en ?? `{${name}}`);
+    return String(value ?? `{${name}}`);
+  });
 }
 
 function messageFor(key, language, values = {}) {
   const template = language === 'zh-Hant' ? messages[key] : key;
-  return formatMessage(typeof template === 'string' ? template : key, values);
+  return formatMessage(typeof template === 'string' ? template : key, values, language);
 }
 
 function toneMessage(value, sourceKey, language, level) {
@@ -75,6 +79,23 @@ function createLocalizedCopy(key, values = {}) {
 function setLocalizedContent(element, key, values = {}) {
   if (!element) return;
   element.replaceChildren(createLocalizedCopy(key, values));
+}
+
+function localizedArticleValue(value, language) {
+  if (!value || typeof value !== 'object') return '';
+  return String(value[language] || '');
+}
+
+function createArticleLocalizedCopy(value) {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'localized-copy article-localized-copy';
+  for (const language of ['en', 'zh-Hant']) {
+    const node = document.createElement('span');
+    node.lang = language;
+    node.textContent = localizedArticleValue(value, language);
+    wrapper.append(node);
+  }
+  return wrapper;
 }
 
 function localizedString(key, mode, values = {}) {
@@ -195,7 +216,7 @@ function verifiedManifest(manifest) {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(String(manifest.publishedAt || ''))) return false;
   if (!String(manifest.codeName?.en || '').trim() || !String(manifest.codeName?.zhHant || '').trim()) return false;
   if (!safePhotoUrl(manifest.codeName?.photoUrl)) return false;
-  if (manifest.delta?.emitted !== false || !String(manifest.delta?.reason || '').trim()) return false;
+  if (typeof manifest.delta?.emitted !== 'boolean' || !String(manifest.delta?.reason || '').trim()) return false;
   return ['Setup.exe', 'RELEASES', 'full.nupkg'].every((key) => {
     const asset = manifest.assets?.[key];
     if (!asset || typeof asset.sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(asset.sha256)) return false;
@@ -703,13 +724,14 @@ function appendInline(parent, source) {
   if (cursor < source.length) parent.append(document.createTextNode(source.slice(cursor)));
 }
 
-function renderMarkdown(markdown, target) {
+function renderMarkdown(markdown, target, { skipTitle = false, idPrefix = 'article' } = {}) {
   target.replaceChildren();
   const lines = String(markdown || '').split(/\r?\n/);
   let paragraph = [];
   let list = null;
   let fence = null;
   let fenceLanguage = '';
+  let headingIndex = 0;
 
   const flushParagraph = () => {
     if (!paragraph.length) return;
@@ -746,11 +768,10 @@ function renderMarkdown(markdown, target) {
       flushList();
       const element = document.createElement(`h${heading[1].length}`);
       const label = heading[2].trim();
-      element.id = `article-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
-      if (heading[1].length === 1) {
-        element.id = 'article-title';
-        element.tabIndex = -1;
-      }
+      if (skipTitle && heading[1].length === 1) return;
+      headingIndex += 1;
+      const headingSlug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'heading';
+      element.id = `${idPrefix}-${headingIndex}-${headingSlug}`;
       appendInline(element, label);
       target.append(element);
       return;
@@ -789,11 +810,12 @@ function renderMarkdown(markdown, target) {
 }
 
 function validateArticleCatalog(catalog) {
-  if (catalog?.schemaVersion !== 1 || !Array.isArray(catalog.articles) || catalog.articleCount !== catalog.articles.length) throw new Error('Invalid article catalog');
+  if (catalog?.schemaVersion !== 2 || !Array.isArray(catalog.articles) || catalog.articleCount !== catalog.articles.length) throw new Error('Invalid article catalog');
   const slugs = new Set(catalog.articles.map((article) => article.slug));
   catalog.articles.forEach((article) => {
-    if (!/^[a-z0-9-]{1,80}$/.test(article.slug) || typeof article.title !== 'string' || typeof article.markdown !== 'string') throw new Error('Invalid article record');
-    if (!/^docs\/features\/[a-z0-9-]+\/README\.md$/.test(article.sourcePath) || !/^[0-9a-f]{64}$/.test(article.sha256)) throw new Error('Invalid article provenance');
+    const localizedFields = ['title', 'summary', 'markdown'];
+    if (!/^[a-z0-9-]{1,80}$/.test(article.slug) || localizedFields.some((field) => !article[field] || typeof article[field].en !== 'string' || typeof article[field]['zh-Hant'] !== 'string')) throw new Error('Invalid article record');
+    if (!/^docs\/features\/[a-z0-9-]+\/README\.md$/.test(article.sourcePath) || !/^[0-9a-f]{64}$/.test(article.sha256) || !/^docs\/site\/locales\/zh-Hant\/articles\/[a-z0-9-]+\.md$/.test(article.translationPath) || !/^[0-9a-f]{64}$/.test(article.translationSha256)) throw new Error('Invalid article provenance');
     if (!Array.isArray(article.suggested) || article.suggested.length < 2 || article.suggested.some((slug) => !slugs.has(slug) || slug === article.slug)) throw new Error('Invalid suggested-article navigation');
   });
   return catalog.articles;
@@ -803,16 +825,14 @@ function renderArticleCards() {
   const cards = articles.map((article) => {
     const card = document.createElement('article');
     card.className = 'article-card';
-    card.dataset.search = `${article.title} ${article.summary} ${article.markdown}`;
+    card.dataset.search = `${article.title.en} ${article.title['zh-Hant']} ${article.summary.en} ${article.summary['zh-Hant']} ${article.markdown.en} ${article.markdown['zh-Hant']}`;
     const eyebrow = document.createElement('span');
     eyebrow.className = 'eyebrow';
     setLocalizedContent(eyebrow, 'FEATURE ARTICLE');
     const title = document.createElement('h2');
-    title.textContent = article.title;
-    title.lang = 'en';
+    title.append(createArticleLocalizedCopy(article.title));
     const summary = document.createElement('p');
-    summary.textContent = article.summary;
-    summary.lang = 'en';
+    summary.append(createArticleLocalizedCopy(article.summary));
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'inline-link';
@@ -837,14 +857,23 @@ function openArticle(slug, { updateHash = true, focus = true } = {}) {
   query('#article-status').hidden = true;
   const view = query('#article-view');
   view.hidden = false;
-  setLocalizedContent(query('#article-source'), 'Source article in reviewed English · {source} · SHA-256 {digest}…', { source: article.sourcePath, digest: article.sha256.slice(0, 12) });
-  renderMarkdown(article.markdown, query('#article-content'));
+  setLocalizedContent(query('#article-source'), 'Reviewed English and Cantonese sources · {source} · SHA-256 {digest}…', { source: article.sourcePath, digest: article.sha256.slice(0, 12) });
+  query('#article-title').replaceChildren(createArticleLocalizedCopy(article.title));
+  const articleContent = query('#article-content');
+  const englishBody = document.createElement('section');
+  englishBody.className = 'article-language-copy';
+  englishBody.lang = 'en';
+  const cantoneseBody = document.createElement('section');
+  cantoneseBody.className = 'article-language-copy';
+  cantoneseBody.lang = 'zh-Hant';
+  renderMarkdown(article.markdown.en, englishBody, { skipTitle: true, idPrefix: `article-en-${article.slug}` });
+  renderMarkdown(article.markdown['zh-Hant'], cantoneseBody, { skipTitle: true, idPrefix: `article-zh-${article.slug}` });
+  articleContent.replaceChildren(englishBody, cantoneseBody);
   const suggestions = article.suggested.map((suggestedSlug) => {
     const suggested = articleBySlug.get(suggestedSlug);
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = suggested.title;
-    button.lang = 'en';
+    button.append(createArticleLocalizedCopy(suggested.title));
     setLocalizedAttribute(button, 'aria-label', 'Open article: {title}', { title: suggested.title });
     button.addEventListener('click', () => openArticle(suggestedSlug));
     return button;
@@ -925,7 +954,7 @@ queryAll('#settings-grid .setting-card').forEach((card, index) => {
 });
 
 function addArticlesToPalette() {
-  articles.forEach((article) => paletteItems.push([article.title, article.summary, 'docs', `article:${article.slug}`]));
+  articles.forEach((article) => paletteItems.push([article.title.en, article.summary.en, 'docs', `article:${article.slug}`, article]));
   if (palette?.open) paletteSearchController?.apply({ immediate: true });
 }
 
@@ -975,10 +1004,12 @@ function renderPalette(matches = currentPaletteMatches, { focusResult = false } 
     button.tabIndex = index === paletteActiveIndex ? 0 : -1;
     const text = document.createElement('span');
     const strong = document.createElement('strong');
-    if (Object.prototype.hasOwnProperty.call(messages, item[0])) setLocalizedContent(strong, item[0]);
+    if (item[4]) strong.append(createArticleLocalizedCopy(item[4].title));
+    else if (Object.prototype.hasOwnProperty.call(messages, item[0])) setLocalizedContent(strong, item[0]);
     else { strong.textContent = item[0]; strong.lang = 'en'; }
     const small = document.createElement('small');
-    if (Object.prototype.hasOwnProperty.call(messages, item[1])) setLocalizedContent(small, item[1]);
+    if (item[4]) small.append(createArticleLocalizedCopy(item[4].summary));
+    else if (Object.prototype.hasOwnProperty.call(messages, item[1])) setLocalizedContent(small, item[1]);
     else { small.textContent = item[1]; small.lang = 'en'; }
     text.append(strong, document.createElement('br'), small);
     button.append(text, document.createTextNode('↗'));
@@ -989,7 +1020,7 @@ function renderPalette(matches = currentPaletteMatches, { focusResult = false } 
         : item[3].includes('.setting-card') || item[3] === '#reset-site-settings'
           ? 'Open setting: {title}'
           : 'Open page: {title}';
-    setLocalizedAttribute(button, 'aria-label', actionKey, { title: item[0] });
+    setLocalizedAttribute(button, 'aria-label', actionKey, { title: item[4]?.title || item[0] });
     button.addEventListener('click', () => activatePaletteItem(item));
     button.addEventListener('keydown', (event) => {
       if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -1024,7 +1055,9 @@ paletteSearchController = wireSearch({
   feedback: paletteFeedback,
   captures: query('#palette-captures'),
   records: () => paletteItems,
-  text: (item) => `${item[0]} ${messages[item[0]] || ''} ${item[1]} ${messages[item[1]] || ''}`,
+  text: (item) => item[4]
+    ? `${item[4].title.en} ${item[4].title['zh-Hant']} ${item[4].summary.en} ${item[4].summary['zh-Hant']} ${item[4].markdown.en} ${item[4].markdown['zh-Hant']}`
+    : `${item[0]} ${messages[item[0]] || ''} ${item[1]} ${messages[item[1]] || ''}`,
   onMatches: (matches) => { paletteActiveIndex = 0; renderPalette(matches); },
 });
 

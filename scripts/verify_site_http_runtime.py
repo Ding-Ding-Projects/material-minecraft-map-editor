@@ -4,14 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
-
-EXPECTED_SETUP_URL = (
-    "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/"
-    "releases/download/0.10.0-dev.426/Setup.exe"
-)
-
 
 def fetch(base: str, path: str) -> tuple[bytes, object]:
     request = Request(urljoin(base.rstrip("/") + "/", path.lstrip("/")))
@@ -24,6 +19,11 @@ def fetch(base: str, path: str) -> tuple[bytes, object]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("base_url")
+    parser.add_argument(
+        "--expected-manifest",
+        type=Path,
+        default=Path("docs/site/release-manifest.json"),
+    )
     args = parser.parse_args()
     if not args.base_url.startswith(("http://127.0.0.1:", "http://localhost:")):
         raise SystemExit("runtime verification is limited to a loopback origin")
@@ -58,14 +58,10 @@ def main() -> int:
     if b'id="article-view"' not in deep_route:
         raise SystemExit("owner host does not fall back to the site shell on deep routes")
 
+    expected = json.loads(args.expected_manifest.read_text(encoding="utf-8"))
     manifest_bytes, _headers = fetch(args.base_url, "/release-manifest.json")
     manifest = json.loads(manifest_bytes)
-    if (
-        manifest.get("verified") is not True
-        or manifest.get("releaseTag") != "0.10.0-dev.426"
-        or manifest.get("assets", {}).get("Setup.exe", {}).get("url")
-        != EXPECTED_SETUP_URL
-    ):
+    if manifest != expected or manifest.get("verified") is not True:
         raise SystemExit("running site does not expose the exact verified release")
 
     print(

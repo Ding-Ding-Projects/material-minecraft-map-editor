@@ -304,3 +304,32 @@ jobs:
           final_body="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')"
           grep -Fqx "Workflow completed: $completed" <<< "$final_body"
           grep -Fqx "Workflow duration: $duration" <<< "$final_body"
+
+          # The site workflow consumes this tiny handoff by this exact run id.
+          # It is API-derived after publication and never changes repository source.
+          mkdir -p release-handoff
+          gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$tag" \
+            > release-handoff/release-api.json
+          python3 scripts/create_site_release_handoff.py \
+            --release-api release-handoff/release-api.json \
+            --assets-dir release-assets \
+            --repository "$GITHUB_REPOSITORY" \
+            --workflow-run-id "$RUN_ID" \
+            --workflow-run-number "$RUN_NUMBER" \
+            --head-sha "$RUN_SHA" \
+            --tag "$tag" \
+            --started "$started" \
+            --completed "$completed" \
+            --duration "$duration" \
+            --code-name "$DIM_SUM_CODE_NAME" \
+            --photo-url "$DIM_SUM_PHOTO_URL" \
+            --output release-handoff/site-release-handoff.json
+          rm -f release-handoff/release-api.json
+
+      - name: Upload API-verified site release handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: amulet-release-handoff-${{ github.run_id }}
+          path: release-handoff/site-release-handoff.json
+          if-no-files-found: error
+          retention-days: 14

@@ -60,6 +60,17 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         for asset in ("Setup.exe", "RELEASES", "-full.nupkg"):
             self.assertIn(asset, WORKFLOW)
 
+    def test_published_release_emits_exact_api_verified_site_handoff(self):
+        publish = WORKFLOW[WORKFLOW.index("publish:") :]
+        self.assertIn("scripts/create_site_release_handoff.py", publish)
+        self.assertIn('gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$tag"', publish)
+        self.assertIn('--workflow-run-id "$RUN_ID"', publish)
+        self.assertIn('--workflow-run-number "$RUN_NUMBER"', publish)
+        self.assertIn('--head-sha "$RUN_SHA"', publish)
+        self.assertIn("name: amulet-release-handoff-${{ github.run_id }}", publish)
+        self.assertIn("path: release-handoff/site-release-handoff.json", publish)
+        self.assertIn("if-no-files-found: error", publish)
+
     def test_failed_packaging_still_collects_bounded_diagnostics(self):
         self.assertIn("if: ${{ always() }}", WORKFLOW)
         self.assertIn("continue-on-error: true", WORKFLOW)

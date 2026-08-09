@@ -704,9 +704,25 @@ kbd {
   word-break: normal;
 }
 
-.article-content h1 {
+.article-title {
   margin-top: 0;
   font-size: clamp(2.2rem, 5vw, 4rem);
+}
+
+.article-language-copy {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:root[data-language="english"] .article-language-copy[lang="zh-Hant"],
+:root[data-language="cantonese"] .article-language-copy[lang="en"] {
+  display: none;
+}
+
+:root[data-language="bilingual"] .article-language-copy + .article-language-copy {
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px solid var(--outline-variant);
 }
 
 .article-content h2 {

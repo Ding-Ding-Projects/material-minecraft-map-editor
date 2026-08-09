@@ -10,6 +10,9 @@ from pathlib import Path
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 8 * 1024 * 1024
 SAFE_INPUTS = {
+    "staging-decision.txt": "staging-decision.txt",
+    "github-cli-version.txt": "github-cli-version.txt",
+    "chrome-version.txt": "chrome-version.txt",
     "docker-version.txt": "docker-version.txt",
     "site-tests.xml": "site-tests.xml",
     "release-api.json": "release-api.json",

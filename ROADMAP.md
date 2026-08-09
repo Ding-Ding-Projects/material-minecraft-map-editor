@@ -30,10 +30,16 @@
 
 ## Documentation
 
-- 🏃 Material 3 landing shell under `docs/site/`; local feature articles,
-  complete settings parity, and owner-controlled publication remain in progress.
+- ✅ Dependency-free Material 3 landing page under `docs/site/`, including all
+  18 feature articles in reviewed English and Hong Kong Cantonese, complete
+  localized site chrome, semantic language switching, suggested navigation,
+  four full regex builders, settings, and deterministic Docker/Sites staging.
 - ✅ wx-independent offline documentation bundle with deterministic feature
   discovery, SHA-256 completeness checks, local article search, and internal
   link navigation.
-- ⏳ Publish through an owner-controlled host and verify the live URL; no URL is
-  claimed while that external host is absent.
+- ✅ Read-only post-release staging consumes an exact API-verified Build Windows
+  run artifact, rejects out-of-order releases, and avoids committing a changing
+  release manifest back into the source repository.
+- ⏳ Publish through an owner-controlled host or a separately controlled Sites
+  source repository and verify the live URL; no URL is claimed while a hostname,
+  HTTPS route, and authenticated publication target are absent.

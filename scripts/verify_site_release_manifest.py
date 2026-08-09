@@ -16,6 +16,9 @@ RELEASE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 ASSET_KEYS = ("Setup.exe", "RELEASES", "full.nupkg")
 ARTICLE_SLUG = re.compile(r"^[a-z0-9-]{1,80}$")
 ARTICLE_SOURCE = re.compile(r"^docs/features/([a-z0-9-]+)/README\.md$")
+ARTICLE_TRANSLATION = re.compile(
+    r"^docs/site/locales/zh-Hant/articles/([a-z0-9-]+)\.md$"
+)
 UTC_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 DURATION = re.compile(r"^(\d{2}):(\d{2}):(\d{2})$")
 EXPECTED_GITHUB_HOST = "github.com"
@@ -113,8 +116,10 @@ def validate_site_config(path: Path) -> dict:
 
 def validate_article_catalog(path: Path) -> dict:
     catalog = _read_json(path)
-    if catalog.get("schemaVersion") != 1:
-        raise ValueError("article catalog schemaVersion must be 1")
+    if catalog.get("schemaVersion") != 2:
+        raise ValueError("article catalog schemaVersion must be 2")
+    if catalog.get("languages") != ["en", "zh-Hant"]:
+        raise ValueError("article catalog must inventory English and zh-Hant")
     articles = catalog.get("articles")
     if not isinstance(articles, list) or not articles:
         raise ValueError("article catalog must contain articles")
@@ -131,15 +136,24 @@ def validate_article_catalog(path: Path) -> dict:
         markdown = article.get("markdown")
         source = article.get("sourcePath")
         digest = article.get("sha256")
+        translation = article.get("translationPath")
+        translation_digest = article.get("translationSha256")
         suggested = article.get("suggested")
         if not isinstance(slug, str) or not ARTICLE_SLUG.fullmatch(slug):
             raise ValueError("article catalog contains an invalid slug")
-        if not isinstance(title, str) or not title.strip() or len(title) > 160:
-            raise ValueError(f"article {slug!r} has an invalid title")
-        if not isinstance(summary, str) or len(summary) > 240:
-            raise ValueError(f"article {slug!r} has an invalid summary")
-        if not isinstance(markdown, str) or not markdown.startswith("# "):
-            raise ValueError(f"article {slug!r} has invalid Markdown")
+        for field, value, limit in (
+            ("title", title, 160),
+            ("summary", summary, 240),
+            ("markdown", markdown, None),
+        ):
+            if not isinstance(value, dict) or set(value) != {"en", "zh-Hant"}:
+                raise ValueError(f"article {slug!r} has incomplete localized {field}")
+            if not all(isinstance(text, str) and text.strip() for text in value.values()):
+                raise ValueError(f"article {slug!r} has empty localized {field}")
+            if limit is not None and any(len(text) > limit for text in value.values()):
+                raise ValueError(f"article {slug!r} has an oversized localized {field}")
+        if not all(text.startswith("# ") for text in markdown.values()):
+            raise ValueError(f"article {slug!r} has invalid localized Markdown")
         source_match = (
             ARTICLE_SOURCE.fullmatch(source) if isinstance(source, str) else None
         )
@@ -147,6 +161,19 @@ def validate_article_catalog(path: Path) -> dict:
             raise ValueError(f"article {slug!r} has invalid provenance")
         if not isinstance(digest, str) or not SHA256.fullmatch(digest):
             raise ValueError(f"article {slug!r} has invalid SHA-256 provenance")
+        translation_match = (
+            ARTICLE_TRANSLATION.fullmatch(translation)
+            if isinstance(translation, str)
+            else None
+        )
+        if not translation_match or translation_match.group(1) != slug:
+            raise ValueError(f"article {slug!r} has invalid translation provenance")
+        if not isinstance(translation_digest, str) or not SHA256.fullmatch(
+            translation_digest
+        ):
+            raise ValueError(
+                f"article {slug!r} has invalid translation SHA-256 provenance"
+            )
         if not isinstance(suggested, list) or not 2 <= len(suggested) <= 3:
             raise ValueError(f"article {slug!r} needs two or three suggested articles")
         if len(set(suggested)) != len(suggested):
@@ -219,11 +246,11 @@ def validate_release_manifest(path: Path) -> dict:
     if (
         not isinstance(delta, dict)
         or set(delta) != {"emitted", "reason"}
-        or delta.get("emitted") is not False
+        or not isinstance(delta.get("emitted"), bool)
         or not isinstance(delta.get("reason"), str)
         or not delta["reason"].strip()
     ):
-        raise ValueError("verified release manifest must record the no-delta state")
+        raise ValueError("verified release manifest must record the delta state")
     timing = manifest.get("workflowTiming")
     if not isinstance(timing, dict) or set(timing) != {
         "started",
@@ -281,6 +308,8 @@ def validate_github_release_api(manifest: dict, release: object) -> None:
         raise ValueError("GitHub release API URL does not match the manifest")
     if release.get("published_at") != manifest["publishedAt"]:
         raise ValueError("GitHub release API publication time does not match the manifest")
+    if release.get("target_commitish") != manifest["commit"]:
+        raise ValueError("GitHub release API target commit does not match the manifest")
     api_assets = release.get("assets")
     if not isinstance(api_assets, list):
         raise ValueError("GitHub release API evidence has no asset list")

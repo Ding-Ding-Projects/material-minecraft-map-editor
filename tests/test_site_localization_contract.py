@@ -94,8 +94,37 @@ def test_cantonese_resources_are_complete_and_bilingual_nodes_are_semantic():
         SITE / "styles.css"
     ).read_text(encoding="utf-8")
     html = (SITE / "index.html").read_text(encoding="utf-8")
-    assert 'id="article-content" lang="en"' in html
-    assert "without claiming the source articles were translated" in html
+    assert html.count('id="article-title"') == 1
+    assert 'id="article-content" lang="en"' not in html
+    assert "reviewed English and Hong Kong Cantonese" in html
+    assert "without claiming the source articles were translated" not in html
+
+
+def test_every_article_route_has_complete_semantic_bilingual_resources():
+    catalog = json.loads((SITE / "articles.json").read_text(encoding="utf-8"))
+    assert catalog["schemaVersion"] == 2
+    assert catalog["languages"] == ["en", "zh-Hant"]
+    assert catalog["articleCount"] == 18
+    for article in catalog["articles"]:
+        with_title = article["title"]
+        assert set(with_title) == {"en", "zh-Hant"}
+        for field in ("title", "summary", "markdown"):
+            assert set(article[field]) == {"en", "zh-Hant"}
+            assert all(article[field][language].strip() for language in ("en", "zh-Hant"))
+        assert article["markdown"]["en"].startswith(f"# {with_title['en']}")
+        assert article["markdown"]["zh-Hant"].startswith(f"# {with_title['zh-Hant']}")
+        assert article["translationPath"].endswith(f"/{article['slug']}.md")
+        assert len(article["translationSha256"]) == 64
+
+    app = (SITE / "app.js").read_text(encoding="utf-8")
+    css = (SITE / "styles.css").read_text(encoding="utf-8")
+    assert "englishBody.lang = 'en'" in app
+    assert "cantoneseBody.lang = 'zh-Hant'" in app
+    assert "articleContent.replaceChildren(englishBody, cantoneseBody)" in app
+    assert "button.append(createArticleLocalizedCopy(suggested.title))" in app
+    assert "button.lang = 'en'" not in app
+    assert ':root[data-language="english"] .article-language-copy[lang="zh-Hant"]' in css
+    assert ':root[data-language="cantonese"] .article-language-copy[lang="en"]' in css
 
 
 def test_dynamic_release_search_article_setting_and_palette_copy_is_inventoried():
@@ -114,7 +143,7 @@ def test_dynamic_release_search_article_setting_and_palette_copy_is_inventoried(
         "Derived primary/surface: {primary}:1 · On-primary/primary: {onPrimary}:1",
         "FEATURE ARTICLE",
         "Read on this site →",
-        "Source article in reviewed English · {source} · SHA-256 {digest}…",
+        "Reviewed English and Cantonese sources · {source} · SHA-256 {digest}…",
         "The bundled article catalog could not be loaded. The rest of the site remains available.",
         "Site configuration could not be loaded. The static shell remains available.",
         "Open article: {title}",
