@@ -225,18 +225,29 @@ class PreferencesDialog(wx.Dialog):
         preset_row.Add(self.appearance_preset_name, 1, wx.EXPAND)
         root.Add(preset_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
+        preset_search_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.appearance_preset_search = wx.TextCtrl(page)
+        self.appearance_preset_search.SetHint("Search appearance presets")
+        self.appearance_preset_search.SetName("Appearance preset search")
+        self.appearance_preset_regex = wx.CheckBox(page, label="Regex")
+        preset_search_row.Add(self.appearance_preset_search, 1, wx.EXPAND | wx.RIGHT, 8)
+        preset_search_row.Add(self.appearance_preset_regex, 0, wx.ALIGN_CENTER_VERTICAL)
+        root.Add(preset_search_row, 0, wx.EXPAND | wx.BOTTOM, 8)
+
         preset_actions = wx.WrapSizer(wx.HORIZONTAL)
         self.appearance_preset_load = wx.Button(page, label="Load selected")
         self.appearance_preset_save = wx.Button(page, label="Save preset")
         self.appearance_preset_update = wx.Button(page, label="Update selected")
         self.appearance_preset_export = wx.Button(page, label="Export selected…")
         self.appearance_preset_import = wx.Button(page, label="Import preset…")
+        self.appearance_preset_delete = wx.Button(page, label="Delete selected")
         for control in (
             self.appearance_preset_load,
             self.appearance_preset_save,
             self.appearance_preset_update,
             self.appearance_preset_export,
             self.appearance_preset_import,
+            self.appearance_preset_delete,
         ):
             preset_actions.Add(control, 0, wx.RIGHT | wx.BOTTOM, 8)
         root.Add(preset_actions, 0, wx.EXPAND)
@@ -272,6 +283,9 @@ class PreferencesDialog(wx.Dialog):
         self.appearance_preset_import.Bind(
             wx.EVT_BUTTON, self._import_appearance_preset
         )
+        self.appearance_preset_delete.Bind(wx.EVT_BUTTON, self._delete_appearance_preset)
+        self.appearance_preset_search.Bind(wx.EVT_TEXT, lambda _event: self._refresh_appearance_presets())
+        self.appearance_preset_regex.Bind(wx.EVT_CHECKBOX, lambda _event: self._refresh_appearance_presets())
         self.appearance_reset_selected.Bind(
             wx.EVT_BUTTON, self._reset_appearance_property
         )
@@ -286,11 +300,14 @@ class PreferencesDialog(wx.Dialog):
         self._appearance_library_controls = (
             self.appearance_preset_list,
             self.appearance_preset_name,
+            self.appearance_preset_search,
+            self.appearance_preset_regex,
             self.appearance_preset_load,
             self.appearance_preset_save,
             self.appearance_preset_update,
             self.appearance_preset_export,
             self.appearance_preset_import,
+            self.appearance_preset_delete,
         )
         if self._appearance_load_error is None:
             self._refresh_appearance_presets()
@@ -352,6 +369,16 @@ class PreferencesDialog(wx.Dialog):
 
     def _refresh_appearance_presets(self, selected_name: str = "") -> None:
         self._appearance_presets = list(appearance_presets.load_presets())
+        query = self.appearance_preset_search.GetValue().strip()
+        if query:
+            builder = RegexBuilder(query, regex_enabled=self.appearance_preset_regex.GetValue())
+            try:
+                self._appearance_presets = [
+                    preset for preset in self._appearance_presets if builder.search([preset.name])
+                ]
+            except (ValueError, re.error) as exc:
+                self._show_appearance_message(f"Invalid preset search: {exc}", error=True)
+                self._appearance_presets = []
         labels = [preset.name for preset in self._appearance_presets]
         self.appearance_preset_list.Set(labels)
         if selected_name:
@@ -414,6 +441,19 @@ class PreferencesDialog(wx.Dialog):
             return
         self.appearance_preset_name.SetValue(preset.name)
         self._show_appearance_message(f'Updated appearance preset "{preset.name}".')
+
+    def _delete_appearance_preset(self, _event: wx.Event) -> None:
+        selected = self._selected_appearance_preset()
+        if selected is None:
+            self._show_appearance_message("Select a preset to delete.", error=True)
+            return
+        try:
+            appearance_presets.delete_preset(selected.name)
+            self._refresh_appearance_presets()
+        except (appearance_presets.AppearancePresetValidationError, OSError) as exc:
+            self._show_appearance_message(f"Preset was not deleted: {exc}", error=True)
+            return
+        self._show_appearance_message(f'Deleted appearance preset "{selected.name}".')
 
     def _export_appearance_preset(self, _event: wx.Event) -> None:
         preset = self._selected_appearance_preset()
