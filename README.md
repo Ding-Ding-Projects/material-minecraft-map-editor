@@ -21,7 +21,7 @@
 
 ## One-click Windows builds
 
-From a fresh Windows checkout, `build.bat /s` bootstraps the declared Python toolchain and installs the editable package without prompts. `build-installer.bat /s` runs that bootstrap, builds `installer/Amulet.spec`, and invokes the same unsigned Squirrel.Windows packaging path used by CI. Omit `/s` for phase output and the final pause. Neither script signs, publishes, tags, or creates a release.
+From a fresh Windows checkout, `build.bat /s` checks for the Python launcher and, when it is absent, installs the user-scoped `Python.Python.3.11` package through the canonical Windows Package Manager (`winget`) before bootstrapping the declared dependencies. It then installs the editable package without prompts. `build-installer.bat /s` runs that bootstrap, builds `installer/Amulet.spec`, and invokes the same unsigned Squirrel.Windows packaging path used by CI. Omit `/s` for phase output and the final pause. Neither script signs, publishes, tags, or creates a release. If `winget` is unavailable, the script fails with the exact missing bootstrap route rather than asking for manual preparation.
 
 ![Four genuine Amulet 0.10.47 editing views showing selections, paste transforms, block operations, and chunk selection](resource/img/cover.jpg)
 
