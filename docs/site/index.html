@@ -70,6 +70,7 @@
       <p id="settings-empty" class="empty-state" hidden>No settings match that search.</p>
     </section>
   </main>
+  <dialog id="command-palette" aria-labelledby="palette-title"><form method="dialog" class="palette-card"><h2 id="palette-title">Command palette</h2><label class="search-field"><span aria-hidden="true">⌕</span><input id="palette-search" type="search" placeholder="Search commands, features, and settings" autocomplete="off"><kbd>Ctrl+Shift+F</kbd></label><details class="regex-builder"><summary>Regex builder</summary><div class="regex-controls"><label><input id="palette-regex" type="checkbox"> Use regular expression</label><input id="palette-pattern" type="text" placeholder="Pattern (plain text by default)" aria-label="Palette regex pattern"><output id="palette-feedback" aria-live="polite"></output></div></details><div id="palette-results" role="listbox" aria-label="Palette results"></div><button class="button button-tonal" value="cancel">Close</button></form></dialog>
   <footer><span>Amulet Map Editor</span><span>Open source · Built for curious map makers</span><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor" target="_blank" rel="noreferrer">GitHub ↗</a></footer>
   <script src="app.js"></script>
 </body>
