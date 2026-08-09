@@ -338,10 +338,14 @@ class PreferencesDialog(wx.Dialog):
         self.font_search.SetHint("Search installed fonts")
         self.font_regex = wx.CheckBox(page, label="Regex")
         self.font_regex.SetName("Installed font regex mode")
+        self.font_regex_button = wx.Button(page, label="Regex…")
+        self.font_regex_button.SetName("Installed font regex builder")
+        self.font_regex_button.SetToolTip("Build a bounded regular-expression font search")
         self.font_choice = wx.Choice(page, choices=[])
         self.font_choice.SetName("Installed font choices")
         font_search_row.Add(self.font_search, 1, wx.EXPAND | wx.RIGHT, 8)
         font_search_row.Add(self.font_regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        font_search_row.Add(self.font_regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
         font_search_row.Add(self.font_choice, 1, wx.EXPAND)
         grid.Add(font_search_row, 1, wx.EXPAND)
         grid.Add(
@@ -422,8 +426,12 @@ class PreferencesDialog(wx.Dialog):
         self.appearance_preset_search.SetHint("Search appearance presets")
         self.appearance_preset_search.SetName("Appearance preset search")
         self.appearance_preset_regex = wx.CheckBox(page, label="Regex")
+        self.appearance_preset_regex_button = wx.Button(page, label="Regex…")
+        self.appearance_preset_regex_button.SetName("Appearance preset regex builder")
+        self.appearance_preset_regex_button.SetToolTip("Build a bounded regular-expression preset search")
         preset_search_row.Add(self.appearance_preset_search, 1, wx.EXPAND | wx.RIGHT, 8)
         preset_search_row.Add(self.appearance_preset_regex, 0, wx.ALIGN_CENTER_VERTICAL)
+        preset_search_row.Add(self.appearance_preset_regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         root.Add(preset_search_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
         preset_actions = wx.WrapSizer(wx.HORIZONTAL)
@@ -487,6 +495,10 @@ class PreferencesDialog(wx.Dialog):
         )
         self.appearance_preset_regex.Bind(
             wx.EVT_CHECKBOX, lambda _event: self._refresh_appearance_presets()
+        )
+        self.font_regex_button.Bind(wx.EVT_BUTTON, self._open_font_regex_builder)
+        self.appearance_preset_regex_button.Bind(
+            wx.EVT_BUTTON, self._open_preset_regex_builder
         )
         self.appearance_reset_selected.Bind(
             wx.EVT_BUTTON, self._reset_appearance_property
@@ -605,6 +617,36 @@ class PreferencesDialog(wx.Dialog):
         self._appearance_font_uses_platform_default = False
         self._update_font_preview(self.font.GetSelectedFont())
 
+    def _open_font_regex_builder(self, _event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.font_search.GetValue(),
+            regex_enabled=self.font_regex.GetValue(),
+            flags=getattr(self, "_font_search_flags", 0),
+            sample="Installed font family",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.font_search.ChangeValue(dialog.pattern)
+            self.font_regex.SetValue(dialog.regex_enabled)
+            self._font_search_flags = dialog.flags
+        self._filter_appearance_fonts()
+
+    def _open_preset_regex_builder(self, _event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.appearance_preset_search.GetValue(),
+            regex_enabled=self.appearance_preset_regex.GetValue(),
+            flags=getattr(self, "_preset_search_flags", 0),
+            sample="Appearance preset name",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.appearance_preset_search.ChangeValue(dialog.pattern)
+            self.appearance_preset_regex.SetValue(dialog.regex_enabled)
+            self._preset_search_flags = dialog.flags
+        self._refresh_appearance_presets()
+
     @staticmethod
     def _installed_font_names() -> Tuple[str, ...]:
         try:
@@ -618,7 +660,11 @@ class PreferencesDialog(wx.Dialog):
         source_names = getattr(self, "_appearance_font_names", ())
         query = self.font_search.GetValue().strip() if hasattr(self, "font_search") else ""
         if query and getattr(self, "font_regex", None) is not None:
-            builder = RegexBuilder(query, regex_enabled=self.font_regex.GetValue())
+            builder = RegexBuilder(
+                query[:4096],
+                regex_enabled=self.font_regex.GetValue(),
+                flags=getattr(self, "_font_search_flags", 0),
+            )
             try:
                 names = tuple(name for name in source_names if builder.search([name]))
             except (ValueError, re.error) as exc:
@@ -736,7 +782,9 @@ class PreferencesDialog(wx.Dialog):
         query = self.appearance_preset_search.GetValue().strip()
         if query:
             builder = RegexBuilder(
-                query, regex_enabled=self.appearance_preset_regex.GetValue()
+                query[:4096],
+                regex_enabled=self.appearance_preset_regex.GetValue(),
+                flags=getattr(self, "_preset_search_flags", 0),
             )
             try:
                 self._appearance_presets = [

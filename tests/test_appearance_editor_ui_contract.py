@@ -36,7 +36,8 @@ class AppearanceEditorUiContractTestCase(unittest.TestCase):
             self.assertIn(required, body)
         self.assertIn("appearance_editor.parse_hex", source)
         self.assertIn("appearance_editor.contrast_summary", source)
-        self.assertIn("RegexBuilder(query, regex_enabled=self.font_regex.GetValue())", source)
+        self.assertIn("query[:4096]", source)
+        self.assertIn("flags=getattr(self, \"_font_search_flags\", 0)", source)
 
     def test_appearance_form_still_round_trips_through_existing_preset_values(self):
         source = SOURCE.read_text(encoding="utf-8")
