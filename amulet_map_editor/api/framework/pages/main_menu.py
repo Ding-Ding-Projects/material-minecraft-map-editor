@@ -46,33 +46,27 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         name_sizer.Add(icon, flag=wx.CENTER)
 
         self._amulet_name = wx.StaticText(self)
-        self._amulet_name.SetFont(wx.Font(40, wx.DEFAULT, wx.NORMAL, wx.NORMAL))
         name_sizer.Add(
             self._amulet_name, flag=wx.CENTER | wx.LEFT | wx.RIGHT, border=10
         )
         name_sizer.Add(icon2, flag=wx.CENTER)
-        button_font = wx.Font(20, wx.DEFAULT, wx.NORMAL, wx.NORMAL)
-        self._open_world_button = wx.Button(self, size=(400, 70))
-        self._open_world_button.SetFont(button_font)
+        self._open_world_button = wx.Button(self)
         self._open_world_button.Bind(
             wx.EVT_BUTTON, lambda _: open_level_from_dialog(self)
         )
-        menu_sizer.Add(self._open_world_button, 0, wx.ALL | wx.CENTER, 5)
+        menu_sizer.Add(self._open_world_button, 0, wx.ALL | wx.EXPAND, 5)
 
-        self._user_manual_button = wx.Button(self, size=(400, 70))
-        self._user_manual_button.SetFont(button_font)
+        self._user_manual_button = wx.Button(self)
         self._user_manual_button.Bind(wx.EVT_BUTTON, self._documentation)
-        menu_sizer.Add(self._user_manual_button, 0, wx.ALL | wx.CENTER, 5)
+        menu_sizer.Add(self._user_manual_button, 0, wx.ALL | wx.EXPAND, 5)
 
-        self._bug_tracker_button = wx.Button(self, size=(400, 70))
-        self._bug_tracker_button.SetFont(button_font)
+        self._bug_tracker_button = wx.Button(self)
         self._bug_tracker_button.Bind(wx.EVT_BUTTON, self._bugs)
-        menu_sizer.Add(self._bug_tracker_button, 0, wx.ALL | wx.CENTER, 5)
+        menu_sizer.Add(self._bug_tracker_button, 0, wx.ALL | wx.EXPAND, 5)
 
-        self._discord_button = wx.Button(self, size=(400, 70))
-        self._discord_button.SetFont(button_font)
+        self._discord_button = wx.Button(self)
         self._discord_button.Bind(wx.EVT_BUTTON, self._discord)
-        menu_sizer.Add(self._discord_button, 0, wx.ALL | wx.CENTER, 5)
+        menu_sizer.Add(self._discord_button, 0, wx.ALL | wx.EXPAND, 5)
 
         top_centre_sizer.AddStretchSpacer(1)
         top_sizer.AddStretchSpacer(1)
