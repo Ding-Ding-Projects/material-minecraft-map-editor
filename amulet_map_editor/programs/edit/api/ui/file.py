@@ -22,6 +22,7 @@ from amulet_map_editor.programs.edit.api.events import (
 )
 from amulet_map_editor.api import image, lang
 from amulet_map_editor.api.opengl.camera import Projection
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 if TYPE_CHECKING:
     from amulet_map_editor.programs.edit.api.canvas import EditCanvas
@@ -247,7 +248,7 @@ class FilePanel(EditCanvasContainer):
 
 class SpeedSelectDialog(wx.Dialog):
     def __init__(self, parent: wx.Window, speed: float):
-        wx.Dialog.__init__(self, parent)
+        wx.Dialog.__init__(self, parent, style=wx.NO_BORDER | wx.RESIZE_BORDER)
         self.SetTitle(lang.get("program_3d_edit.file_ui.speed_dialog_name"))
 
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -295,6 +296,7 @@ class SpeedSelectDialog(wx.Dialog):
         self.SetEscapeId(self._button_cancel.GetId())
 
         self.Layout()
+        apply_material3(self)
 
     @property
     def speed(self) -> float:

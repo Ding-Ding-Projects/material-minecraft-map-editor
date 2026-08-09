@@ -27,6 +27,7 @@ from amulet_map_editor.programs.edit.plugins.operations.stock_plugins.internal_o
     prune_chunks,
 )
 from amulet_map_editor.api.wx.ui.select_world import WorldSelectDialog
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 if TYPE_CHECKING:
     from amulet_map_editor.programs.edit.api.canvas import EditCanvas
@@ -182,7 +183,7 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
     def _ask_delete_chunks(self) -> Optional[bool]:
         class DeleteChunksDialog(wx.Dialog):
             def __init__(self, *args, **kwds):
-                kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_DIALOG_STYLE
+                kwds["style"] = kwds.get("style", 0) | wx.NO_BORDER | wx.RESIZE_BORDER
                 wx.Dialog.__init__(self, *args, **kwds)
                 self.SetTitle("Do you want to load the original chunk state?")
 
@@ -223,6 +224,7 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
                 self.SetEscapeId(self.button_CANCEL.GetId())
 
                 self.Layout()
+                apply_material3(self)
 
             def _on_no(self, evt):
                 self.EndModal(wx.ID_NO)
