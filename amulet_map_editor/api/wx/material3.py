@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 import wx
-from amulet_map_editor.api import preferences
+from amulet_map_editor.api import preferences, school_mode
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ TOKENS = Material3Tokens()
 
 def _active_palette() -> dict[str, wx.Colour]:
     """Resolve persisted appearance values into the live native palette."""
-    prefs = preferences.load()
+    prefs = school_mode.presentation_preferences(preferences.load())
     if prefs.theme == "dark":
         palette = {
             "surface": wx.Colour(20, 18, 24),
