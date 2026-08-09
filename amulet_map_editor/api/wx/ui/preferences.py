@@ -7,13 +7,15 @@ typography are sourced from one persisted :mod:`api.preferences` record.
 
 from __future__ import annotations
 
-from typing import Callable, Iterable, List, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 import re
+import uuid
 
 import wx
 
 from amulet_map_editor.api import preferences
 from amulet_map_editor.api import lang
+from amulet_map_editor.api import scheduled_settings as schedules
 from amulet_map_editor.api.regex_builder import RegexBuilder
 from amulet_map_editor.api.wx.material3 import apply_material3
 
@@ -30,10 +32,17 @@ class PreferencesDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
         super().__init__(parent, title="Preferences", size=wx.Size(620, 480))
         self._prefs = preferences.load()
+        self._schedule_load_error: Optional[str] = None
+        try:
+            self._schedule_rules = list(schedules.load().rules)
+        except schedules.ScheduleValidationError as exc:
+            self._schedule_rules = []
+            self._schedule_load_error = str(exc)
         root = wx.BoxSizer(wx.VERTICAL)
         self._tabs = wx.Notebook(self)
         self._build_language_tab()
         self._build_appearance_tab()
+        self._build_schedule_tab()
         self._build_search_tab()
         root.Add(self._tabs, 1, wx.EXPAND | wx.ALL, 12)
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
@@ -196,6 +205,400 @@ class PreferencesDialog(wx.Dialog):
         page.GetSizer().Add(grid, 0, wx.EXPAND | wx.ALL, 18)
         self._tabs.AddPage(page, "Appearance")
 
+    def _schedule_text(self, key: str, **values: object) -> str:
+        text = lang.get(f"preferences.schedule.{key}")
+        try:
+            return text.format(**values)
+        except (KeyError, ValueError):
+            return text
+
+    def _build_schedule_tab(self) -> None:
+        page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
+        page.SetScrollRate(0, 12)
+        root = wx.BoxSizer(wx.VERTICAL)
+
+        explanation = wx.StaticText(page, label=self._schedule_text("explanation"))
+        explanation.Wrap(540)
+        root.Add(explanation, 0, wx.EXPAND | wx.BOTTOM, 10)
+
+        self.schedule_list = wx.ListBox(page)
+        self.schedule_list.SetMinSize(wx.Size(-1, 88))
+        root.Add(self.schedule_list, 0, wx.EXPAND | wx.BOTTOM, 8)
+        actions = wx.BoxSizer(wx.HORIZONTAL)
+        self.schedule_new = wx.Button(page, label=self._schedule_text("add"))
+        self.schedule_remove = wx.Button(page, label=self._schedule_text("remove"))
+        self.schedule_up = wx.Button(page, label=self._schedule_text("moveup"))
+        self.schedule_down = wx.Button(page, label=self._schedule_text("movedown"))
+        actions.Add(self.schedule_new, 0, wx.RIGHT, 8)
+        actions.Add(self.schedule_remove, 0, wx.RIGHT, 8)
+        actions.Add(self.schedule_up, 0, wx.RIGHT, 8)
+        actions.Add(self.schedule_down, 0)
+        root.Add(actions, 0, wx.BOTTOM, 12)
+
+        grid = wx.FlexGridSizer(0, 2, 8, 12)
+        grid.AddGrowableCol(1, 1)
+
+        def add_row(key: str, control: wx.Window) -> None:
+            grid.Add(
+                _label(
+                    page,
+                    self._schedule_text(key),
+                    self._schedule_text(f"{key}.help"),
+                ),
+                0,
+                wx.ALIGN_CENTER_VERTICAL,
+            )
+            grid.Add(control, 1, wx.EXPAND)
+
+        self.schedule_enabled = wx.CheckBox(
+            page, label=self._schedule_text("enabled.value")
+        )
+        add_row("enabled", self.schedule_enabled)
+        self.schedule_label = wx.TextCtrl(page)
+        add_row("label", self.schedule_label)
+        self.schedule_priority = wx.SpinCtrl(page, min=-10000, max=10000, initial=0)
+        add_row("priority", self.schedule_priority)
+
+        weekday_panel = wx.Panel(page)
+        weekday_sizer = wx.WrapSizer(wx.HORIZONTAL)
+        self.schedule_every_day = wx.CheckBox(
+            weekday_panel, label=self._schedule_text("everyday")
+        )
+        weekday_sizer.Add(self.schedule_every_day, 0, wx.RIGHT | wx.BOTTOM, 10)
+        self.schedule_weekdays = []
+        for name in (
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+        ):
+            checkbox = wx.CheckBox(
+                weekday_panel, label=self._schedule_text(f"weekday.{name}")
+            )
+            self.schedule_weekdays.append(checkbox)
+            weekday_sizer.Add(checkbox, 0, wx.RIGHT | wx.BOTTOM, 6)
+        weekday_panel.SetSizer(weekday_sizer)
+        add_row("weekdays", weekday_panel)
+
+        self.schedule_start_date = wx.TextCtrl(page)
+        self.schedule_start_date.SetHint("YYYY-MM-DD")
+        add_row("startdate", self.schedule_start_date)
+        self.schedule_end_date = wx.TextCtrl(page)
+        self.schedule_end_date.SetHint("YYYY-MM-DD")
+        add_row("enddate", self.schedule_end_date)
+        self.schedule_start_time = wx.TextCtrl(page)
+        self.schedule_start_time.SetHint("HH:MM")
+        add_row("starttime", self.schedule_start_time)
+        self.schedule_end_time = wx.TextCtrl(page)
+        self.schedule_end_time.SetHint("HH:MM")
+        add_row("endtime", self.schedule_end_time)
+
+        no_override = self._schedule_text("nooverride")
+        self.schedule_language = wx.Choice(
+            page,
+            choices=[
+                no_override,
+                self._schedule_text("language.english"),
+                self._schedule_text("language.cantonese"),
+                self._schedule_text("language.bilingual"),
+            ],
+        )
+        add_row("language", self.schedule_language)
+        self.schedule_theme = wx.Choice(
+            page,
+            choices=[
+                no_override,
+                self._schedule_text("theme.light"),
+                self._schedule_text("theme.dark"),
+                self._schedule_text("theme.system"),
+            ],
+        )
+        add_row("theme", self.schedule_theme)
+        self.schedule_density = wx.Choice(
+            page,
+            choices=[
+                no_override,
+                self._schedule_text("density.compact"),
+                self._schedule_text("density.comfortable"),
+                self._schedule_text("density.spacious"),
+            ],
+        )
+        add_row("density", self.schedule_density)
+        self.schedule_accent = wx.TextCtrl(page)
+        self.schedule_accent.SetHint(self._schedule_text("accent.hint"))
+        add_row("accent", self.schedule_accent)
+        root.Add(grid, 0, wx.EXPAND | wx.BOTTOM, 10)
+
+        self.schedule_apply = wx.Button(page, label=self._schedule_text("apply"))
+        root.Add(self.schedule_apply, 0, wx.BOTTOM, 8)
+        self.schedule_validation = wx.StaticText(page, label="")
+        self.schedule_validation.Wrap(540)
+        root.Add(self.schedule_validation, 0, wx.EXPAND)
+
+        self._schedule_controls = [
+            self.schedule_list,
+            self.schedule_new,
+            self.schedule_remove,
+            self.schedule_up,
+            self.schedule_down,
+            self.schedule_enabled,
+            self.schedule_label,
+            self.schedule_priority,
+            self.schedule_every_day,
+            *self.schedule_weekdays,
+            self.schedule_start_date,
+            self.schedule_end_date,
+            self.schedule_start_time,
+            self.schedule_end_time,
+            self.schedule_language,
+            self.schedule_theme,
+            self.schedule_density,
+            self.schedule_accent,
+            self.schedule_apply,
+        ]
+        self._schedule_loading = False
+        self._schedule_form_dirty = False
+        self._schedule_selection = wx.NOT_FOUND
+        self.schedule_list.Bind(wx.EVT_LISTBOX, self._select_schedule_rule)
+        self.schedule_new.Bind(wx.EVT_BUTTON, self._new_schedule_rule)
+        self.schedule_remove.Bind(wx.EVT_BUTTON, self._remove_schedule_rule)
+        self.schedule_up.Bind(wx.EVT_BUTTON, lambda event: self._move_schedule_rule(-1))
+        self.schedule_down.Bind(
+            wx.EVT_BUTTON, lambda event: self._move_schedule_rule(1)
+        )
+        self.schedule_apply.Bind(wx.EVT_BUTTON, self._apply_schedule_rule)
+        for control in (
+            self.schedule_label,
+            self.schedule_start_date,
+            self.schedule_end_date,
+            self.schedule_start_time,
+            self.schedule_end_time,
+            self.schedule_accent,
+        ):
+            control.Bind(wx.EVT_TEXT, self._mark_schedule_dirty)
+        self.schedule_priority.Bind(wx.EVT_SPINCTRL, self._mark_schedule_dirty)
+        self.schedule_priority.Bind(wx.EVT_TEXT, self._mark_schedule_dirty)
+        self.schedule_every_day.Bind(wx.EVT_CHECKBOX, self._toggle_every_day)
+        for control in (
+            self.schedule_enabled,
+            self.schedule_every_day,
+            *self.schedule_weekdays,
+        ):
+            control.Bind(wx.EVT_CHECKBOX, self._mark_schedule_dirty)
+        for control in (
+            self.schedule_language,
+            self.schedule_theme,
+            self.schedule_density,
+        ):
+            control.Bind(wx.EVT_CHOICE, self._mark_schedule_dirty)
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
+        page.SetSizer(outer)
+        page.FitInside()
+        self._schedule_tab_index = self._tabs.GetPageCount()
+        self._tabs.AddPage(page, self._schedule_text("tab"))
+        self._refresh_schedule_list()
+        self._load_schedule_form(None)
+        if self._schedule_load_error is not None:
+            for control in self._schedule_controls:
+                control.Enable(False)
+            self._show_schedule_message(
+                self._schedule_text("loaderror", error=self._schedule_load_error),
+                error=True,
+            )
+
+    def _mark_schedule_dirty(self, _event: wx.Event) -> None:
+        if not self._schedule_loading:
+            self._schedule_form_dirty = True
+
+    def _show_schedule_message(self, message: str, error: bool = False) -> None:
+        self.schedule_validation.SetLabel(message)
+        self.schedule_validation.SetForegroundColour(
+            wx.Colour(180, 40, 40) if error else wx.Colour(40, 120, 70)
+        )
+        self.schedule_validation.Wrap(540)
+
+    def _refresh_schedule_list(self) -> None:
+        labels = [
+            rule.label + ("" if rule.enabled else self._schedule_text("disabledsuffix"))
+            for rule in self._schedule_rules
+        ]
+        self.schedule_list.Set(labels)
+        if 0 <= self._schedule_selection < len(labels):
+            self.schedule_list.SetSelection(self._schedule_selection)
+
+    def _load_schedule_form(self, rule: Optional[schedules.ScheduleRule]) -> None:
+        self._schedule_loading = True
+        try:
+            self.schedule_enabled.SetValue(True if rule is None else rule.enabled)
+            self.schedule_label.SetValue("" if rule is None else rule.label)
+            self.schedule_priority.SetValue(0 if rule is None else rule.priority)
+            active_weekdays = schedules.ALL_WEEKDAYS if rule is None else rule.weekdays
+            every_day = active_weekdays == schedules.ALL_WEEKDAYS
+            self.schedule_every_day.SetValue(every_day)
+            for weekday, checkbox in enumerate(self.schedule_weekdays):
+                checkbox.SetValue(weekday in active_weekdays)
+                checkbox.Enable(not every_day)
+            self.schedule_start_date.SetValue(
+                "" if rule is None or rule.start_date is None else rule.start_date
+            )
+            self.schedule_end_date.SetValue(
+                "" if rule is None or rule.end_date is None else rule.end_date
+            )
+            self.schedule_start_time.SetValue(
+                "00:00" if rule is None else rule.start_time
+            )
+            self.schedule_end_time.SetValue("00:00" if rule is None else rule.end_time)
+            values = None if rule is None else rule.values
+            language = None if values is None else values.language_mode
+            theme = None if values is None else values.theme
+            density = None if values is None else values.density
+            self.schedule_language.SetSelection(
+                0 if language is None else schedules.LANGUAGE_MODES.index(language) + 1
+            )
+            self.schedule_theme.SetSelection(
+                0 if theme is None else schedules.THEMES.index(theme) + 1
+            )
+            self.schedule_density.SetSelection(
+                0 if density is None else schedules.DENSITIES.index(density) + 1
+            )
+            self.schedule_accent.SetValue(
+                "" if values is None or values.accent is None else values.accent
+            )
+        finally:
+            self._schedule_loading = False
+            self._schedule_form_dirty = False
+
+    def _select_schedule_rule(self, event: wx.CommandEvent) -> None:
+        selected = event.GetSelection()
+        if self._schedule_form_dirty and selected != self._schedule_selection:
+            self.schedule_list.SetSelection(self._schedule_selection)
+            self._show_schedule_message(self._schedule_text("unapplied"), error=True)
+            return
+        self._schedule_selection = selected
+        self._load_schedule_form(self._schedule_rules[selected])
+        self._show_schedule_message(self._schedule_text("loaded"))
+
+    def _new_schedule_rule(self, _event: wx.Event) -> None:
+        if self._schedule_form_dirty:
+            self._show_schedule_message(self._schedule_text("unapplied"), error=True)
+            return
+        self._schedule_selection = wx.NOT_FOUND
+        self.schedule_list.SetSelection(wx.NOT_FOUND)
+        self._load_schedule_form(None)
+        self._show_schedule_message(self._schedule_text("newready"))
+
+    def _rule_from_schedule_form(self) -> schedules.ScheduleRule:
+        current = (
+            self._schedule_rules[self._schedule_selection]
+            if 0 <= self._schedule_selection < len(self._schedule_rules)
+            else None
+        )
+        language_selection = self.schedule_language.GetSelection()
+        theme_selection = self.schedule_theme.GetSelection()
+        density_selection = self.schedule_density.GetSelection()
+        values = schedules.ScheduledValues(
+            language_mode=(
+                None
+                if language_selection <= 0
+                else schedules.LANGUAGE_MODES[language_selection - 1]
+            ),
+            theme=(
+                None if theme_selection <= 0 else schedules.THEMES[theme_selection - 1]
+            ),
+            density=(
+                None
+                if density_selection <= 0
+                else schedules.DENSITIES[density_selection - 1]
+            ),
+            accent=self.schedule_accent.GetValue().strip() or None,
+        )
+        return schedules.ScheduleRule(
+            rule_id=(
+                current.rule_id
+                if current is not None
+                else f"schedule-{uuid.uuid4().hex}"
+            ),
+            label=self.schedule_label.GetValue().strip(),
+            enabled=self.schedule_enabled.GetValue(),
+            priority=self.schedule_priority.GetValue(),
+            weekdays=tuple(
+                schedules.ALL_WEEKDAYS
+                if self.schedule_every_day.GetValue()
+                else tuple(
+                    index
+                    for index, checkbox in enumerate(self.schedule_weekdays)
+                    if checkbox.GetValue()
+                )
+            ),
+            start_date=self.schedule_start_date.GetValue().strip() or None,
+            end_date=self.schedule_end_date.GetValue().strip() or None,
+            start_time=self.schedule_start_time.GetValue().strip(),
+            end_time=self.schedule_end_time.GetValue().strip(),
+            values=values,
+        )
+
+    def _apply_schedule_rule(self, _event: Optional[wx.Event] = None) -> bool:
+        try:
+            rule = self._rule_from_schedule_form()
+        except schedules.ScheduleValidationError as exc:
+            self._show_schedule_message(
+                self._schedule_text("validationerror", error=exc), error=True
+            )
+            return False
+        if 0 <= self._schedule_selection < len(self._schedule_rules):
+            self._schedule_rules[self._schedule_selection] = rule
+        else:
+            self._schedule_rules.append(rule)
+            self._schedule_selection = len(self._schedule_rules) - 1
+        self._schedule_form_dirty = False
+        self._refresh_schedule_list()
+        self._show_schedule_message(self._schedule_text("applied"))
+        return True
+
+    def _remove_schedule_rule(self, _event: wx.Event) -> None:
+        if self._schedule_form_dirty:
+            self._show_schedule_message(self._schedule_text("unapplied"), error=True)
+            return
+        if not 0 <= self._schedule_selection < len(self._schedule_rules):
+            self._show_schedule_message(self._schedule_text("selectremove"), error=True)
+            return
+        del self._schedule_rules[self._schedule_selection]
+        self._schedule_selection = wx.NOT_FOUND
+        self._load_schedule_form(None)
+        self._refresh_schedule_list()
+        self._show_schedule_message(self._schedule_text("removed"))
+
+    def _toggle_every_day(self, _event: wx.Event) -> None:
+        every_day = self.schedule_every_day.GetValue()
+        for checkbox in self.schedule_weekdays:
+            if every_day:
+                checkbox.SetValue(True)
+            checkbox.Enable(not every_day)
+
+    def _move_schedule_rule(self, offset: int) -> None:
+        if self._schedule_form_dirty:
+            self._show_schedule_message(self._schedule_text("unapplied"), error=True)
+            return
+        target = self._schedule_selection + offset
+        if not (
+            0 <= self._schedule_selection < len(self._schedule_rules)
+            and 0 <= target < len(self._schedule_rules)
+        ):
+            self._show_schedule_message(self._schedule_text("selectmove"), error=True)
+            return
+        self._schedule_rules[self._schedule_selection], self._schedule_rules[target] = (
+            self._schedule_rules[target],
+            self._schedule_rules[self._schedule_selection],
+        )
+        self._schedule_selection = target
+        self._refresh_schedule_list()
+        self._show_schedule_message(self._schedule_text("moved"))
+
     def _build_search_tab(self) -> None:
         page = wx.Panel(self._tabs)
         box = wx.BoxSizer(wx.VERTICAL)
@@ -243,6 +646,18 @@ class PreferencesDialog(wx.Dialog):
         self.EndModal(wx.ID_CANCEL)
 
     def _save(self, _event: wx.Event) -> None:
+        if self._schedule_load_error is None:
+            if self._schedule_form_dirty and not self._apply_schedule_rule():
+                self._tabs.SetSelection(self._schedule_tab_index)
+                return
+            try:
+                schedules.replace_rules(self._schedule_rules)
+            except (schedules.ScheduleValidationError, OSError) as exc:
+                self._show_schedule_message(
+                    self._schedule_text("saveerror", error=exc), error=True
+                )
+                self._tabs.SetSelection(self._schedule_tab_index)
+                return
         language_mode = preferences.LANGUAGE_MODES[self.language.GetSelection()]
         theme = preferences.THEMES[self.theme.GetSelection()]
         font = self.font.GetSelectedFont().GetFaceName()
