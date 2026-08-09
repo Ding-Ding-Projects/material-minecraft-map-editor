@@ -43,6 +43,26 @@ class Material3Tokens:
 TOKENS = Material3Tokens()
 
 
+def _blend_colour(first: wx.Colour, second: wx.Colour, second_weight: float) -> wx.Colour:
+    """Blend two RGB roles while keeping the result inside the M3 gamut."""
+
+    weight = min(1.0, max(0.0, second_weight))
+    return wx.Colour(
+        round(first.Red() * (1 - weight) + second.Red() * weight),
+        round(first.Green() * (1 - weight) + second.Green() * weight),
+        round(first.Blue() * (1 - weight) + second.Blue() * weight),
+    )
+
+
+def _on_colour(background: wx.Colour) -> wx.Colour:
+    """Choose a readable M3 on-role for a generated container."""
+
+    luminance = (
+        299 * background.Red() + 587 * background.Green() + 114 * background.Blue()
+    ) / 1000
+    return wx.Colour(27, 28, 32) if luminance >= 150 else wx.Colour(255, 255, 255)
+
+
 def _active_palette() -> dict[str, wx.Colour]:
     """Resolve persisted appearance values into the live native palette."""
     prefs = school_mode.presentation_preferences(preferences.load())
@@ -68,7 +88,17 @@ def _active_palette() -> dict[str, wx.Colour]:
         if accent.IsOk():
             palette["primary"] = accent
     except (TypeError, ValueError):
-        pass
+        accent = palette["primary"]
+    # Derive the related roles from the same seed rather than leaving the
+    # persisted accent stranded on one button color.  This keeps containers,
+    # tab roles, and their readable on-colors coherent in both themes.
+    palette["on_primary"] = _on_colour(palette["primary"])
+    palette["primary_container"] = _blend_colour(
+        palette["primary"],
+        palette["surface_container"],
+        0.65 if prefs.theme == "dark" else 0.82,
+    )
+    palette["on_primary_container"] = _on_colour(palette["primary_container"])
     return palette
 
 

@@ -20,6 +20,9 @@ def test_material3_consumes_persisted_appearance_tokens():
     assert "prefs.ui_scale" in source
     assert "prefs.ui_font" in source
     assert "prefs.density" in source
+    assert "_blend_colour" in source
+    assert "_on_colour" in source
+    assert "palette[\"primary_container\"] = _blend_colour" in source
 
 
 def test_material3_covers_common_collection_and_selection_controls():
