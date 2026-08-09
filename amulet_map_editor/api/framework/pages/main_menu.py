@@ -138,9 +138,9 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
 class LangSelectDialog(wx.Dialog):
     def __init__(self, *args, **kwds):
         # begin wxGlade: LangSelectDialog.__init__
-        kwds["style"] = (
-            kwds.get("style", 0) | wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
-        )
+        # Start borderless so the shared Material 3 title bar is the first
+        # painted chrome instead of the platform caption.
+        kwds["style"] = kwds.get("style", 0) | wx.NO_BORDER | wx.RESIZE_BORDER
         wx.Dialog.__init__(self, *args, **kwds)
         self.SetTitle(lang.get("language_select.title"))
 

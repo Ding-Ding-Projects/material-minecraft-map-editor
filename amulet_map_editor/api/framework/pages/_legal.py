@@ -41,7 +41,9 @@ class SimpleScrollablePanel(wx.lib.scrolledpanel.ScrolledPanel):
 
 class LicenceDialog(wx.Dialog):
     def __init__(self, parent: Optional[wx.Window] = None):
-        super().__init__(parent, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        # The shared M3 helper owns the title bar; avoid native caption chrome
+        # being painted before the legal surface is styled.
+        super().__init__(parent, style=wx.NO_BORDER | wx.RESIZE_BORDER)
         self.SetTitle(lang.get("main_menu.licence_title"))
         self.SetMinSize((300, 300))
         self.SetSize((700, 600))
