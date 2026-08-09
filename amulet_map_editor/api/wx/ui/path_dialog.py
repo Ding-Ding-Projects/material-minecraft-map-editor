@@ -19,11 +19,13 @@ class MaterialPathDialog(wx.Dialog):
         *,
         wildcard: str = "All files (*.*)|*.*",
         save: bool = False,
+        directory: bool = False,
         default_path: str = "",
     ):
         super().__init__(parent, title=title, size=wx.Size(680, 190))
         self._wildcard = wildcard
         self._save = save
+        self._directory = directory
         root = wx.BoxSizer(wx.VERTICAL)
         root.Add(
             wx.StaticText(self, label="Path", name="Path picker label"),
@@ -45,6 +47,12 @@ class MaterialPathDialog(wx.Dialog):
         apply_material3(self)
 
     def _browse(self, _event: wx.Event) -> None:
+        if self._directory:
+            with wx.DirDialog(self, "Choose a folder") as dialog:
+                if dialog.ShowModal() == wx.ID_OK:
+                    self.path.SetValue(dialog.GetPath())
+                    self.path.SetFocus()
+            return
         style = wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT if self._save else wx.FD_OPEN
         if not self._save:
             style |= wx.FD_FILE_MUST_EXIST

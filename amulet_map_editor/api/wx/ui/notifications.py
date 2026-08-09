@@ -6,6 +6,7 @@ import wx
 
 from amulet_map_editor.api import export_actions, notifications
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 
 
 class NotificationHistoryDialog(wx.Dialog):
@@ -100,17 +101,17 @@ class NotificationHistoryDialog(wx.Dialog):
         self._refresh()
 
     def _export(self, _event) -> None:
-        with wx.FileDialog(
+        target = choose_path(
             self,
             "Export notification history",
             wildcard="Markdown files (*.md)|*.md",
-            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
-        ) as dialog:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            with open(dialog.GetPath(), "w", encoding="utf-8", newline="\n") as stream:
-                stream.write(notifications.export_markdown(self._items))
-            self._last_export_path = dialog.GetPath()
+            save=True,
+        )
+        if target is None:
+            return
+        with open(target, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(notifications.export_markdown(self._items))
+        self._last_export_path = target
         self.open_export.Enable(True)
         self.export_status.SetLabel(
             f"Exported notification history to {self._last_export_path}"

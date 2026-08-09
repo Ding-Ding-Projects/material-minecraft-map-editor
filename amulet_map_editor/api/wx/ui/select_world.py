@@ -15,6 +15,7 @@ from amulet.api.errors import FormatError
 from amulet_map_editor import lang, CONFIG
 from amulet_map_editor.api.wx.ui import simple
 from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.framework import app
 
@@ -448,59 +449,29 @@ class WorldSelectUI(wx.Panel):
         sizer.Add(content, 1, wx.EXPAND)
 
     def _open_world(self, evt):
-        dir_dialog = wx.DirDialog(
-            None,
-            lang.get("select_world.open_world_dialogue"),
-            "",
-            wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST,
+        path = choose_path(
+            self, lang.get("select_world.open_world_dialogue"), directory=True
         )
-        try:
-            log.debug(f"Showing open world dialog at {dir_dialog.GetRect()}")
-            if dir_dialog.ShowModal() == wx.ID_CANCEL:
-                return
-            path = dir_dialog.GetPath()
-        except Exception:
-            wx.LogError(lang.get("select_world.select_directory_failed"))
+        if path is None:
             return
-        finally:
-            dir_dialog.Destroy()
         self.open_world_callback(path)
 
     def _open_mcworld(self, evt):
-        mcworld_dialog = wx.FileDialog(
-            None,
+        mcworld_path = choose_path(
+            self,
             lang.get("select_world.open_mcworld_dialogue"),
-            "",
-            style=wx.FD_DEFAULT_STYLE | wx.FD_FILE_MUST_EXIST,
             wildcard="Bedrock world archive (*.mcworld)|*.mcworld",
         )
-        try:
-            log.debug(f"Showing mcworld dialog at {mcworld_dialog.GetRect()}")
-            if mcworld_dialog.ShowModal() == wx.ID_CANCEL:
-                return
-            mcworld_path = mcworld_dialog.GetPath()
-        except Exception:
-            wx.LogError(lang.get("select_world.select_directory_failed"))
+        if mcworld_path is None:
             return
-        finally:
-            mcworld_dialog.Destroy()
 
-        dir_dialog = wx.DirDialog(
-            None,
+        extract_dir = choose_path(
+            self,
             lang.get("select_world.extract_mcworld_dialogue"),
-            "",
-            wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST,
+            directory=True,
         )
-        try:
-            log.debug(f"Showing extract mcworld dialog at {dir_dialog.GetRect()}")
-            if dir_dialog.ShowModal() == wx.ID_CANCEL:
-                return
-            extract_dir = dir_dialog.GetPath()
-        except Exception:
-            wx.LogError(lang.get("select_world.select_directory_failed"))
+        if extract_dir is None:
             return
-        finally:
-            dir_dialog.Destroy()
 
         if next(os.scandir(extract_dir), None) is not None:
             wx.LogError(lang.get("select_world.extracting_world_not_empty"))
