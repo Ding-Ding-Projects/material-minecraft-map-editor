@@ -55,20 +55,29 @@ class LocalHistoryDialog(wx.Dialog):
         self.feedback = wx.StaticText(self, label="")
         self.feedback.SetName("Local history filter status")
         root.Add(self.feedback, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
-        self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_MULTIPLE_SEL)
         self.list.SetName("Local history events")
         for index, label in enumerate(("Action", "Record", "Type", "Timestamp", "Event")):
             self.list.InsertColumn(index, label)
         root.Add(self.list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
         actions = wx.BoxSizer(wx.HORIZONTAL)
+        self.select_all = wx.Button(self, label="Select all")
+        self.invert_selection = wx.Button(self, label="Invert selection")
         self.restore = wx.Button(self, label="Restore selected")
         self.restore.Enable(False)
         self.export = wx.Button(self, label="Export visible")
         self.open_export = wx.Button(self, label="Open export in VS Code")
         self.open_export.Enable(False)
         close = wx.Button(self, id=wx.ID_CLOSE, label="Close")
-        for button in (self.restore, self.export, self.open_export, close):
+        for button in (
+            self.select_all,
+            self.invert_selection,
+            self.restore,
+            self.export,
+            self.open_export,
+            close,
+        ):
             actions.Add(button, 0, wx.RIGHT, 8)
         root.Add(actions, 0, wx.ALL, 12)
         self.SetSizer(root)
@@ -80,6 +89,9 @@ class LocalHistoryDialog(wx.Dialog):
         self.since.Bind(wx.adv.EVT_DATE_CHANGED, self._refresh)
         self.until.Bind(wx.adv.EVT_DATE_CHANGED, self._refresh)
         self.list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._selection_changed)
+        self.list.Bind(wx.EVT_LIST_ITEM_DESELECTED, self._selection_changed)
+        self.select_all.Bind(wx.EVT_BUTTON, self._select_all)
+        self.invert_selection.Bind(wx.EVT_BUTTON, self._invert_selection)
         self.restore.Bind(wx.EVT_BUTTON, self._restore_selected)
         self.export.Bind(wx.EVT_BUTTON, self._export_visible)
         self.open_export.Bind(wx.EVT_BUTTON, self._open_export)
@@ -152,21 +164,51 @@ class LocalHistoryDialog(wx.Dialog):
                 self.list.SetItem(row, column, value)
         for column, width in enumerate((90, 220, 120, 190, 260)):
             self.list.SetColumnWidth(column, width)
-        self.restore.Enable(False)
+        self._update_selection_actions()
 
     def _selection_changed(self, _event) -> None:
-        self.restore.Enable(self.list.GetFirstSelected() != -1)
+        self._update_selection_actions()
+
+    def _selected_indices(self) -> list[int]:
+        selected: list[int] = []
+        index = self.list.GetFirstSelected()
+        while index != -1:
+            selected.append(index)
+            index = self.list.GetNextSelected(index)
+        return selected
+
+    def _update_selection_actions(self) -> None:
+        count = len(self._selected_indices())
+        self.restore.Enable(count > 0)
+        self.feedback.SetLabel(
+            f"{len(self._events)} matching history events · {count} selected"
+            if self._events
+            else self.feedback.GetLabel()
+        )
+
+    def _select_all(self, _event) -> None:
+        for index in range(self.list.GetItemCount()):
+            self.list.Select(index)
+        self._update_selection_actions()
+
+    def _invert_selection(self, _event) -> None:
+        for index in range(self.list.GetItemCount()):
+            self.list.Select(index, not self.list.IsSelected(index))
+        self._update_selection_actions()
 
     def _restore_selected(self, _event) -> None:
-        index = self.list.GetFirstSelected()
-        if index < 0 or index >= len(self._events) or self._store is None:
+        indices = [index for index in self._selected_indices() if index < len(self._events)]
+        if not indices or self._store is None:
             return
+        restored = 0
         try:
-            self._store.restore(self._events[index].event_id)
+            for index in indices:
+                self._store.restore(self._events[index].event_id)
+                restored += 1
         except local_history.LocalHistoryError as exc:
-            self.feedback.SetLabel(f"Restore failed: {exc}")
+            self.feedback.SetLabel(f"Restored {restored}; restore failed: {exc}")
             return
-        self.feedback.SetLabel("Restored as a new history event")
+        self.feedback.SetLabel(f"Restored {restored} event(s) as new history events")
         self._refresh()
 
     def _export_visible(self, _event) -> None:

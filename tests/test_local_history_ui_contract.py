@@ -12,4 +12,8 @@ def test_local_history_dialog_is_reachable_and_filterable():
     assert "wx.adv.DatePickerCtrl" in source
     assert "RegexBuilderDialog" in source
     assert "self._store.restore" in source
+    assert "wx.LC_MULTIPLE_SEL" in source
+    assert "Select all" in source
+    assert "Invert selection" in source
+    assert "Restored {restored}" in source
     assert "Local history…" in frame
