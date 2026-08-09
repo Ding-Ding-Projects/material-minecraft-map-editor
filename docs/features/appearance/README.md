@@ -45,5 +45,7 @@ Keys are limited to 160 characters and profiles to 512 entries. Malformed
 colours or font sizes fail closed to the inherited role; no network or
 arbitrary class loading is involved. `tests/test_element_appearance_contract.py`
 guards the route, bounds, live application, reset, capability disclosure, and
-history recording. The portable style controls apply live to the edited native
-control; pixel-level wx runtime capture remains a Windows-only gate.
+history recording. Italic, underline, and strikethrough apply live to the
+edited native control. Letter spacing is retained for a backend that supports
+it, while this wx backend reports the capability limitation explicitly;
+pixel-level wx runtime capture remains a Windows-only gate.

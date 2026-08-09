@@ -136,7 +136,7 @@ class ElementAppearanceDialog(wx.Dialog):
         for control in (self.italic, self.underline, self.strikethrough):
             style_row.Add(control, 0, wx.RIGHT, 12)
         root.Add(style_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 16)
-        note = wx.StaticText(self, label="Portable M3 roles are editable here. Unsupported Word-only axes remain platform-limited and are not silently saved.")
+        note = wx.StaticText(self, label="Portable M3 roles are editable here. Italic, underline, and strikethrough apply live. Letter spacing is retained for backends that support it; this wx backend reports it as capability-limited. Unsupported Word-only axes are not silently saved.")
         note.SetName("Element appearance capability note")
         note.Wrap(430)
         root.Add(note, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)

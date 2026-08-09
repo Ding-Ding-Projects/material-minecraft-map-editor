@@ -24,3 +24,4 @@ def test_editor_is_bounded_persisted_live_and_honest_about_capabilities():
     assert 'name="Element underline"' in EDITOR
     assert 'name="Element strikethrough"' in EDITOR
     assert 'name="Element letter spacing"' in EDITOR
+    assert "capability-limited" in EDITOR
