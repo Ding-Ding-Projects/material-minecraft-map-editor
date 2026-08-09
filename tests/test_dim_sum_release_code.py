@@ -1,0 +1,38 @@
+import importlib.util
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "resolve_dim_sum_code_name", ROOT / "scripts/resolve_dim_sum_code_name.py"
+)
+MODULE = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(MODULE)
+
+
+def test_resolver_selects_unused_published_bilingual_dish():
+    catalog = {
+        "dishes": [
+            {"name": {"en": "Used", "zhHant": "已用"}, "image": {"path": "images/used.png"}},
+            {"name": {"en": "Fresh Bao", "zhHant": "新鮮包"}, "image": {"path": "images/fresh.png"}},
+        ]
+    }
+    releases = [
+        {"tag_name": "batch-1", "body": "Dim-sum code name: Used · 已用", "assets": [{"name": "used.png"}]},
+        {"tag_name": "batch-2", "body": "", "assets": [{"name": "fresh.png"}]},
+    ]
+    assert MODULE.resolve(catalog, releases) == (
+        "Fresh Bao", "新鮮包",
+        "https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/batch-2/fresh.png",
+    )
+
+
+def test_resolver_fails_when_no_published_unused_image_exists():
+    catalog = {"dishes": [{"name": {"en": "No Photo", "zhHant": "無相"}, "image": {"path": "images/no.png"}}]}
+    try:
+        MODULE.resolve(catalog, [])
+    except RuntimeError as exc:
+        assert "No unused catalog dish" in str(exc)
+    else:
+        raise AssertionError("resolver should fail closed")

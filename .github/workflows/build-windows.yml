@@ -211,6 +211,9 @@ jobs:
           test -n "$started" || { echo 'Could not resolve the deploy job start time for release timing notes'; exit 1; }
           duration="$(STARTED="$started" python3 -c 'from datetime import datetime,timezone; import os; s=datetime.fromisoformat(os.environ["STARTED"].replace("Z","+00:00")); n=datetime.now(timezone.utc); elapsed=max(0,int((n-s).total_seconds())); print(f"{elapsed//3600:02d}:{(elapsed%3600)//60:02d}:{elapsed%60:02d}")')"
           line_table="$(python3 scripts/count_lines.py)"
+          eval "$(python3 scripts/resolve_dim_sum_code_name.py)"
+          test -n "${DIM_SUM_CODE_NAME:-}" || { echo 'Dim-sum code name was not resolved'; exit 1; }
+          test -n "${DIM_SUM_PHOTO_URL:-}" || { echo 'Dim-sum public photo URL was not resolved'; exit 1; }
           notes_file="$(mktemp)"
           {
             printf '%s\n' '<!-- amulet-auto-release -->'
@@ -220,7 +223,8 @@ jobs:
             printf '%s\n\n' "Workflow duration: $duration"
             printf '%s\n\n' "Line count (CI, scripts/count_lines.py):"
             printf '%s\n\n' "$line_table"
-            printf '%s\n' "Dim-sum photo: unavailable in this repository's tracked catalog; no image is claimed."
+            printf '%s\n' "Dim-sum code name: $DIM_SUM_CODE_NAME"
+            printf '%s\n' "Dim-sum public photo: $DIM_SUM_PHOTO_URL"
           } > "$notes_file"
           upload_paths=("release-assets/Setup.exe" "release-assets/RELEASES" "release-assets/$nupkg_name")
           while IFS= read -r path; do
