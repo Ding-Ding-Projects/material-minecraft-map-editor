@@ -25,8 +25,12 @@ setting name such as `[` remains ordinary text rather than accidentally
 becoming an invalid pattern.
 
 The native **View → Local history…** dialog provides bounded search, explicit
-regex mode, action filtering, date pickers, restore-as-a-new-event, JSON
-export, and an **Open export in VS Code** action. It keeps the history surface
+regex mode, action filtering, date pickers, multi-selection, **Select all**,
+**Invert selection**, batch restore-as-new-event, JSON export, and an
+**Open export in VS Code** action. `Ctrl+A` selects the visible events,
+`Ctrl+I` inverts the selection, and `Enter` restores the selected events. A
+partial restore reports the number completed and the exact failure instead of
+pretending the whole batch succeeded. It keeps the history surface
 non-blocking and returns focus through the normal dialog close path.
 
 `LocalHistory.export_and_open()` writes the selected JSON or Markdown export

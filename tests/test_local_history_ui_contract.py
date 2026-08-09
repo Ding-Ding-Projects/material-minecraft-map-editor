@@ -15,5 +15,7 @@ def test_local_history_dialog_is_reachable_and_filterable():
     assert "wx.LC_MULTIPLE_SEL" in source
     assert "Select all" in source
     assert "Invert selection" in source
+    assert "_list_key_down" in source
+    assert "event.ControlDown()" in source
     assert "Restored {restored}" in source
     assert "Local history…" in frame

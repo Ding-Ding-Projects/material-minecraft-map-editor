@@ -90,6 +90,7 @@ class LocalHistoryDialog(wx.Dialog):
         self.until.Bind(wx.adv.EVT_DATE_CHANGED, self._refresh)
         self.list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._selection_changed)
         self.list.Bind(wx.EVT_LIST_ITEM_DESELECTED, self._selection_changed)
+        self.list.Bind(wx.EVT_KEY_DOWN, self._list_key_down)
         self.select_all.Bind(wx.EVT_BUTTON, self._select_all)
         self.invert_selection.Bind(wx.EVT_BUTTON, self._invert_selection)
         self.restore.Bind(wx.EVT_BUTTON, self._restore_selected)
@@ -190,6 +191,20 @@ class LocalHistoryDialog(wx.Dialog):
         for index in range(self.list.GetItemCount()):
             self.list.Select(index)
         self._update_selection_actions()
+
+    def _list_key_down(self, event: wx.KeyEvent) -> None:
+        """Keep bulk history actions reachable without a pointer."""
+
+        if event.ControlDown() and event.GetKeyCode() == ord("A"):
+            self._select_all(event)
+            return
+        if event.ControlDown() and event.GetKeyCode() == ord("I"):
+            self._invert_selection(event)
+            return
+        if event.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._restore_selected(event)
+            return
+        event.Skip()
 
     def _invert_selection(self, _event) -> None:
         for index in range(self.list.GetItemCount()):
