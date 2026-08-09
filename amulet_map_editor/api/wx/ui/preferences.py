@@ -15,6 +15,7 @@ import re
 import uuid
 
 import wx
+import wx.adv
 
 from amulet_map_editor.api import (
     appearance_presets,
@@ -1728,7 +1729,14 @@ class ChangelogDialog(wx.Dialog):
         )
         self.start_date = wx.TextCtrl(self)
         self.start_date.SetHint("YYYY-MM-DD")
-        filters.Add(self.start_date, 1, wx.EXPAND)
+        self.start_picker = wx.adv.DatePickerCtrl(
+            self, style=wx.adv.DP_DROPDOWN | wx.adv.DP_ALLOWNONE
+        )
+        self.start_picker.SetValue(wx.DateTime())
+        start_row = wx.BoxSizer(wx.HORIZONTAL)
+        start_row.Add(self.start_date, 1, wx.EXPAND | wx.RIGHT, 6)
+        start_row.Add(self.start_picker, 0, wx.EXPAND)
+        filters.Add(start_row, 1, wx.EXPAND)
         filters.Add(
             wx.StaticText(
                 self,
@@ -1739,7 +1747,14 @@ class ChangelogDialog(wx.Dialog):
         )
         self.end_date = wx.TextCtrl(self)
         self.end_date.SetHint("YYYY-MM-DD")
-        filters.Add(self.end_date, 1, wx.EXPAND)
+        self.end_picker = wx.adv.DatePickerCtrl(
+            self, style=wx.adv.DP_DROPDOWN | wx.adv.DP_ALLOWNONE
+        )
+        self.end_picker.SetValue(wx.DateTime())
+        end_row = wx.BoxSizer(wx.HORIZONTAL)
+        end_row.Add(self.end_date, 1, wx.EXPAND | wx.RIGHT, 6)
+        end_row.Add(self.end_picker, 0, wx.EXPAND)
+        filters.Add(end_row, 1, wx.EXPAND)
         self.regex = wx.CheckBox(self, label=_chrome_copy("regex", self._language_mode))
         self.regex_button = wx.Button(self, label="Regex…")
         self.regex_button.SetName("Changelog search regex builder")
@@ -1797,6 +1812,14 @@ class ChangelogDialog(wx.Dialog):
         self._search_flags = 0
         for control in (self.query, self.start_date, self.end_date):
             control.Bind(wx.EVT_TEXT, lambda _event: self._refresh())
+        self.start_picker.Bind(
+            wx.adv.EVT_DATE_CHANGED,
+            lambda _event: self._picker_changed(self.start_picker, self.start_date),
+        )
+        self.end_picker.Bind(
+            wx.adv.EVT_DATE_CHANGED,
+            lambda _event: self._picker_changed(self.end_picker, self.end_date),
+        )
         self.regex.Bind(wx.EVT_CHECKBOX, lambda _event: self._refresh())
         self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self.action.Bind(wx.EVT_CHOICE, lambda _event: self._refresh())
@@ -1821,6 +1844,17 @@ class ChangelogDialog(wx.Dialog):
     def _parse_date(self, control: wx.TextCtrl) -> Optional[date]:
         value = control.GetValue().strip()
         return date.fromisoformat(value) if value else None
+
+    def _picker_changed(
+        self, picker: wx.adv.DatePickerCtrl, field: wx.TextCtrl
+    ) -> None:
+        value = picker.GetValue()
+        field.ChangeValue(
+            f"{value.GetYear():04d}-{value.GetMonth() + 1:02d}-{value.GetDay():02d}"
+            if value.IsValid()
+            else ""
+        )
+        self._refresh()
 
     def _filtered(self) -> changelog.ChangelogCatalog:
         query = changelog.ChangelogQuery(

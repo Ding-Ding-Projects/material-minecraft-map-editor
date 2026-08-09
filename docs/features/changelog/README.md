@@ -30,8 +30,9 @@ tag-tip subject is a complete set of historical release notes.
   lookup; a future privileged application boundary may supply a bounded forge
   resolver without putting network access in the presentation layer.
 - `ChangelogDialog` presents the catalog offline, accepts plain text or explicit
-  bounded regex search, parses ISO start/end dates, reports invalid filters
-  inline, and exports the current filtered view through a native file picker.
+  bounded regex search, pairs typed ISO start/end dates with nullable native
+  calendar pickers, reports invalid filters inline, and exports the current
+  filtered view through a native file picker.
 
 ## Regenerating the catalog
 

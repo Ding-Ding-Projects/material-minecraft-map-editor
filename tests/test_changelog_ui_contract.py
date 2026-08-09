@@ -16,6 +16,10 @@ class ChangelogUiContractTestCase(unittest.TestCase):
             "class ChangelogDialog",
             "self.start_date",
             "self.end_date",
+            "wx.adv.DatePickerCtrl",
+            "self.start_picker",
+            "self.end_picker",
+            "_picker_changed",
             "self.regex",
             "export_markdown",
         ):
