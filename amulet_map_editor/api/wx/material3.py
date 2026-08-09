@@ -270,18 +270,23 @@ def apply_material3(window: wx.Window) -> None:
                 wx.ListBox,
                 wx.ListCtrl,
                 wx.TreeCtrl,
+                wx.CollapsiblePane,
             ),
         ):
             child.SetBackgroundColour(palette["surface"])
+        if isinstance(child, wx.StaticLine):
+            child.SetForegroundColour(palette["outline"])
         if isinstance(
             child,
             (
                 wx.StaticText,
                 wx.CheckBox,
                 wx.RadioButton,
+                wx.RadioBox,
                 wx.StaticBox,
                 wx.Slider,
                 wx.Gauge,
+                wx.CollapsiblePane,
             ),
         ):
             # Semantic headings use the M3 title role; ordinary labels use
@@ -303,7 +308,10 @@ def apply_material3(window: wx.Window) -> None:
                     else wx.FONTWEIGHT_NORMAL,
                 )
             )
-            if isinstance(child, (wx.CheckBox, wx.RadioButton, wx.Slider)):
+            if isinstance(
+                child,
+                (wx.CheckBox, wx.RadioButton, wx.RadioBox, wx.Slider, wx.CollapsiblePane),
+            ):
                 child.SetMinSize(wx.Size(-1, _control_min_height(child)))
         elif isinstance(child, (wx.ListBox, wx.ListCtrl, wx.TreeCtrl)):
             child.SetFont(_font_for(child, 10))
@@ -316,7 +324,15 @@ def apply_material3(window: wx.Window) -> None:
             child.SetForegroundColour(palette["on_primary_container"])
             child.SetMinSize(wx.Size(max(child.GetBestSize().width, 88), _control_min_height(child)))
         elif isinstance(
-            child, (wx.TextCtrl, wx.ComboBox, wx.Choice, wx.SpinCtrl, wx.SpinCtrlDouble)
+            child,
+            (
+                wx.TextCtrl,
+                wx.SearchCtrl,
+                wx.ComboBox,
+                wx.Choice,
+                wx.SpinCtrl,
+                wx.SpinCtrlDouble,
+            ),
         ):
             child.SetFont(_font_for(child, 10))
             child.SetBackgroundColour(palette["surface_container"])
