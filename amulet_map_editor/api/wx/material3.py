@@ -96,7 +96,8 @@ def _font_for(
 def _control_min_height(window: wx.Window) -> int:
     """Resolve the touch target from the persisted M3 density choice."""
 
-    density = school_mode.presentation_preferences(preferences.load()).density
+    prefs = school_mode.presentation_preferences(preferences.load())
+    density = prefs.density
     target = {"compact": 36, "comfortable": 40, "spacious": 48}.get(
         density, 40
     )

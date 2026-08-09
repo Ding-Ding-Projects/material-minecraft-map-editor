@@ -49,4 +49,4 @@ labels visible while retaining the factual English copy.
 
 ## Content boundary
 
-The feature inventory links to the repository's source, Releases, Actions, wiki, issues, discussions, and contributing guide. It does not claim capabilities that cannot be verified from this repository. Update the inventory when a feature or supported platform changes.
+The feature inventory links to the repository's source, Releases, Actions, wiki, issues, discussions, and contributing guide. It documents the current Windows-only delivery inventory: the appearance editor, browser-style tabs, safe updater, offline documentation, local history, external editor, optional narrator, Squirrel packaging, and command palette. Update the inventory when a feature or supported platform changes.

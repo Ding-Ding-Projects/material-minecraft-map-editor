@@ -13,6 +13,18 @@
       ]
     },
     {
+      "slug": "appearance",
+      "title": "Appearance editor",
+      "markdown": "# Appearance editor\n\nThe native Preferences Appearance tab applies the persisted Material 3 theme,\ndensity, accent, UI scale, and selected installed font to the live wx surface.\nIt also exposes bounded HEX/RGB/HSL translation, a contrast readout, a live\ntype preview, named presets, per-property reset, and a global appearance reset.\n\n## Configuration and failure modes\n\nValues are versioned in the shared preferences profile and normalized on load.\nInvalid colors, scales, or font values fall back to shipped values without\nbreaking startup. Unsupported typography capabilities remain visible as\nplatform-limited rather than being silently discarded.\n\n## Security and accessibility\n\nThe editor accepts bounded local values only; it does not fetch fonts or colors\nfrom the network. Controls retain keyboard names, focus, contrast, and minimum\ntouch sizes. School mode removes inapplicable language and funny-level controls\nwhile preserving recoverable prior preferences.\n\n## Verification\n\nRun `python -m pytest -q tests/test_appearance_editor.py tests/test_appearance_presets.py tests/test_appearance_editor_ui_contract.py`.\nThe native wx surface additionally requires the Windows runtime capture path.\n\nSuggested articles: [scheduled settings](../scheduled-settings/README.md),\n[tab groups](../tab-groups/README.md), and\n[offline documentation](../offline-documentation/README.md).\n",
+      "source_path": "docs/features/appearance/README.md",
+      "sha256": "393b3fed17e17e1aa2ed776517fd8577a621166e07685bc897c22ea8e7aaeebf",
+      "links": [
+        "../scheduled-settings/README.md",
+        "../tab-groups/README.md",
+        "../offline-documentation/README.md"
+      ]
+    },
+    {
       "slug": "changelog",
       "title": "Changelog and offline documentation foundation",
       "markdown": "# Changelog and offline documentation foundation\n\n## Status and scope\n\nThe `amulet_map_editor.api.changelog` module is a wx-independent data\nfoundation used by the native `ChangelogDialog`. The desktop View menu and\n`Ctrl+Shift+F` command palette expose the browser with local filters and\nMarkdown export. The repository still makes no live wx screenshot claim.\n\nThe bundled `changelog_catalog.json` is generated from every release tag\nreachable from the source revision recorded in that file. Each release entry\nuses the tag name, tagged commit date, full commit SHA, and unedited Git commit\nsubject. The catalog therefore does not invent release prose or claim that a\ntag-tip subject is a complete set of historical release notes.\n\n## Behavior\n\n- `load_bundled_catalog()` validates schema version 1 and rejects unknown\n  fields, malformed dates, incomplete SHAs, duplicate versions, and invalid\n  repository links.\n- `filter_changelog()` composes inclusive start/end dates, action categories,\n  and text matching. Literal case-insensitive text is the default; a caller may\n  inject the project's bounded `RegexBuilder` matcher for explicit regex mode.\n- `available_actions()` derives the action-picker values and counts from the\n  loaded history instead of maintaining a drifting hard-coded picker.\n- `export_markdown()` exports the supplied view, so an already-filtered result\n  stays filtered. It retains versions, dates, full commit destinations, and the\n  catalog source revision.\n- `validate_commit_links()` accepts a resolver hook. Tests use local Git object\n  lookup; a future privileged application boundary may supply a bounded forge\n  resolver without putting network access in the presentation layer.\n- `ChangelogDialog` presents the catalog offline, accepts plain text or explicit\n  bounded regex search, parses ISO start/end dates, reports invalid filters\n  inline, and exports the current filtered view through a native file picker.\n\n## Regenerating the catalog\n\nFrom the repository root, run:\n\n```powershell\npy -3 scripts/generate_changelog.py\n```\n\nThe generator walks reachable tags, peels annotated tags to commits, preserves\ntheir subjects unchanged, and writes deterministic UTF-8 JSON. Its action\ncategories are intentionally mechanical and documented:\n\n- subjects beginning with add/enable/implement/introduce map to `added`;\n- fix/repair/correct map to `fixed`;\n- remove/delete/drop/disable map to `removed`; and\n- every other subject maps to the neutral `changed` category.\n\nThe original subject remains the displayed and exported fact. The category is\nonly a filter hook.\n\n## Failure modes\n\n- A new reachable tag makes the completeness test fail until the catalog is\n  regenerated and reviewed.\n- A missing or non-commit object makes commit-link validation fail.\n- A newer schema fails closed with `UnsupportedChangelogVersion`; it is not\n  silently interpreted as schema 1.\n- Invalid date ranges, unknown fields, invalid SHAs, and oversized query or\n  summary values raise `ChangelogValidationError`.\n- An empty filtered view exports an explicit no-match statement rather than an\n  empty document that could be mistaken for a loading failure.\n\n## Security and privacy\n\nCatalog loading and filtering are local and wx-independent. The module performs\nno network requests, executes no Git commands, and writes no user data. The\ngenerator is a maintainer tool and invokes Git with argument arrays rather than\na shell. Markdown export escapes Git-authored text before rendering it and\nconstructs commit links only from validated HTTPS GitHub repository URLs and\nfull lowercase SHAs.\n\n## Verification\n\nRun the focused suite:\n\n```powershell\npy -3 -m unittest -v tests.test_changelog\n```\n\nIt checks reachable-tag completeness, local commit-object resolution, composed\ndate/action/text filters, bounded regex integration, derived action counts,\nMarkdown export, explicit empty results, and strict schema rejection. These are\nsource and unit-test claims only; no wx runtime or screenshot claim is made.\n\n## Suggested articles\n\n- [Scheduled settings](../scheduled-settings/README.md) — another versioned,\n  wx-independent model with strict validation and deterministic precedence.\n- [Project documentation](../../../amulet_map_editor/readme.md) — current\n  desktop workflows and safety guidance.\n- [Modernization roadmap](../../../ROADMAP.md) — distinguishes implemented\n  foundations from presentation and runtime work still pending.\n",
@@ -22,6 +34,18 @@
         "../scheduled-settings/README.md",
         "../../../amulet_map_editor/readme.md",
         "../../../ROADMAP.md"
+      ]
+    },
+    {
+      "slug": "command-palette",
+      "title": "Command palette",
+      "markdown": "# Command palette\n\nPress `Ctrl+Shift+F` on Windows to open the native command palette. Results\ncover commands, feature destinations, settings, appearance controls, and\ndocumentation articles. Selecting a result opens its owning surface, selects\nthe relevant tab or group, reveals the target, focuses it, and preserves the\nrest of the user's state.\n\n## Search and failure modes\n\nPlain text is the default. The attached regex builder supports bounded Python\n`re` patterns, flags, samples, validation, and capture feedback. Invalid or\noversized patterns fail locally with an actionable message and never freeze the\nUI. An empty result is explicit rather than a blank panel.\n\n## Accessibility and security\n\nThe palette is keyboard navigable with roving selection, visible focus, and\nscreen-reader listbox roles. Search values remain local to the process and are\nnot transmitted or persisted as telemetry. School mode removes inapplicable\ndestinations from the result set.\n\n## Verification\n\nRun `python -m pytest -q tests/test_preferences.py tests/test_docs_browser_ui_contract.py`.\nRuntime shortcut proof requires the hidden-desktop Windows route because the\nlocal host may not have wx installed.\n\nSuggested articles: [offline documentation](../offline-documentation/README.md),\n[tab groups](../tab-groups/README.md), and\n[appearance editor](../appearance/README.md).\n",
+      "source_path": "docs/features/command-palette/README.md",
+      "sha256": "2f144e13e03e1cc1f6f4734635b74b6c89c586ad6d8201b6120c645107be575c",
+      "links": [
+        "../offline-documentation/README.md",
+        "../tab-groups/README.md",
+        "../appearance/README.md"
       ]
     },
     {
@@ -120,6 +144,18 @@
         "../notification-centre/README.md",
         "../scheduled-settings/README.md",
         "../school-mode/README.md"
+      ]
+    },
+    {
+      "slug": "updater",
+      "title": "Unsigned Squirrel updates",
+      "markdown": "# Unsigned Squirrel updates\n\nThe Windows app checks an allowlisted HTTPS Squirrel feed after startup and on\na bounded six-hour timer. A non-blocking banner reports available, ready,\nfailed, and current states. Staging validates feed metadata and package hashes;\ninstallation occurs only after the user chooses **Restart to install update**.\n**Later** hides the banner without discarding the staged state.\n\n## Configuration and failure modes\n\nThe feed defaults to the project's immutable release-download route. Invalid\nURLs, offline responses, malformed metadata, hash mismatches, cancellation, or\nunsaved work produce a recoverable failed state and never interrupt active\nediting. The app never invokes a signer and every published Windows artifact is\nexplicitly unsigned.\n\n## Security and accessibility\n\nHosts are allowlisted, redirects and embedded credentials are rejected, and\npackage hashes are checked before staging. Restart preserves unsaved-work\nprotection and focus. The banner is keyboard reachable, localized, persistent\nuntil dismissed, and records deduplicated history entries.\n\n## Verification\n\nRun `python -m pytest -q tests/test_updater_banner_contract.py tests/api/framework/test_squirrel_update.py tests/api/framework/test_update_copy.py`.\nHosted proof is the Windows workflow's Squirrel artifact and unsigned-signature\ncontract, not a static source check.\n\nSuggested articles: [local history](../local-history/README.md),\n[notification centre](../notification-centre/README.md), and\n[offline documentation](../offline-documentation/README.md).\n",
+      "source_path": "docs/features/updater/README.md",
+      "sha256": "21709ff5bd19ef66105f3cc9e1c3877a377e9d6a89227dd31b4c4b47c5c377fd",
+      "links": [
+        "../local-history/README.md",
+        "../notification-centre/README.md",
+        "../offline-documentation/README.md"
       ]
     }
   ]

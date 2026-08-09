@@ -10,6 +10,7 @@ from amulet_map_editor.api import config
 from amulet_map_editor import __version__
 from .warning_dialog import WarningDialog
 from .licence_dialog import LicenceDialog
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 # Disable OpenGL_accelerate logging
 logging.getLogger("OpenGL.acceleratesupport").setLevel(logging.CRITICAL)
@@ -48,6 +49,11 @@ class AmuletApp(wx.App):
     _amulet_ui: amulet_ui.AmuletUI
 
     def OnInit(self):
+        # Theme every subsequently-created dialog and tool window, not only
+        # the shell that happens to exist during startup.  wx creates many
+        # editor surfaces lazily, so a one-time frame pass would leave a
+        # visibly mixed legacy/M3 application.
+        self.Bind(wx.EVT_WINDOW_CREATE, self._on_window_create)
         for i in range(wx.Display.GetCount()):
             display = wx.Display(i)
             log.debug(f"Display {i} {display.GetGeometry()}")
@@ -106,6 +112,14 @@ class AmuletApp(wx.App):
         wx.CallLater(0, self._amulet_ui.begin_startup_dim_sum_surprise)
 
         return True
+
+    def _on_window_create(self, event: wx.WindowCreateEvent) -> None:
+        """Apply the shared M3 tree theme to every native surface."""
+
+        window = event.GetWindow()
+        if window is not None and not getattr(window, "_material3_opt_out", False):
+            wx.CallAfter(apply_material3, window)
+        event.Skip()
 
     def InitLocale(self):
         # https://discuss.wxpython.org/t/what-is-wxpython-doing-to-the-locale-to-makes-pandas-crash/34606/18
