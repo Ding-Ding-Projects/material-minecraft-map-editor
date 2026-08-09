@@ -15,6 +15,12 @@ No GitHub Pages workflow is used; the Nginx container and static-copy contract
 are the canonical publication routes. The release button intentionally
 opens the install guide until a verified immutable installer URL exists.
 
+The `Material 3 site` workflow validates `index.html` and `app.js` on every
+branch push and manual dispatch, then publishes a Docker image artifact for an
+owner-controlled host. The artifact is a transport package, not proof that a
+public hostname has been configured; this repository makes no live-host claim
+until an owner supplies and verifies that endpoint.
+
 ## Content boundary
 
 The feature inventory links to the repository's source, Releases, Actions, wiki, issues, discussions, and contributing guide. It does not claim capabilities that cannot be verified from this repository. Update the inventory when a feature or supported platform changes.
