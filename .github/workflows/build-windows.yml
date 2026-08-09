@@ -105,7 +105,7 @@ jobs:
       uses: actions/upload-artifact@v6
       with:
         name: Amulet-${{ env.BUILD_VERSION }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
-        path: ./installer/dist/squirrel
+        path: ./installer/dist/squirrel/Amulet-${{ env.BUILD_VERSION }}-Windows-${{ matrix.cfg.architecture }}
 
   publish:
     name: Publish unsigned Squirrel release
