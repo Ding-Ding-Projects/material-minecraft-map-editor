@@ -14,6 +14,7 @@ from amulet_map_editor.api import config
 NOTIFICATIONS_ID = "notification_history"
 MAX_NOTIFICATIONS = 200
 MAX_TEXT_LENGTH = 600
+MAX_DETAILS_LENGTH = 262_144
 SEVERITIES = ("info", "success", "progress", "warning", "error")
 
 
@@ -24,6 +25,7 @@ class Notification:
     severity: str
     title: str
     body: str
+    details: str = ""
     dismissed: bool = False
 
 
@@ -33,6 +35,21 @@ def _text(value: Any, field: str) -> str:
     value = value.strip()
     if not value or len(value) > MAX_TEXT_LENGTH or any(ord(c) < 32 for c in value):
         raise ValueError(f"{field} must be 1-{MAX_TEXT_LENGTH} printable characters")
+    return value
+
+
+def _details(value: Any) -> str:
+    """Validate multiline technical details without flattening their facts."""
+
+    if value in (None, ""):
+        return ""
+    if not isinstance(value, str):
+        raise ValueError("details must be text")
+    value = value.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if len(value) > MAX_DETAILS_LENGTH:
+        raise ValueError(f"details must be at most {MAX_DETAILS_LENGTH} characters")
+    if any(ord(character) < 32 and character not in "\n\t" for character in value):
+        raise ValueError("details contain unsupported control characters")
     return value
 
 
@@ -46,6 +63,7 @@ def _coerce(value: Any) -> Notification | None:
             severity=value.get("severity"),
             title=_text(value.get("title"), "title"),
             body=_text(value.get("body"), "body"),
+            details=_details(value.get("details", "")),
             dismissed=bool(value.get("dismissed", False)),
         )
     except ValueError:
@@ -71,7 +89,7 @@ def _save(values: Sequence[Notification]) -> List[Notification]:
     return bounded
 
 
-def add(severity: str, title: str, body: str) -> Notification:
+def add(severity: str, title: str, body: str, *, details: str = "") -> Notification:
     if severity not in SEVERITIES:
         raise ValueError(f"severity must be one of {SEVERITIES}")
     item = Notification(
@@ -80,13 +98,18 @@ def add(severity: str, title: str, body: str) -> Notification:
         severity=severity,
         title=_text(title, "title"),
         body=_text(body, "body"),
+        details=_details(details),
     )
     _save([*list_notifications(), item])
     return item
 
 
 def search(
-    query: str = "", *, regex: bool = False, flags: int = 0, include_dismissed: bool = True
+    query: str = "",
+    *,
+    regex: bool = False,
+    flags: int = 0,
+    include_dismissed: bool = True,
 ) -> List[Notification]:
     query = _text(query, "query") if query else ""
     try:
@@ -143,5 +166,27 @@ def export_markdown(values: Sequence[Notification] | None = None) -> str:
         body = item.body.replace("|", "\\|")
         lines.append(
             f"| {item.created_at} | {item.severity} | {title} | {body} | {state} |"
+        )
+    for item in selected:
+        if not item.details:
+            continue
+        summary = (
+            item.title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        )
+        longest_run = max(
+            (len(run) for run in re.findall(r"`+", item.details)), default=0
+        )
+        fence = "`" * max(3, longest_run + 1)
+        lines.extend(
+            (
+                "",
+                f"<details><summary>Technical details — {summary}</summary>",
+                "",
+                f"{fence}text",
+                item.details,
+                fence,
+                "",
+                "</details>",
+            )
         )
     return "\n".join(lines) + "\n"

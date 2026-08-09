@@ -16,7 +16,7 @@ from amulet_map_editor import lang
 from amulet_map_editor.api.framework.programs import BaseProgram
 from amulet_map_editor.api.datatypes import MenuData
 from amulet_map_editor.api.wx.util.key_config import KeyConfigDialog
-from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.nonblocking import notify_exception
 from amulet_map_editor.api.wx.ui.simple import SimpleDialog
 from amulet_map_editor.programs.edit.api.canvas.edit_canvas import EditCanvas
 from amulet_map_editor.programs.edit.api.key_config import (
@@ -101,14 +101,12 @@ class EditExtension(wx.Panel, BaseProgram):
         self.Layout()
 
     def _display_error(self, msg, tb):
-        with TracebackDialog(
+        notify_exception(
             self,
             "Exception while setting up canvas",
             msg,
             tb,
-        ) as dialog:
-            log.debug(f"Showing TracebackDialog at {dialog.GetRect()}")
-            dialog.ShowModal()
+        )
         self.Destroy()
 
     def _thread_setup(self):

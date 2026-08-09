@@ -35,8 +35,7 @@ from amulet.api.level import BaseLevel
 
 from amulet_map_editor import CONFIG
 from amulet_map_editor import close_level
-from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
-from amulet_map_editor.api.wx.nonblocking import notify
+from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
 from amulet_map_editor.programs.edit.api.ui.goto import show_goto
 from amulet_map_editor.programs.edit.api.ui.tool_manager import ToolManagerSizer
 from amulet_map_editor.programs.edit.api.operations.errors import (
@@ -307,14 +306,12 @@ class EditCanvas(BaseEditCanvas):
                         )
                     )
                     log.error(tb)
-                    with TracebackDialog(
+                    notify_exception(
                         self,
                         "Exception while running operation",
                         str(op.error),
                         tb,
-                    ) as dialog:
-                        log.debug(f"Showing TracebackDialog at {dialog.GetRect()}")
-                        dialog.ShowModal()
+                    )
                     self.world.restore_last_undo_point()
 
             self.renderer.enable_threads()

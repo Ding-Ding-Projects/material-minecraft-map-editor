@@ -7,6 +7,7 @@ import wx.adv
 from amulet_map_editor.api import image, lang, preferences
 from amulet_map_editor.api.wx.components import MaterialButton, MaterialCard
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.modeless import show_modeless_dialog
 from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from .base_page import BasePageUI
 from amulet_map_editor.api.wx.ui.select_world import open_level_from_dialog
@@ -127,9 +128,7 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
 
     def _documentation(self, _event):
         # Keep the user manual available offline and inside the app's own M3 UI.
-        with DocumentationDialog(self) as dialog:
-            dialog.CentreOnParent()
-            dialog.ShowModal()
+        show_modeless_dialog(self, "documentation", DocumentationDialog)
 
     @staticmethod
     def _bugs(_):
@@ -153,10 +152,7 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         self._load_strings()
 
     def _show_licences(self, evt) -> None:
-        with LicenceDialog(self) as dlg:
-            dlg.CentreOnScreen()
-            log.debug(f"Showing LicenceDialog at {dlg.GetRect()}")
-            dlg.ShowModal()
+        show_modeless_dialog(self, "third-party-licences", LicenceDialog)
 
 
 class LangSelectDialog(wx.Dialog):

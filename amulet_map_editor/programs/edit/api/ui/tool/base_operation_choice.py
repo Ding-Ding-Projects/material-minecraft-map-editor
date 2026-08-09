@@ -9,7 +9,7 @@ import subprocess
 
 from amulet_map_editor.api import image
 from amulet_map_editor.api.wx.ui.simple import SimpleChoiceAny
-from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.nonblocking import notify_exception
 
 from amulet_map_editor.programs.edit.api.operations import OperationUIType
 from amulet_map_editor.programs.edit.api.operations.manager import UIOperationManager
@@ -137,14 +137,12 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
                         if window.GetContainingSizer() is None:
                             window.Destroy()
                     log.error("Error loading Operation UI.", exc_info=True)
-                    with TracebackDialog(
+                    notify_exception(
                         self.canvas,
                         "Error loading Operation UI.",
                         str(e),
                         traceback.format_exc(),
-                    ) as dialog:
-                        log.debug(f"Showing TracebackDialog at {dialog.GetRect()}")
-                        dialog.ShowModal()
+                    )
                 finally:
                     self._last_active_operation_id = operation.identifier
             finally:

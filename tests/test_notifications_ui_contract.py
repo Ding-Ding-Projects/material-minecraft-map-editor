@@ -31,3 +31,17 @@ def test_notification_history_supports_multi_select_bulk_dismissal():
     assert '_copy("select_all"' in source
     assert '_copy("invert_selection"' in source
     assert "_list_key_down" in source
+
+
+def test_notification_history_exposes_complete_technical_details_and_copy():
+    source = (ROOT / "amulet_map_editor/api/wx/ui/notifications.py").read_text(
+        encoding="utf-8"
+    )
+    for marker in (
+        'name="Notification technical details"',
+        "item.details",
+        "self.copy_details.Enable(bool(details))",
+        "wx.TheClipboard.SetData(wx.TextDataObject(value))",
+        '_copy("copy_details", self._language_mode)',
+    ):
+        assert marker in source

@@ -14,9 +14,8 @@ from amulet.api.errors import FormatError
 
 from amulet_map_editor import lang, CONFIG
 from amulet_map_editor.api.wx.ui import simple
-from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
-from amulet_map_editor.api.wx.nonblocking import notify
+from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.framework import app
 
@@ -479,14 +478,12 @@ class WorldSelectUI(wx.Panel):
             zipfile.ZipFile(mcworld_path).extractall(extract_dir)
         except Exception as e:
             del busy_msg
-            with TracebackDialog(
+            notify_exception(
                 self,
                 lang.get("select_world.extracting_world_failed"),
                 str(e),
                 traceback.format_exc(),
-            ) as dialog:
-                log.debug(f"Showing TracebackDialog at {dialog.GetRect()}")
-                dialog.ShowModal()
+            )
             return
         else:
             del busy_msg

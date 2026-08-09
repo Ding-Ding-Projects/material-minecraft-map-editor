@@ -133,7 +133,7 @@ def test_main_menu_user_manual_uses_the_bundled_offline_documentation_browser():
         "from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog"
         in source
     )
-    assert "with DocumentationDialog(self) as dialog:" in source
+    assert 'show_modeless_dialog(self, "documentation", DocumentationDialog)' in source
     assert (
         "github.com/Amulet-Team/Amulet-Map-Editor/blob/master/amulet_map_editor/readme.md"
         not in source

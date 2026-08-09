@@ -14,6 +14,7 @@ and verification evidence.
 - [Local history](local-history/README.md)
 - [Material application shell](material-shell/README.md)
 - [Notification centre](notification-centre/README.md)
+- [Non-blocking error reporting](non-blocking-error-reporting/README.md)
 - [Offline documentation](offline-documentation/README.md)
 - [Release code name](release-code-name/README.md)
 - [Release delivery contract](release-delivery/README.md)

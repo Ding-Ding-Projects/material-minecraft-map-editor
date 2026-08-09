@@ -44,7 +44,7 @@ import amulet_map_editor.programs.edit as amulet_edit
 from amulet_map_editor.api.opengl.camera import ControllableCamera
 from amulet_map_editor.api.wx.util.button_input import ButtonInput
 from amulet_map_editor.api.wx.util.mouse_movement import MouseMovement
-from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.nonblocking import notify_exception
 from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
 from ..renderer import Renderer
 
@@ -172,16 +172,12 @@ class BaseEditCanvas(EventCanvas):
                     def show_error():
                         nonlocal wait
                         try:
-                            with TracebackDialog(
+                            notify_exception(
                                 self,
                                 lang.get("program_3d_edit.canvas.java_rp_failed"),
                                 f"{msg}\n{e}",
                                 tb,
-                            ) as dialog:
-                                log.debug(
-                                    f"Showing TracebackDialog at {dialog.GetRect()}"
-                                )
-                                dialog.ShowModal()
+                            )
                         finally:
                             wait = False
 
@@ -189,11 +185,14 @@ class BaseEditCanvas(EventCanvas):
                     while wait:
                         time.sleep(0.1)
 
-                    if show_material_confirmation(
-                        self,
-                        lang.get("program_3d_edit.canvas.retry_download"),
-                        style=wx.YES_NO,
-                    ) == wx.ID_NO:
+                    if (
+                        show_material_confirmation(
+                            self,
+                            lang.get("program_3d_edit.canvas.retry_download"),
+                            style=wx.YES_NO,
+                        )
+                        == wx.ID_NO
+                    ):
                         break
 
             yield 0.5, lang.get("program_3d_edit.canvas.loading_resource_packs")
