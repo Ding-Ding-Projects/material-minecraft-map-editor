@@ -8,6 +8,7 @@ being modernized around a shared Material Design 3 foundation.
 - **Landing and docs:** [`docs/site/index.html`](docs/site/index.html)
 - **Windows packaging contract:** [`installer/PACKAGING.md`](installer/PACKAGING.md)
 - **CI:** [`.github/workflows/build-windows.yml`](.github/workflows/build-windows.yml)
+- **Scheduled settings contract:** [`docs/features/scheduled-settings/README.md`](docs/features/scheduled-settings/README.md)
 - **Development:** install the dependencies from `setup.cfg`, then run the
   project's existing test and packaging commands.
 
