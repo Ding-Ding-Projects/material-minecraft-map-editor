@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
   "baseUrl": "./",
-  "releaseManifest": "./release-manifest.json"
+  "releaseManifest": "./release-manifest.json",
+  "articles": "./articles.json"
 }

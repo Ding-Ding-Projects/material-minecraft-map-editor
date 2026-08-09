@@ -1,54 +1,812 @@
-const tabs=[...document.querySelectorAll('.nav-tab')];
-const pages=[...document.querySelectorAll('.page-section')];
-function showTab(name){tabs.forEach(t=>{const active=t.dataset.tab===name;t.classList.toggle('is-active',active);t.setAttribute('aria-selected',String(active));t.tabIndex=active?0:-1});pages.forEach(p=>{const active=p.dataset.page===name;p.hidden=!active;p.classList.toggle('is-visible',active)});history.replaceState(null,'',`#${name}`);document.querySelector(`#${name}`)?.focus({preventScroll:true})}
-tabs.forEach(tab=>tab.addEventListener('click',()=>showTab(tab.dataset.tab)));
-tabs.forEach((tab,index)=>tab.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let next=index;if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;if(event.key==='ArrowRight')next=(index+1)%tabs.length;if(event.key==='Home')next=0;if(event.key==='End')next=tabs.length-1;tabs[next].focus();showTab(tabs[next].dataset.tab)}));
-document.querySelectorAll('[data-tab-link]').forEach(link=>link.addEventListener('click',()=>showTab(link.dataset.tabLink)));
-const initial=location.hash.slice(1);if(tabs.some(t=>t.dataset.tab===initial))showTab(initial);
-function safePublicationUrl(value,releaseTag,assetName){try{const url=new URL(value);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)return null;if(!url.pathname.endsWith('/'+assetName)||!url.pathname.includes('/download/'+releaseTag+'/'))return null;return url.href}catch(_error){return null}}
-function verifiedManifest(manifest){if(manifest?.schemaVersion!==1||manifest.verified!==true||!/^[0-9a-f]{40}$/i.test(String(manifest.commit||'')))return false;const tag=String(manifest.releaseTag||'');if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(tag))return false;return ['Setup.exe','RELEASES','full.nupkg'].every(key=>{const asset=manifest.assets?.[key];if(!asset||typeof asset.sha256!=='string'||!/^[0-9a-f]{64}$/i.test(asset.sha256))return false;const name=key==='full.nupkg'?String(asset.name||''):key;return key==='full.nupkg'?name.endsWith('-full.nupkg')&&safePublicationUrl(asset.url,tag,name)!==null:asset.name===key&&safePublicationUrl(asset.url,tag,key)!==null})}
-async function loadPublicationManifest(){const releaseDownload=document.querySelector('#release-download');const releaseEyebrow=document.querySelector('#release-eyebrow');const releaseTitle=document.querySelector('#release-title');const releaseCopy=document.querySelector('#release-copy');try{const configResponse=await fetch(new URL('site-config.json',document.baseURI),{cache:'no-store'});if(!configResponse.ok)throw new Error('site config unavailable');const config=await configResponse.json();const base=new URL(config.baseUrl||'./',document.baseURI);document.documentElement.dataset.baseUrl=base.href;const manifestUrl=new URL(config.releaseManifest||'./release-manifest.json',base);const response=await fetch(manifestUrl,{cache:'no-store'});if(!response.ok)throw new Error('release manifest unavailable');const manifest=await response.json();if(!verifiedManifest(manifest))throw new Error('release assets are not verified');const tag=String(manifest.releaseTag||'');const asset=manifest.assets['Setup.exe'];const url=safePublicationUrl(asset.url,tag,'Setup.exe');if(!url)throw new Error('immutable Setup.exe asset is not verified');releaseEyebrow&&(releaseEyebrow.textContent=`VERIFIED WINDOWS BUILD · ${tag}`);releaseTitle&&(releaseTitle.textContent=localized('release',settings.language?.value||'english'));releaseCopy&&(releaseCopy.textContent='This immutable unsigned Squirrel.Windows asset is backed by the verified release manifest. The operating system may show an unknown-publisher warning because signing is intentionally disabled.');if(releaseDownload){releaseDownload.hidden=false;releaseDownload.href=url;releaseDownload.removeAttribute('data-tab-link');releaseDownload.target='_blank';releaseDownload.rel='noreferrer';releaseDownload.textContent='Download Setup.exe · Windows x64 ↗'}}catch(_error){if(releaseDownload)releaseDownload.hidden=true}}
-loadPublicationManifest();
-const search=document.querySelector('#feature-search');const cards=[...document.querySelectorAll('.feature-card')];const empty=document.querySelector('#feature-empty');const regexToggle=document.querySelector('#feature-regex');const pattern=document.querySelector('#feature-pattern');const flags=document.querySelector('#feature-flags');const sample=document.querySelector('#feature-sample');const feedback=document.querySelector('#regex-feedback');const captures=document.querySelector('#regex-captures');
-function escaped(value){return String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
-function safeRegExp(raw,sourceFlags='i'){const value=String(raw||'');if(value.length>256)throw new Error('Pattern is limited to 256 characters');if(!/^[dgimsuvy]*$/.test(sourceFlags))throw new Error('Unsupported regular-expression flag');if(/\([^()]*[+*][^()]*\)[+*{]/.test(value))throw new Error('Nested quantifiers are disabled');return new RegExp(value||'(?!)',sourceFlags)}
-function buildMatcher(raw,regex,sourceFlags='i'){const value=String(raw||'');if(value.length>256)throw new Error('Pattern is limited to 256 characters');return safeRegExp(regex?value:escaped(value),sourceFlags)}
-function buildFeatureMatcher(){const regex=Boolean(regexToggle?.checked);const raw=(regex?pattern?.value:search?.value)||'';return {raw,matcher:buildMatcher(raw,regex,regex?(flags?.value||'i'):'i')}}
-function filterFeatures(){let query;try{query=buildFeatureMatcher();if(feedback)feedback.textContent=regexToggle?.checked?'Valid JavaScript regular expression':'Plain-text mode';if(captures){const sampleValue=sample?.value||'';const match=query.raw?query.matcher.exec(sampleValue):null;captures.textContent=match?.length>1?`Captures: ${match.slice(1).join(' · ')}`:'No capture groups in sample'}}catch(error){if(feedback)feedback.textContent='Invalid pattern: '+error.message;captures&&(captures.textContent='');cards.forEach(card=>card.hidden=true);if(empty)empty.hidden=false;return}let count=0;cards.forEach(card=>{query.matcher.lastIndex=0;const match=!query.raw||query.matcher.test(card.dataset.search+' '+card.textContent);card.hidden=!match;if(match)count++});if(empty)empty.hidden=count!==0}
-search?.addEventListener('input',()=>{if(regexToggle&&!regexToggle.checked)pattern.value=search.value;filterFeatures()});regexToggle?.addEventListener('change',()=>{pattern.value=search.value;filterFeatures()});pattern?.addEventListener('input',filterFeatures);flags?.addEventListener('change',filterFeatures);sample?.addEventListener('input',filterFeatures);
-document.addEventListener('keydown',e=>{const active=document.activeElement;const typing=active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName);if(e.key==='/'&&!typing){e.preventDefault();showTab('features');search?.focus()}if(e.key==='Escape'&&document.activeElement===search){search.value='';search.dispatchEvent(new Event('input'));search.blur()}});
+import {
+  applyThemeRoles,
+  contrastRatio,
+  hexRgb,
+  hslRgb,
+  normaliseHex,
+  rgbHex,
+  rgbHsl,
+} from './theme.mjs';
 
-const settings={language:document.querySelector('#site-language'),funnyEn:document.querySelector('#funny-en'),funnyYue:document.querySelector('#funny-yue'),theme:document.querySelector('#site-theme'),density:document.querySelector('#site-density'),accent:document.querySelector('#site-accent'),accentHex:document.querySelector('#site-accent-hex'),accentRgb:document.querySelector('#site-accent-rgb'),accentHsl:document.querySelector('#site-accent-hsl'),accentHue:document.querySelector('#site-accent-hue'),font:document.querySelector('#site-font'),scale:document.querySelector('#site-scale')};
-const settingsKey='amulet-site-settings-v1';
-const languageCopy={
-  english:{home:'Home',features:'Features',guides:'Guides',community:'Community',settings:'Settings',source:'View source ↗',install:'Open the install guide',explore:'Explore features →',release:'Install the unsigned Squirrel package',close:'Close',reset:'Reset site settings'},
-  cantonese:{home:'首頁',features:'功能',guides:'指南',community:'社群',settings:'設定',source:'睇原始碼 ↗',install:'開啟安裝指南',explore:'探索功能 →',release:'安裝未簽署 Squirrel 套件',close:'關閉',reset:'重設網站設定'}
+const query = (selector, root = document) => root.querySelector(selector);
+const queryAll = (selector, root = document) => [...root.querySelectorAll(selector)];
+const tabs = queryAll('.nav-tab');
+const pages = queryAll('.page-section');
+
+function showTab(name, { updateHash = true, focus = true } = {}) {
+  if (!tabs.some((tab) => tab.dataset.tab === name)) return;
+  tabs.forEach((tab) => {
+    const active = tab.dataset.tab === name;
+    tab.classList.toggle('is-active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  pages.forEach((page) => {
+    const active = page.dataset.page === name;
+    page.hidden = !active;
+    page.classList.toggle('is-visible', active);
+  });
+  if (updateHash) history.replaceState(null, '', `#${name}`);
+  if (focus) query(`#${CSS.escape(name)}`)?.focus({ preventScroll: true });
+}
+
+tabs.forEach((tab, index) => {
+  tab.addEventListener('click', () => showTab(tab.dataset.tab));
+  tab.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    let next = index;
+    if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+    if (event.key === 'Home') next = 0;
+    if (event.key === 'End') next = tabs.length - 1;
+    tabs[next].focus();
+    showTab(tabs[next].dataset.tab, { focus: false });
+  });
+});
+
+queryAll('[data-tab-link]').forEach((control) => {
+  control.addEventListener('click', (event) => {
+    if (!control.dataset.tabLink) return;
+    event.preventDefault();
+    showTab(control.dataset.tabLink);
+  });
+});
+
+function safePublicationUrl(value, releaseTag, assetName) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return null;
+    if (!url.pathname.endsWith(`/${assetName}`) || !url.pathname.includes(`/download/${releaseTag}/`)) return null;
+    return url.href;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function verifiedManifest(manifest) {
+  if (manifest?.schemaVersion !== 1 || manifest.verified !== true || !/^[0-9a-f]{40}$/i.test(String(manifest.commit || ''))) return false;
+  const tag = String(manifest.releaseTag || '');
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(tag)) return false;
+  return ['Setup.exe', 'RELEASES', 'full.nupkg'].every((key) => {
+    const asset = manifest.assets?.[key];
+    if (!asset || typeof asset.sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(asset.sha256)) return false;
+    if (!Number.isSafeInteger(asset.bytes) || asset.bytes <= 0) return false;
+    const name = key === 'full.nupkg' ? String(asset.name || '') : key;
+    if (key === 'full.nupkg') return name.endsWith('-full.nupkg') && safePublicationUrl(asset.url, tag, name) !== null;
+    return asset.name === key && safePublicationUrl(asset.url, tag, key) !== null;
+  });
+}
+
+async function loadSiteConfig() {
+  const response = await fetch(new URL('site-config.json', document.baseURI), { cache: 'no-store' });
+  if (!response.ok) throw new Error('Site configuration is unavailable');
+  const config = await response.json();
+  if (config?.schemaVersion !== 1) throw new Error('Unsupported site configuration');
+  const base = new URL(config.baseUrl || './', document.baseURI);
+  document.documentElement.dataset.baseUrl = base.href;
+  return { ...config, base };
+}
+
+async function loadPublicationManifest(config) {
+  const releaseDownload = query('#release-download');
+  try {
+    const manifestUrl = new URL(config.releaseManifest || './release-manifest.json', config.base);
+    const response = await fetch(manifestUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Release manifest is unavailable');
+    const manifest = await response.json();
+    if (!verifiedManifest(manifest)) throw new Error('Release assets are not verified');
+    const tag = String(manifest.releaseTag || '');
+    const asset = manifest.assets['Setup.exe'];
+    const url = safePublicationUrl(asset.url, tag, 'Setup.exe');
+    if (!url) throw new Error('Setup.exe is not immutable');
+    query('#release-eyebrow').textContent = `VERIFIED WINDOWS BUILD · ${tag}`;
+    query('#release-title').textContent = localized('release', settings.language?.value || 'english');
+    query('#release-copy').textContent = 'This immutable unsigned Squirrel.Windows installer is backed by the verified tag, commit, asset path, and SHA-256 release manifest. Windows may show an unknown-publisher warning because signing is intentionally disabled.';
+    releaseDownload.hidden = false;
+    releaseDownload.href = url;
+    releaseDownload.removeAttribute('data-tab-link');
+    releaseDownload.target = '_blank';
+    releaseDownload.rel = 'noreferrer';
+    releaseDownload.textContent = `Download Setup.exe · ${tag} · Windows x64 ↗`;
+  } catch (_error) {
+    releaseDownload.hidden = true;
+  }
+}
+
+function escaped(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function safeRegExp(raw, sourceFlags = 'i') {
+  const value = String(raw || '');
+  if (value.length > 256) throw new Error('Pattern is limited to 256 characters');
+  if (!/^[dgimsuvy]*$/.test(sourceFlags)) throw new Error('Unsupported regular-expression flag');
+  if (/\([^()]*[+*][^()]*\)[+*{]/.test(value)) throw new Error('Nested quantifiers are disabled');
+  return new RegExp(value || '(?!)', sourceFlags);
+}
+
+function buildMatcher(raw, regex, sourceFlags = 'i') {
+  const value = String(raw || '');
+  if (value.length > 256) throw new Error('Pattern is limited to 256 characters');
+  return safeRegExp(regex ? value : escaped(value), sourceFlags);
+}
+
+function wireSearch({ search, pattern, toggle, flags, feedback, records, text, empty }) {
+  const apply = () => {
+    const regex = Boolean(toggle?.checked);
+    const raw = (regex ? pattern?.value : search?.value) || '';
+    let matcher;
+    try {
+      matcher = buildMatcher(raw, regex, regex ? (flags?.value || 'i') : 'i');
+      if (feedback) feedback.textContent = regex ? 'Valid JavaScript regular expression' : 'Plain-text mode';
+    } catch (error) {
+      if (feedback) feedback.textContent = `Invalid pattern: ${error.message}`;
+      records().forEach((record) => { record.hidden = true; });
+      if (empty) empty.hidden = false;
+      return;
+    }
+    let count = 0;
+    records().forEach((record) => {
+      matcher.lastIndex = 0;
+      const match = !raw || matcher.test(text(record));
+      record.hidden = !match;
+      if (match) count += 1;
+    });
+    if (empty) empty.hidden = count !== 0;
+  };
+  search?.addEventListener('input', () => {
+    if (toggle && !toggle.checked) pattern.value = search.value;
+    apply();
+  });
+  toggle?.addEventListener('change', () => {
+    pattern.value = search.value;
+    apply();
+  });
+  pattern?.addEventListener('input', apply);
+  flags?.addEventListener('change', apply);
+  return apply;
+}
+
+const featureSearch = query('#feature-search');
+const featurePattern = query('#feature-pattern');
+const featureToggle = query('#feature-regex');
+const featureFlags = query('#feature-flags');
+const featureFeedback = query('#regex-feedback');
+const featureCaptures = query('#regex-captures');
+const featureSample = query('#feature-sample');
+const filterFeatures = wireSearch({
+  search: featureSearch,
+  pattern: featurePattern,
+  toggle: featureToggle,
+  flags: featureFlags,
+  feedback: featureFeedback,
+  records: () => queryAll('#feature-grid .feature-card'),
+  text: (card) => `${card.dataset.search || ''} ${card.textContent}`,
+  empty: query('#feature-empty'),
+});
+
+function updateFeatureSample() {
+  if (!featureCaptures) return;
+  try {
+    const raw = (featureToggle?.checked ? featurePattern?.value : featureSearch?.value) || '';
+    const matcher = buildMatcher(raw, Boolean(featureToggle?.checked), featureToggle?.checked ? featureFlags?.value : 'i');
+    const match = raw ? matcher.exec(featureSample?.value || '') : null;
+    featureCaptures.textContent = match?.length > 1 ? `Captures: ${match.slice(1).join(' · ')}` : 'No capture groups in sample';
+  } catch (_error) {
+    featureCaptures.textContent = '';
+  }
+}
+
+[featureSearch, featurePattern, featureToggle, featureFlags, featureSample].forEach((control) => control?.addEventListener('input', () => {
+  filterFeatures();
+  updateFeatureSample();
+}));
+
+const settings = {
+  language: query('#site-language'),
+  funnyEn: query('#funny-en'),
+  funnyYue: query('#funny-yue'),
+  theme: query('#site-theme'),
+  density: query('#site-density'),
+  accent: query('#site-accent'),
+  accentHex: query('#site-accent-hex'),
+  accentRgb: query('#site-accent-rgb'),
+  accentHsl: query('#site-accent-hsl'),
+  accentHue: query('#site-accent-hue'),
+  font: query('#site-font'),
+  scale: query('#site-scale'),
 };
-function localized(key,language){const en=languageCopy.english[key]||key;const yue=languageCopy.cantonese[key]||en;return language==='bilingual'?`${en} · ${yue}`:language==='cantonese'?yue:en}
-function applyLanguage(language){const mode=language==='cantonese'||language==='bilingual'?language:'english';document.documentElement.lang=mode==='cantonese'?'zh-Hant':'en';const keys=['home','features','guides','community','settings'];tabs.forEach(tab=>{const key=tab.dataset.tab;if(keys.includes(key))tab.textContent=localized(key,mode)});document.querySelector('.top-app-bar .button')?.replaceChildren(document.createTextNode(localized('source',mode)));document.querySelector('[data-tab-link="guides"]')?.replaceChildren(document.createTextNode(localized('install',mode)));document.querySelector('[data-tab-link="features"]')?.replaceChildren(document.createTextNode(localized('explore',mode)));document.querySelector('#release-title')?.replaceChildren(document.createTextNode(localized('release',mode)));document.querySelector('#reset-site-settings')?.replaceChildren(document.createTextNode(localized('reset',mode)));document.querySelector('#command-palette .button')?.replaceChildren(document.createTextNode(localized('close',mode)));document.querySelectorAll('.nav-tab').forEach(tab=>tab.setAttribute('aria-label',localized(tab.dataset.tab,mode)))}
-function normaliseHex(value){const candidate=String(value||'').trim();return /^#[0-9a-f]{6}$/i.test(candidate)?candidate.toLowerCase():null}
-function hexRgb(hex){const raw=hex.slice(1);return [0,2,4].map(index=>parseInt(raw.slice(index,index+2),16))}
-function rgbHex(rgb){return '#'+rgb.map(channel=>Math.max(0,Math.min(255,Math.round(channel))).toString(16).padStart(2,'0')).join('')}
-function rgbHsl(rgb){const values=rgb.map(channel=>channel/255);const max=Math.max(...values),min=Math.min(...values);const delta=max-min;let hue=0;const light=(max+min)/2;let saturation=0;if(delta){saturation=delta/(1-Math.abs(2*light-1));if(max===values[0])hue=60*(((values[1]-values[2])/delta)%6);else if(max===values[1])hue=60*((values[2]-values[0])/delta+2);else hue=60*((values[0]-values[1])/delta+4)}return [Math.round((hue+360)%360),Math.round(saturation*100),Math.round(light*100)]}
-function hslRgb(hsl){const [h,s,l]=[hsl[0]/360,hsl[1]/100,hsl[2]/100];const chroma=(1-Math.abs(2*l-1))*s;const x=chroma*(1-Math.abs((h*6)%2-1));const m=l-chroma/2;const sectors=h<1/6?[chroma,x,0]:h<2/6?[x,chroma,0]:h<3/6?[0,chroma,x]:h<4/6?[0,x,chroma]:h<5/6?[x,0,chroma]:[chroma,0,x];return sectors.map(channel=>(channel+m)*255)}
-function parseRgb(value){const match=String(value||'').match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);return match?match.slice(1,4).map(Number).every(channel=>channel<=255)?match.slice(1,4).map(Number):null:null}
-function parseHsl(value){const match=String(value||'').match(/^hsla?\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\s*\)$/i);return match?match.slice(1,4).map(Number).every((channel,index)=>channel<=(index?100:360))?match.slice(1,4).map(Number):null:null}
-function syncAccentFields(hex){const rgb=hexRgb(hex);const hsl=rgbHsl(rgb);if(settings.accent&&settings.accent.value!==hex)settings.accent.value=hex;if(settings.accentHex)settings.accentHex.value=hex;if(settings.accentRgb)settings.accentRgb.value=`rgb(${rgb.join(', ')})`;if(settings.accentHsl)settings.accentHsl.value=`hsl(${hsl[0]}, ${hsl[1]}%, ${hsl[2]}%)`;if(settings.accentHue)settings.accentHue.value=String(hsl[0]);document.querySelector('#site-accent-hue-value')?.replaceChildren(`${hsl[0]}°`)}
-function contrastRatio(hex){const raw=hex.slice(1);const channels=[0,2,4].map(index=>parseInt(raw.slice(index,index+2),16)/255).map(channel=>channel<=.03928?channel/12.92:((channel+.055)/1.055)**2.4);const luminance=.2126*channels[0]+.7152*channels[1]+.0722*channels[2];const surface=.96;return ((Math.max(luminance,surface)+.05)/(Math.min(luminance,surface)+.05)).toFixed(2)}
-function applySettings(){const accent=normaliseHex(settings.accentHex?.value)||normaliseHex(settings.accent?.value)||'#4d5f92';const value={language:settings.language?.value||'english',funnyEn:Number(settings.funnyEn?.value||1),funnyYue:Number(settings.funnyYue?.value||1),theme:settings.theme?.value||'light',density:settings.density?.value||'comfortable',accent,font:settings.font?.value||'system-ui',scale:Number(settings.scale?.value||100)};syncAccentFields(value.accent);document.documentElement.classList.toggle('dark',value.theme==='dark');document.documentElement.dataset.density=value.density;document.documentElement.style.setProperty('--primary',value.accent);document.documentElement.style.setProperty('--accent',value.accent);document.documentElement.style.setProperty('--ui-scale',String(value.scale/100));document.documentElement.style.setProperty('--site-font',value.font);document.querySelector('#accent-contrast')?.replaceChildren(`Contrast against surface: ${contrastRatio(value.accent)}:1`);document.querySelector('#site-scale-value')?.replaceChildren(`${value.scale}%`);document.querySelector('#funny-en-value')?.replaceChildren(String(value.funnyEn));document.querySelector('#funny-yue-value')?.replaceChildren(String(value.funnyYue));applyLanguage(value.language);const copy=document.querySelector('#settings-copy');if(copy){const en=value.funnyEn>=4?'Preferences apply immediately; the interface may now crack a tiny joke while keeping every fact exact.':'Preferences persist in this browser and apply immediately; facts and links stay exact.';const yue=value.funnyYue>=4?'設定即時生效，介面可以講少少笑話，但資料一樣準確。':'設定會保存在此瀏覽器並即時生效，資料同連結保持準確。';copy.textContent=value.language==='bilingual'?`${en} · ${yue}`:value.language==='cantonese'?yue:en}localStorage.setItem(settingsKey,JSON.stringify(value));return value}
-function loadSettings(){try{const saved=JSON.parse(localStorage.getItem(settingsKey)||'null');if(saved){for(const [key,control] of Object.entries(settings)){const value=saved[key];if(control&&value!==undefined)control.value=String(value)}}}catch(_error){}applySettings()}
-settings.accentHex?.addEventListener('input',()=>{if(normaliseHex(settings.accentHex.value))applySettings()});settings.accent?.addEventListener('input',()=>{applySettings()});settings.accentRgb?.addEventListener('change',()=>{const rgb=parseRgb(settings.accentRgb.value);if(rgb){settings.accentHex.value=rgbHex(rgb);applySettings()}});settings.accentHsl?.addEventListener('change',()=>{const hsl=parseHsl(settings.accentHsl.value);if(hsl){settings.accentHex.value=rgbHex(hslRgb(hsl));applySettings()}});settings.accentHue?.addEventListener('input',()=>{const current=rgbHsl(hexRgb(normaliseHex(settings.accentHex.value)||'#4d5f92'));current[0]=Number(settings.accentHue.value);settings.accentHex.value=rgbHex(hslRgb(current));applySettings()});Object.values(settings).forEach(control=>{if(control&&![settings.accent,settings.accentHex,settings.accentRgb,settings.accentHsl,settings.accentHue].includes(control))control.addEventListener('input',applySettings)});Object.values(settings).forEach(control=>control?.addEventListener('change',applySettings));document.querySelector('#reset-site-settings')?.addEventListener('click',()=>{Object.assign(settings.language,{value:'english'});Object.assign(settings.funnyEn,{value:'1'});Object.assign(settings.funnyYue,{value:'1'});Object.assign(settings.theme,{value:'light'});Object.assign(settings.density,{value:'comfortable'});Object.assign(settings.accent,{value:'#4d5f92'});Object.assign(settings.accentHex,{value:'#4d5f92'});Object.assign(settings.font,{value:'system-ui'});Object.assign(settings.scale,{value:'100'});applySettings()});loadSettings();
-const settingsSearch=document.querySelector('#settings-search');const settingsPattern=document.querySelector('#settings-pattern');const settingsToggle=document.querySelector('#settings-regex');const settingsFlags=document.querySelector('#settings-flags');const settingsFeedback=document.querySelector('#settings-feedback');const settingCards=[...document.querySelectorAll('.setting-card')];const settingsEmpty=document.querySelector('#settings-empty');
-function filterSettings(){const regex=Boolean(settingsToggle?.checked);const raw=(regex?settingsPattern?.value:settingsSearch?.value)||'';let matcher;try{matcher=buildMatcher(raw,regex,regex?(settingsFlags?.value||'i'):'i');if(settingsFeedback)settingsFeedback.textContent=regex?'Valid pattern':'Plain-text mode'}catch(error){if(settingsFeedback)settingsFeedback.textContent='Invalid pattern: '+error.message;settingCards.forEach(card=>card.hidden=true);if(settingsEmpty)settingsEmpty.hidden=false;return}let count=0;settingCards.forEach(card=>{matcher.lastIndex=0;const match=!raw||matcher.test(card.dataset.search+' '+card.textContent);card.hidden=!match;if(match)count++});if(settingsEmpty)settingsEmpty.hidden=count!==0}
-settingsSearch?.addEventListener('input',()=>{if(settingsToggle&&!settingsToggle.checked)settingsPattern.value=settingsSearch.value;filterSettings()});settingsToggle?.addEventListener('change',()=>{settingsPattern.value=settingsSearch.value;filterSettings()});settingsPattern?.addEventListener('input',filterSettings);settingsFlags?.addEventListener('change',filterSettings);
+const settingsKey = 'amulet-site-settings-v2';
+const languageCopy = {
+  english: {
+    home: 'Home', features: 'Features', docs: 'Documentation', guides: 'Guides', community: 'Community', settings: 'Settings',
+    source: 'View source ↗', install: 'Open the install guide', explore: 'Explore features →',
+    release: 'Install the verified unsigned Squirrel package', close: 'Close', reset: 'Reset site settings',
+    back: 'Back to all articles', suggested: 'Suggested articles',
+  },
+  cantonese: {
+    home: '首頁', features: '功能', docs: '說明文件', guides: '指南', community: '社群', settings: '設定',
+    source: '睇原始碼 ↗', install: '開啟安裝指南', explore: '探索功能 →',
+    release: '安裝已核實但未簽署嘅 Squirrel 套件', close: '關閉', reset: '重設網站設定',
+    back: '返回所有文章', suggested: '建議文章',
+  },
+};
 
-const palette=document.querySelector('#command-palette');const paletteSearch=document.querySelector('#palette-search');const palettePattern=document.querySelector('#palette-pattern');const paletteRegex=document.querySelector('#palette-regex');const paletteFlags=document.querySelector('#palette-flags');const paletteFeedback=document.querySelector('#palette-feedback');const paletteResults=document.querySelector('#palette-results');
-const paletteItems=[['Home','Open home page','home','#home'],['Features','Browse the complete feature inventory','features','#features'],['Guides','Open installation and workflow guides','guides','#guides'],['Community','Open community links','community','#community'],['Settings','Edit language, funny levels, theme, density, and accent','settings','#settings'],['Reset site settings','Restore persisted site preferences','settings','#reset-site-settings']];
-document.querySelectorAll('#feature-grid .feature-card').forEach((card,index)=>{const title=card.querySelector('h2')?.textContent?.trim()||`Feature ${index+1}`;paletteItems.push([title,card.querySelector('p')?.textContent?.trim()||'Open feature details','features',`#feature-grid .feature-card:nth-of-type(${index+1})`])});
-document.querySelectorAll('#settings-grid .setting-card').forEach((card,index)=>{const title=card.querySelector('span')?.textContent?.trim()||`Setting ${index+1}`;paletteItems.push([title,card.querySelector('.setting-help')?.textContent?.trim()||'Open setting','settings',`#settings-grid .setting-card:nth-of-type(${index+1})`])});
-let paletteActiveIndex=0;
-function renderPalette(){const regex=Boolean(paletteRegex?.checked);const raw=(regex?palettePattern?.value:paletteSearch?.value)||'';let matcher;try{matcher=buildMatcher(raw,regex,regex?(paletteFlags?.value||'i'):'i');if(paletteFeedback)paletteFeedback.textContent=regex?'Valid pattern':'Plain-text mode'}catch(error){if(paletteFeedback)paletteFeedback.textContent='Invalid pattern: '+error.message;paletteResults.replaceChildren();return}const matches=paletteItems.filter(item=>{matcher.lastIndex=0;return !raw||matcher.test(item[0]+' '+item[1])});paletteActiveIndex=Math.min(paletteActiveIndex,Math.max(0,matches.length-1));const buttons=matches.map((item,index)=>{const button=document.createElement('button');button.type='button';button.id=`palette-result-${index}`;button.className='palette-result';button.setAttribute('role','option');button.setAttribute('aria-selected',String(index===paletteActiveIndex));const text=document.createElement('span');const strong=document.createElement('strong');strong.textContent=item[0];const small=document.createElement('small');small.textContent=item[1];text.append(strong,document.createElement('br'),small);button.append(text);button.insertAdjacentText('beforeend','↗');button.addEventListener('click',()=>{if(item[0]==='Reset site settings')document.querySelector('#reset-site-settings')?.click();showTab(item[2]);const target=document.querySelector(item[3]);target?.scrollIntoView({block:'center'});target?.focus({preventScroll:true});palette.close()});return button});paletteResults.replaceChildren(...buttons);paletteResults.setAttribute('aria-activedescendant',buttons[paletteActiveIndex]?.id||'')}
-function openPalette(){if(!palette)return;palette.showModal();renderPalette();paletteSearch?.focus()}
-paletteSearch?.addEventListener('input',()=>{if(paletteRegex&&!paletteRegex.checked)palettePattern.value=paletteSearch.value;renderPalette()});paletteRegex?.addEventListener('change',()=>{palettePattern.value=paletteSearch.value;renderPalette()});palettePattern?.addEventListener('input',renderPalette);paletteFlags?.addEventListener('change',renderPalette);
-paletteSearch?.addEventListener('keydown',event=>{const buttons=[...paletteResults.querySelectorAll('.palette-result')];if(!buttons.length)return;if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();if(event.key==='ArrowDown')paletteActiveIndex=(paletteActiveIndex+1)%buttons.length;if(event.key==='ArrowUp')paletteActiveIndex=(paletteActiveIndex+buttons.length-1)%buttons.length;if(event.key==='Home')paletteActiveIndex=0;if(event.key==='End')paletteActiveIndex=buttons.length-1;renderPalette();paletteResults.querySelectorAll('.palette-result')[paletteActiveIndex]?.scrollIntoView({block:'nearest'});}if(event.key==='Enter'){event.preventDefault();buttons[paletteActiveIndex]?.click()}});
-document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='f'){e.preventDefault();openPalette()}});
+function localized(key, language) {
+  const english = languageCopy.english[key] || key;
+  const cantonese = languageCopy.cantonese[key] || english;
+  if (language === 'bilingual') return `${english} · ${cantonese}`;
+  return language === 'cantonese' ? cantonese : english;
+}
+
+function applyLanguage(language) {
+  const mode = ['english', 'cantonese', 'bilingual'].includes(language) ? language : 'english';
+  document.documentElement.lang = mode === 'cantonese' ? 'zh-Hant' : 'en';
+  tabs.forEach((tab) => {
+    tab.textContent = localized(tab.dataset.tab, mode);
+    tab.setAttribute('aria-label', localized(tab.dataset.tab, mode));
+  });
+  query('.top-app-bar > .button')?.replaceChildren(document.createTextNode(localized('source', mode)));
+  query('[data-tab-link="guides"]')?.replaceChildren(document.createTextNode(localized('install', mode)));
+  query('[data-tab-link="features"]')?.replaceChildren(document.createTextNode(localized('explore', mode)));
+  query('#release-title')?.replaceChildren(document.createTextNode(localized('release', mode)));
+  query('#reset-site-settings')?.replaceChildren(document.createTextNode(localized('reset', mode)));
+  query('#command-palette .button')?.replaceChildren(document.createTextNode(localized('close', mode)));
+  query('#article-back')?.replaceChildren(document.createTextNode(localized('back', mode)));
+  query('#suggested-title')?.replaceChildren(document.createTextNode(localized('suggested', mode)));
+}
+
+function parseRgb(value) {
+  const match = String(value || '').match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);
+  if (!match) return null;
+  const channels = match.slice(1, 4).map(Number);
+  return channels.every((channel) => channel <= 255) ? channels : null;
+}
+
+function parseHsl(value) {
+  const match = String(value || '').match(/^hsla?\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\s*\)$/i);
+  if (!match) return null;
+  const channels = match.slice(1, 4).map(Number);
+  return channels.every((channel, index) => channel <= (index ? 100 : 360)) ? channels : null;
+}
+
+function syncAccentFields(hex) {
+  const rgb = hexRgb(hex);
+  const hsl = rgbHsl(rgb);
+  if (settings.accent && settings.accent.value !== hex) settings.accent.value = hex;
+  if (settings.accentHex) settings.accentHex.value = hex;
+  if (settings.accentRgb) settings.accentRgb.value = `rgb(${rgb.join(', ')})`;
+  if (settings.accentHsl) settings.accentHsl.value = `hsl(${hsl[0]}, ${hsl[1]}%, ${hsl[2]}%)`;
+  if (settings.accentHue) settings.accentHue.value = String(hsl[0]);
+  query('#site-accent-hue-value')?.replaceChildren(`${hsl[0]}°`);
+}
+
+function applySettings({ persist = true } = {}) {
+  const accent = normaliseHex(settings.accentHex?.value) || normaliseHex(settings.accent?.value) || '#4d5f92';
+  const value = {
+    language: settings.language?.value || 'english',
+    funnyEn: Number(settings.funnyEn?.value || 1),
+    funnyYue: Number(settings.funnyYue?.value || 1),
+    theme: settings.theme?.value || 'light',
+    density: settings.density?.value || 'comfortable',
+    accent,
+    font: settings.font?.value || 'system-ui',
+    scale: Number(settings.scale?.value || 100),
+  };
+  syncAccentFields(value.accent);
+  document.documentElement.classList.toggle('dark', value.theme === 'dark');
+  document.documentElement.dataset.density = value.density;
+  document.documentElement.style.setProperty('--seed', value.accent);
+  document.documentElement.style.setProperty('--ui-scale', String(value.scale / 100));
+  document.documentElement.style.setProperty('--site-font', value.font);
+  const roles = applyThemeRoles(document.documentElement, value.accent, value.theme);
+  const primarySurface = contrastRatio(roles.primary, roles.surface).toFixed(2);
+  const onPrimary = contrastRatio(roles.onPrimary, roles.primary).toFixed(2);
+  query('#accent-contrast')?.replaceChildren(`Derived primary/surface: ${primarySurface}:1 · On-primary/primary: ${onPrimary}:1`);
+  query('#site-scale-value')?.replaceChildren(`${value.scale}%`);
+  query('#funny-en-value')?.replaceChildren(String(value.funnyEn));
+  query('#funny-yue-value')?.replaceChildren(String(value.funnyYue));
+  applyLanguage(value.language);
+  const copy = query('#settings-copy');
+  if (copy) {
+    const english = value.funnyEn >= 4
+      ? 'Shell preferences apply immediately; the buttons may now grin a little, while canonical article text keeps its serious shoes on.'
+      : 'Preferences persist in this browser and apply immediately. Language and funny-level controls style the site shell; canonical article text remains unchanged.';
+    const cantonese = value.funnyYue >= 4
+      ? '介面設定即時生效，啲掣可以笑少少；技術文章繼續著住正經鞋。'
+      : '設定會保存在此瀏覽器並即時生效；語言同玩味程度只改介面，技術文章保持原文。';
+    copy.textContent = value.language === 'bilingual' ? `${english} · ${cantonese}` : value.language === 'cantonese' ? cantonese : english;
+  }
+  if (persist) {
+    try { localStorage.setItem(settingsKey, JSON.stringify(value)); } catch (_error) { /* Browser storage may be unavailable. */ }
+  }
+  return value;
+}
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(settingsKey) || 'null');
+    if (saved && typeof saved === 'object') {
+      Object.entries(settings).forEach(([key, control]) => {
+        if (control && saved[key] !== undefined) control.value = String(saved[key]);
+      });
+      const savedAccent = normaliseHex(saved.accent);
+      if (savedAccent && settings.accentHex) settings.accentHex.value = savedAccent;
+    }
+  } catch (_error) { /* Invalid browser state falls back to shipped values. */ }
+  applySettings({ persist: false });
+}
+
+settings.accentHex?.addEventListener('input', () => { if (normaliseHex(settings.accentHex.value)) applySettings(); });
+settings.accent?.addEventListener('input', () => {
+  settings.accentHex.value = settings.accent.value;
+  applySettings();
+});
+settings.accentRgb?.addEventListener('change', () => {
+  const rgb = parseRgb(settings.accentRgb.value);
+  if (rgb) { settings.accentHex.value = rgbHex(rgb); applySettings(); }
+});
+settings.accentHsl?.addEventListener('change', () => {
+  const hsl = parseHsl(settings.accentHsl.value);
+  if (hsl) { settings.accentHex.value = rgbHex(hslRgb(hsl)); applySettings(); }
+});
+settings.accentHue?.addEventListener('input', () => {
+  const current = rgbHsl(hexRgb(normaliseHex(settings.accentHex.value) || '#4d5f92'));
+  current[0] = Number(settings.accentHue.value);
+  settings.accentHex.value = rgbHex(hslRgb(current));
+  applySettings();
+});
+
+Object.values(settings).forEach((control) => {
+  if (control && ![settings.accent, settings.accentHex, settings.accentRgb, settings.accentHsl, settings.accentHue].includes(control)) {
+    control.addEventListener('input', applySettings);
+  }
+  control?.addEventListener('change', applySettings);
+});
+
+query('#reset-site-settings')?.addEventListener('click', () => {
+  const shipped = { language: 'english', funnyEn: '1', funnyYue: '1', theme: 'light', density: 'comfortable', accent: '#4d5f92', accentHex: '#4d5f92', font: 'system-ui', scale: '100' };
+  Object.entries(shipped).forEach(([key, value]) => { if (settings[key]) settings[key].value = value; });
+  applySettings();
+});
+loadSettings();
+
+wireSearch({
+  search: query('#settings-search'),
+  pattern: query('#settings-pattern'),
+  toggle: query('#settings-regex'),
+  flags: query('#settings-flags'),
+  feedback: query('#settings-feedback'),
+  records: () => queryAll('#settings-grid .setting-card'),
+  text: (card) => `${card.dataset.search || ''} ${card.textContent}`,
+  empty: query('#settings-empty'),
+});
+
+let articles = [];
+let articleBySlug = new Map();
+let currentArticle = null;
+let filterArticles = () => {};
+
+function articleSlugFromHref(href) {
+  const path = String(href || '').split('#', 1)[0];
+  const match = path.match(/(?:^|\/)([a-z0-9-]+)\/README\.md$/i);
+  return match && articleBySlug.has(match[1]) ? match[1] : null;
+}
+
+function appendInline(parent, source) {
+  const token = /(\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*([^*]+)\*\*)/g;
+  let cursor = 0;
+  let match;
+  while ((match = token.exec(source)) !== null) {
+    if (match.index > cursor) parent.append(document.createTextNode(source.slice(cursor, match.index)));
+    if (match[4] !== undefined) {
+      const code = document.createElement('code');
+      code.textContent = match[4];
+      parent.append(code);
+    } else if (match[5] !== undefined) {
+      const strong = document.createElement('strong');
+      strong.textContent = match[5];
+      parent.append(strong);
+    } else {
+      const label = match[2];
+      const href = match[3];
+      const slug = articleSlugFromHref(href);
+      if (slug) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'inline-link';
+        button.textContent = label;
+        button.addEventListener('click', () => openArticle(slug));
+        parent.append(button);
+      } else if (/^https:\/\//i.test(href)) {
+        const anchor = document.createElement('a');
+        anchor.href = href;
+        anchor.target = '_blank';
+        anchor.rel = 'noreferrer';
+        anchor.textContent = label;
+        parent.append(anchor);
+      } else if (href.startsWith('#')) {
+        const anchor = document.createElement('a');
+        anchor.href = href;
+        anchor.textContent = label;
+        parent.append(anchor);
+      } else {
+        const reference = document.createElement('span');
+        reference.textContent = `${label} (${href})`;
+        reference.title = 'This repository-only reference is preserved as text in the static documentation bundle.';
+        parent.append(reference);
+      }
+    }
+    cursor = token.lastIndex;
+  }
+  if (cursor < source.length) parent.append(document.createTextNode(source.slice(cursor)));
+}
+
+function renderMarkdown(markdown, target) {
+  target.replaceChildren();
+  const lines = String(markdown || '').split(/\r?\n/);
+  let paragraph = [];
+  let list = null;
+  let fence = null;
+  let fenceLanguage = '';
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    const element = document.createElement('p');
+    appendInline(element, paragraph.join(' '));
+    target.append(element);
+    paragraph = [];
+  };
+  const flushList = () => { list = null; };
+  const flushFence = () => {
+    if (!fence) return;
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    if (fenceLanguage) code.dataset.language = fenceLanguage;
+    code.textContent = fence.join('\n');
+    pre.append(code);
+    target.append(pre);
+    fence = null;
+    fenceLanguage = '';
+  };
+
+  lines.forEach((rawLine) => {
+    if (rawLine.startsWith('```')) {
+      flushParagraph();
+      flushList();
+      if (fence) flushFence();
+      else { fence = []; fenceLanguage = rawLine.slice(3).trim(); }
+      return;
+    }
+    if (fence) { fence.push(rawLine); return; }
+    const heading = rawLine.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      const element = document.createElement(`h${heading[1].length}`);
+      const label = heading[2].trim();
+      element.id = `article-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+      if (heading[1].length === 1) {
+        element.id = 'article-title';
+        element.tabIndex = -1;
+      }
+      appendInline(element, label);
+      target.append(element);
+      return;
+    }
+    const unordered = rawLine.match(/^\s*[-*]\s+(.+)$/);
+    const ordered = rawLine.match(/^\s*\d+\.\s+(.+)$/);
+    if (unordered || ordered) {
+      flushParagraph();
+      const tag = ordered ? 'ol' : 'ul';
+      if (!list || list.tagName.toLowerCase() !== tag) {
+        list = document.createElement(tag);
+        target.append(list);
+      }
+      const item = document.createElement('li');
+      appendInline(item, (unordered || ordered)[1]);
+      list.append(item);
+      return;
+    }
+    if (!rawLine.trim()) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+    if (rawLine.startsWith('> ')) {
+      flushParagraph();
+      flushList();
+      const quote = document.createElement('blockquote');
+      appendInline(quote, rawLine.slice(2));
+      target.append(quote);
+      return;
+    }
+    paragraph.push(rawLine.trim());
+  });
+  flushParagraph();
+  flushFence();
+}
+
+function validateArticleCatalog(catalog) {
+  if (catalog?.schemaVersion !== 1 || !Array.isArray(catalog.articles) || catalog.articleCount !== catalog.articles.length) throw new Error('Invalid article catalog');
+  const slugs = new Set(catalog.articles.map((article) => article.slug));
+  catalog.articles.forEach((article) => {
+    if (!/^[a-z0-9-]{1,80}$/.test(article.slug) || typeof article.title !== 'string' || typeof article.markdown !== 'string') throw new Error('Invalid article record');
+    if (!/^docs\/features\/[a-z0-9-]+\/README\.md$/.test(article.sourcePath) || !/^[0-9a-f]{64}$/.test(article.sha256)) throw new Error('Invalid article provenance');
+    if (!Array.isArray(article.suggested) || article.suggested.length < 2 || article.suggested.some((slug) => !slugs.has(slug) || slug === article.slug)) throw new Error('Invalid suggested-article navigation');
+  });
+  return catalog.articles;
+}
+
+function renderArticleCards() {
+  const cards = articles.map((article) => {
+    const card = document.createElement('article');
+    card.className = 'article-card';
+    card.dataset.search = `${article.title} ${article.summary} ${article.markdown}`;
+    const eyebrow = document.createElement('span');
+    eyebrow.className = 'eyebrow';
+    eyebrow.textContent = 'FEATURE ARTICLE';
+    const title = document.createElement('h2');
+    title.textContent = article.title;
+    const summary = document.createElement('p');
+    summary.textContent = article.summary;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'inline-link';
+    button.textContent = 'Read on this site →';
+    button.dataset.article = article.slug;
+    button.addEventListener('click', () => openArticle(article.slug));
+    card.append(eyebrow, title, summary, button);
+    return card;
+  });
+  query('#article-grid').replaceChildren(...cards);
+}
+
+function openArticle(slug, { updateHash = true } = {}) {
+  const article = articleBySlug.get(slug);
+  if (!article) return false;
+  currentArticle = article;
+  showTab('docs', { updateHash: false, focus: false });
+  query('#docs-heading').hidden = true;
+  query('#article-grid').hidden = true;
+  query('#docs-empty').hidden = true;
+  query('#article-status').hidden = true;
+  const view = query('#article-view');
+  view.hidden = false;
+  query('#article-source').textContent = `${article.sourcePath} · SHA-256 ${article.sha256.slice(0, 12)}…`;
+  renderMarkdown(article.markdown, query('#article-content'));
+  const suggestions = article.suggested.map((suggestedSlug) => {
+    const suggested = articleBySlug.get(suggestedSlug);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = suggested.title;
+    button.addEventListener('click', () => openArticle(suggestedSlug));
+    return button;
+  });
+  query('#suggested-list').replaceChildren(...suggestions);
+  if (updateHash) history.replaceState(null, '', `#docs/${article.slug}`);
+  view.scrollIntoView({ block: 'start' });
+  query('#article-title')?.focus?.({ preventScroll: true });
+  return true;
+}
+
+function closeArticle({ updateHash = true } = {}) {
+  currentArticle = null;
+  query('#docs-heading').hidden = false;
+  query('#article-grid').hidden = false;
+  query('#article-view').hidden = true;
+  filterArticles();
+  if (updateHash) history.replaceState(null, '', '#docs');
+  query('#docs-search')?.focus({ preventScroll: true });
+}
+
+query('#article-back')?.addEventListener('click', () => closeArticle());
+queryAll('[data-article]').forEach((control) => control.addEventListener('click', () => openArticle(control.dataset.article)));
+
+async function loadArticles(config) {
+  const articleUrl = new URL(config.articles || './articles.json', config.base);
+  const response = await fetch(articleUrl, { cache: 'no-store' });
+  if (!response.ok) throw new Error('Feature article catalog is unavailable');
+  articles = validateArticleCatalog(await response.json());
+  articleBySlug = new Map(articles.map((article) => [article.slug, article]));
+  renderArticleCards();
+  query('#article-status').hidden = true;
+  filterArticles = wireSearch({
+    search: query('#docs-search'),
+    pattern: query('#docs-pattern'),
+    toggle: query('#docs-regex'),
+    flags: query('#docs-flags'),
+    feedback: query('#docs-feedback'),
+    records: () => queryAll('#article-grid .article-card'),
+    text: (card) => card.dataset.search || card.textContent,
+    empty: query('#docs-empty'),
+  });
+  addArticlesToPalette();
+  handleLocation();
+}
+
+const palette = query('#command-palette');
+const paletteSearch = query('#palette-search');
+const palettePattern = query('#palette-pattern');
+const paletteRegex = query('#palette-regex');
+const paletteFlags = query('#palette-flags');
+const paletteFeedback = query('#palette-feedback');
+const paletteResults = query('#palette-results');
+const paletteItems = [
+  ['Home', 'Open home page', 'home', '#home'],
+  ['Features', 'Browse the complete feature inventory', 'features', '#features'],
+  ['Documentation', 'Browse every bundled feature article', 'docs', '#article-grid'],
+  ['Guides', 'Open installation and workflow guides', 'guides', '#guides'],
+  ['Community', 'Open community links', 'community', '#community'],
+  ['Settings', 'Edit shell language, funny levels, theme, density, and accent', 'settings', '#settings'],
+  ['Reset site settings', 'Restore persisted site preferences', 'settings', '#reset-site-settings'],
+];
+
+queryAll('#feature-grid .feature-card').forEach((card, index) => {
+  const title = query('h2', card)?.textContent?.trim() || `Feature ${index + 1}`;
+  paletteItems.push([title, query('p', card)?.textContent?.trim() || 'Open feature details', 'features', `#feature-grid .feature-card:nth-of-type(${index + 1})`]);
+});
+queryAll('#settings-grid .setting-card').forEach((card, index) => {
+  const title = query('span', card)?.textContent?.trim() || `Setting ${index + 1}`;
+  paletteItems.push([title, query('.setting-help', card)?.textContent?.trim() || 'Open setting', 'settings', `#settings-grid .setting-card:nth-of-type(${index + 1})`]);
+});
+
+function addArticlesToPalette() {
+  articles.forEach((article) => paletteItems.push([article.title, article.summary, 'docs', `article:${article.slug}`]));
+  if (palette?.open) renderPalette();
+}
+
+let paletteActiveIndex = 0;
+let paletteOpener = null;
+
+function activatePaletteItem(item) {
+  if (item[3].startsWith('article:')) openArticle(item[3].slice(8));
+  else {
+    if (item[0] === 'Reset site settings') query('#reset-site-settings')?.click();
+    showTab(item[2]);
+    const target = query(item[3]);
+    target?.scrollIntoView({ block: 'center' });
+    target?.focus?.({ preventScroll: true });
+  }
+  palette.close();
+}
+
+function renderPalette({ focusResult = false } = {}) {
+  const regex = Boolean(paletteRegex?.checked);
+  const raw = (regex ? palettePattern?.value : paletteSearch?.value) || '';
+  let matcher;
+  try {
+    matcher = buildMatcher(raw, regex, regex ? (paletteFlags?.value || 'i') : 'i');
+    paletteFeedback.textContent = regex ? 'Valid JavaScript regular expression' : 'Plain-text mode';
+  } catch (error) {
+    paletteFeedback.textContent = `Invalid pattern: ${error.message}`;
+    paletteResults.replaceChildren();
+    paletteSearch.removeAttribute('aria-activedescendant');
+    return;
+  }
+  const matches = paletteItems.filter((item) => {
+    matcher.lastIndex = 0;
+    return !raw || matcher.test(`${item[0]} ${item[1]}`);
+  });
+  paletteActiveIndex = Math.min(paletteActiveIndex, Math.max(0, matches.length - 1));
+  const buttons = matches.map((item, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = `palette-result-${index}`;
+    button.className = 'palette-result';
+    button.setAttribute('role', 'option');
+    button.setAttribute('aria-selected', String(index === paletteActiveIndex));
+    button.tabIndex = index === paletteActiveIndex ? 0 : -1;
+    const text = document.createElement('span');
+    const strong = document.createElement('strong');
+    strong.textContent = item[0];
+    const small = document.createElement('small');
+    small.textContent = item[1];
+    text.append(strong, document.createElement('br'), small);
+    button.append(text, document.createTextNode('↗'));
+    button.addEventListener('click', () => activatePaletteItem(item));
+    button.addEventListener('keydown', (event) => {
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      if (event.key === 'ArrowDown') paletteActiveIndex = (index + 1) % buttons.length;
+      if (event.key === 'ArrowUp') paletteActiveIndex = (index + buttons.length - 1) % buttons.length;
+      if (event.key === 'Home') paletteActiveIndex = 0;
+      if (event.key === 'End') paletteActiveIndex = buttons.length - 1;
+      renderPalette({ focusResult: true });
+    });
+    return button;
+  });
+  paletteResults.replaceChildren(...buttons);
+  const active = buttons[paletteActiveIndex];
+  if (active) {
+    paletteSearch.setAttribute('aria-activedescendant', active.id);
+    paletteResults.setAttribute('aria-activedescendant', active.id);
+    active.scrollIntoView({ block: 'nearest' });
+    if (focusResult) active.focus();
+  } else {
+    paletteSearch.removeAttribute('aria-activedescendant');
+    paletteResults.removeAttribute('aria-activedescendant');
+  }
+}
+
+function openPalette() {
+  if (!palette || palette.open) return;
+  paletteOpener = document.activeElement;
+  palette.showModal();
+  paletteSearch.setAttribute('aria-expanded', 'true');
+  paletteActiveIndex = 0;
+  renderPalette();
+  queueMicrotask(() => {
+    paletteSearch.focus();
+    paletteSearch.select();
+  });
+}
+
+palette?.addEventListener('close', () => {
+  paletteSearch.setAttribute('aria-expanded', 'false');
+  paletteOpener?.focus?.();
+});
+paletteSearch?.addEventListener('input', () => {
+  if (paletteRegex && !paletteRegex.checked) palettePattern.value = paletteSearch.value;
+  paletteActiveIndex = 0;
+  renderPalette();
+});
+paletteRegex?.addEventListener('change', () => { palettePattern.value = paletteSearch.value; renderPalette(); });
+palettePattern?.addEventListener('input', renderPalette);
+paletteFlags?.addEventListener('change', renderPalette);
+paletteSearch?.addEventListener('keydown', (event) => {
+  const buttons = queryAll('.palette-result', paletteResults);
+  if (!buttons.length) return;
+  if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault();
+    if (event.key === 'ArrowDown') paletteActiveIndex = (paletteActiveIndex + 1) % buttons.length;
+    if (event.key === 'ArrowUp') paletteActiveIndex = (paletteActiveIndex + buttons.length - 1) % buttons.length;
+    if (event.key === 'Home') paletteActiveIndex = 0;
+    if (event.key === 'End') paletteActiveIndex = buttons.length - 1;
+    renderPalette();
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    buttons[paletteActiveIndex]?.click();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  const active = document.activeElement;
+  const typing = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') {
+    event.preventDefault();
+    openPalette();
+  } else if (event.key === '/' && !typing && !palette?.open) {
+    event.preventDefault();
+    showTab('features');
+    featureSearch?.focus();
+  }
+});
+
+function handleLocation() {
+  const route = location.hash.slice(1);
+  if (route.startsWith('docs/')) {
+    if (articles.length) openArticle(route.slice(5), { updateHash: false });
+    else showTab('docs', { updateHash: false });
+    return;
+  }
+  if (currentArticle) closeArticle({ updateHash: false });
+  showTab(tabs.some((tab) => tab.dataset.tab === route) ? route : 'home', { updateHash: false, focus: false });
+}
+
+window.addEventListener('hashchange', handleLocation);
+handleLocation();
+
+loadSiteConfig()
+  .then((config) => Promise.allSettled([loadPublicationManifest(config), loadArticles(config)]))
+  .then((results) => {
+    if (results[1]?.status === 'rejected') {
+      query('#article-status').textContent = 'The bundled article catalog could not be loaded. The rest of the site remains available.';
+    }
+  })
+  .catch(() => {
+    query('#article-status').textContent = 'Site configuration could not be loaded. The static shell remains available.';
+    query('#release-download').hidden = true;
+  });

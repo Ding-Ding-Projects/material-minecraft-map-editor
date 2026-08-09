@@ -28,17 +28,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Bootstrap site validation dependencies
+        shell: bash
+        run: python -m pip install --disable-pip-version-check --no-input pytest==9.1.1
+
       - name: Validate dependency-free site source
         shell: bash
         run: |
           set -euo pipefail
           node --check docs/site/app.js
+          node --check docs/site/theme.mjs
+          python3 scripts/generate_site_articles.py --check
           python3 - <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
           HTMLParser().feed(Path("docs/site/index.html").read_text(encoding="utf-8"))
           print("HTML parsed successfully")
           PY
+
+      - name: Verify article, link, accessibility, and computed-colour contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pytest -q \
+            tests/test_site_m3_surface_tokens_contract.py \
+            tests/test_site_palette_inventory_contract.py \
+            tests/test_site_publication_contract.py \
+            tests/test_site_owner_host_completeness.py
 
       - name: Prepare owner-hosted static bundle
         shell: bash
@@ -54,6 +80,18 @@ jobs:
         shell: bash
         run: tar -czf "amulet-material3-static-bundle-${{ github.sha }}.tar.gz" -C build/site .
 
+      - name: Build Sites-compatible Worker and static output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/build_sites_bundle.py
+          test -f dist/server/index.js
+          test -f dist/client/articles.json
+          mkdir -p build/sites-package/dist/.openai
+          cp -R dist/. build/sites-package/dist/
+          cp .openai/hosting.json build/sites-package/dist/.openai/hosting.json
+          tar -czf "amulet-sites-bundle-${{ github.sha }}.tar.gz" -C build/sites-package dist
+
       - name: Build owner-hosted site image
         run: docker build --file build/site/Dockerfile --tag amulet-material3-site:${{ github.sha }} build/site
 
@@ -61,15 +99,31 @@ jobs:
         run: docker save amulet-material3-site:${{ github.sha }} | gzip -9 > amulet-material3-site-${{ github.sha }}.tar.gz
 
       - name: Upload owner-hosted image
+        if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: amulet-material3-site-${{ github.sha }}
           path: amulet-material3-site-${{ github.sha }}.tar.gz
-          if-no-files-found: error
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload owner-hosted static bundle
+        if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: amulet-material3-static-bundle-${{ github.sha }}
           path: amulet-material3-static-bundle-${{ github.sha }}.tar.gz
-          if-no-files-found: error
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Sites-compatible bundle
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: amulet-sites-bundle-${{ github.sha }}
+          path: amulet-sites-bundle-${{ github.sha }}.tar.gz
+          if-no-files-found: warn
+          retention-days: 14
