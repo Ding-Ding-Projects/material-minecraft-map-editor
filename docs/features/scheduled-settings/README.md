@@ -90,6 +90,13 @@ obtain Home Assistant tokens from the operating-system credential vault.
 Runtime refresh application, cancellation generations, and UI status remain
 explicit follow-up work.
 
+`ScheduledRefreshCoordinator` supplies the non-blocking runtime primitive for
+that follow-up. It runs a daemon refresh, obtains a Home Assistant token only
+through a caller-provided vault callback, invalidates late responses when a
+newer generation or shutdown wins, and invokes an apply callback only for a
+validated non-empty result. It never writes the remote value to base
+preferences.
+
 ## Verification
 
 Run the focused, wx-independent suite:
@@ -110,6 +117,9 @@ Home Assistant behavior.
 
 `tests/test_scheduled_sources.py` covers URL policy, versioned allowlisted
 payloads, Home Assistant on/off behavior, and malformed-response fallback.
+`tests/test_scheduled_refresh.py` covers apply success, fetch failure,
+non-blocking apply failure, asynchronous cancellation, and stale-response
+suppression.
 
 ## Suggested articles
 
