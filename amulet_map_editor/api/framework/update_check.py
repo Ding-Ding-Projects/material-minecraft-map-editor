@@ -11,6 +11,7 @@ import wx
 from packaging.version import Version
 
 from amulet_map_editor import lang
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 URL = "http://api.github.com/repos/Amulet-Team/Amulet-Map-Editor/releases"
 
@@ -31,7 +32,9 @@ class UpdateEvent(wx.PyCommandEvent):
 
 class UpdateDialog(wx.Dialog):
     def __init__(self, parent, current_version: str, new_version: str):
-        super().__init__(parent)
+        # Keep this compatibility surface on the same M3-first path as the
+        # active updater, even when an older integration invokes it directly.
+        super().__init__(parent, style=wx.NO_BORDER | wx.RESIZE_BORDER)
 
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
 
@@ -61,6 +64,7 @@ class UpdateDialog(wx.Dialog):
         sizer_1.Add(sizer_2, 1, wx.EXPAND, 5)
 
         self.SetSizerAndFit(sizer_1)
+        apply_material3(self)
 
         update_button.Bind(
             wx.EVT_BUTTON, lambda evt: self.goto_download_page(new_version, evt)
