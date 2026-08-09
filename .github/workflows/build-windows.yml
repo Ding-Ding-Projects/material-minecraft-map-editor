@@ -29,6 +29,10 @@ jobs:
     steps:
     - name: Clone
       uses: actions/checkout@v6
+      with:
+        # Changelog generation and release-gating tests inspect every reachable
+        # release tag; a shallow checkout makes the catalog empty on Windows.
+        fetch-depth: 0
 
     - name: Set up Python ${{ matrix.cfg.python-version }}
       uses: actions/setup-python@v6
