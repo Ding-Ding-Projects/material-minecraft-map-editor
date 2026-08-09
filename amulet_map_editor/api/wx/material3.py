@@ -82,10 +82,25 @@ def _font_for(
         if window and window.GetFont().IsOk()
         else wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
     )
+    prefs = school_mode.presentation_preferences(preferences.load())
     font = wx.Font(base)
-    font.SetPointSize(point_size)
+    # Appearance values are live tokens, not decorative storage: every
+    # native control receives the persisted scale and optional family.
+    font.SetPointSize(max(8, round(point_size * prefs.ui_scale)))
+    if prefs.ui_font:
+        font.SetFaceName(prefs.ui_font)
     font.SetWeight(weight)
     return font
+
+
+def _control_min_height(window: wx.Window) -> int:
+    """Resolve the touch target from the persisted M3 density choice."""
+
+    density = school_mode.presentation_preferences(preferences.load()).density
+    target = {"compact": 36, "comfortable": 40, "spacious": 48}.get(
+        density, 40
+    )
+    return max(target, window.GetBestSize().height)
 
 
 def _children(window: wx.Window) -> Iterable[wx.Window]:
@@ -126,17 +141,12 @@ def apply_material3(window: wx.Window) -> None:
             child.SetFont(_font_for(child, 10, wx.FONTWEIGHT_MEDIUM))
             child.SetBackgroundColour(palette["primary_container"])
             child.SetForegroundColour(palette["on_primary_container"])
-            child.SetMinSize(
-                wx.Size(
-                    max(child.GetBestSize().width, 88),
-                    max(child.GetBestSize().height, 40),
-                )
-            )
+            child.SetMinSize(wx.Size(max(child.GetBestSize().width, 88), _control_min_height(child)))
         elif isinstance(
             child, (wx.TextCtrl, wx.ComboBox, wx.Choice, wx.SpinCtrl, wx.SpinCtrlDouble)
         ):
             child.SetFont(_font_for(child, 10))
-            child.SetMinSize(wx.Size(-1, max(child.GetBestSize().height, 40)))
+            child.SetMinSize(wx.Size(-1, _control_min_height(child)))
         apply_material3(child)
 
     window.Layout()
