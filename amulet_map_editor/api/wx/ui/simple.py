@@ -171,7 +171,7 @@ class SimpleDialog(wx.Dialog):
 
     def __init__(self, parent: wx.Window, title, sizer_dir=wx.VERTICAL):
         wx.Dialog.__init__(
-            self, parent, title=title, style=wx.CAPTION | wx.RESIZE_BORDER
+            self, parent, title=title, style=wx.NO_BORDER | wx.RESIZE_BORDER
         )
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)

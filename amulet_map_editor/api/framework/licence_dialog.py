@@ -11,7 +11,9 @@ _padding = 20
 
 class LicenceDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
-        super().__init__(parent, style=wx.CAPTION)
+        # Keep the first painted frame on the same M3 title-bar path as every
+        # other dialog instead of briefly exposing the native caption.
+        super().__init__(parent, style=wx.NO_BORDER | wx.RESIZE_BORDER)
         self.SetTitle(lang.get("licence_dialog.title"))
 
         root_sizer = wx.BoxSizer(wx.VERTICAL)

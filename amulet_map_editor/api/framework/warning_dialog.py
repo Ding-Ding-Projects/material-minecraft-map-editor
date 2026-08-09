@@ -5,7 +5,9 @@ from amulet_map_editor.api.wx.material3 import apply_material3
 
 class WarningDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
-        super().__init__(parent, style=wx.CAPTION)
+        # The shared M3 helper installs the custom title bar; requesting the
+        # native caption here would flash legacy Windows chrome during startup.
+        super().__init__(parent, style=wx.NO_BORDER | wx.RESIZE_BORDER)
         self.SetTitle(lang.get("warning_dialog.title"))
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
