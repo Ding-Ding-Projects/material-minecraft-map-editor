@@ -4,3 +4,14 @@
 @media(max-width:800px){.settings-grid{grid-template-columns:1fr}}
 :root[data-density="compact"] .page-section{padding-top:56px;padding-bottom:70px}:root[data-density="compact"] .feature-card,:root[data-density="compact"] .community-card,:root[data-density="compact"] .setting-card{padding:20px}
 dialog{border:0;border-radius:28px;padding:0;background:transparent;color:var(--on-surface);max-width:min(92vw,640px);width:100%}dialog::backdrop{background:#11131866}.palette-card{display:grid;gap:16px;padding:28px;background:var(--surface);border:1px solid var(--outline);border-radius:28px;box-shadow:0 18px 48px #0004}.palette-card h2{margin:0}.palette-card .search-field{min-width:0}.palette-result{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 16px;border:1px solid #77768033;border-radius:16px;background:var(--surface-container);color:inherit;text-align:left;font:inherit;cursor:pointer}.palette-result:hover,.palette-result:focus-visible{outline:3px solid var(--primary)}
+
+/* M3 role aliases keep every surface on the same semantic palette. */
+:root{--on-surface-variant:#46464f;--outline-variant:#c7c6d0;--surface-container-high:#e9e7ee;--surface-container-highest:#e3e2e9;--surface-bright:#faf8ff;--scrim:#00000066}
+.dark{--on-surface-variant:#c7c5d0;--outline-variant:#46464f;--surface-container-high:#272930;--surface-container-highest:#32333b;--surface-bright:#111318;--scrim:#00000099}
+.top-app-bar{border-bottom-color:var(--outline-variant)}
+.feature-band,.steps{background:var(--outline-variant)}
+.search-field,.feature-card,.community-card,.setting-card{background:var(--surface-bright);border-color:var(--outline-variant)}
+.feature-band>div,.steps li{background:var(--surface-container-high)}
+.palette-result{border-color:var(--outline-variant)}
+dialog::backdrop{background:var(--scrim)}
+.dark .top-app-bar,.dark .search-field,.dark .feature-card,.dark .community-card,.dark .setting-card{background:var(--surface-bright)}
