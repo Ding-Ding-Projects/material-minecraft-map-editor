@@ -1,0 +1,3199 @@
+{
+  "schema_version": 1,
+  "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
+  "source_revision": "39b5dbd54da957c27e019cddb806beb0d789753c",
+  "entries": [
+    {
+      "version": "0.10.61a2",
+      "released_on": "2026-07-31",
+      "commit_sha": "92a273b1a7f90d8e8f017f2fff171a32a198b63f",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix Windows registry paths (#1379)",
+          "commit_sha": "92a273b1a7f90d8e8f017f2fff171a32a198b63f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.61a1",
+      "released_on": "2026-07-31",
+      "commit_sha": "3f845766687889ebbdd5b9068af701d43df01e47",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Enable User-Mode crash dumps (#1378)",
+          "commit_sha": "3f845766687889ebbdd5b9068af701d43df01e47"
+        }
+      ]
+    },
+    {
+      "version": "0.10.61a0",
+      "released_on": "2026-07-30",
+      "commit_sha": "6fed5ba6793ae641f2dd534f635e53fe8d6c17f3",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add desktop shortcut option to Windows installer (#1377)",
+          "commit_sha": "6fed5ba6793ae641f2dd534f635e53fe8d6c17f3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.60",
+      "released_on": "2026-07-27",
+      "commit_sha": "436da0a0149332e9dbb772c8364d2c55dc9a2730",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add CurseForge and Modrinth paths to world menu (#1375)",
+          "commit_sha": "436da0a0149332e9dbb772c8364d2c55dc9a2730"
+        }
+      ]
+    },
+    {
+      "version": "0.10.59",
+      "released_on": "2026-07-15",
+      "commit_sha": "ba69553d73762ef654ffded2b29c4f5b2915df49",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update apt index (#1372)",
+          "commit_sha": "ba69553d73762ef654ffded2b29c4f5b2915df49"
+        }
+      ]
+    },
+    {
+      "version": "0.10.58",
+      "released_on": "2026-06-30",
+      "commit_sha": "bc28add60c0566f9950b71c6a3d7526f07f0a585",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix x11 (#1368)",
+          "commit_sha": "bc28add60c0566f9950b71c6a3d7526f07f0a585"
+        }
+      ]
+    },
+    {
+      "version": "0.10.58b3",
+      "released_on": "2026-06-30",
+      "commit_sha": "bc28add60c0566f9950b71c6a3d7526f07f0a585",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix x11 (#1368)",
+          "commit_sha": "bc28add60c0566f9950b71c6a3d7526f07f0a585"
+        }
+      ]
+    },
+    {
+      "version": "0.10.58b2",
+      "released_on": "2026-06-30",
+      "commit_sha": "542f96db5018b70ff8c2f761eadcc0cde6fd28fa",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Implement Wayland mouse locking (#1367)",
+          "commit_sha": "542f96db5018b70ff8c2f761eadcc0cde6fd28fa"
+        }
+      ]
+    },
+    {
+      "version": "0.10.58b1",
+      "released_on": "2026-06-28",
+      "commit_sha": "1957723936fb78a5a5305beb9755c6e916d076bf",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improve mouse behaviour (#1366)",
+          "commit_sha": "1957723936fb78a5a5305beb9755c6e916d076bf"
+        }
+      ]
+    },
+    {
+      "version": "0.10.58b0",
+      "released_on": "2026-06-22",
+      "commit_sha": "f85e06fbf2807ba4fcce732b764a19df1689c963",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove invalid --upgrade flag from pip wheel commands (#1349)",
+          "commit_sha": "f85e06fbf2807ba4fcce732b764a19df1689c963"
+        }
+      ]
+    },
+    {
+      "version": "0.10.57",
+      "released_on": "2026-05-28",
+      "commit_sha": "0e0940b2c2f88ded2dd1e3607585f96d2bc3d6f9",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix some memory leaks (#1358)",
+          "commit_sha": "0e0940b2c2f88ded2dd1e3607585f96d2bc3d6f9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.56",
+      "released_on": "2026-05-21",
+      "commit_sha": "79a61a1927cdb5cb5f29760e5a3157a04b7fc996",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update install nsis action (#1356)",
+          "commit_sha": "79a61a1927cdb5cb5f29760e5a3157a04b7fc996"
+        }
+      ]
+    },
+    {
+      "version": "0.10.56a11",
+      "released_on": "2026-05-05",
+      "commit_sha": "d7a605c1583084af8d8ce8a78f1b047aa6f7cf51",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Ensure dialogs are show on the main screen (#1347)",
+          "commit_sha": "d7a605c1583084af8d8ce8a78f1b047aa6f7cf51"
+        }
+      ]
+    },
+    {
+      "version": "0.10.56a10",
+      "released_on": "2026-05-01",
+      "commit_sha": "01747a7bc5420e716f84bb674d94a9704d6885b8",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix display issues (#1345)",
+          "commit_sha": "01747a7bc5420e716f84bb674d94a9704d6885b8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.56a9",
+      "released_on": "2026-04-30",
+      "commit_sha": "f8a5be220361838be6a13683cd84d1854de66f66",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improve window positioning (#1344)",
+          "commit_sha": "f8a5be220361838be6a13683cd84d1854de66f66"
+        }
+      ]
+    },
+    {
+      "version": "0.10.56a8",
+      "released_on": "2026-04-14",
+      "commit_sha": "ba634644d313001e8803fee5cabd38762af0816b",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix architecture check (#1340)",
+          "commit_sha": "ba634644d313001e8803fee5cabd38762af0816b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.55",
+      "released_on": "2026-04-08",
+      "commit_sha": "b7862d69163e7b252d74eeefe1aba540a51fa139",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improve flatpak naming (#1337)",
+          "commit_sha": "b7862d69163e7b252d74eeefe1aba540a51fa139"
+        }
+      ]
+    },
+    {
+      "version": "0.10.55a5",
+      "released_on": "2026-04-07",
+      "commit_sha": "ebea0e1c8eaeee5b9ffc0f5990ec1b7f6598640b",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add quotes to paths (#1336)",
+          "commit_sha": "ebea0e1c8eaeee5b9ffc0f5990ec1b7f6598640b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.55a4",
+      "released_on": "2026-04-07",
+      "commit_sha": "a6e3b324177e4a3d6bccfa97f42c2a36f2559ad5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make flatpak build behave like pyinstaller build (#1335)",
+          "commit_sha": "a6e3b324177e4a3d6bccfa97f42c2a36f2559ad5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.55a0",
+      "released_on": "2026-04-02",
+      "commit_sha": "0c90560a3e1212aca1b6613fb76d5f963b3b3e54",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add argument to disable python's faulthandler (#1332)",
+          "commit_sha": "0c90560a3e1212aca1b6613fb76d5f963b3b3e54"
+        }
+      ]
+    },
+    {
+      "version": "0.10.54",
+      "released_on": "2026-03-29",
+      "commit_sha": "b677e86a9a2bf4464dde14de7043092aa4fbce70",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix remove command (#1330)",
+          "commit_sha": "b677e86a9a2bf4464dde14de7043092aa4fbce70"
+        }
+      ]
+    },
+    {
+      "version": "0.10.54b1",
+      "released_on": "2026-03-25",
+      "commit_sha": "4af1b567150e104ba0e5863f53d411bdfc972753",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix progress update order (#1324)",
+          "commit_sha": "4af1b567150e104ba0e5863f53d411bdfc972753"
+        }
+      ]
+    },
+    {
+      "version": "0.10.54b0",
+      "released_on": "2026-03-20",
+      "commit_sha": "267b3c8a9f0f3a68fda67512ba2aefdd1f7877d5",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add debian (Ubuntu 24) package (#1317)",
+          "commit_sha": "267b3c8a9f0f3a68fda67512ba2aefdd1f7877d5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.53",
+      "released_on": "2026-03-16",
+      "commit_sha": "81cf3bc4c590e2766a188bcfd21f8b37d6e5af15",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add legacy Minecraft Legends path (#1311)",
+          "commit_sha": "81cf3bc4c590e2766a188bcfd21f8b37d6e5af15"
+        }
+      ]
+    },
+    {
+      "version": "0.10.52",
+      "released_on": "2026-02-27",
+      "commit_sha": "fc35ec98473e81d36b0bc4a6ac1b4c9359509550",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make Ctrl+V in the paste tool confirm the paste (#1298)",
+          "commit_sha": "fc35ec98473e81d36b0bc4a6ac1b4c9359509550"
+        }
+      ]
+    },
+    {
+      "version": "0.10.51",
+      "released_on": "2026-02-26",
+      "commit_sha": "a7ea61a7699158f390a9bcd8adbd8a4ce0d52dfb",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix azuresigntool command (#1292)",
+          "commit_sha": "a7ea61a7699158f390a9bcd8adbd8a4ce0d52dfb"
+        }
+      ]
+    },
+    {
+      "version": "0.10.50",
+      "released_on": "2026-02-23",
+      "commit_sha": "9a05b3de1528cf75d314c1db81b9823dcf7cd758",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix docker (#1283)",
+          "commit_sha": "9a05b3de1528cf75d314c1db81b9823dcf7cd758"
+        }
+      ]
+    },
+    {
+      "version": "0.10.50b3",
+      "released_on": "2026-02-20",
+      "commit_sha": "e09d291225fcec07470c48763192ad602fee40f5",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix file separator (#1280)",
+          "commit_sha": "e09d291225fcec07470c48763192ad602fee40f5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.50b2",
+      "released_on": "2026-02-16",
+      "commit_sha": "27e71953963854fac1df62acf931482da5098b2e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update python and switch to RocksDB (#1277)",
+          "commit_sha": "27e71953963854fac1df62acf931482da5098b2e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.50b1",
+      "released_on": "2026-02-12",
+      "commit_sha": "f72df12bbd3fd5937c0234e0f33bc1805e7f6032",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improve error handling (#1274)",
+          "commit_sha": "f72df12bbd3fd5937c0234e0f33bc1805e7f6032"
+        }
+      ]
+    },
+    {
+      "version": "0.10.50b0",
+      "released_on": "2026-02-10",
+      "commit_sha": "ffd42ddb9e2227ee8eb15624ab700434648e8962",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improve build (#1272)",
+          "commit_sha": "ffd42ddb9e2227ee8eb15624ab700434648e8962"
+        }
+      ]
+    },
+    {
+      "version": "0.10.49",
+      "released_on": "2026-01-20",
+      "commit_sha": "e8c3e01c12b6bc0473a4a0b6fa28b5baf137badb",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add an option to control which chunks get modified when pasting (#1263)",
+          "commit_sha": "e8c3e01c12b6bc0473a4a0b6fa28b5baf137badb"
+        }
+      ]
+    },
+    {
+      "version": "0.10.49b3",
+      "released_on": "2026-01-19",
+      "commit_sha": "20fd0b4de34907fa93a3c2dee7939b5a9b331163",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add exception handlers and debug logging (#1262)",
+          "commit_sha": "20fd0b4de34907fa93a3c2dee7939b5a9b331163"
+        }
+      ]
+    },
+    {
+      "version": "0.10.49b2",
+      "released_on": "2026-01-15",
+      "commit_sha": "f45af2ec3336e2f93d0bc15f4e7a54f1cfc1be61",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improve operations (#1256)",
+          "commit_sha": "f45af2ec3336e2f93d0bc15f4e7a54f1cfc1be61"
+        }
+      ]
+    },
+    {
+      "version": "0.10.48",
+      "released_on": "2025-12-11",
+      "commit_sha": "d46d7f285fcd6c7909e2edd6014598cbe40fb273",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update notice (#1228)",
+          "commit_sha": "d46d7f285fcd6c7909e2edd6014598cbe40fb273"
+        }
+      ]
+    },
+    {
+      "version": "0.10.49b0",
+      "released_on": "2025-12-11",
+      "commit_sha": "d46d7f285fcd6c7909e2edd6014598cbe40fb273",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update notice (#1228)",
+          "commit_sha": "d46d7f285fcd6c7909e2edd6014598cbe40fb273"
+        }
+      ]
+    },
+    {
+      "version": "0.10.49b1",
+      "released_on": "2025-12-11",
+      "commit_sha": "d46d7f285fcd6c7909e2edd6014598cbe40fb273",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update notice (#1228)",
+          "commit_sha": "d46d7f285fcd6c7909e2edd6014598cbe40fb273"
+        }
+      ]
+    },
+    {
+      "version": "0.10.47",
+      "released_on": "2025-12-05",
+      "commit_sha": "684eeb45b35cd9ba9a12567955ae3de62e4033b0",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add support dialog (#1221)",
+          "commit_sha": "684eeb45b35cd9ba9a12567955ae3de62e4033b0"
+        }
+      ]
+    },
+    {
+      "version": "0.10.45",
+      "released_on": "2025-10-30",
+      "commit_sha": "e8a83ce9bcb5a5230f3c62da7e27b74c9118cc69",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add Bedrock 1.21.120 world paths (#1209)",
+          "commit_sha": "e8a83ce9bcb5a5230f3c62da7e27b74c9118cc69"
+        }
+      ]
+    },
+    {
+      "version": "0.10.46",
+      "released_on": "2025-10-30",
+      "commit_sha": "e8a83ce9bcb5a5230f3c62da7e27b74c9118cc69",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add Bedrock 1.21.120 world paths (#1209)",
+          "commit_sha": "e8a83ce9bcb5a5230f3c62da7e27b74c9118cc69"
+        }
+      ]
+    },
+    {
+      "version": "0.10.45b1",
+      "released_on": "2025-10-22",
+      "commit_sha": "ebafe4b4a955d10378b66c8529f2fb47b2fcb44e",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix dimension selector (#1208)",
+          "commit_sha": "ebafe4b4a955d10378b66c8529f2fb47b2fcb44e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.45b0",
+      "released_on": "2025-10-09",
+      "commit_sha": "a1cfabe8ddb0d0989c54ed1036480980d4c43fdc",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix invisible window issue and refactor window sizer (#1201)",
+          "commit_sha": "a1cfabe8ddb0d0989c54ed1036480980d4c43fdc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.43",
+      "released_on": "2025-06-18",
+      "commit_sha": "4889915b0f7a30416b9994929241dc657f6848b4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Use a 'default' instead of a 'decorative' font family (#1174)",
+          "commit_sha": "4889915b0f7a30416b9994929241dc657f6848b4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.44",
+      "released_on": "2025-06-18",
+      "commit_sha": "4889915b0f7a30416b9994929241dc657f6848b4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Use a 'default' instead of a 'decorative' font family (#1174)",
+          "commit_sha": "4889915b0f7a30416b9994929241dc657f6848b4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.42",
+      "released_on": "2025-04-29",
+      "commit_sha": "679d42367da5ca3516bde9cc3c56a3ef9c45405b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improve movement speed button (#1161)",
+          "commit_sha": "679d42367da5ca3516bde9cc3c56a3ef9c45405b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.40",
+      "released_on": "2025-01-06",
+      "commit_sha": "5ede8eda544df7ec1a4335376ec768bb255b7235",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update Vietnamese translation (#1129)",
+          "commit_sha": "5ede8eda544df7ec1a4335376ec768bb255b7235"
+        }
+      ]
+    },
+    {
+      "version": "0.10.41",
+      "released_on": "2025-01-06",
+      "commit_sha": "5ede8eda544df7ec1a4335376ec768bb255b7235",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update Vietnamese translation (#1129)",
+          "commit_sha": "5ede8eda544df7ec1a4335376ec768bb255b7235"
+        }
+      ]
+    },
+    {
+      "version": "0.10.37",
+      "released_on": "2024-09-19",
+      "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "improve-lang-<zh_CN> (#1088)",
+          "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.38",
+      "released_on": "2024-09-19",
+      "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "improve-lang-<zh_CN> (#1088)",
+          "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.39",
+      "released_on": "2024-09-19",
+      "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "improve-lang-<zh_CN> (#1088)",
+          "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.35",
+      "released_on": "2024-08-06",
+      "commit_sha": "e9f3ba8a7d683870759cdb85b2104b079d1a5281",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added a PyInstaller hook for missing numpy file (#1083)",
+          "commit_sha": "e9f3ba8a7d683870759cdb85b2104b079d1a5281"
+        }
+      ]
+    },
+    {
+      "version": "0.10.36",
+      "released_on": "2024-08-06",
+      "commit_sha": "e9f3ba8a7d683870759cdb85b2104b079d1a5281",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added a PyInstaller hook for missing numpy file (#1083)",
+          "commit_sha": "e9f3ba8a7d683870759cdb85b2104b079d1a5281"
+        }
+      ]
+    },
+    {
+      "version": "0.10.36b0",
+      "released_on": "2024-08-06",
+      "commit_sha": "e9f3ba8a7d683870759cdb85b2104b079d1a5281",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added a PyInstaller hook for missing numpy file (#1083)",
+          "commit_sha": "e9f3ba8a7d683870759cdb85b2104b079d1a5281"
+        }
+      ]
+    },
+    {
+      "version": "0.10.35b0",
+      "released_on": "2024-07-08",
+      "commit_sha": "1ef147d0329493d3f41cc0a7fe72f07dc8b4a723",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix key binding on OSX (#1074)",
+          "commit_sha": "1ef147d0329493d3f41cc0a7fe72f07dc8b4a723"
+        }
+      ]
+    },
+    {
+      "version": "0.10.33",
+      "released_on": "2024-06-17",
+      "commit_sha": "20bf6cdb0bc1b92c26af3fc0e644d97745351afd",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove pyopengl accelerate (#1066)",
+          "commit_sha": "20bf6cdb0bc1b92c26af3fc0e644d97745351afd"
+        }
+      ]
+    },
+    {
+      "version": "0.10.33b0",
+      "released_on": "2024-06-17",
+      "commit_sha": "20bf6cdb0bc1b92c26af3fc0e644d97745351afd",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove pyopengl accelerate (#1066)",
+          "commit_sha": "20bf6cdb0bc1b92c26af3fc0e644d97745351afd"
+        }
+      ]
+    },
+    {
+      "version": "0.10.31",
+      "released_on": "2024-06-12",
+      "commit_sha": "5e68e5bb35ea78f546ca068fe0c10331298b13ab",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improved the sponsor section on the home page (#1059)",
+          "commit_sha": "5e68e5bb35ea78f546ca068fe0c10331298b13ab"
+        }
+      ]
+    },
+    {
+      "version": "0.10.32",
+      "released_on": "2024-06-12",
+      "commit_sha": "5e68e5bb35ea78f546ca068fe0c10331298b13ab",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improved the sponsor section on the home page (#1059)",
+          "commit_sha": "5e68e5bb35ea78f546ca068fe0c10331298b13ab"
+        }
+      ]
+    },
+    {
+      "version": "0.10.30",
+      "released_on": "2024-05-29",
+      "commit_sha": "dd41b8e194c8c49a43af74298657a0e9bead5077",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added a sponsor button (#1054)",
+          "commit_sha": "dd41b8e194c8c49a43af74298657a0e9bead5077"
+        }
+      ]
+    },
+    {
+      "version": "0.10.29",
+      "released_on": "2024-05-01",
+      "commit_sha": "a7043321ede926a5ec9ab0d90620395494c71910",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix versioneer (#1043)",
+          "commit_sha": "a7043321ede926a5ec9ab0d90620395494c71910"
+        }
+      ]
+    },
+    {
+      "version": "0.10.28",
+      "released_on": "2024-03-18",
+      "commit_sha": "9a3d9c5a3abb996730b2375e61fcb33d9ca7fc5e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #1032 from Amulet-Team/bug-1031",
+          "commit_sha": "9a3d9c5a3abb996730b2375e61fcb33d9ca7fc5e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.26",
+      "released_on": "2023-12-08",
+      "commit_sha": "64fe69d9451479089655d9ae4cef5779f5e7ff9e",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add a dependency in README (#1005)",
+          "commit_sha": "64fe69d9451479089655d9ae4cef5779f5e7ff9e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.27",
+      "released_on": "2023-12-08",
+      "commit_sha": "64fe69d9451479089655d9ae4cef5779f5e7ff9e",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add a dependency in README (#1005)",
+          "commit_sha": "64fe69d9451479089655d9ae4cef5779f5e7ff9e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.24",
+      "released_on": "2023-10-29",
+      "commit_sha": "57892e8d245298f96d91c91d1aebf0c53d850cc1",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix block entities in replace operation (#996)",
+          "commit_sha": "57892e8d245298f96d91c91d1aebf0c53d850cc1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.25",
+      "released_on": "2023-10-29",
+      "commit_sha": "57892e8d245298f96d91c91d1aebf0c53d850cc1",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix block entities in replace operation (#996)",
+          "commit_sha": "57892e8d245298f96d91c91d1aebf0c53d850cc1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.23",
+      "released_on": "2023-09-30",
+      "commit_sha": "5ca1468ce08d61961a161a41bdd8d9c5a0f885b8",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix error in block define init (#988)",
+          "commit_sha": "5ca1468ce08d61961a161a41bdd8d9c5a0f885b8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.22",
+      "released_on": "2023-09-29",
+      "commit_sha": "9910a1c1e55f19e80890342be836aad15fccbfec",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bump python version and updated build scripts (#986)",
+          "commit_sha": "9910a1c1e55f19e80890342be836aad15fccbfec"
+        }
+      ]
+    },
+    {
+      "version": "0.10.20",
+      "released_on": "2023-09-24",
+      "commit_sha": "4e6c11c7900e46d295053b008de370332c2d7231",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Refactored warning dialog (#968)",
+          "commit_sha": "4e6c11c7900e46d295053b008de370332c2d7231"
+        }
+      ]
+    },
+    {
+      "version": "0.10.21",
+      "released_on": "2023-09-24",
+      "commit_sha": "4e6c11c7900e46d295053b008de370332c2d7231",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Refactored warning dialog (#968)",
+          "commit_sha": "4e6c11c7900e46d295053b008de370332c2d7231"
+        }
+      ]
+    },
+    {
+      "version": "0.10.19",
+      "released_on": "2023-08-12",
+      "commit_sha": "52991d26cb11e93c5392427377489820ae762094",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "更新 zh_CN.lang (#953)",
+          "commit_sha": "52991d26cb11e93c5392427377489820ae762094"
+        }
+      ]
+    },
+    {
+      "version": "0.10.16",
+      "released_on": "2023-07-03",
+      "commit_sha": "e0379a878f6ec597772cdbbafb12bbaf90761d31",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improv paths (#936)",
+          "commit_sha": "e0379a878f6ec597772cdbbafb12bbaf90761d31"
+        }
+      ]
+    },
+    {
+      "version": "0.10.16b0",
+      "released_on": "2023-07-03",
+      "commit_sha": "e0379a878f6ec597772cdbbafb12bbaf90761d31",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improv paths (#936)",
+          "commit_sha": "e0379a878f6ec597772cdbbafb12bbaf90761d31"
+        }
+      ]
+    },
+    {
+      "version": "0.10.17",
+      "released_on": "2023-07-03",
+      "commit_sha": "e0379a878f6ec597772cdbbafb12bbaf90761d31",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improv paths (#936)",
+          "commit_sha": "e0379a878f6ec597772cdbbafb12bbaf90761d31"
+        }
+      ]
+    },
+    {
+      "version": "0.10.18",
+      "released_on": "2023-07-03",
+      "commit_sha": "e0379a878f6ec597772cdbbafb12bbaf90761d31",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Improv paths (#936)",
+          "commit_sha": "e0379a878f6ec597772cdbbafb12bbaf90761d31"
+        }
+      ]
+    },
+    {
+      "version": "0.10.15",
+      "released_on": "2023-07-02",
+      "commit_sha": "d36f241ac9c82de0cf060e5b27c8f825435812e9",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove win32 builds (#934)",
+          "commit_sha": "d36f241ac9c82de0cf060e5b27c8f825435812e9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.14",
+      "released_on": "2023-06-29",
+      "commit_sha": "47d115b3b8f3be18af793bf7059ac589f397f2ae",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update ko.lang (#908)",
+          "commit_sha": "47d115b3b8f3be18af793bf7059ac589f397f2ae"
+        }
+      ]
+    },
+    {
+      "version": "0.10.13",
+      "released_on": "2023-06-20",
+      "commit_sha": "0d1a7c872f2ed1e58c130551286455a87bcf2d45",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Removed wxpython pinned version (#925)",
+          "commit_sha": "0d1a7c872f2ed1e58c130551286455a87bcf2d45"
+        }
+      ]
+    },
+    {
+      "version": "0.10.12",
+      "released_on": "2023-06-18",
+      "commit_sha": "6bb551c37c6318c1445efa68f3f8b6ae421fa73a",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Removed Python 3.9 limit (#923)",
+          "commit_sha": "6bb551c37c6318c1445efa68f3f8b6ae421fa73a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.11",
+      "released_on": "2023-04-25",
+      "commit_sha": "6f110b47f9c9a4bf61479949b5f59ac19286257e",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added Turkish language (#896)",
+          "commit_sha": "6f110b47f9c9a4bf61479949b5f59ac19286257e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.12b0",
+      "released_on": "2023-04-25",
+      "commit_sha": "6f110b47f9c9a4bf61479949b5f59ac19286257e",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added Turkish language (#896)",
+          "commit_sha": "6f110b47f9c9a4bf61479949b5f59ac19286257e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.10",
+      "released_on": "2023-03-15",
+      "commit_sha": "b72f9b2c69d511e6efd727eef08c0c7ecad65ffa",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #878 from toka7290/main",
+          "commit_sha": "b72f9b2c69d511e6efd727eef08c0c7ecad65ffa"
+        }
+      ]
+    },
+    {
+      "version": "0.10.9",
+      "released_on": "2023-02-14",
+      "commit_sha": "3ba1c7eea94d2c507874b7ba0b513b2205735808",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #874 from pixkk/impl-lang-uk",
+          "commit_sha": "3ba1c7eea94d2c507874b7ba0b513b2205735808"
+        }
+      ]
+    },
+    {
+      "version": "0.10.8",
+      "released_on": "2023-01-14",
+      "commit_sha": "0caccee1dfda57d373e7c037f2bfc29a2ee6e9c3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #867 from Amulet-Team/bug-856",
+          "commit_sha": "0caccee1dfda57d373e7c037f2bfc29a2ee6e9c3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.7",
+      "released_on": "2022-12-21",
+      "commit_sha": "e417c6b9aaaa65c4b96e6757c72f780c99649e8e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #854 from Amulet-Team/fix-glob",
+          "commit_sha": "e417c6b9aaaa65c4b96e6757c72f780c99649e8e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.7b0",
+      "released_on": "2022-12-12",
+      "commit_sha": "7de65e423f80110fe87beec8bf5c1018997b8cda",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed opengl issue on MacOS",
+          "commit_sha": "7de65e423f80110fe87beec8bf5c1018997b8cda"
+        }
+      ]
+    },
+    {
+      "version": "0.10.6",
+      "released_on": "2022-11-27",
+      "commit_sha": "9b5af0bd27bbc6389eb9843d30664e353c18bef7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #836 from 1834423612/0.10",
+          "commit_sha": "9b5af0bd27bbc6389eb9843d30664e353c18bef7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.4a0",
+      "released_on": "2022-10-30",
+      "commit_sha": "b9985f4f2d59ce6787c495092285402583e1970c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped pyinstaller version",
+          "commit_sha": "b9985f4f2d59ce6787c495092285402583e1970c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.5",
+      "released_on": "2022-10-30",
+      "commit_sha": "b9985f4f2d59ce6787c495092285402583e1970c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped pyinstaller version",
+          "commit_sha": "b9985f4f2d59ce6787c495092285402583e1970c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.3a0",
+      "released_on": "2022-10-30",
+      "commit_sha": "665b1b5215517759977ca44194ba5747d6fdde92",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #819 from PRO100KatYT/impl-lang-pl",
+          "commit_sha": "665b1b5215517759977ca44194ba5747d6fdde92"
+        }
+      ]
+    },
+    {
+      "version": "0.10.2",
+      "released_on": "2022-10-26",
+      "commit_sha": "250bec1e07398aa74035082b6f77278f07008031",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped setup-python",
+          "commit_sha": "250bec1e07398aa74035082b6f77278f07008031"
+        }
+      ]
+    },
+    {
+      "version": "0.10.2b1",
+      "released_on": "2022-10-04",
+      "commit_sha": "136a14945496583d7993a34fd99639a365ea5586",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #795 from kolan2222/patch-1",
+          "commit_sha": "136a14945496583d7993a34fd99639a365ea5586"
+        }
+      ]
+    },
+    {
+      "version": "0.10.2b2",
+      "released_on": "2022-10-04",
+      "commit_sha": "136a14945496583d7993a34fd99639a365ea5586",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #795 from kolan2222/patch-1",
+          "commit_sha": "136a14945496583d7993a34fd99639a365ea5586"
+        }
+      ]
+    },
+    {
+      "version": "0.10.2b3",
+      "released_on": "2022-10-04",
+      "commit_sha": "136a14945496583d7993a34fd99639a365ea5586",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #795 from kolan2222/patch-1",
+          "commit_sha": "136a14945496583d7993a34fd99639a365ea5586"
+        }
+      ]
+    },
+    {
+      "version": "0.10.2b0",
+      "released_on": "2022-10-02",
+      "commit_sha": "3b4f6714012d0c0bc685e47023c1e2dc8263b18e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #803 from Amulet-Team/bug-769",
+          "commit_sha": "3b4f6714012d0c0bc685e47023c1e2dc8263b18e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.1",
+      "released_on": "2022-09-11",
+      "commit_sha": "12ea0696fdeeb2cf6643035ea9e2943ab1df3a1c",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed TypeError on MacOS",
+          "commit_sha": "12ea0696fdeeb2cf6643035ea9e2943ab1df3a1c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0",
+      "released_on": "2022-09-10",
+      "commit_sha": "4176c34e8ad39ce88d895d6ffa3e384d49a6fcde",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed GLSL preprocessor directives",
+          "commit_sha": "4176c34e8ad39ce88d895d6ffa3e384d49a6fcde"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0b4",
+      "released_on": "2022-09-05",
+      "commit_sha": "6632b85d935211d367dd1aa25ee764fea96185b9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Modified wxpython requirement",
+          "commit_sha": "6632b85d935211d367dd1aa25ee764fea96185b9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0b3",
+      "released_on": "2022-09-05",
+      "commit_sha": "a10e21475305f8df57abcdc6878804685e4c520a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased maximum render distance to 500",
+          "commit_sha": "a10e21475305f8df57abcdc6878804685e4c520a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0b1",
+      "released_on": "2022-07-29",
+      "commit_sha": "29e934dd1031d33edd7664785c254359bd6ce802",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #761 from Amulet-Team/improv-logging",
+          "commit_sha": "29e934dd1031d33edd7664785c254359bd6ce802"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0b2",
+      "released_on": "2022-07-29",
+      "commit_sha": "29e934dd1031d33edd7664785c254359bd6ce802",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #761 from Amulet-Team/improv-logging",
+          "commit_sha": "29e934dd1031d33edd7664785c254359bd6ce802"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0a4",
+      "released_on": "2022-07-28",
+      "commit_sha": "59243ed651b8d1dd3f362baa6f8b9d55269a87d8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped dependencies",
+          "commit_sha": "59243ed651b8d1dd3f362baa6f8b9d55269a87d8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0a3",
+      "released_on": "2022-07-14",
+      "commit_sha": "58d40a78077f309ab25e4c5c640fb7551a4f11fd",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #745 from Amulet-Team/fix-packaging",
+          "commit_sha": "58d40a78077f309ab25e4c5c640fb7551a4f11fd"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0a1",
+      "released_on": "2022-07-03",
+      "commit_sha": "195746cd40d133c246d7d989c41e38d859a88e80",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #731 from Amulet-Team/improv-pyinstaller-spec2",
+          "commit_sha": "195746cd40d133c246d7d989c41e38d859a88e80"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0a0",
+      "released_on": "2022-06-30",
+      "commit_sha": "a1581e85633c4e4a918266a7a30ab294cf751932",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge branch '0.9' into 0.10",
+          "commit_sha": "a1581e85633c4e4a918266a7a30ab294cf751932"
+        }
+      ]
+    },
+    {
+      "version": "0.9.3",
+      "released_on": "2022-05-24",
+      "commit_sha": "9e4adb214a4f2040a89ee3c0a77b60ba818399c6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #684 from Amulet-Team/bug-683",
+          "commit_sha": "9e4adb214a4f2040a89ee3c0a77b60ba818399c6"
+        }
+      ]
+    },
+    {
+      "version": "0.9.4",
+      "released_on": "2022-05-24",
+      "commit_sha": "9e4adb214a4f2040a89ee3c0a77b60ba818399c6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #684 from Amulet-Team/bug-683",
+          "commit_sha": "9e4adb214a4f2040a89ee3c0a77b60ba818399c6"
+        }
+      ]
+    },
+    {
+      "version": "0.9.5",
+      "released_on": "2022-05-24",
+      "commit_sha": "9e4adb214a4f2040a89ee3c0a77b60ba818399c6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #684 from Amulet-Team/bug-683",
+          "commit_sha": "9e4adb214a4f2040a89ee3c0a77b60ba818399c6"
+        }
+      ]
+    },
+    {
+      "version": "0.9.6",
+      "released_on": "2022-05-24",
+      "commit_sha": "9e4adb214a4f2040a89ee3c0a77b60ba818399c6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #684 from Amulet-Team/bug-683",
+          "commit_sha": "9e4adb214a4f2040a89ee3c0a77b60ba818399c6"
+        }
+      ]
+    },
+    {
+      "version": "0.9.3b1",
+      "released_on": "2022-05-11",
+      "commit_sha": "6a72d0117c2633c250154e140b33fc3122dc59a0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #671 from Amulet-Team/impl-stale-bot",
+          "commit_sha": "6a72d0117c2633c250154e140b33fc3122dc59a0"
+        }
+      ]
+    },
+    {
+      "version": "0.9.3b1.dev202205120715",
+      "released_on": "2022-05-11",
+      "commit_sha": "6a72d0117c2633c250154e140b33fc3122dc59a0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #671 from Amulet-Team/impl-stale-bot",
+          "commit_sha": "6a72d0117c2633c250154e140b33fc3122dc59a0"
+        }
+      ]
+    },
+    {
+      "version": "0.9.3b0",
+      "released_on": "2022-04-27",
+      "commit_sha": "7458aab1ea42e9fa8ab6fae444a399ff823aacf7",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed branch version matching",
+          "commit_sha": "7458aab1ea42e9fa8ab6fae444a399ff823aacf7"
+        }
+      ]
+    },
+    {
+      "version": "0.9.3b0.dev202204280713",
+      "released_on": "2022-04-27",
+      "commit_sha": "7458aab1ea42e9fa8ab6fae444a399ff823aacf7",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed branch version matching",
+          "commit_sha": "7458aab1ea42e9fa8ab6fae444a399ff823aacf7"
+        }
+      ]
+    },
+    {
+      "version": "0.9.3b0.dev202204270715",
+      "released_on": "2022-04-26",
+      "commit_sha": "2e54cc881bd4db5a75373c2485f526b39f7109cd",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Automatically add the triage tag",
+          "commit_sha": "2e54cc881bd4db5a75373c2485f526b39f7109cd"
+        }
+      ]
+    },
+    {
+      "version": "0.9.1",
+      "released_on": "2022-04-19",
+      "commit_sha": "42b01331e2ded4b79141feaa9d923e537ffa9962",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "bumped core version",
+          "commit_sha": "42b01331e2ded4b79141feaa9d923e537ffa9962"
+        }
+      ]
+    },
+    {
+      "version": "0.9.2",
+      "released_on": "2022-04-19",
+      "commit_sha": "42b01331e2ded4b79141feaa9d923e537ffa9962",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "bumped core version",
+          "commit_sha": "42b01331e2ded4b79141feaa9d923e537ffa9962"
+        }
+      ]
+    },
+    {
+      "version": "0.9.2b0.dev202204200715",
+      "released_on": "2022-04-19",
+      "commit_sha": "42b01331e2ded4b79141feaa9d923e537ffa9962",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "bumped core version",
+          "commit_sha": "42b01331e2ded4b79141feaa9d923e537ffa9962"
+        }
+      ]
+    },
+    {
+      "version": "0.9.0",
+      "released_on": "2022-04-05",
+      "commit_sha": "ca0c3a678118f6add31e5933a52cb3ddf4108136",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #620 from Amulet-Team/improv-update-check",
+          "commit_sha": "ca0c3a678118f6add31e5933a52cb3ddf4108136"
+        }
+      ]
+    },
+    {
+      "version": "0.9.1b0.dev202204060714",
+      "released_on": "2022-04-05",
+      "commit_sha": "ca0c3a678118f6add31e5933a52cb3ddf4108136",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #620 from Amulet-Team/improv-update-check",
+          "commit_sha": "ca0c3a678118f6add31e5933a52cb3ddf4108136"
+        }
+      ]
+    },
+    {
+      "version": "0.9.0b1.dev202203310714",
+      "released_on": "2022-03-30",
+      "commit_sha": "ee57580c1d187c03a2a92c43bcc8029f6386ae23",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #392 from Amulet-Team/improv-chunk-mesh",
+          "commit_sha": "ee57580c1d187c03a2a92c43bcc8029f6386ae23"
+        }
+      ]
+    },
+    {
+      "version": "0.9.0b0",
+      "released_on": "2022-03-30",
+      "commit_sha": "82fc19d3769bc43b2928a48355f3e1054c5f7c71",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped library versions",
+          "commit_sha": "82fc19d3769bc43b2928a48355f3e1054c5f7c71"
+        }
+      ]
+    },
+    {
+      "version": "0.8.21",
+      "released_on": "2022-03-27",
+      "commit_sha": "510b18f6ae29d416e6f141ac52102b1c9255838f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #606 from Amulet-Team/fix-272",
+          "commit_sha": "510b18f6ae29d416e6f141ac52102b1c9255838f"
+        }
+      ]
+    },
+    {
+      "version": "0.8.22b0.dev202203280714",
+      "released_on": "2022-03-27",
+      "commit_sha": "510b18f6ae29d416e6f141ac52102b1c9255838f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #606 from Amulet-Team/fix-272",
+          "commit_sha": "510b18f6ae29d416e6f141ac52102b1c9255838f"
+        }
+      ]
+    },
+    {
+      "version": "0.8.21b0.dev202203240714",
+      "released_on": "2022-03-23",
+      "commit_sha": "0694ef2941be432c542a91ed4045ac9c25e5dabe",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Simplified glob",
+          "commit_sha": "0694ef2941be432c542a91ed4045ac9c25e5dabe"
+        }
+      ]
+    },
+    {
+      "version": "0.8.21b0.dev202203200713",
+      "released_on": "2022-03-19",
+      "commit_sha": "0d52afba324255061a5521ea071da6ee4d39d9e4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Int value before giving to SetValue (#605)",
+          "commit_sha": "0d52afba324255061a5521ea071da6ee4d39d9e4"
+        }
+      ]
+    },
+    {
+      "version": "0.8.21b0.dev202203100713",
+      "released_on": "2022-03-09",
+      "commit_sha": "8b9108993883c80280318d08efe273f50943dbb6",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added a button to create empty chunks (#593)",
+          "commit_sha": "8b9108993883c80280318d08efe273f50943dbb6"
+        }
+      ]
+    },
+    {
+      "version": "0.8.20",
+      "released_on": "2022-03-03",
+      "commit_sha": "9dbecea1fe6320199c45669cfd96ed31f749f581",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Updated requirements.txt to work around an issue with the compatible release version specifier",
+          "commit_sha": "9dbecea1fe6320199c45669cfd96ed31f749f581"
+        }
+      ]
+    },
+    {
+      "version": "0.8.21b0.dev202203030713",
+      "released_on": "2022-03-03",
+      "commit_sha": "9dbecea1fe6320199c45669cfd96ed31f749f581",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Updated requirements.txt to work around an issue with the compatible release version specifier",
+          "commit_sha": "9dbecea1fe6320199c45669cfd96ed31f749f581"
+        }
+      ]
+    },
+    {
+      "version": "0.8.19",
+      "released_on": "2022-02-19",
+      "commit_sha": "50ae882ffeb92326352094424037971e5f57a9f7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #542 from kqakqakqa/improv-lang-zh_CN",
+          "commit_sha": "50ae882ffeb92326352094424037971e5f57a9f7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.20b0.dev202202200712",
+      "released_on": "2022-02-19",
+      "commit_sha": "50ae882ffeb92326352094424037971e5f57a9f7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #542 from kqakqakqa/improv-lang-zh_CN",
+          "commit_sha": "50ae882ffeb92326352094424037971e5f57a9f7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.19b0.dev202202140713",
+      "released_on": "2022-02-13",
+      "commit_sha": "4a8b56015ad10161f68e5547656996a17eec25b9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #568 from Amulet-Team/fix-543",
+          "commit_sha": "4a8b56015ad10161f68e5547656996a17eec25b9"
+        }
+      ]
+    },
+    {
+      "version": "0.8.18",
+      "released_on": "2022-02-05",
+      "commit_sha": "fae5370a2e2a5a40335650849b64f9b6a8052d06",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #544 from Amulet-Team/fix-operation-reload",
+          "commit_sha": "fae5370a2e2a5a40335650849b64f9b6a8052d06"
+        }
+      ]
+    },
+    {
+      "version": "0.8.18b0.dev202202060713",
+      "released_on": "2022-02-05",
+      "commit_sha": "fae5370a2e2a5a40335650849b64f9b6a8052d06",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #544 from Amulet-Team/fix-operation-reload",
+          "commit_sha": "fae5370a2e2a5a40335650849b64f9b6a8052d06"
+        }
+      ]
+    },
+    {
+      "version": "0.8.18b0.dev202201210713",
+      "released_on": "2022-01-20",
+      "commit_sha": "f814aaf06dd39061d8252dbfe6f6ab814375272d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #540 from Amulet-Team/fix-issue-templates",
+          "commit_sha": "f814aaf06dd39061d8252dbfe6f6ab814375272d"
+        }
+      ]
+    },
+    {
+      "version": "0.8.17",
+      "released_on": "2022-01-18",
+      "commit_sha": "6f75e14fbcaac1673875eec3ceef8f68219ed4da",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #537 from Amulet-Team/bump-wxpython",
+          "commit_sha": "6f75e14fbcaac1673875eec3ceef8f68219ed4da"
+        }
+      ]
+    },
+    {
+      "version": "0.8.18b0.dev202201190710",
+      "released_on": "2022-01-18",
+      "commit_sha": "6f75e14fbcaac1673875eec3ceef8f68219ed4da",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #537 from Amulet-Team/bump-wxpython",
+          "commit_sha": "6f75e14fbcaac1673875eec3ceef8f68219ed4da"
+        }
+      ]
+    },
+    {
+      "version": "0.8.17b1.dev202201170714",
+      "released_on": "2022-01-16",
+      "commit_sha": "6c1f037508815fbc2f287da63623ceb6491acc81",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #535 from Amulet-Team/improv-issue-templates",
+          "commit_sha": "6c1f037508815fbc2f287da63623ceb6491acc81"
+        }
+      ]
+    },
+    {
+      "version": "0.8.17b1.dev202201130714",
+      "released_on": "2022-01-12",
+      "commit_sha": "e99619ba6aab855173b9f7c203455944ab97f89a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #524 from ianz56/impl-lang-id",
+          "commit_sha": "e99619ba6aab855173b9f7c203455944ab97f89a"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16b0.dev202112130714",
+      "released_on": "2021-12-12",
+      "commit_sha": "e4451e561622a28ee6a630186da2ae0c2ad3d8b7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped the pyinstall version",
+          "commit_sha": "e4451e561622a28ee6a630186da2ae0c2ad3d8b7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.17b0",
+      "released_on": "2021-12-12",
+      "commit_sha": "e4451e561622a28ee6a630186da2ae0c2ad3d8b7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped the pyinstall version",
+          "commit_sha": "e4451e561622a28ee6a630186da2ae0c2ad3d8b7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16b0.dev202112110713",
+      "released_on": "2021-12-10",
+      "commit_sha": "9dc6d14fcb38315924503a2be11733f3b1efbbc0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #492 from Amulet-Team/fix-window-issues",
+          "commit_sha": "9dc6d14fcb38315924503a2be11733f3b1efbbc0"
+        }
+      ]
+    },
+    {
+      "version": "0.8.17a2",
+      "released_on": "2021-12-10",
+      "commit_sha": "9dc6d14fcb38315924503a2be11733f3b1efbbc0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #492 from Amulet-Team/fix-window-issues",
+          "commit_sha": "9dc6d14fcb38315924503a2be11733f3b1efbbc0"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16b0.dev202112100713",
+      "released_on": "2021-12-09",
+      "commit_sha": "17e680512fce6c27629c2ef1e546414ae823c79e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #493 from Amulet-Team/impl-1.18",
+          "commit_sha": "17e680512fce6c27629c2ef1e546414ae823c79e"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16a4",
+      "released_on": "2021-12-03",
+      "commit_sha": "50b425ede63adc93f6fd0986ee48c2e50f4092d0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Force the newest library versions",
+          "commit_sha": "50b425ede63adc93f6fd0986ee48c2e50f4092d0"
+        }
+      ]
+    },
+    {
+      "version": "0.8.17a0",
+      "released_on": "2021-12-03",
+      "commit_sha": "50b425ede63adc93f6fd0986ee48c2e50f4092d0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Force the newest library versions",
+          "commit_sha": "50b425ede63adc93f6fd0986ee48c2e50f4092d0"
+        }
+      ]
+    },
+    {
+      "version": "0.8.17a1",
+      "released_on": "2021-12-03",
+      "commit_sha": "50b425ede63adc93f6fd0986ee48c2e50f4092d0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Force the newest library versions",
+          "commit_sha": "50b425ede63adc93f6fd0986ee48c2e50f4092d0"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16b0.dev202111170713",
+      "released_on": "2021-11-16",
+      "commit_sha": "77c6953623b07d8d17bf9fcdb60b6ff3067671d0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #434 from Amulet-Team/fix-build-version",
+          "commit_sha": "77c6953623b07d8d17bf9fcdb60b6ff3067671d0"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16a1",
+      "released_on": "2021-11-13",
+      "commit_sha": "b2988fd0565e822ef408cf8812069c23bef9793b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge branch 'fix-build-version' of https://github.com/Amulet-Team/Amulet-Map-Editor into fix-build-version",
+          "commit_sha": "b2988fd0565e822ef408cf8812069c23bef9793b"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16a0",
+      "released_on": "2021-11-13",
+      "commit_sha": "743ed936a41e9bd29ca8b1f67f78eb664ba087d2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge branch 'master' into fix-build-version",
+          "commit_sha": "743ed936a41e9bd29ca8b1f67f78eb664ba087d2"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16b0.dev202111130713",
+      "released_on": "2021-11-13",
+      "commit_sha": "7d3a0532b4b985f936c90725148cc857ace0f1af",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #458 from Amulet-Team/fix-run-operation-recursion2",
+          "commit_sha": "7d3a0532b4b985f936c90725148cc857ace0f1af"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16b0.dev202111120713",
+      "released_on": "2021-11-11",
+      "commit_sha": "9064476097acb1018ecbc1e1770782b57f210f50",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #440 from MarkHalpaap/improv-lang-de",
+          "commit_sha": "9064476097acb1018ecbc1e1770782b57f210f50"
+        }
+      ]
+    },
+    {
+      "version": "0.8.15a4",
+      "released_on": "2021-10-07",
+      "commit_sha": "9f984d5925fad055b8ffdd233c6d25d19f948e60",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Switched to using packaging module for version handling",
+          "commit_sha": "9f984d5925fad055b8ffdd233c6d25d19f948e60"
+        }
+      ]
+    },
+    {
+      "version": "0.8.16b0.dev202110080713",
+      "released_on": "2021-10-07",
+      "commit_sha": "3b018505132ab17749409cd9e0aee7764eda2c90",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #430 from Lux-may/improv-lang-zh_TW",
+          "commit_sha": "3b018505132ab17749409cd9e0aee7764eda2c90"
+        }
+      ]
+    },
+    {
+      "version": "0.8.15a3",
+      "released_on": "2021-10-07",
+      "commit_sha": "4e90b2420e77387c207a7ba80847c4e8ee1ebc48",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Removed system environment check.",
+          "commit_sha": "4e90b2420e77387c207a7ba80847c4e8ee1ebc48"
+        }
+      ]
+    },
+    {
+      "version": "0.8.15a2",
+      "released_on": "2021-09-28",
+      "commit_sha": "402b610025410a9cc1b67d0ad56b9dd1948df9c4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Try defining the environment variable like this",
+          "commit_sha": "402b610025410a9cc1b67d0ad56b9dd1948df9c4"
+        }
+      ]
+    },
+    {
+      "version": "0.8.15a1",
+      "released_on": "2021-09-28",
+      "commit_sha": "d8386b9eb926f804e4a941c9759d74f0d6245735",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed import and added a better error message",
+          "commit_sha": "d8386b9eb926f804e4a941c9759d74f0d6245735"
+        }
+      ]
+    },
+    {
+      "version": "0.8.15a0",
+      "released_on": "2021-09-28",
+      "commit_sha": "5fd0e677ecb721d348062e69bdc671714ce29e83",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Find the newest version of each library to use",
+          "commit_sha": "5fd0e677ecb721d348062e69bdc671714ce29e83"
+        }
+      ]
+    },
+    {
+      "version": "0.8.14",
+      "released_on": "2021-09-23",
+      "commit_sha": "2b8a0fa9871e4fa5026bf8fe9368e75480d594e7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #424 from Amulet-Team/fix-update-check",
+          "commit_sha": "2b8a0fa9871e4fa5026bf8fe9368e75480d594e7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.14b0.dev202109240712",
+      "released_on": "2021-09-23",
+      "commit_sha": "2b8a0fa9871e4fa5026bf8fe9368e75480d594e7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #424 from Amulet-Team/fix-update-check",
+          "commit_sha": "2b8a0fa9871e4fa5026bf8fe9368e75480d594e7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.15",
+      "released_on": "2021-09-23",
+      "commit_sha": "2b8a0fa9871e4fa5026bf8fe9368e75480d594e7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #424 from Amulet-Team/fix-update-check",
+          "commit_sha": "2b8a0fa9871e4fa5026bf8fe9368e75480d594e7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.13",
+      "released_on": "2021-08-25",
+      "commit_sha": "c96cc6f6a2187956645259bb5f4c0468306e1722",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #399 from Max-RM/master",
+          "commit_sha": "c96cc6f6a2187956645259bb5f4c0468306e1722"
+        }
+      ]
+    },
+    {
+      "version": "0.8.13b0",
+      "released_on": "2021-08-25",
+      "commit_sha": "c96cc6f6a2187956645259bb5f4c0468306e1722",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #399 from Max-RM/master",
+          "commit_sha": "c96cc6f6a2187956645259bb5f4c0468306e1722"
+        }
+      ]
+    },
+    {
+      "version": "0.8.13b0.dev202108260712",
+      "released_on": "2021-08-25",
+      "commit_sha": "c96cc6f6a2187956645259bb5f4c0468306e1722",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #399 from Max-RM/master",
+          "commit_sha": "c96cc6f6a2187956645259bb5f4c0468306e1722"
+        }
+      ]
+    },
+    {
+      "version": "0.8.13a11",
+      "released_on": "2021-08-12",
+      "commit_sha": "6aa8a77f54dee64e1052db3145db3182ade2561b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "A little bit more cleanup",
+          "commit_sha": "6aa8a77f54dee64e1052db3145db3182ade2561b"
+        }
+      ]
+    },
+    {
+      "version": "0.8.13b0.dev202108090712",
+      "released_on": "2021-08-08",
+      "commit_sha": "6fd658e72d882136942c57cecd6c5f6b35bbafd8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #388 from Amulet-Team/improv-setup",
+          "commit_sha": "6fd658e72d882136942c57cecd6c5f6b35bbafd8"
+        }
+      ]
+    },
+    {
+      "version": "0.8.13a10",
+      "released_on": "2021-08-08",
+      "commit_sha": "6df281e41f0fe52034a9102b3e1f0ec538748181",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Cleaned up paths",
+          "commit_sha": "6df281e41f0fe52034a9102b3e1f0ec538748181"
+        }
+      ]
+    },
+    {
+      "version": "0.8.13b0.dev202107200711",
+      "released_on": "2021-07-19",
+      "commit_sha": "bf78399bff63bda3010dd904c5bc112c5f72fc64",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #380 from sparks0/master",
+          "commit_sha": "bf78399bff63bda3010dd904c5bc112c5f72fc64"
+        }
+      ]
+    },
+    {
+      "version": "0.8.11",
+      "released_on": "2021-07-06",
+      "commit_sha": "f6c7c519d89c95b03cf52dd0b6e1b0f8df64d95c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #369 from Amulet-Team/fix-main",
+          "commit_sha": "f6c7c519d89c95b03cf52dd0b6e1b0f8df64d95c"
+        }
+      ]
+    },
+    {
+      "version": "0.8.11b0.dev202107070711",
+      "released_on": "2021-07-06",
+      "commit_sha": "f6c7c519d89c95b03cf52dd0b6e1b0f8df64d95c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #369 from Amulet-Team/fix-main",
+          "commit_sha": "f6c7c519d89c95b03cf52dd0b6e1b0f8df64d95c"
+        }
+      ]
+    },
+    {
+      "version": "0.8.12",
+      "released_on": "2021-07-06",
+      "commit_sha": "f6c7c519d89c95b03cf52dd0b6e1b0f8df64d95c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #369 from Amulet-Team/fix-main",
+          "commit_sha": "f6c7c519d89c95b03cf52dd0b6e1b0f8df64d95c"
+        }
+      ]
+    },
+    {
+      "version": "0.8.10",
+      "released_on": "2021-07-03",
+      "commit_sha": "2e583f7be6c6e3ed8e814579633d27696477bc1e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #364 from Amulet-Team/fix-array",
+          "commit_sha": "2e583f7be6c6e3ed8e814579633d27696477bc1e"
+        }
+      ]
+    },
+    {
+      "version": "0.8.11b0.dev202107040711",
+      "released_on": "2021-07-03",
+      "commit_sha": "2e583f7be6c6e3ed8e814579633d27696477bc1e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #364 from Amulet-Team/fix-array",
+          "commit_sha": "2e583f7be6c6e3ed8e814579633d27696477bc1e"
+        }
+      ]
+    },
+    {
+      "version": "0.8.9",
+      "released_on": "2021-07-03",
+      "commit_sha": "1f8d14c6c2098254701bd9c122fae5a8a914b481",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #362 from VolchaH/bug-361",
+          "commit_sha": "1f8d14c6c2098254701bd9c122fae5a8a914b481"
+        }
+      ]
+    },
+    {
+      "version": "0.8.9b1.dev202107010712",
+      "released_on": "2021-06-30",
+      "commit_sha": "115d5d2f24f75171bfd32284e246b9beeebd31cb",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #358 from Amulet-Team/fix-requirements",
+          "commit_sha": "115d5d2f24f75171bfd32284e246b9beeebd31cb"
+        }
+      ]
+    },
+    {
+      "version": "0.8.9a3",
+      "released_on": "2021-06-30",
+      "commit_sha": "7e568849c60369e1efea5238d0b6eea7c8f97870",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Moved the pip freeze logic into setup.py",
+          "commit_sha": "7e568849c60369e1efea5238d0b6eea7c8f97870"
+        }
+      ]
+    },
+    {
+      "version": "0.8.9b1.dev202106280711",
+      "released_on": "2021-06-27",
+      "commit_sha": "6fbd9961114d2c7ae7d424fb0019871b390e636c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #351 from Amulet-Team/fix-get_coord_box",
+          "commit_sha": "6fbd9961114d2c7ae7d424fb0019871b390e636c"
+        }
+      ]
+    },
+    {
+      "version": "0.8.9b0",
+      "released_on": "2021-06-24",
+      "commit_sha": "2361d16e13b015e1f088d12784cb1fc693bb114e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #342 from Amulet-Team/bug-226",
+          "commit_sha": "2361d16e13b015e1f088d12784cb1fc693bb114e"
+        }
+      ]
+    },
+    {
+      "version": "0.8.9b1.dev202106250710",
+      "released_on": "2021-06-24",
+      "commit_sha": "2361d16e13b015e1f088d12784cb1fc693bb114e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #342 from Amulet-Team/bug-226",
+          "commit_sha": "2361d16e13b015e1f088d12784cb1fc693bb114e"
+        }
+      ]
+    },
+    {
+      "version": "0.8.9b0.dev202106240707",
+      "released_on": "2021-06-23",
+      "commit_sha": "7918cd2bd656be68a33bab8ad2a6730d4059fb21",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #337 from Amulet-Team/impl-macos-certificate-warning",
+          "commit_sha": "7918cd2bd656be68a33bab8ad2a6730d4059fb21"
+        }
+      ]
+    },
+    {
+      "version": "0.8.8",
+      "released_on": "2021-06-09",
+      "commit_sha": "3cd7d387cf5518449df6a92b5c2aadd9ed2d9fc6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #315 from Amulet-Team/improv-delete-chunks",
+          "commit_sha": "3cd7d387cf5518449df6a92b5c2aadd9ed2d9fc6"
+        }
+      ]
+    },
+    {
+      "version": "0.8.9b0.dev202106100722",
+      "released_on": "2021-06-09",
+      "commit_sha": "3cd7d387cf5518449df6a92b5c2aadd9ed2d9fc6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #315 from Amulet-Team/improv-delete-chunks",
+          "commit_sha": "3cd7d387cf5518449df6a92b5c2aadd9ed2d9fc6"
+        }
+      ]
+    },
+    {
+      "version": "0.8.7",
+      "released_on": "2021-06-08",
+      "commit_sha": "610ac6d7a39690a107da37cfcb94d86510abbb34",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Changed delete lang entries",
+          "commit_sha": "610ac6d7a39690a107da37cfcb94d86510abbb34"
+        }
+      ]
+    },
+    {
+      "version": "0.8.8b0.dev202106090725",
+      "released_on": "2021-06-08",
+      "commit_sha": "610ac6d7a39690a107da37cfcb94d86510abbb34",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Changed delete lang entries",
+          "commit_sha": "610ac6d7a39690a107da37cfcb94d86510abbb34"
+        }
+      ]
+    },
+    {
+      "version": "0.8.7b0",
+      "released_on": "2021-06-07",
+      "commit_sha": "55b3decd37d9d698d71545bb27937112a45a14ce",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #310 from Amulet-Team/impl-1.17",
+          "commit_sha": "55b3decd37d9d698d71545bb27937112a45a14ce"
+        }
+      ]
+    },
+    {
+      "version": "0.8.7b1.dev202106080728",
+      "released_on": "2021-06-07",
+      "commit_sha": "55b3decd37d9d698d71545bb27937112a45a14ce",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #310 from Amulet-Team/impl-1.17",
+          "commit_sha": "55b3decd37d9d698d71545bb27937112a45a14ce"
+        }
+      ]
+    },
+    {
+      "version": "0.8.6b0",
+      "released_on": "2021-05-29",
+      "commit_sha": "b494629f3996c611b4140569be11e096d18df77d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #302 from Amulet-Team/impl-player-location",
+          "commit_sha": "b494629f3996c611b4140569be11e096d18df77d"
+        }
+      ]
+    },
+    {
+      "version": "0.8.6b1.dev202105300809",
+      "released_on": "2021-05-29",
+      "commit_sha": "b494629f3996c611b4140569be11e096d18df77d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #302 from Amulet-Team/impl-player-location",
+          "commit_sha": "b494629f3996c611b4140569be11e096d18df77d"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5",
+      "released_on": "2021-05-26",
+      "commit_sha": "5988afcd6b1e886ab2d2f455ab32d123d35d3925",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed a missing lang entry",
+          "commit_sha": "5988afcd6b1e886ab2d2f455ab32d123d35d3925"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5b0",
+      "released_on": "2021-05-26",
+      "commit_sha": "5988afcd6b1e886ab2d2f455ab32d123d35d3925",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed a missing lang entry",
+          "commit_sha": "5988afcd6b1e886ab2d2f455ab32d123d35d3925"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5b0.dev202105270750",
+      "released_on": "2021-05-26",
+      "commit_sha": "5988afcd6b1e886ab2d2f455ab32d123d35d3925",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed a missing lang entry",
+          "commit_sha": "5988afcd6b1e886ab2d2f455ab32d123d35d3925"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5b0.dev202105260741",
+      "released_on": "2021-05-25",
+      "commit_sha": "72709b44b26ccd1d914972560549a81e45978dda",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #296 from ALTB0ne/impl-localization-comments",
+          "commit_sha": "72709b44b26ccd1d914972560549a81e45978dda"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5b0.dev202105240723",
+      "released_on": "2021-05-23",
+      "commit_sha": "39d946a6edcc2abafb2ee507026b944ddfaa9ad4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Cleaned up imports",
+          "commit_sha": "39d946a6edcc2abafb2ee507026b944ddfaa9ad4"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5b0.dev202105100717",
+      "released_on": "2021-05-09",
+      "commit_sha": "26ecbe9b28bbf72c1640a67f9f14db3c580799d9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #289 from Amulet-Team/bug-244",
+          "commit_sha": "26ecbe9b28bbf72c1640a67f9f14db3c580799d9"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5b0.dev202105090715",
+      "released_on": "2021-05-08",
+      "commit_sha": "79245ff1b0018e82b19f5c02ccd40cdc3774f36f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #286 from Amulet-Team/pyinstaller-4.2",
+          "commit_sha": "79245ff1b0018e82b19f5c02ccd40cdc3774f36f"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5b0.dev202105070717",
+      "released_on": "2021-05-06",
+      "commit_sha": "3382d0213510fdd14fbc0c72118685170c2f7fb8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #284 from Amulet-Team/bug-283",
+          "commit_sha": "3382d0213510fdd14fbc0c72118685170c2f7fb8"
+        }
+      ]
+    },
+    {
+      "version": "0.8.5b0.dev202105010717",
+      "released_on": "2021-04-30",
+      "commit_sha": "347ddaef6165f515c2aff94e6e14d4885ba4210b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #278 from Amulet-Team/fix-chunk-generation",
+          "commit_sha": "347ddaef6165f515c2aff94e6e14d4885ba4210b"
+        }
+      ]
+    },
+    {
+      "version": "0.8.4",
+      "released_on": "2021-04-24",
+      "commit_sha": "35dba2e00c9b5474687221fc6caac302083ba781",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Locked pyinstaller to 4.2",
+          "commit_sha": "35dba2e00c9b5474687221fc6caac302083ba781"
+        }
+      ]
+    },
+    {
+      "version": "0.8.4b0.dev202104210707",
+      "released_on": "2021-04-20",
+      "commit_sha": "209e89a3a04e0b72f19a47e35a2f4b8dc3f38507",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge branch 'improv-nightly'",
+          "commit_sha": "209e89a3a04e0b72f19a47e35a2f4b8dc3f38507"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3",
+      "released_on": "2021-04-20",
+      "commit_sha": "6e637a6149b8b9d03b0a205a54bace619b4846a1",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #269 from Amulet-Team/updated-logo",
+          "commit_sha": "6e637a6149b8b9d03b0a205a54bace619b4846a1"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b2",
+      "released_on": "2021-04-18",
+      "commit_sha": "da43570ca2f5732b536d9e8193e39b3c9981a9cc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #267 from Amulet-Team/upgrade-text",
+          "commit_sha": "da43570ca2f5732b536d9e8193e39b3c9981a9cc"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b3.dev202104190706",
+      "released_on": "2021-04-18",
+      "commit_sha": "da43570ca2f5732b536d9e8193e39b3c9981a9cc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #267 from Amulet-Team/upgrade-text",
+          "commit_sha": "da43570ca2f5732b536d9e8193e39b3c9981a9cc"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b1",
+      "released_on": "2021-04-16",
+      "commit_sha": "0c20443ee8d0d1b3413f63c17ba7676903ca87c5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #264 from Amulet-Team/fix-freeze",
+          "commit_sha": "0c20443ee8d0d1b3413f63c17ba7676903ca87c5"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b2.dev202104170706",
+      "released_on": "2021-04-16",
+      "commit_sha": "0c20443ee8d0d1b3413f63c17ba7676903ca87c5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #264 from Amulet-Team/fix-freeze",
+          "commit_sha": "0c20443ee8d0d1b3413f63c17ba7676903ca87c5"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b1.dev202104160705",
+      "released_on": "2021-04-15",
+      "commit_sha": "62aba38cb1bba94a6af42333106fdd56aa79a205",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #262 from Amulet-Team/fix-stutter",
+          "commit_sha": "62aba38cb1bba94a6af42333106fdd56aa79a205"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b0",
+      "released_on": "2021-04-15",
+      "commit_sha": "66a24dfca584c58a75b2d4a9a1c15f6470807b50",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #261 from Amulet-Team/fix-locale",
+          "commit_sha": "66a24dfca584c58a75b2d4a9a1c15f6470807b50"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b0.dev202104120707",
+      "released_on": "2021-04-11",
+      "commit_sha": "d0959f0affd2089c4cc439e1ba2b83acc3f71e71",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #250 from Amulet-Team/bug-239",
+          "commit_sha": "d0959f0affd2089c4cc439e1ba2b83acc3f71e71"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3a5",
+      "released_on": "2021-04-01",
+      "commit_sha": "a85a0e2c91a5a60937a3a7c6bfffb63a749fc8c5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Set up the locale only if initially None",
+          "commit_sha": "a85a0e2c91a5a60937a3a7c6bfffb63a749fc8c5"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3a4",
+      "released_on": "2021-04-01",
+      "commit_sha": "7bc42686f6cf2ec56efb13f2c0c08444abf21818",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Restructured based on wxglade example",
+          "commit_sha": "7bc42686f6cf2ec56efb13f2c0c08444abf21818"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3a3",
+      "released_on": "2021-04-01",
+      "commit_sha": "5134e7a6af3ab6f4c4f07c2b726638bef4bc21f7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Try setting the C locale before setting up the app",
+          "commit_sha": "5134e7a6af3ab6f4c4f07c2b726638bef4bc21f7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3a2",
+      "released_on": "2021-03-31",
+      "commit_sha": "ed7f5c566c65d5075558756ba053ec77082013b3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Moved locale to before frame creation",
+          "commit_sha": "ed7f5c566c65d5075558756ba053ec77082013b3"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b0.dev202104010705",
+      "released_on": "2021-03-31",
+      "commit_sha": "c7099f87cfa1f6c45083142034b3275f61fe9417",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #242 from Amulet-Team/impl-contributing",
+          "commit_sha": "c7099f87cfa1f6c45083142034b3275f61fe9417"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3a0",
+      "released_on": "2021-03-31",
+      "commit_sha": "1526c1586c2ed3e5ede75ef2dd017584209ebe9c",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added an app class which sets up the locale",
+          "commit_sha": "1526c1586c2ed3e5ede75ef2dd017584209ebe9c"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b0.dev202103290706",
+      "released_on": "2021-03-28",
+      "commit_sha": "d18fbc2e1cc979c4bab1c4f9625fd2b961d17856",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #236 from Amulet-Team/impl-loading-bar-undo-point",
+          "commit_sha": "d18fbc2e1cc979c4bab1c4f9625fd2b961d17856"
+        }
+      ]
+    },
+    {
+      "version": "0.8.2",
+      "released_on": "2021-03-27",
+      "commit_sha": "3d7e14749af4d8512c1d87e5ffede263a6a02caa",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #234 from Amulet-Team/fix-select",
+          "commit_sha": "3d7e14749af4d8512c1d87e5ffede263a6a02caa"
+        }
+      ]
+    },
+    {
+      "version": "0.8.3b0.dev202103280705",
+      "released_on": "2021-03-27",
+      "commit_sha": "3d7e14749af4d8512c1d87e5ffede263a6a02caa",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #234 from Amulet-Team/fix-select",
+          "commit_sha": "3d7e14749af4d8512c1d87e5ffede263a6a02caa"
+        }
+      ]
+    },
+    {
+      "version": "0.8.2b0.dev202103271223",
+      "released_on": "2021-03-27",
+      "commit_sha": "f7ba80c40b0055b592cebcd3632784c758236c87",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "fix bool 2",
+          "commit_sha": "f7ba80c40b0055b592cebcd3632784c758236c87"
+        }
+      ]
+    },
+    {
+      "version": "0.8.2a1",
+      "released_on": "2021-03-23",
+      "commit_sha": "fd1cbd2e0dc59f3dfcd8ef9a951b2b9050074038",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Reverted the locale change",
+          "commit_sha": "fd1cbd2e0dc59f3dfcd8ef9a951b2b9050074038"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1",
+      "released_on": "2021-03-21",
+      "commit_sha": "0e7d4ff30839c71fc6ba71bd5609b3f725754ef4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped amulet core version",
+          "commit_sha": "0e7d4ff30839c71fc6ba71bd5609b3f725754ef4"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a19",
+      "released_on": "2021-03-21",
+      "commit_sha": "0e7d4ff30839c71fc6ba71bd5609b3f725754ef4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped amulet core version",
+          "commit_sha": "0e7d4ff30839c71fc6ba71bd5609b3f725754ef4"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1b1",
+      "released_on": "2021-03-21",
+      "commit_sha": "0e7d4ff30839c71fc6ba71bd5609b3f725754ef4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bumped amulet core version",
+          "commit_sha": "0e7d4ff30839c71fc6ba71bd5609b3f725754ef4"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a17",
+      "released_on": "2021-03-18",
+      "commit_sha": "cb0fe802ef9525d53cace7aab7bacb356ded756b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #220 from Amulet-Team/fix-build",
+          "commit_sha": "cb0fe802ef9525d53cace7aab7bacb356ded756b"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a16",
+      "released_on": "2021-03-04",
+      "commit_sha": "ae9bef038f64d9b48d3ebff96905e0d078b6837a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased required amulet-core version",
+          "commit_sha": "ae9bef038f64d9b48d3ebff96905e0d078b6837a"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a15",
+      "released_on": "2021-02-24",
+      "commit_sha": "698e824757168e7a882f020e00a7b01a20002f46",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "amulet_map_editor can't be imported apparently",
+          "commit_sha": "698e824757168e7a882f020e00a7b01a20002f46"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a4",
+      "released_on": "2021-02-23",
+      "commit_sha": "0ae6ffcd113017a570ef8eab84ad4f13950e62f7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Attempt to fix opengl again",
+          "commit_sha": "0ae6ffcd113017a570ef8eab84ad4f13950e62f7"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a3",
+      "released_on": "2021-02-20",
+      "commit_sha": "5b0fe1f78084445ce109b4d8bf149cff148de79f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased amulet-core requirement",
+          "commit_sha": "5b0fe1f78084445ce109b4d8bf149cff148de79f"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a2",
+      "released_on": "2021-02-17",
+      "commit_sha": "c21356c0916d9d1663f9a5075e634bc1e8a88d07",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Set opengl version to 2.1",
+          "commit_sha": "c21356c0916d9d1663f9a5075e634bc1e8a88d07"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a1",
+      "released_on": "2021-02-17",
+      "commit_sha": "0509d2dd4f2ebb09e74b5ba088f77bf4e32b446b",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added support for OpenGL 2.1",
+          "commit_sha": "0509d2dd4f2ebb09e74b5ba088f77bf4e32b446b"
+        }
+      ]
+    },
+    {
+      "version": "0.8.1a0",
+      "released_on": "2021-02-14",
+      "commit_sha": "24704b91749727e8bce25aecf41d39f4b0eba433",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #174 from Amulet-Team/improv-localisation",
+          "commit_sha": "24704b91749727e8bce25aecf41d39f4b0eba433"
+        }
+      ]
+    },
+    {
+      "version": "0.8.0b5",
+      "released_on": "2021-01-28",
+      "commit_sha": "6f70521b9b3e576eec32fc780ce9838e83811613",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Disabled drawing during operation running",
+          "commit_sha": "6f70521b9b3e576eec32fc780ce9838e83811613"
+        }
+      ]
+    },
+    {
+      "version": "0.8.0b6",
+      "released_on": "2021-01-28",
+      "commit_sha": "6f70521b9b3e576eec32fc780ce9838e83811613",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Disabled drawing during operation running",
+          "commit_sha": "6f70521b9b3e576eec32fc780ce9838e83811613"
+        }
+      ]
+    },
+    {
+      "version": "0.8.0b4",
+      "released_on": "2021-01-23",
+      "commit_sha": "c3c1d2f598204fe18736ac521aa58edcfb07823f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased version numbers",
+          "commit_sha": "c3c1d2f598204fe18736ac521aa58edcfb07823f"
+        }
+      ]
+    },
+    {
+      "version": "0.8.0b3",
+      "released_on": "2020-12-05",
+      "commit_sha": "e77007bddcfd318955794e9d84cdaff58131c719",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #142 from Amulet-Team/master-bump-core",
+          "commit_sha": "e77007bddcfd318955794e9d84cdaff58131c719"
+        }
+      ]
+    },
+    {
+      "version": "0.8.0b2",
+      "released_on": "2020-11-25",
+      "commit_sha": "857bafe0a9b47fe24af1d0fe53e512b3fbc6d93f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bump amulet-core version to latest beta in requirements_base.txt",
+          "commit_sha": "857bafe0a9b47fe24af1d0fe53e512b3fbc6d93f"
+        }
+      ]
+    },
+    {
+      "version": "0.8.0b1",
+      "released_on": "2020-11-23",
+      "commit_sha": "a346c832a17f623c2c395530532786a047b1f42b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #137 from Amulet-Team/fix-chunk-loading",
+          "commit_sha": "a346c832a17f623c2c395530532786a047b1f42b"
+        }
+      ]
+    },
+    {
+      "version": "0.8.0b0",
+      "released_on": "2020-11-15",
+      "commit_sha": "d14e0087c98a6e0f57b83df9b756ad4d007e3ce2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #128 from Amulet-Team/structure-rewrite",
+          "commit_sha": "d14e0087c98a6e0f57b83df9b756ad4d007e3ce2"
+        }
+      ]
+    },
+    {
+      "version": "0.7.2.6",
+      "released_on": "2020-11-15",
+      "commit_sha": "74ffe519c832da9a0508e6fadc931342640e0c55",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Updated requirements.txt",
+          "commit_sha": "74ffe519c832da9a0508e6fadc931342640e0c55"
+        }
+      ]
+    },
+    {
+      "version": "0.7.2.6b3",
+      "released_on": "2020-11-15",
+      "commit_sha": "a6faacf36e32274de893b418ed2eb131aba8c4ed",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #131 from Amulet-Team/fix-build",
+          "commit_sha": "a6faacf36e32274de893b418ed2eb131aba8c4ed"
+        }
+      ]
+    },
+    {
+      "version": "0.7.2.6b2",
+      "released_on": "2020-11-14",
+      "commit_sha": "4decd871046b5a5d85ef4e6de1608ee559e4f58a",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed PyPi upload",
+          "commit_sha": "4decd871046b5a5d85ef4e6de1608ee559e4f58a"
+        }
+      ]
+    },
+    {
+      "version": "0.7.2.6b1",
+      "released_on": "2020-11-14",
+      "commit_sha": "0150e431f1051d15b3ece1e919ce36d818abc877",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #130 from Amulet-Team/versioneer",
+          "commit_sha": "0150e431f1051d15b3ece1e919ce36d818abc877"
+        }
+      ]
+    },
+    {
+      "version": "v0.7.2.6b",
+      "released_on": "2020-11-04",
+      "commit_sha": "65fa611105ec473851a0679af65fbf0ee0ff0031",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Modified osx build code",
+          "commit_sha": "65fa611105ec473851a0679af65fbf0ee0ff0031"
+        }
+      ]
+    },
+    {
+      "version": "v0.7.2.4",
+      "released_on": "2020-10-11",
+      "commit_sha": "695f79e84e04990d2a6e77e38a33bce0739f83ae",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "0.7.2.4",
+          "commit_sha": "695f79e84e04990d2a6e77e38a33bce0739f83ae"
+        }
+      ]
+    },
+    {
+      "version": "v0.7.2.2",
+      "released_on": "2020-10-04",
+      "commit_sha": "0646f3e2b6e6cda574846b9d8c50b574cbd7fe73",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "0.7.2.2",
+          "commit_sha": "0646f3e2b6e6cda574846b9d8c50b574cbd7fe73"
+        }
+      ]
+    },
+    {
+      "version": "v0.7.1.1",
+      "released_on": "2020-09-20",
+      "commit_sha": "d97cbac7d0fa36d1e2ec13858ff33fef056b3e75",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "increased version number",
+          "commit_sha": "d97cbac7d0fa36d1e2ec13858ff33fef056b3e75"
+        }
+      ]
+    },
+    {
+      "version": "v0.7.1.0",
+      "released_on": "2020-09-13",
+      "commit_sha": "519250fde6f5a619363b60f2360404cdd3b56f5b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increase version number",
+          "commit_sha": "519250fde6f5a619363b60f2360404cdd3b56f5b"
+        }
+      ]
+    },
+    {
+      "version": "v0.7.0.1",
+      "released_on": "2020-08-12",
+      "commit_sha": "31412c2cc2991ee006215a0106adc528b0ceda1d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased version number",
+          "commit_sha": "31412c2cc2991ee006215a0106adc528b0ceda1d"
+        }
+      ]
+    },
+    {
+      "version": "v0.7.0.0",
+      "released_on": "2020-08-11",
+      "commit_sha": "c183b67b7b6626d3e8dbecb92edbfe40068ffb39",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Pin pyinstaller",
+          "commit_sha": "c183b67b7b6626d3e8dbecb92edbfe40068ffb39"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.11.0",
+      "released_on": "2020-08-07",
+      "commit_sha": "ac72f35f67ab08738c5a8cce770b87f6af272302",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "increased version number",
+          "commit_sha": "ac72f35f67ab08738c5a8cce770b87f6af272302"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.10.0",
+      "released_on": "2020-07-12",
+      "commit_sha": "ad5a135ddb5170fe216522d0c413261b7433b95e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Updated version number",
+          "commit_sha": "ad5a135ddb5170fe216522d0c413261b7433b95e"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.9.2",
+      "released_on": "2020-06-25",
+      "commit_sha": "a206cbefdc8cdf2da6f0ed607681a35c7d984b6a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased version number",
+          "commit_sha": "a206cbefdc8cdf2da6f0ed607681a35c7d984b6a"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.9.1",
+      "released_on": "2020-06-23",
+      "commit_sha": "4e035d25dda1b17de62cafe0107e252b1e29da3a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Quick fix for the Java 1.16 resource pack",
+          "commit_sha": "4e035d25dda1b17de62cafe0107e252b1e29da3a"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.9.0",
+      "released_on": "2020-06-12",
+      "commit_sha": "132a055b4a3ecef017d8012e42daf11fe4f90ad3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased version number",
+          "commit_sha": "132a055b4a3ecef017d8012e42daf11fe4f90ad3"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.8.0",
+      "released_on": "2020-06-09",
+      "commit_sha": "fd25e0536ab2c60e8872ee35b312813897511158",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge pull request #49 from Amulet-Team/operation-rewrite",
+          "commit_sha": "fd25e0536ab2c60e8872ee35b312813897511158"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.7.0",
+      "released_on": "2020-05-22",
+      "commit_sha": "a0b729f0ee3767cf0b583a94eddf9d412d2cd0a3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased version number",
+          "commit_sha": "a0b729f0ee3767cf0b583a94eddf9d412d2cd0a3"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.6.1",
+      "released_on": "2020-05-13",
+      "commit_sha": "eaac4c5335ac96eaff0d91aa13ae8536de499a75",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "0.6.6.1",
+          "commit_sha": "eaac4c5335ac96eaff0d91aa13ae8536de499a75"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.6",
+      "released_on": "2020-05-13",
+      "commit_sha": "bdf8f2b9203225a006f1298cf197cfda5589849d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "0.6.6",
+          "commit_sha": "bdf8f2b9203225a006f1298cf197cfda5589849d"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.5.1",
+      "released_on": "2020-05-06",
+      "commit_sha": "033fd85f9ea33d1d08b4ce42984ba719307be7e8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "v0.6.5.1",
+          "commit_sha": "033fd85f9ea33d1d08b4ce42984ba719307be7e8"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.5",
+      "released_on": "2020-05-05",
+      "commit_sha": "2e94d4ffe669b1c3ea2e7d54027b84a9da1d7155",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "v0.6.5",
+          "commit_sha": "2e94d4ffe669b1c3ea2e7d54027b84a9da1d7155"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.4",
+      "released_on": "2020-04-20",
+      "commit_sha": "98b8d035177d91095d40eaadffd39452cd610a84",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Reorganised UI elements to make the code more readable",
+          "commit_sha": "98b8d035177d91095d40eaadffd39452cd610a84"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.3",
+      "released_on": "2020-04-17",
+      "commit_sha": "2ef57d071e9431bf3840da294a357fa20a570510",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge branch 'gentlegiantJGC' into dev",
+          "commit_sha": "2ef57d071e9431bf3840da294a357fa20a570510"
+        }
+      ]
+    },
+    {
+      "version": "v0.6.2",
+      "released_on": "2020-04-09",
+      "commit_sha": "cd765572ccdecbc55b92821ff7da632f5aeac9fd",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Increased version number",
+          "commit_sha": "cd765572ccdecbc55b92821ff7da632f5aeac9fd"
+        }
+      ]
+    },
+    {
+      "version": "v0.6",
+      "released_on": "2020-03-27",
+      "commit_sha": "3499c363bbfaafc4225adc0264dc28041e35ba38",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added some shortcuts",
+          "commit_sha": "3499c363bbfaafc4225adc0264dc28041e35ba38"
+        }
+      ]
+    },
+    {
+      "version": "v0.5.1",
+      "released_on": "2020-03-23",
+      "commit_sha": "6f24ffabaedb276c49a338597a1277dfcdc681ff",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fixed UI crash when opening a world that cannot be opened",
+          "commit_sha": "6f24ffabaedb276c49a338597a1277dfcdc681ff"
+        }
+      ]
+    },
+    {
+      "version": "v0.5",
+      "released_on": "2020-03-21",
+      "commit_sha": "c29e572dc8fe92f8be3fdf47b04c68980b80e0a0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Changed the main file target in the spec file",
+          "commit_sha": "c29e572dc8fe92f8be3fdf47b04c68980b80e0a0"
+        }
+      ]
+    },
+    {
+      "version": "v0.4",
+      "released_on": "2020-03-03",
+      "commit_sha": "f9417f9042d4d2d704af460998908cef8c5a8c2e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Redesigned selection box point methods",
+          "commit_sha": "f9417f9042d4d2d704af460998908cef8c5a8c2e"
+        }
+      ]
+    },
+    {
+      "version": "v0.3",
+      "released_on": "2020-02-18",
+      "commit_sha": "90264947978fa7f4e3e998a5383294a3edc24aad",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Removed old files",
+          "commit_sha": "90264947978fa7f4e3e998a5383294a3edc24aad"
+        }
+      ]
+    },
+    {
+      "version": "v0.2",
+      "released_on": "2020-02-14",
+      "commit_sha": "84446ff2dbf172ebe80b54a24f145e8f7edcf3ce",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Modified spec file to remove unrequired files and add wx and opengl",
+          "commit_sha": "84446ff2dbf172ebe80b54a24f145e8f7edcf3ce"
+        }
+      ]
+    },
+    {
+      "version": "0.1",
+      "released_on": "2020-02-04",
+      "commit_sha": "9036549cb8c08c7fe4b02bd5202089a5afe14884",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Added window title",
+          "commit_sha": "9036549cb8c08c7fe4b02bd5202089a5afe14884"
+        }
+      ]
+    }
+  ]
+}
