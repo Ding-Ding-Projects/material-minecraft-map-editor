@@ -24,6 +24,11 @@ file exports. Queries and payloads are size-bounded. Regex is opt-in so a
 setting name such as `[` remains ordinary text rather than accidentally
 becoming an invalid pattern.
 
+The native **View → Local history…** dialog provides bounded search, explicit
+regex mode, action filtering, date pickers, restore-as-a-new-event, JSON
+export, and an **Open export in VS Code** action. It keeps the history surface
+non-blocking and returns focus through the normal dialog close path.
+
 `LocalHistory.export_and_open()` writes the selected JSON or Markdown export
 first, then uses the shared external-editor action to offer that file to VS
 Code. If the editor is unavailable, its structured result reports the safe

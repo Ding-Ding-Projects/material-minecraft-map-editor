@@ -34,6 +34,7 @@ from amulet_map_editor.api.wx.ui.preferences import (
 )
 from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from amulet_map_editor.api.wx.ui.notifications import NotificationHistoryDialog
+from amulet_map_editor.api.wx.ui.local_history import LocalHistoryDialog
 from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
 from amulet_map_editor.api.wx.nonblocking import notify
 from .squirrel_update import (
@@ -252,6 +253,7 @@ class AmuletUI(wx.Frame):
             {
                 "Preferences…": self._open_preferences,
                 "Notification history…": self._open_notification_history,
+                "Local history…": self._open_local_history,
                 "Changelog…": self._open_changelog,
                 "Documentation…": self._open_documentation,
                 "Command palette\tCtrl+Shift+F": self._open_command_palette,
@@ -324,12 +326,19 @@ class AmuletUI(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def _open_local_history(self, _event=None) -> None:
+        dialog = LocalHistoryDialog(self)
+        dialog.CentreOnParent()
+        dialog.ShowModal()
+        dialog.Destroy()
+
     def _open_command_palette(self, _event=None) -> None:
         page = self._level_notebook.GetCurrentPage()
         commands = [
             ("Open world", lambda: open_level_from_dialog(self)),
             ("Preferences…", self._open_preferences),
             ("Notification history…", self._open_notification_history),
+            ("Local history…", self._open_local_history),
             ("Changelog…", self._open_changelog),
             ("Documentation…", self._open_documentation),
             ("Check for updates", self._check_for_updates_async),
