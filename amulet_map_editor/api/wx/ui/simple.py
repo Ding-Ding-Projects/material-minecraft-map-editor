@@ -183,3 +183,28 @@ class SimpleDialog(wx.Dialog):
         button_sizer = self.CreateButtonSizer(wx.OK | wx.CANCEL)
         self.bottom_sizer.Add(button_sizer, flag=wx.ALL, border=5)
         apply_material3(self)
+
+
+class MaterialTextEntryDialog(wx.Dialog):
+    """Borderless M3 text-entry prompt for short app-owned values."""
+
+    def __init__(self, parent: wx.Window, message: str, value: str = ""):
+        super().__init__(parent, title=message, style=wx.NO_BORDER | wx.RESIZE_BORDER)
+        root = wx.BoxSizer(wx.VERTICAL)
+        root.Add(wx.StaticText(self, label=message), 0, wx.ALL | wx.EXPAND, 16)
+        self.value = wx.TextCtrl(self, value=value, style=wx.TE_PROCESS_ENTER)
+        self.value.SetName("Text entry value")
+        root.Add(self.value, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
+        root.Add(
+            self.CreateButtonSizer(wx.OK | wx.CANCEL),
+            0,
+            wx.ALL | wx.ALIGN_RIGHT,
+            16,
+        )
+        self.SetSizerAndFit(root)
+        self.value.Bind(wx.EVT_TEXT_ENTER, lambda _event: self.EndModal(wx.ID_OK))
+        apply_material3(self)
+        self.value.SetFocus()
+
+    def GetValue(self) -> str:
+        return self.value.GetValue()

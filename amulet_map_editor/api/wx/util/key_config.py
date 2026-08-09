@@ -7,6 +7,7 @@ from amulet_map_editor.api import lang
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
 from amulet_map_editor.api.wx.ui.simple import (
+    MaterialTextEntryDialog,
     SimpleDialog,
     SimpleScrollablePanel,
     SimpleChoice,
@@ -472,7 +473,7 @@ class KeyConfig(wx.BoxSizer):
     def _request_group_name(self) -> Optional[str]:
         group_name = ""
         while group_name == "":
-            msg = wx.TextEntryDialog(
+            msg = MaterialTextEntryDialog(
                 self._options, lang.get("key_config.enter_group_name")
             )
             msg.CentreOnScreen()
