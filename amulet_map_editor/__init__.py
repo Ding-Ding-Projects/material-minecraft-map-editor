@@ -24,4 +24,13 @@ os.environ.setdefault(
 )
 
 from amulet_map_editor.api import config as CONFIG, lang
-from amulet_map_editor.api.framework.app import open_level, close_level
+
+
+def __getattr__(name):
+    """Keep framework entry points compatible without importing wx eagerly."""
+    if name in {"open_level", "close_level"}:
+        from amulet_map_editor.api.framework.app import close_level, open_level
+
+        globals().update(open_level=open_level, close_level=close_level)
+        return globals()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
