@@ -17,6 +17,7 @@ import wx
 
 from amulet_map_editor.api import (
     appearance_presets,
+    appearance_editor,
     changelog,
     preferences,
     school_mode,
@@ -256,7 +257,42 @@ class PreferencesDialog(wx.Dialog):
             wx.ALIGN_CENTER_VERTICAL,
         )
         self.accent = wx.TextCtrl(page, value=self._prefs.accent)
+        self.accent.SetName("Accent colour HEX")
+        self.accent.SetHint("#RRGGBB or #RRGGBBAA")
         grid.Add(self.accent, 1, wx.EXPAND)
+        grid.Add(
+            _label(
+                page,
+                "Colour translator",
+                "Enter RGB or HSL values to update the same persisted Material 3 accent colour.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        colour_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.accent_rgb = wx.TextCtrl(
+            page, style=wx.TE_PROCESS_ENTER, name="Accent colour RGB"
+        )
+        self.accent_rgb.SetHint("RGB: 103, 80, 164")
+        self.accent_hsl = wx.TextCtrl(
+            page, style=wx.TE_PROCESS_ENTER, name="Accent colour HSL"
+        )
+        self.accent_hsl.SetHint("HSL: 262, 34%, 48%")
+        self.accent_colour_picker = wx.ColourPickerCtrl(
+            page, name="Accent colour picker"
+        )
+        self.accent_swatch = wx.StaticText(page, label="  ")
+        self.accent_swatch.SetName("Accent colour preview")
+        self.accent_contrast = wx.StaticText(page, label="")
+        self.accent_contrast.SetName("Accent colour contrast readout")
+        colour_row.Add(self.accent_rgb, 1, wx.EXPAND | wx.RIGHT, 6)
+        colour_row.Add(self.accent_hsl, 1, wx.EXPAND | wx.RIGHT, 6)
+        colour_row.Add(
+            self.accent_colour_picker, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6
+        )
+        colour_row.Add(self.accent_swatch, 0, wx.EXPAND | wx.RIGHT, 6)
+        colour_row.Add(self.accent_contrast, 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(colour_row, 1, wx.EXPAND)
         grid.Add(
             _label(
                 page,
@@ -267,9 +303,33 @@ class PreferencesDialog(wx.Dialog):
             wx.ALIGN_CENTER_VERTICAL,
         )
         self.font = wx.FontPickerCtrl(page)
+        self.font.SetName("UI font picker")
         self._set_appearance_font(self._prefs.ui_font)
         self.font.Bind(wx.EVT_FONTPICKER_CHANGED, self._select_appearance_font)
         grid.Add(self.font, 1, wx.EXPAND)
+        grid.Add(
+            _label(
+                page,
+                "Installed font search",
+                "Search installed family names; selecting one updates the live preview and persisted UI font.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        font_search_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.font_search = wx.TextCtrl(page, name="Installed font search")
+        self.font_search.SetHint("Search installed fonts")
+        self.font_choice = wx.Choice(page, choices=[])
+        self.font_choice.SetName("Installed font choices")
+        font_search_row.Add(self.font_search, 1, wx.EXPAND | wx.RIGHT, 8)
+        font_search_row.Add(self.font_choice, 1, wx.EXPAND)
+        grid.Add(font_search_row, 1, wx.EXPAND)
+        self.font_preview = wx.StaticText(
+            page, label="The quick brown fox jumps over the lazy dog · 蝦餃"
+        )
+        self.font_preview.SetName("Live typography preview")
+        grid.AddSpacer(1)
+        grid.Add(self.font_preview, 1, wx.EXPAND)
         grid.Add(
             _label(
                 page,
@@ -380,6 +440,15 @@ class PreferencesDialog(wx.Dialog):
             wx.EVT_BUTTON, self._reset_appearance_property
         )
         self.appearance_reset_all.Bind(wx.EVT_BUTTON, self._reset_appearance_form)
+        self.accent.Bind(wx.EVT_TEXT, self._accent_hex_changed)
+        self.accent_rgb.Bind(wx.EVT_TEXT_ENTER, self._accent_rgb_changed)
+        self.accent_hsl.Bind(wx.EVT_TEXT_ENTER, self._accent_hsl_changed)
+        self.accent_colour_picker.Bind(
+            wx.EVT_COLOURPICKER_CHANGED, self._accent_picker_changed
+        )
+        self.font_search.Bind(wx.EVT_TEXT, self._filter_appearance_fonts)
+        self.font_choice.Bind(wx.EVT_CHOICE, self._select_font_choice)
+        self.scale.Bind(wx.EVT_SLIDER, self._scale_appearance_preview)
 
         outer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
@@ -410,6 +479,9 @@ class PreferencesDialog(wx.Dialog):
                 + self._appearance_load_error,
                 error=True,
             )
+        self._appearance_font_names = self._installed_font_names()
+        self._filter_appearance_fonts()
+        self._update_accent_controls(self._prefs.accent)
 
     def _reset_display_name_form(self, _event: wx.Event) -> None:
         self.display_name.SetValue(preferences.DEFAULT_DISPLAY_NAME)
@@ -439,9 +511,107 @@ class PreferencesDialog(wx.Dialog):
         )
         self.font.SetSelectedFont(font)
         self._appearance_font_uses_platform_default = not bool(font_name)
+        if hasattr(self, "font_preview"):
+            preview_font = font
+            preview_font.SetPointSize(max(9, round(11 * self.scale.GetValue() / 100)))
+            self.font_preview.SetFont(preview_font)
 
     def _select_appearance_font(self, _event: wx.Event) -> None:
         self._appearance_font_uses_platform_default = False
+        self._update_font_preview(self.font.GetSelectedFont())
+
+    @staticmethod
+    def _installed_font_names() -> Tuple[str, ...]:
+        try:
+            enumerator = wx.FontEnumerator()
+            enumerator.EnumerateFacenames()
+            return appearance_editor.filter_font_names(enumerator.GetFacenames(), "")
+        except (AttributeError, RuntimeError):
+            return ()
+
+    def _filter_appearance_fonts(self, _event: wx.Event | None = None) -> None:
+        names = appearance_editor.filter_font_names(
+            getattr(self, "_appearance_font_names", ()),
+            self.font_search.GetValue() if hasattr(self, "font_search") else "",
+        )
+        self.font_choice.Set(list(names))
+        current = self.font.GetSelectedFont().GetFaceName()
+        if current in names:
+            self.font_choice.SetStringSelection(current)
+
+    def _select_font_choice(self, _event: wx.Event) -> None:
+        name = self.font_choice.GetStringSelection().strip()
+        if name:
+            self._set_appearance_font(name)
+
+    def _update_font_preview(self, font: wx.Font) -> None:
+        if hasattr(self, "font_preview"):
+            preview_font = font
+            preview_font.SetPointSize(max(9, round(11 * self.scale.GetValue() / 100)))
+            self.font_preview.SetFont(preview_font)
+
+    def _scale_appearance_preview(self, _event: wx.Event) -> None:
+        self._update_font_preview(self.font.GetSelectedFont())
+
+    def _update_accent_controls(self, value: str) -> None:
+        try:
+            rgb = appearance_editor.parse_hex(value)
+        except ValueError:
+            return
+        self._appearance_color_syncing = True
+        try:
+            self.accent.SetValue(appearance_editor.rgb_to_hex(rgb))
+            self.accent_rgb.SetValue(appearance_editor.format_rgb(rgb))
+            self.accent_hsl.SetValue(appearance_editor.format_hsl(rgb))
+            self.accent_colour_picker.SetColour(wx.Colour(*rgb))
+            self.accent_swatch.SetBackgroundColour(wx.Colour(*rgb))
+            self.accent_contrast.SetLabel(appearance_editor.contrast_summary(rgb))
+        finally:
+            self._appearance_color_syncing = False
+
+    def _accent_hex_changed(self, _event: wx.Event) -> None:
+        if getattr(self, "_appearance_color_syncing", False):
+            return
+        try:
+            self._update_accent_controls(self.accent.GetValue())
+        except ValueError:
+            pass
+
+    def _accent_rgb_changed(self, _event: wx.Event) -> None:
+        if getattr(self, "_appearance_color_syncing", False):
+            return
+        try:
+            self._update_accent_controls(
+                appearance_editor.rgb_to_hex(
+                    appearance_editor.parse_rgb(self.accent_rgb.GetValue())
+                )
+            )
+        except ValueError:
+            self._show_appearance_message(
+                "RGB must contain three values from 0 to 255.", error=True
+            )
+
+    def _accent_hsl_changed(self, _event: wx.Event) -> None:
+        if getattr(self, "_appearance_color_syncing", False):
+            return
+        try:
+            self._update_accent_controls(
+                appearance_editor.rgb_to_hex(
+                    appearance_editor.parse_hsl(self.accent_hsl.GetValue())
+                )
+            )
+        except ValueError:
+            self._show_appearance_message(
+                "HSL must contain hue, saturation%, and lightness%.", error=True
+            )
+
+    def _accent_picker_changed(self, _event: wx.Event) -> None:
+        if getattr(self, "_appearance_color_syncing", False):
+            return
+        colour = self.accent_colour_picker.GetColour()
+        self._update_accent_controls(
+            appearance_editor.rgb_to_hex((colour.Red(), colour.Green(), colour.Blue()))
+        )
 
     def _appearance_values_from_form(self) -> appearance_presets.AppearanceValues:
         return appearance_presets.AppearanceValues(
@@ -463,6 +633,7 @@ class PreferencesDialog(wx.Dialog):
         self.accent.SetValue(values.accent)
         self._set_appearance_font(values.ui_font)
         self.scale.SetValue(round(values.ui_scale * 100))
+        self._update_accent_controls(values.accent)
 
     def _refresh_appearance_presets(self, selected_name: str = "") -> None:
         self._appearance_presets = list(appearance_presets.load_presets())
