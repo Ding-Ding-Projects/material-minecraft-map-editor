@@ -17,6 +17,7 @@ from amulet_map_editor.api.framework.pages import WorldPageUI
 from .pages import AmuletMainMenu, BasePageUI
 
 from amulet_map_editor.api import image, notifications, preferences
+from . import update_copy
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
 from amulet_map_editor.api.wx.ui.preferences import (
@@ -40,6 +41,7 @@ NOTEBOOK_MENU_STYLE = (
     | flatnotebook.FNB_NAV_BUTTONS_WHEN_NEEDED
 )
 NOTEBOOK_STYLE = NOTEBOOK_MENU_STYLE | flatnotebook.FNB_X_ON_TAB
+UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 
 CLOSEABLE_PAGE_TYPE = Union[WorldPageUI]
 
@@ -72,6 +74,24 @@ class AmuletUI(wx.Frame):
         self._shell_sizer = wx.BoxSizer(wx.VERTICAL)
         self._title_bar = MaterialTitleBar(self._shell, title)
         self._shell_sizer.Add(self._title_bar, 0, wx.EXPAND)
+        self._update_banner = wx.Panel(self._shell)
+        self._update_banner.SetName("Update notification")
+        self._update_banner_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._update_banner_text = wx.StaticText(self._update_banner)
+        self._update_banner_text.SetName("Update notification message")
+        self._update_banner_text.Wrap(620)
+        self._update_banner_sizer.Add(
+            self._update_banner_text, 1, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12
+        )
+        self._update_banner_action = wx.Button(self._update_banner)
+        self._update_banner_action.SetName("Update notification primary action")
+        self._update_banner_sizer.Add(self._update_banner_action, 0, wx.RIGHT, 8)
+        self._update_banner_later = wx.Button(self._update_banner, label="Later")
+        self._update_banner_later.SetName("Update notification later action")
+        self._update_banner_sizer.Add(self._update_banner_later, 0)
+        self._update_banner.SetSizer(self._update_banner_sizer)
+        self._update_banner.Hide()
+        self._shell_sizer.Add(self._update_banner, 0, wx.EXPAND | wx.ALL, 8)
         self._level_notebook = AmuletLevelNotebook(
             self._shell, agwStyle=NOTEBOOK_MENU_STYLE
         )
@@ -97,10 +117,17 @@ class AmuletUI(wx.Frame):
         self._update_thread = None
         self._update_stage_thread = None
         self._update_state = SquirrelUpdateState("unknown")
+        self._last_update_notification_key = None
+        self._update_timer = None
+        self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
+        self._update_banner_later.Bind(wx.EVT_BUTTON, self._hide_update_banner)
         self.CreateStatusBar()
         wx.CallLater(1000, self._check_for_updates_async)
+        self._update_timer = wx.CallLater(
+            UPDATE_CHECK_INTERVAL_MS, self._periodic_update_check
+        )
 
-        self.Bind(wx.EVT_CLOSE, self._level_notebook.on_app_close)
+        self.Bind(wx.EVT_CLOSE, self._on_app_close)
 
     @staticmethod
     def _is_source_build() -> bool:
@@ -238,6 +265,15 @@ class AmuletUI(wx.Frame):
         )
         self._update_thread.start()
 
+    def _periodic_update_check(self) -> None:
+        """Refresh the feed on a bounded cadence without interrupting editing."""
+        if self.IsBeingDeleted():
+            return
+        self._check_for_updates_async()
+        self._update_timer = wx.CallLater(
+            UPDATE_CHECK_INTERVAL_MS, self._periodic_update_check
+        )
+
     def _update_worker(self) -> None:
         state = check_for_update()
         wx.CallAfter(self._show_update_state, state)
@@ -274,6 +310,13 @@ class AmuletUI(wx.Frame):
         if self._update_state.status != "ready_to_restart":
             self.SetStatusText("Stage an update before restarting")
             return
+        if any(
+            not page.can_close() for page in self._level_notebook._open_worlds.values()
+        ):
+            self.SetStatusText(
+                "Save or close unsaved work before installing the update"
+            )
+            return
         updater = find_update_exe()
         if updater is None:
             self.SetStatusText("Update restart unavailable in this installation")
@@ -283,35 +326,81 @@ class AmuletUI(wx.Frame):
         except OSError as exc:
             self.SetStatusText(f"Could not restart for update: {exc}")
             return
+        self._hide_update_banner()
         self.Close()
+
+    def _on_app_close(self, event: wx.CloseEvent) -> None:
+        """Stop the refresh timer before the notebook applies close protection."""
+        if self._update_timer is not None and self._update_timer.IsRunning():
+            self._update_timer.Stop()
+        self._level_notebook.on_app_close(event)
+
+    def _update_primary_action(self, _event=None) -> None:
+        if self._update_state.status == "available":
+            self._stage_update_async()
+        elif self._update_state.status == "ready_to_restart":
+            self._restart_to_install_update()
+        elif self._update_state.status == "failed":
+            self._check_for_updates_async()
+
+    def _hide_update_banner(self, _event=None) -> None:
+        self._update_banner.Hide()
+        self._shell.Layout()
+
+    def _render_update_banner(self, state: SquirrelUpdateState) -> None:
+        title, body = update_copy.update_copy(
+            state.status, version=state.version, detail=state.detail
+        )
+        self._update_banner_text.SetLabel(f"{title}\n{body}")
+        action_label, later_label = update_copy.action_labels(state.status)
+        self._update_banner_action.SetLabel(action_label)
+        self._update_banner_later.SetLabel(later_label)
+        if state.status == "available":
+            self._update_banner_action.SetToolTip(
+                "Download the unsigned update in the background."
+            )
+        elif state.status == "ready_to_restart":
+            self._update_banner_action.SetToolTip(
+                "Restart only after saving your work."
+            )
+        else:
+            self._update_banner_action.SetToolTip("Retry the bounded update check.")
+        self._update_banner.Show()
+        self._shell.Layout()
 
     def _show_update_state(self, state: SquirrelUpdateState) -> None:
         """Render a persistent, non-modal status message for update state."""
         self._update_state = state
-        if state.status == "available":
-            notifications.add(
-                "info",
-                "Update available",
-                f"{state.version or 'A new version'} is available; choose Stage available update.",
+        if state.status in {"available", "ready_to_restart", "failed"}:
+            self._render_update_banner(state)
+            title, body = update_copy.update_copy(
+                state.status, version=state.version, detail=state.detail
             )
+            notification_key = (state.status, state.version, state.detail, title, body)
+            if notification_key != self._last_update_notification_key:
+                notifications.add(
+                    (
+                        "error"
+                        if state.status == "failed"
+                        else (
+                            "success" if state.status == "ready_to_restart" else "info"
+                        )
+                    ),
+                    title,
+                    body,
+                )
+                self._last_update_notification_key = notification_key
+        elif state.status in {"up_to_date", "not_installed"}:
+            self._hide_update_banner()
+        if state.status == "available":
             self.SetStatusText(
                 f"Update available: {state.version or 'new version'} (unsigned) — choose Stage available update"
             )
         elif state.status == "ready_to_restart":
-            notifications.add(
-                "success",
-                "Update ready",
-                "The unsigned update is staged; choose Restart to install update.",
-            )
             self.SetStatusText(
                 "Update ready (unsigned) — choose Restart to install update"
             )
         elif state.status == "failed":
-            notifications.add(
-                "error",
-                "Update check failed",
-                state.detail or "The update feed was unavailable; try again later.",
-            )
             self.SetStatusText(f"Update check failed: {state.detail or 'offline'}")
         elif state.status == "not_installed":
             self.SetStatusText("Updates unavailable in this installation")
