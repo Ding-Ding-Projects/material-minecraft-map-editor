@@ -25,12 +25,20 @@ This is a local experience lock, not a security boundary: deleting the shared
 configuration record resets it, and the UI must state that plainly when the
 settings surface is wired.
 
+## Native settings surface
+
+The Material 3 Preferences dialog exposes the mode name, enabled state, and a
+password-style credential field in its Appearance tab. Saving a new credential
+stores only its verifier; leaving an enabled mode requires the current
+credential, while ordinary language and appearance choices remain recoverable
+behind the mode.
+
 ## Verification
 
 `tests/test_preferences.py` covers persistence, name and credential bounds,
 salted verification, wrong-credential rejection, and the English-only forced
-presentation. The native settings controls are the next integration surface;
-until they land, this module is the storage and policy foundation only.
+presentation. Native control runtime interaction still requires wx on the
+verification host; compile and domain tests cover the shipped wiring.
 
 Related: [appearance presets](../appearance-presets/README.md) and
 [scheduled settings](../scheduled-settings/README.md).
