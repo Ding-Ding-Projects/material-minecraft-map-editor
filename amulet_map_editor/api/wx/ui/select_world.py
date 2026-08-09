@@ -593,7 +593,11 @@ class WorldSelectDialog(wx.Dialog):
         self.Bind(wx.EVT_CLOSE, self._hide_event)
 
         self._open_world_callback = open_world_callback
+        root = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(root)
         self.world_select = WorldSelectAndRecentUI(self, self._run_callback)
+        root.Add(self.world_select, 1, wx.EXPAND | wx.ALL, 12)
+        root.Layout()
         apply_material3(self)
 
     def _run_callback(self, path):
