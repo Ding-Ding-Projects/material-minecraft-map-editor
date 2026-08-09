@@ -4,21 +4,36 @@ from __future__ import annotations
 
 import wx
 
-from amulet_map_editor.api import export_actions, notifications
+from amulet_map_editor.api import export_actions, notifications, preferences, lang
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 
 
+def _copy(key: str, mode: str) -> str:
+    english = lang.get(f"notifications.en.{key}")
+    cantonese = lang.get(f"notifications.zh.{key}")
+    if mode == "cantonese":
+        return cantonese
+    if mode == "bilingual":
+        return f"{english} · {cantonese}"
+    return english
+
+
 class NotificationHistoryDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
-        super().__init__(parent, title="Notification history", size=wx.Size(760, 520))
+        self._language_mode = preferences.load().language_mode
+        super().__init__(
+            parent,
+            title=_copy("title", self._language_mode),
+            size=wx.Size(760, 520),
+        )
         self._items = []
         root = wx.BoxSizer(wx.VERTICAL)
         search_row = wx.BoxSizer(wx.HORIZONTAL)
         self.search = wx.TextCtrl(self, name="Notification history search")
-        self.search.SetHint("Search title and message")
-        self.regex = wx.CheckBox(self, label="Regex")
-        self.regex.SetToolTip("Use the full bounded regular-expression search mode.")
+        self.search.SetHint(_copy("search_hint", self._language_mode))
+        self.regex = wx.CheckBox(self, label=_copy("regex", self._language_mode))
+        self.regex.SetToolTip(_copy("regex_help", self._language_mode))
         search_row.Add(self.search, 1, wx.EXPAND | wx.RIGHT, 8)
         search_row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
         root.Add(search_row, 0, wx.EXPAND | wx.ALL, 12)
@@ -26,18 +41,32 @@ class NotificationHistoryDialog(wx.Dialog):
         self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
         self.list.SetName("Notification history list")
         for index, label in enumerate(
-            ("State", "Severity", "Title", "Message", "Time (UTC)")
+            (
+                _copy("state", self._language_mode),
+                _copy("severity", self._language_mode),
+                _copy("column_title", self._language_mode),
+                _copy("message", self._language_mode),
+                _copy("time", self._language_mode),
+            )
         ):
             self.list.InsertColumn(index, label)
         root.Add(self.list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
         actions = wx.BoxSizer(wx.HORIZONTAL)
-        self.dismiss = wx.Button(self, label="Dismiss selected")
-        self.dismiss_all = wx.Button(self, label="Dismiss all visible")
-        self.export = wx.Button(self, label="Export Markdown")
-        self.open_export = wx.Button(self, label="Open export in VS Code")
+        self.dismiss = wx.Button(
+            self, label=_copy("dismiss_selected", self._language_mode)
+        )
+        self.dismiss_all = wx.Button(
+            self, label=_copy("dismiss_visible", self._language_mode)
+        )
+        self.export = wx.Button(self, label=_copy("export", self._language_mode))
+        self.open_export = wx.Button(
+            self, label=_copy("open_export", self._language_mode)
+        )
         self.open_export.Enable(False)
-        close = wx.Button(self, id=wx.ID_CLOSE, label="Close")
+        close = wx.Button(
+            self, id=wx.ID_CLOSE, label=_copy("close", self._language_mode)
+        )
         for button in (
             self.dismiss,
             self.dismiss_all,
@@ -103,7 +132,7 @@ class NotificationHistoryDialog(wx.Dialog):
     def _export(self, _event) -> None:
         target = choose_path(
             self,
-            "Export notification history",
+            _copy("export_dialog", self._language_mode),
             wildcard="Markdown files (*.md)|*.md",
             save=True,
         )
@@ -114,7 +143,9 @@ class NotificationHistoryDialog(wx.Dialog):
         self._last_export_path = target
         self.open_export.Enable(True)
         self.export_status.SetLabel(
-            f"Exported notification history to {self._last_export_path}"
+            _copy("exported_to", self._language_mode).format(
+                path=self._last_export_path
+            )
         )
 
     def _open_export(self, _event) -> None:

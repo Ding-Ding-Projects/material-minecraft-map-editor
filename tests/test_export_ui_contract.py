@@ -12,7 +12,10 @@ def test_native_export_surfaces_offer_the_shared_editor_action():
     ).read_text(encoding="utf-8")
 
     assert "export_actions.open_exported_path" in notification_source
-    assert 'label="Open export in VS Code"' in notification_source
+    assert '_copy("open_export", self._language_mode)' in notification_source
+    assert "notifications.en.open_export" in (
+        ROOT / "amulet_map_editor/lang/en.lang"
+    ).read_text(encoding="utf-8")
     assert "export_actions.open_exported_path" in preferences_source
     assert "_open_appearance_export" in preferences_source
 
