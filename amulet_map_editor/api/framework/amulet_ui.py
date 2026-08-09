@@ -18,6 +18,7 @@ from .pages import AmuletMainMenu, BasePageUI
 
 from amulet_map_editor.api import image, notifications, preferences
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
 from amulet_map_editor.api.wx.ui.preferences import (
     PreferencesDialog,
     CommandPaletteDialog,
@@ -60,22 +61,24 @@ class AmuletUI(wx.Frame):
             title=title,
             pos=wx.DefaultPosition,
             size=wx.Size(1000, 620),
-            style=wx.CAPTION
-            | wx.CLOSE_BOX
-            | wx.MINIMIZE_BOX
-            | wx.MAXIMIZE_BOX
-            | wx.SYSTEM_MENU
-            | wx.TAB_TRAVERSAL
-            | wx.CLIP_CHILDREN
-            | wx.RESIZE_BORDER,
+            style=wx.NO_BORDER | wx.TAB_TRAVERSAL | wx.CLIP_CHILDREN | wx.RESIZE_BORDER,
         )
         self.SetMinSize(wx.Size(570, 620))
         icon = wx.Icon()
         icon.CopyFromBitmap(image.logo.amulet_logo.bitmap())
         self.SetIcon(icon)
 
-        self._level_notebook = AmuletLevelNotebook(self, agwStyle=NOTEBOOK_MENU_STYLE)
+        self._shell = wx.Panel(self)
+        self._shell_sizer = wx.BoxSizer(wx.VERTICAL)
+        self._title_bar = MaterialTitleBar(self._shell, title)
+        self._shell_sizer.Add(self._title_bar, 0, wx.EXPAND)
+        self._level_notebook = AmuletLevelNotebook(self._shell, agwStyle=NOTEBOOK_MENU_STYLE)
         self._level_notebook.init()
+        self._shell_sizer.Add(self._level_notebook, 1, wx.EXPAND)
+        self._shell.SetSizer(self._shell_sizer)
+        root_sizer = wx.BoxSizer(wx.VERTICAL)
+        root_sizer.Add(self._shell, 1, wx.EXPAND)
+        self.SetSizer(root_sizer)
         # Apply the shared M3 roles after pages exist so newly-created shell
         # controls receive the same palette and accessible sizing.
         apply_material3(self)
@@ -109,6 +112,7 @@ class AmuletUI(wx.Frame):
     def refresh_display_identity(self, display_name: str | None = None) -> None:
         """Apply the persisted display label without changing stable app IDs."""
         self.SetTitle(self._format_display_title(display_name))
+        self._title_bar.set_title(self.GetTitle())
 
     def open_level(self, path: str):
         """Open a level. You should use the method in the app."""
