@@ -18,6 +18,7 @@ check_for_update = squirrel_update.check_for_update
 find_update_exe = squirrel_update.find_update_exe
 stage_update = squirrel_update.stage_update
 validate_feed_url = squirrel_update.validate_feed_url
+release_version = squirrel_update._release_version
 
 
 def test_feed_requires_https_and_no_credentials():
@@ -27,6 +28,11 @@ def test_feed_requires_https_and_no_credentials():
         validate_feed_url("http://updates.example.test/releases/")
     with pytest.raises(ValueError):
         validate_feed_url("https://user:pass@github.com/releases/")
+
+
+def test_release_version_sort_does_not_use_publication_order():
+    assert release_version("0.10.63") > release_version("0.10.49")
+    assert release_version("0.10.63") > release_version("0.10.63-dev.9")
 
 
 def test_update_detection_is_explicit(tmp_path, monkeypatch):
