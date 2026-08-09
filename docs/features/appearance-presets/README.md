@@ -29,6 +29,15 @@ the existing theme, density, accent, font, and scale controls. A user can:
   native save/open dialogs;
 - reset one selected appearance property or all five appearance properties.
 
+The font row also provides a bounded search over the installed family names and
+a live typography sample (including CJK text). Selecting a result updates the
+same `ui_font` value that the native picker and `AppearanceValues` already use;
+it does not copy font files into the profile. The accent row keeps the canonical
+HEX field and adds a wx colour picker plus RGB and HSL translators. The
+translators update the same persisted `accent` value and show WCAG contrast
+against white and black. Invalid partial input is left untouched until it is
+valid, so a half-typed value cannot silently replace the current colour.
+
 Load and reset actions stage values in the dialog. They reach the active
 preferences only after **OK**, so **Cancel** retains the previously persisted
 appearance. Validation and file failures appear as persistent inline status
@@ -37,7 +46,11 @@ but invalid or from an unsupported version, library controls are disabled and
 the data is left unchanged.
 
 These controls integrate the five global appearance values only. They do not
-claim that every individual wx element has its own live appearance editor.
+claim that every individual wx element has its own live appearance editor, nor
+do they pretend that wx exposes unsupported Word-only typography axes. The
+wx-independent `api.appearance_editor` helpers deliberately cover only the
+portable HEX/RGB/HSL conversion, contrast calculation, and installed-font
+filtering needed by this surface.
 
 ## Storage and configuration
 
@@ -88,6 +101,7 @@ Run:
 
 ```text
 python -m unittest tests.test_appearance_presets
+python -m unittest tests.test_appearance_editor tests.test_appearance_editor_ui_contract
 ```
 
 The focused suite covers persistence and application through the existing
@@ -97,6 +111,8 @@ stored entries, and both reset paths preserving non-appearance preferences.
 `tests.test_appearance_presets_ui_contract` parses the native Preferences source
 without importing wx and guards the visible controls, domain calls, bounded
 file flows, invalid-storage lockout, staged resets, and save-time validation.
+The appearance-editor tests cover bounded colour conversion, deterministic
+contrast output, installed-font filtering, and the native wiring contract.
 
 ## Suggested articles
 
