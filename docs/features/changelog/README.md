@@ -3,9 +3,9 @@
 ## Status and scope
 
 The `amulet_map_editor.api.changelog` module is a wx-independent data
-foundation for a future in-app changelog and documentation browser. It does not
-create a wx window, wire a menu command, or prove a rendered desktop surface.
-Those presentation and runtime steps remain separate work.
+foundation used by the native `ChangelogDialog`. The desktop View menu and
+`Ctrl+Shift+F` command palette expose the browser with local filters and
+Markdown export. The repository still makes no live wx screenshot claim.
 
 The bundled `changelog_catalog.json` is generated from every release tag
 reachable from the source revision recorded in that file. Each release entry
@@ -29,6 +29,9 @@ tag-tip subject is a complete set of historical release notes.
 - `validate_commit_links()` accepts a resolver hook. Tests use local Git object
   lookup; a future privileged application boundary may supply a bounded forge
   resolver without putting network access in the presentation layer.
+- `ChangelogDialog` presents the catalog offline, accepts plain text or explicit
+  bounded regex search, parses ISO start/end dates, reports invalid filters
+  inline, and exports the current filtered view through a native file picker.
 
 ## Regenerating the catalog
 
