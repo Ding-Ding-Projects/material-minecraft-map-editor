@@ -5,6 +5,18 @@ from typing import Tuple, List, Optional
 import PyMCTranslate
 
 from amulet_map_editor.api.image import COLOUR_PICKER
+from amulet_map_editor.api import lang, preferences
+from amulet_map_editor.api.wx.material3 import apply_material3
+
+
+def _copy(key: str, mode: str) -> str:
+    english = lang.get(f"base_select.en.{key}")
+    cantonese = lang.get(f"base_select.zh.{key}")
+    if mode == "cantonese":
+        return cantonese
+    if mode == "bilingual":
+        return f"{english} · {cantonese}"
+    return english
 
 (
     ItemNamespaceChangeEvent,
@@ -41,6 +53,7 @@ class BaseSelect(wx.Panel):
         show_pick: bool = False,
     ):
         super().__init__(parent, style=wx.BORDER_SIMPLE)
+        self._language_mode = preferences.load().language_mode
         self._sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self._sizer)
 
@@ -52,7 +65,11 @@ class BaseSelect(wx.Panel):
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._sizer.Add(sizer, 0, wx.EXPAND | wx.ALL, 5)
-        text = wx.StaticText(self, label="Namespace:", style=wx.ALIGN_CENTER)
+        text = wx.StaticText(
+            self,
+            label=_copy("namespace", self._language_mode),
+            style=wx.ALIGN_CENTER,
+        )
         sizer.Add(text, 1, wx.ALIGN_CENTER_VERTICAL)
         self._namespace_combo = wx.ComboBox(self)
         sizer.Add(self._namespace_combo, 2)
@@ -74,7 +91,11 @@ class BaseSelect(wx.Panel):
         sizer.Add(header_sizer, 0, wx.EXPAND | wx.BOTTOM, 5)
         header_sizer.Add(
             wx.StaticText(
-                self, label=f"{self.TypeName.capitalize()} name:", style=wx.ALIGN_CENTER
+                self,
+                label=_copy("name", self._language_mode).format(
+                    type_name=self.TypeName.capitalize()
+                ),
+                style=wx.ALIGN_CENTER,
             ),
             1,
             wx.ALIGN_CENTER_VERTICAL,
@@ -82,6 +103,7 @@ class BaseSelect(wx.Panel):
         search_sizer = wx.BoxSizer(wx.HORIZONTAL)
         header_sizer.Add(search_sizer, 2, wx.EXPAND)
         self._search = wx.SearchCtrl(self)
+        self._search.SetHint(_copy("search", self._language_mode))
         search_sizer.Add(self._search, 1, wx.ALIGN_CENTER_VERTICAL)
         self._search.Bind(wx.EVT_TEXT, self._on_search_change)
         if show_pick:
@@ -98,6 +120,7 @@ class BaseSelect(wx.Panel):
         self._populate_item_name()
         self.set_name(default_name)
         self._list_box.Bind(wx.EVT_LISTBOX, lambda evt: self._post_item_change())
+        apply_material3(self)
 
     def _post_namespace_change(self):
         if self._do_text_event:
