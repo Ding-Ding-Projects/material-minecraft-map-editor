@@ -15,6 +15,7 @@ from amulet_map_editor.api.framework.pages import WorldPageUI
 from .pages import AmuletMainMenu, BasePageUI
 
 from amulet_map_editor.api import image
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +64,9 @@ class AmuletUI(wx.Frame):
 
         self._level_notebook = AmuletLevelNotebook(self, agwStyle=NOTEBOOK_MENU_STYLE)
         self._level_notebook.init()
+        # Apply the shared M3 roles after pages exist so newly-created shell
+        # controls receive the same palette and accessible sizing.
+        apply_material3(self)
 
         self.Bind(wx.EVT_CLOSE, self._level_notebook.on_app_close)
 

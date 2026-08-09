@@ -5,6 +5,7 @@ import logging
 import wx
 from wx.lib.scrolledpanel import ScrolledPanel
 from typing import Iterable, Union, Any, List, Optional, Sequence, Dict, Tuple
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class SimplePanel(wx.Panel, SimpleSizer):
         )
         SimpleSizer.__init__(self, sizer_dir)
         self.SetSizer(self.sizer)
+        apply_material3(self)
 
 
 class SimpleScrollablePanel(ScrolledPanel, SimpleSizer):
@@ -40,6 +42,7 @@ class SimpleScrollablePanel(ScrolledPanel, SimpleSizer):
         self.SetSizer(self.sizer)
         self.SetupScrolling()
         self.SetAutoLayout(1)
+        apply_material3(self)
 
     def DoGetBestSize(self):
         sizer = self.GetSizer()
