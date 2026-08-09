@@ -13,7 +13,7 @@ from amulet_map_editor.api.wx.material3 import TOKENS
 APPEARANCE_ID = "amulet_element_appearance"
 MAX_KEY_LENGTH = 160
 MAX_ENTRIES = 512
-DEFAULTS = {"background": "", "foreground": "", "font_size": 0, "weight": "normal"}
+DEFAULTS = {"background": "", "foreground": "", "font_size": 0, "weight": "normal", "italic": False, "underline": False, "strikethrough": False, "letter_spacing": 0}
 
 
 def element_key(control: wx.Window) -> str:
@@ -48,6 +48,10 @@ def load_overrides() -> dict[str, dict[str, object]]:
             "foreground": _normalise_colour(value.get("foreground", "")),
             "font_size": font_size,
             "weight": value.get("weight", "normal") if value.get("weight") in {"normal", "medium", "bold"} else "normal",
+            "italic": bool(value.get("italic", False)),
+            "underline": bool(value.get("underline", False)),
+            "strikethrough": bool(value.get("strikethrough", False)),
+            "letter_spacing": max(-8, min(32, int(value.get("letter_spacing", 0) or 0))),
         }
     return result
 
@@ -60,6 +64,10 @@ def save_override(key: str, values: dict[str, object]) -> dict[str, dict[str, ob
         "foreground": _normalise_colour(str(values.get("foreground", ""))),
         "font_size": max(0, min(72, int(values.get("font_size", 0) or 0))),
         "weight": values.get("weight", "normal") if values.get("weight") in {"normal", "medium", "bold"} else "normal",
+        "italic": bool(values.get("italic", False)),
+        "underline": bool(values.get("underline", False)),
+        "strikethrough": bool(values.get("strikethrough", False)),
+        "letter_spacing": max(-8, min(32, int(values.get("letter_spacing", 0) or 0))),
     }
     config.put(APPEARANCE_ID, dict(list(current.items())[-MAX_ENTRIES:]))
     local_history.safe_record("element-appearance", current, record_type="settings")
@@ -87,6 +95,10 @@ def apply_override(control: wx.Window) -> None:
         font = wx.Font(control.GetFont())
         font.SetPointSize(size)
         font.SetWeight({"normal": wx.FONTWEIGHT_NORMAL, "medium": wx.FONTWEIGHT_MEDIUM, "bold": wx.FONTWEIGHT_BOLD}[override.get("weight", "normal")])
+        font.SetStyle(wx.FONTSTYLE_ITALIC if override.get("italic") else wx.FONTSTYLE_NORMAL)
+        font.SetUnderlined(bool(override.get("underline")))
+        if hasattr(font, "SetStrikethrough"):
+            font.SetStrikethrough(bool(override.get("strikethrough")))
         control.SetFont(font)
 
 
@@ -108,11 +120,22 @@ class ElementAppearanceDialog(wx.Dialog):
         self.font_size = wx.SpinCtrl(self, min=0, max=72, initial=int(values.get("font_size", 0) or 0), name="Element font size")
         self.weight = wx.Choice(self, choices=["normal", "medium", "bold"], name="Element font weight")
         self.weight.SetSelection(["normal", "medium", "bold"].index(values.get("weight", "normal")))
-        for label, control in (("Background", self.background), ("Foreground", self.foreground), ("Font size (0 = inherited)", self.font_size), ("Font weight", self.weight)):
+        self.italic = wx.CheckBox(self, label="Italic", name="Element italic")
+        self.italic.SetValue(bool(values.get("italic", False)))
+        self.underline = wx.CheckBox(self, label="Underline", name="Element underline")
+        self.underline.SetValue(bool(values.get("underline", False)))
+        self.strikethrough = wx.CheckBox(self, label="Strikethrough", name="Element strikethrough")
+        self.strikethrough.SetValue(bool(values.get("strikethrough", False)))
+        self.letter_spacing = wx.SpinCtrl(self, min=-8, max=32, initial=int(values.get("letter_spacing", 0) or 0), name="Element letter spacing")
+        for label, control in (("Background", self.background), ("Foreground", self.foreground), ("Font size (0 = inherited)", self.font_size), ("Font weight", self.weight), ("Letter spacing (-8 to 32)", self.letter_spacing)):
             row = wx.BoxSizer(wx.HORIZONTAL)
             row.Add(wx.StaticText(self, label=label), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
             row.Add(control, 1, wx.EXPAND)
             root.Add(row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
+        style_row = wx.BoxSizer(wx.HORIZONTAL)
+        for control in (self.italic, self.underline, self.strikethrough):
+            style_row.Add(control, 0, wx.RIGHT, 12)
+        root.Add(style_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 16)
         note = wx.StaticText(self, label="Portable M3 roles are editable here. Unsupported Word-only axes remain platform-limited and are not silently saved.")
         note.SetName("Element appearance capability note")
         note.Wrap(430)
@@ -134,7 +157,7 @@ class ElementAppearanceDialog(wx.Dialog):
         apply_material3(self)
 
     def _values(self) -> dict[str, object]:
-        return {"background": self.background.GetValue(), "foreground": self.foreground.GetValue(), "font_size": self.font_size.GetValue(), "weight": self.weight.GetStringSelection()}
+        return {"background": self.background.GetValue(), "foreground": self.foreground.GetValue(), "font_size": self.font_size.GetValue(), "weight": self.weight.GetStringSelection(), "italic": self.italic.GetValue(), "underline": self.underline.GetValue(), "strikethrough": self.strikethrough.GetValue(), "letter_spacing": self.letter_spacing.GetValue()}
 
     def _save(self, _event) -> None:
         values = self._values()

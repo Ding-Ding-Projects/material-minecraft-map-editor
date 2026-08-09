@@ -33,7 +33,8 @@ Suggested articles: [scheduled settings](../scheduled-settings/README.md),
 Every native Material 3 control receives an **Edit appearance…** entry in its
 keyboard-accessible context menu. The editor uses a bounded stable role key
 (accessible name, or control class when unnamed) and persists portable M3
-background/foreground HEX colours, font size, and normal/medium/bold weight.
+background/foreground HEX colours, font size, normal/medium/bold weight,
+italic, underline, strikethrough, and bounded letter spacing.
 Blank colours and font size `0` inherit the active role. **Reset element
 appearance** removes only that role override. Changes are saved in the bounded
 `amulet_element_appearance` profile and recorded through non-blocking local
@@ -44,4 +45,5 @@ Keys are limited to 160 characters and profiles to 512 entries. Malformed
 colours or font sizes fail closed to the inherited role; no network or
 arbitrary class loading is involved. `tests/test_element_appearance_contract.py`
 guards the route, bounds, live application, reset, capability disclosure, and
-history recording. Pixel-level wx runtime capture remains a Windows-only gate.
+history recording. The portable style controls apply live to the edited native
+control; pixel-level wx runtime capture remains a Windows-only gate.
