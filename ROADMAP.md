@@ -22,5 +22,8 @@
 
 - ✅ Material 3 responsive landing/docs source under `docs/site/`, routed to the
   owner-controlled repository.
+- ✅ wx-independent offline documentation bundle with deterministic feature
+  discovery, SHA-256 completeness checks, local article search, and internal
+  link navigation.
 - ⏳ Publish through an owner-controlled host and verify the live URL; no URL is
   claimed while that external host is absent.
