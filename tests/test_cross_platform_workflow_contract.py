@@ -10,9 +10,12 @@ class CrossPlatformWorkflowContractTests(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "build-macos.yml").read_text(
             encoding="utf-8"
         )
+        spec = (ROOT / "installer" / "Amulet.spec").read_text(encoding="utf-8")
         self.assertNotIn("xcrun notarytool", workflow)
         self.assertNotIn("codesign --verify", workflow)
         self.assertNotIn("MacOS - Store Credentials", workflow)
+        self.assertNotIn("APPLE_CODESIGN_IDENTITY", spec)
+        self.assertIn("codesign_identity=None", spec)
         self.assertIn("Unsigned macOS DMG created", workflow)
 
     def test_linux_wayland_dependency_is_optional(self):
