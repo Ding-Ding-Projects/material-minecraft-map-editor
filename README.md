@@ -342,12 +342,12 @@ fails if an executable or DLL is signed. Read
 
 | Evidence | Current status at this README revision |
 | --- | --- |
-| Tracked desktop captures | Seven genuine images inspected; all are historical (`0.6.1`, `0.8.9`, legacy world browser, or `0.10.47`). |
+| Tracked desktop captures | Eleven genuine images inspected: seven historical workflow captures plus four 2026 runtime baselines from real wxPython dialogs and the main frame. |
 | Preference and regex behavior | Covered by repository unit tests, including bounded persistence, plain/regex matching, invalid patterns, and capture groups. |
 | Scheduled-settings behavior | Covered by model and UI-contract tests for persistence, validation, precedence, weekday/date/time boundaries, reordering, and bilingual UI strings. |
 | Squirrel update bridge | Covered by wx-independent tests for HTTPS validation, discovery, available state, staging state, and unsigned warning. |
 | Windows release | The inspected `0.10.55` release is non-draft and contains `Setup.exe`, `RELEASES`, and `Amulet-0.10.55-full.nupkg`. |
-| Current Material 3 desktop pixels | Not claimed: no current wx runtime capture or tracked screenshot harness is available in this checkout. |
+| Current Material 3 desktop pixels | Baseline only: four current wx runtime captures are tracked, but they document the migration boundary and do not claim full M3 completion. |
 | Live project-site deployment | Not claimed: `docs/site/` is source-complete, but the repository has no verified Pages configuration or homepage URL for this site. |
 
 ## Project links
