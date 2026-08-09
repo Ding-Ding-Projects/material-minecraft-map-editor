@@ -11,7 +11,10 @@ def test_root_build_scripts_are_touchless_and_use_supported_paths():
     assert '"numpy~=1.26"' in build and "--no-build-isolation" in build
     assert "PYTHON_ARGS=-3.11" in build and "PYTHON_ARGS=-3.11" in installer
     assert "Python311\\python.exe" in build and "Python311\\python.exe" in installer
+    assert "py -3.11 -c \"import sys\"" in build
     assert "bootstrap-python.ps1" in build and "ExecutionPolicy Bypass" in build
+    assert "assert sys.version_info[:2] == (3, 11)" in build
+    assert "assert sys.version_info[:2] == (3, 11)" in installer
     assert "build.bat" in installer and "PyInstaller" in installer
     assert "choice /M \"Launch Amulet now\"" in build
     assert "if errorlevel 2 goto :build_done" in build
