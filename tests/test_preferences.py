@@ -43,7 +43,9 @@ class PreferencesAndRegexTestCase(unittest.TestCase):
     def test_invalid_pattern_and_capture_groups(self):
         invalid = self.regex_builder.RegexBuilder("[", regex_enabled=True).validate()
         self.assertFalse(invalid.valid)
-        result = self.regex_builder.RegexBuilder(r"(x)(y)", regex_enabled=True).evaluate("xy")
+        result = self.regex_builder.RegexBuilder(
+            r"(x)(y)", regex_enabled=True
+        ).evaluate("xy")
         self.assertTrue(result.valid)
         self.assertEqual(result.matches, ("xy",))
         self.assertEqual(result.groups, (("x", "y"),))

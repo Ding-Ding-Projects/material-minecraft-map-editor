@@ -16,7 +16,10 @@ from .pages import AmuletMainMenu, BasePageUI
 
 from amulet_map_editor.api import image
 from amulet_map_editor.api.wx.material3 import apply_material3
-from amulet_map_editor.api.wx.ui.preferences import PreferencesDialog, CommandPaletteDialog
+from amulet_map_editor.api.wx.ui.preferences import (
+    PreferencesDialog,
+    CommandPaletteDialog,
+)
 
 log = logging.getLogger(__name__)
 
@@ -71,9 +74,11 @@ class AmuletUI(wx.Frame):
 
         # Keep the global command palette reachable while any child has focus.
         self._palette_id = int(wx.NewIdRef())
-        self.SetAcceleratorTable(wx.AcceleratorTable([
-            (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F"), self._palette_id)
-        ]))
+        self.SetAcceleratorTable(
+            wx.AcceleratorTable(
+                [(wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F"), self._palette_id)]
+            )
+        )
         self.Bind(wx.EVT_MENU, self._open_command_palette, id=self._palette_id)
 
         self.Bind(wx.EVT_CLOSE, self._level_notebook.on_app_close)
@@ -103,10 +108,12 @@ class AmuletUI(wx.Frame):
         menu_dict.setdefault(lang.get("menu_bar.file.menu_name"), {}).setdefault(
             "exit", {}
         ).setdefault(lang.get("menu_bar.file.quit"), lambda evt: self.Close())
-        menu_dict.setdefault("View", {}).setdefault("application", {}).update({
-            "Preferences…": self._open_preferences,
-            "Command palette\tCtrl+Shift+F": self._open_command_palette,
-        })
+        menu_dict.setdefault("View", {}).setdefault("application", {}).update(
+            {
+                "Preferences…": self._open_preferences,
+                "Command palette\tCtrl+Shift+F": self._open_command_palette,
+            }
+        )
         menu_dict = self._level_notebook.extend_menu(menu_dict)
         menu_bar = wx.MenuBar()
         for menu_name, menu_data in menu_dict.items():

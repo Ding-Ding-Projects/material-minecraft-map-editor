@@ -13,7 +13,9 @@ import re
 import wx
 
 from amulet_map_editor.api import preferences
+from amulet_map_editor.api import lang
 from amulet_map_editor.api.regex_builder import RegexBuilder
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 
 def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
@@ -49,18 +51,68 @@ class PreferencesDialog(wx.Dialog):
         page = wx.Panel(self._tabs)
         grid = wx.FlexGridSizer(0, 2, 12, 16)
         grid.AddGrowableCol(1, 1)
-        grid.Add(_label(page, "Language mode", "Choose English, playful Hong Kong-style Cantonese, or both."), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.language = wx.Choice(page, choices=["English", "Playful Cantonese", "Bilingual"])
-        self.language.SetSelection(preferences.LANGUAGE_MODES.index(self._prefs.language_mode))
+        grid.Add(
+            _label(
+                page,
+                "Language mode",
+                "Choose English, playful Hong Kong-style Cantonese, or both.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.language = wx.Choice(
+            page, choices=["English", "Playful Cantonese", "Bilingual"]
+        )
+        self.language.SetSelection(
+            preferences.LANGUAGE_MODES.index(self._prefs.language_mode)
+        )
         grid.Add(self.language, 1, wx.EXPAND)
-        grid.Add(_label(page, "English funny level", "Styles every English message, including warnings; facts stay unchanged."), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.funny_en = wx.Slider(page, minValue=1, maxValue=5, value=self._prefs.funny_level_english, style=wx.SL_LABELS)
+        grid.Add(
+            _label(
+                page,
+                "English funny level",
+                "Styles every English message, including warnings; facts stay unchanged.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.funny_en = wx.Slider(
+            page,
+            minValue=1,
+            maxValue=5,
+            value=self._prefs.funny_level_english,
+            style=wx.SL_LABELS,
+        )
         grid.Add(self.funny_en, 1, wx.EXPAND)
-        grid.Add(_label(page, "Cantonese funny level", "Styles every Cantonese message, including errors; facts stay unchanged."), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.funny_yue = wx.Slider(page, minValue=1, maxValue=5, value=self._prefs.funny_level_cantonese, style=wx.SL_LABELS)
+        grid.Add(
+            _label(
+                page,
+                "Cantonese funny level",
+                "Styles every Cantonese message, including errors; facts stay unchanged.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.funny_yue = wx.Slider(
+            page,
+            minValue=1,
+            maxValue=5,
+            value=self._prefs.funny_level_cantonese,
+            style=wx.SL_LABELS,
+        )
         grid.Add(self.funny_yue, 1, wx.EXPAND)
-        grid.Add(_label(page, "Dialog emojis", "Show a relevant decorative emoji in dialogs without changing control labels."), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.dialog_emojis = wx.CheckBox(page, label="Show emojis in dialogs and message boxes")
+        grid.Add(
+            _label(
+                page,
+                "Dialog emojis",
+                "Show a relevant decorative emoji in dialogs without changing control labels.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.dialog_emojis = wx.CheckBox(
+            page, label="Show emojis in dialogs and message boxes"
+        )
         self.dialog_emojis.SetValue(self._prefs.show_dialog_emojis)
         grid.Add(self.dialog_emojis, 1, wx.EXPAND)
         page.SetSizer(wx.BoxSizer(wx.VERTICAL))
@@ -71,24 +123,74 @@ class PreferencesDialog(wx.Dialog):
         page = wx.Panel(self._tabs)
         grid = wx.FlexGridSizer(0, 2, 12, 16)
         grid.AddGrowableCol(1, 1)
-        grid.Add(_label(page, "Theme", "Select light, dark, or follow the operating system."), 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(
+            _label(
+                page, "Theme", "Select light, dark, or follow the operating system."
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
         self.theme = wx.Choice(page, choices=["Light", "Dark", "System"])
         self.theme.SetSelection(preferences.THEMES.index(self._prefs.theme))
         grid.Add(self.theme, 1, wx.EXPAND)
-        grid.Add(_label(page, "Density", "Controls spacing throughout tabs, panels, and dialogs."), 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(
+            _label(
+                page,
+                "Density",
+                "Controls spacing throughout tabs, panels, and dialogs.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
         self.density = wx.Choice(page, choices=["Compact", "Comfortable", "Spacious"])
-        self.density.SetSelection(("compact", "comfortable", "spacious").index(self._prefs.density))
+        self.density.SetSelection(
+            ("compact", "comfortable", "spacious").index(self._prefs.density)
+        )
         grid.Add(self.density, 1, wx.EXPAND)
-        grid.Add(_label(page, "Accent colour", "Material 3 seed colour in #RRGGBB form."), 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(
+            _label(page, "Accent colour", "Material 3 seed colour in #RRGGBB form."),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
         self.accent = wx.TextCtrl(page, value=self._prefs.accent)
         grid.Add(self.accent, 1, wx.EXPAND)
-        grid.Add(_label(page, "UI font", "Optional installed font family; blank uses the platform default."), 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(
+            _label(
+                page,
+                "UI font",
+                "Optional installed font family; blank uses the platform default.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
         self.font = wx.FontPickerCtrl(page)
         if self._prefs.ui_font:
-            self.font.SetSelectedFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=self._prefs.ui_font))
+            self.font.SetSelectedFont(
+                wx.Font(
+                    10,
+                    wx.FONTFAMILY_DEFAULT,
+                    wx.FONTSTYLE_NORMAL,
+                    wx.FONTWEIGHT_NORMAL,
+                    faceName=self._prefs.ui_font,
+                )
+            )
         grid.Add(self.font, 1, wx.EXPAND)
-        grid.Add(_label(page, "UI scale", "Bounded scale for text and controls, persisted across restarts."), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.scale = wx.Slider(page, minValue=80, maxValue=200, value=int(self._prefs.ui_scale * 100), style=wx.SL_LABELS)
+        grid.Add(
+            _label(
+                page,
+                "UI scale",
+                "Bounded scale for text and controls, persisted across restarts.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.scale = wx.Slider(
+            page,
+            minValue=80,
+            maxValue=200,
+            value=int(self._prefs.ui_scale * 100),
+            style=wx.SL_LABELS,
+        )
         grid.Add(self.scale, 1, wx.EXPAND)
         page.SetSizer(wx.BoxSizer(wx.VERTICAL))
         page.GetSizer().Add(grid, 0, wx.EXPAND | wx.ALL, 18)
@@ -97,7 +199,16 @@ class PreferencesDialog(wx.Dialog):
     def _build_search_tab(self) -> None:
         page = wx.Panel(self._tabs)
         box = wx.BoxSizer(wx.VERTICAL)
-        box.Add(_label(page, "Regex builder", "Plain text is safest by default; enable regex only when you need groups or quantifiers."), 0, wx.BOTTOM, 8)
+        box.Add(
+            _label(
+                page,
+                "Regex builder",
+                "Plain text is safest by default; enable regex only when you need groups or quantifiers.",
+            ),
+            0,
+            wx.BOTTOM,
+            8,
+        )
         row = wx.BoxSizer(wx.HORIZONTAL)
         self.regex = wx.TextCtrl(page)
         self.regex.SetHint("Search settings, tabs, or commands")
@@ -117,9 +228,15 @@ class PreferencesDialog(wx.Dialog):
 
     def _validate_regex(self, _event: wx.Event) -> None:
         flags = 0x02 if self.regex_flags.GetValue() else 0
-        result = RegexBuilder(self.regex.GetValue(), flags, self.regex_mode.GetValue()).validate()
-        self.regex_result.SetLabel("Valid pattern" if result.valid else f"Invalid pattern: {result.error}")
-        self.regex_result.SetForegroundColour(wx.Colour(40, 120, 70) if result.valid else wx.Colour(180, 40, 40))
+        result = RegexBuilder(
+            self.regex.GetValue(), flags, self.regex_mode.GetValue()
+        ).validate()
+        self.regex_result.SetLabel(
+            "Valid pattern" if result.valid else f"Invalid pattern: {result.error}"
+        )
+        self.regex_result.SetForegroundColour(
+            wx.Colour(40, 120, 70) if result.valid else wx.Colour(180, 40, 40)
+        )
 
     def _reset(self, _event: wx.Event) -> None:
         self._prefs = preferences.reset()
@@ -129,24 +246,38 @@ class PreferencesDialog(wx.Dialog):
         language_mode = preferences.LANGUAGE_MODES[self.language.GetSelection()]
         theme = preferences.THEMES[self.theme.GetSelection()]
         font = self.font.GetSelectedFont().GetFaceName()
-        preferences.save(preferences.Preferences(
-            language_mode=language_mode,
-            funny_level_english=self.funny_en.GetValue(),
-            funny_level_cantonese=self.funny_yue.GetValue(),
-            show_dialog_emojis=self.dialog_emojis.GetValue(),
-            theme=theme,
-            density=("compact", "comfortable", "spacious")[self.density.GetSelection()],
-            accent=self.accent.GetValue(),
-            ui_font=font,
-            ui_scale=self.scale.GetValue() / 100.0,
-        ))
+        preferences.save(
+            preferences.Preferences(
+                language_mode=language_mode,
+                funny_level_english=self.funny_en.GetValue(),
+                funny_level_cantonese=self.funny_yue.GetValue(),
+                show_dialog_emojis=self.dialog_emojis.GetValue(),
+                theme=theme,
+                density=("compact", "comfortable", "spacious")[
+                    self.density.GetSelection()
+                ],
+                accent=self.accent.GetValue(),
+                ui_font=font,
+                ui_scale=self.scale.GetValue() / 100.0,
+            )
+        )
+        # Apply the persisted language and appearance choices immediately to
+        # the owning frame; reopening the app is not required.
+        lang.set_language({
+            "english": "en",
+            "cantonese": "zh_TW",
+            "bilingual": "en",
+        }[language_mode])
+        apply_material3(self.GetParent())
         self.EndModal(wx.ID_OK)
 
 
 class CommandPaletteDialog(wx.Dialog):
     """Keyboard-friendly command palette (Ctrl+Shift+F) with plain/regex search."""
 
-    def __init__(self, parent: wx.Window, commands: Iterable[Tuple[str, Callable[[], None]]]):
+    def __init__(
+        self, parent: wx.Window, commands: Iterable[Tuple[str, Callable[[], None]]]
+    ):
         super().__init__(parent, title="Command palette", size=wx.Size(560, 420))
         self._commands: List[Tuple[str, Callable[[], None]]] = list(commands)
         root = wx.BoxSizer(wx.VERTICAL)
@@ -167,7 +298,9 @@ class CommandPaletteDialog(wx.Dialog):
         self.results.Bind(wx.EVT_LISTBOX_DCLICK, self._run)
 
     def _refresh(self) -> None:
-        builder = RegexBuilder(self.query.GetValue(), regex_enabled=self.regex.GetValue())
+        builder = RegexBuilder(
+            self.query.GetValue(), regex_enabled=self.regex.GetValue()
+        )
         try:
             matches = builder.search([name for name, _ in self._commands])
         except (re.error, ValueError):

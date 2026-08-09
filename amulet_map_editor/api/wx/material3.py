@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 import wx
+from amulet_map_editor.api import preferences
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,35 @@ class Material3Tokens:
 
 
 TOKENS = Material3Tokens()
+
+
+def _active_palette() -> dict[str, wx.Colour]:
+    """Resolve persisted appearance values into the live native palette."""
+    prefs = preferences.load()
+    if prefs.theme == "dark":
+        palette = {
+            "surface": wx.Colour(20, 18, 24),
+            "surface_container": wx.Colour(33, 31, 38),
+            "on_surface": wx.Colour(230, 225, 229),
+            "primary_container": wx.Colour(74, 63, 99),
+            "on_primary_container": wx.Colour(234, 221, 255),
+        }
+    else:
+        palette = {
+            "surface": wx.Colour(250, 251, 255),
+            "surface_container": wx.Colour(239, 241, 248),
+            "on_surface": wx.Colour(27, 28, 32),
+            "primary_container": wx.Colour(214, 227, 255),
+            "on_primary_container": wx.Colour(40, 71, 117),
+        }
+    palette["primary"] = TOKENS.primary
+    try:
+        accent = wx.Colour(prefs.accent)
+        if accent.IsOk():
+            palette["primary"] = accent
+    except (TypeError, ValueError):
+        pass
+    return palette
 
 
 def _font_for(
@@ -76,24 +106,26 @@ def apply_material3(window: wx.Window) -> None:
     if getattr(window, "_material3_opt_out", False):
         return
 
-    window.SetBackgroundColour(TOKENS.surface)
-    window.SetForegroundColour(TOKENS.on_surface)
+    palette = _active_palette()
+
+    window.SetBackgroundColour(palette["surface"])
+    window.SetForegroundColour(palette["on_surface"])
     if isinstance(window, wx.TopLevelWindow):
         window.SetFont(_font_for(window, 10))
 
     for child in _children(window):
         if getattr(child, "_material3_opt_out", False):
             continue
-        child.SetForegroundColour(TOKENS.on_surface)
+        child.SetForegroundColour(palette["on_surface"])
         # Keep canvases renderer-owned while styling ordinary surfaces.
         if isinstance(child, (wx.Panel, wx.ScrolledWindow, wx.Notebook)):
-            child.SetBackgroundColour(TOKENS.surface)
+            child.SetBackgroundColour(palette["surface"])
         if isinstance(child, wx.StaticText):
             child.SetFont(_font_for(child, 10))
         elif isinstance(child, (wx.Button, wx.ToggleButton)):
             child.SetFont(_font_for(child, 10, wx.FONTWEIGHT_MEDIUM))
-            child.SetBackgroundColour(TOKENS.primary_container)
-            child.SetForegroundColour(TOKENS.on_primary_container)
+            child.SetBackgroundColour(palette["primary_container"])
+            child.SetForegroundColour(palette["on_primary_container"])
             child.SetMinSize(
                 wx.Size(
                     max(child.GetBestSize().width, 88),

@@ -6,9 +6,14 @@ This directory is the Material Design 3 landing and documentation source for Amu
 
 From the repository root, run a local static server (for example `python -m http.server 8000 --directory docs/site`) and open `http://localhost:8000`. The site has four keyboard-accessible tabs, a feature search field, responsive layouts, focus states, and reduced-motion support.
 
-## GitHub Pages publication
+## Self-hosted publication
 
-Publish the `docs/site` directory from the repository's Pages settings (Settings → Pages → Deploy from a branch → `main` → `/docs/site`). If a Pages workflow is added later, it must copy this directory unchanged and publish only after the repository's checks pass. The release button intentionally links to the repository Releases page until a verified immutable installer URL exists.
+This site is designed to be served from an owner-controlled static host. Copy
+the complete `docs/site` directory to the web root without rewriting asset
+paths, enable HTTPS, and set the repository homepage to the resulting URL.
+The repository's Pages workflow is retained only as an optional preview path;
+it is not the canonical publication route. The release button intentionally
+opens the install guide until a verified immutable installer URL exists.
 
 ## Content boundary
 

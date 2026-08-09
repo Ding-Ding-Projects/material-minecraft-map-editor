@@ -29,7 +29,9 @@ class RegexBuilder:
     def compile(self) -> Pattern[str]:
         if len(self.pattern) > MAX_PATTERN_LENGTH:
             raise ValueError(f"Pattern is limited to {MAX_PATTERN_LENGTH} characters")
-        return re.compile(self.pattern if self.regex_enabled else re.escape(self.pattern), self.flags)
+        return re.compile(
+            self.pattern if self.regex_enabled else re.escape(self.pattern), self.flags
+        )
 
     def validate(self) -> RegexResult:
         try:
@@ -40,7 +42,9 @@ class RegexBuilder:
 
     def evaluate(self, sample: str) -> RegexResult:
         if len(sample) > MAX_SAMPLE_LENGTH:
-            return RegexResult(False, f"Sample is limited to {MAX_SAMPLE_LENGTH} characters")
+            return RegexResult(
+                False, f"Sample is limited to {MAX_SAMPLE_LENGTH} characters"
+            )
         try:
             compiled = self.compile()
             found = tuple(compiled.finditer(sample))
@@ -49,7 +53,9 @@ class RegexBuilder:
         return RegexResult(
             True,
             matches=tuple(match.group(0) for match in found),
-            groups=tuple(tuple(group or "" for group in match.groups()) for match in found),
+            groups=tuple(
+                tuple(group or "" for group in match.groups()) for match in found
+            ),
         )
 
     def search(self, values: List[str]) -> List[str]:

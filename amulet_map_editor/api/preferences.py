@@ -36,12 +36,14 @@ class Preferences:
     def normalised(self) -> "Preferences":
         """Return a safe value even when an older profile was hand-edited."""
         self.language_mode = (
-            self.language_mode
-            if self.language_mode in LANGUAGE_MODES
-            else "english"
+            self.language_mode if self.language_mode in LANGUAGE_MODES else "english"
         )
         self.theme = self.theme if self.theme in THEMES else "system"
-        self.density = self.density if self.density in ("compact", "comfortable", "spacious") else "comfortable"
+        self.density = (
+            self.density
+            if self.density in ("compact", "comfortable", "spacious")
+            else "comfortable"
+        )
         self.funny_level_english = min(5, max(1, int(self.funny_level_english)))
         self.funny_level_cantonese = min(5, max(1, int(self.funny_level_cantonese)))
         self.ui_scale = min(2.0, max(0.8, float(self.ui_scale)))
