@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Print the reproducible source/test/markup line table used by releases."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,11 +23,23 @@ def count(path: Path) -> tuple[int, int]:
     return len(lines), sum(bool(line.strip()) for line in lines)
 
 
-totals: dict[str, list[int]] = {key: [0, 0] for key in ("source", "tests", "styles-markup")}
+totals: dict[str, list[int]] = {
+    key: [0, 0] for key in ("source", "tests", "styles-markup")
+}
 for path in ROOT.rglob("*"):
     if not path.is_file() or any(part in SKIP_PARTS for part in path.parts):
         continue
-    if path.suffix.lower() not in {".py", ".md", ".rst", ".txt", ".html", ".css", ".js", ".yml", ".yaml"}:
+    if path.suffix.lower() not in {
+        ".py",
+        ".md",
+        ".rst",
+        ".txt",
+        ".html",
+        ".css",
+        ".js",
+        ".yml",
+        ".yaml",
+    }:
         continue
     key = bucket(path.relative_to(ROOT))
     total, nonblank = count(path)
@@ -36,4 +49,6 @@ for path in ROOT.rglob("*"):
 print("category,total_lines,nonblank_lines")
 for key in ("source", "tests", "styles-markup"):
     print(f"{key},{totals[key][0]},{totals[key][1]}")
-print(f"total,{sum(v[0] for v in totals.values())},{sum(v[1] for v in totals.values())}")
+print(
+    f"total,{sum(v[0] for v in totals.values())},{sum(v[1] for v in totals.values())}"
+)

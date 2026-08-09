@@ -2,7 +2,6 @@ import ast
 from pathlib import Path
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 PREFERENCES_UI = ROOT / "amulet_map_editor/api/wx/ui/preferences.py"
 AMULET_UI = ROOT / "amulet_map_editor/api/framework/amulet_ui.py"
