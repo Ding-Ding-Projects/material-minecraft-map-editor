@@ -36,3 +36,11 @@ def test_dialogs_receive_borderless_material_chrome():
     assert "_ensure_material_dialog_chrome" in source
     assert "wx.NO_BORDER" in source
     assert "MaterialTitleBar(window" in source
+
+
+def test_editable_controls_use_m3_surface_roles():
+    source = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'child.SetBackgroundColour(palette["surface_container"])' in source
+    assert 'child.SetForegroundColour(palette["on_surface"])' in source

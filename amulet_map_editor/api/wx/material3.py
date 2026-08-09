@@ -205,6 +205,8 @@ def apply_material3(window: wx.Window) -> None:
             child, (wx.TextCtrl, wx.ComboBox, wx.Choice, wx.SpinCtrl, wx.SpinCtrlDouble)
         ):
             child.SetFont(_font_for(child, 10))
+            child.SetBackgroundColour(palette["surface_container"])
+            child.SetForegroundColour(palette["on_surface"])
             child.SetMinSize(wx.Size(-1, _control_min_height(child)))
         apply_material3(child)
 
