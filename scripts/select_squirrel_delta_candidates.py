@@ -10,13 +10,18 @@ import sys
 from dataclasses import dataclass
 from typing import Any
 
+_COMPONENT = r"(?:0|[1-9]\d*)"
 _AUTOMATED = re.compile(
-    r"^v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)" r"-dev[.-]?(?P<run>\d+)$",
-    re.IGNORECASE,
+    rf"^(?P<major>{_COMPONENT})\.(?P<minor>{_COMPONENT})\."
+    rf"(?P<patch>{_COMPONENT})-dev\.(?P<run>{_COMPONENT})$"
 )
-_STABLE = re.compile(r"^v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$")
-_MAX_INVENTORY_BYTES = 256 * 1024
-_MAX_RELEASES = 100
+_STABLE = re.compile(
+    rf"^(?P<major>{_COMPONENT})\.(?P<minor>{_COMPONENT})\." rf"(?P<patch>{_COMPONENT})$"
+)
+_AUTOMATED_ALIAS = re.compile(r"^v?\d+\.\d+\.\d+-dev[.-]?\d+$", re.IGNORECASE)
+_STABLE_ALIAS = re.compile(r"^v?\d+\.\d+\.\d+$", re.IGNORECASE)
+_MAX_INVENTORY_BYTES = 1024 * 1024
+_MAX_RELEASES = 500
 _AUTOMATED_PATCH_BASE = 100_000
 _AUTOMATED_RUN_LIMIT = 899_999
 _AUTOMATED_PATCH_LIMIT = _AUTOMATED_PATCH_BASE + _AUTOMATED_RUN_LIMIT
@@ -38,8 +43,11 @@ def parse_channel_version(tag: str, channel: str) -> ChannelVersion | None:
     )
     if pattern is None:
         raise ValueError(f"unsupported Squirrel release channel: {channel}")
-    match = pattern.fullmatch(tag.strip())
+    match = pattern.fullmatch(tag)
     if not match:
+        alias_pattern = _AUTOMATED_ALIAS if channel == "automated" else _STABLE_ALIAS
+        if alias_pattern.fullmatch(tag):
+            raise ValueError(f"noncanonical {channel} release tag: {tag}")
         return None
     patch = int(match.group("patch"))
     if channel == "automated":
@@ -88,9 +96,16 @@ def select_candidates(
 
     candidates: list[tuple[ChannelVersion, str]] = []
     seen: set[str] = set()
+    seen_versions: dict[ChannelVersion, str] = {}
     for item in inventory:
         if not isinstance(item, dict):
             raise ValueError("release inventory entries must be objects")
+        if (
+            "tagName" in item
+            and "tag_name" in item
+            and item["tagName"] != item["tag_name"]
+        ):
+            raise ValueError("release inventory has conflicting tag fields")
         tag = item.get("tagName", item.get("tag_name"))
         draft = item.get("isDraft", item.get("draft", False))
         if not isinstance(tag, str) or not isinstance(draft, bool):
@@ -103,6 +118,12 @@ def select_candidates(
         version = parse_channel_version(tag, channel)
         if version is None:
             continue
+        prior_tag = seen_versions.get(version)
+        if prior_tag is not None and prior_tag != tag:
+            raise ValueError(
+                f"release tags {prior_tag} and {tag} identify the same version"
+            )
+        seen_versions[version] = tag
         if (version.major, version.minor) != (current.major, current.minor):
             continue
         if version >= current:

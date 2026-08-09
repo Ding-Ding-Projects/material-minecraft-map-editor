@@ -4,6 +4,11 @@ import unittest
 WORKFLOW = (
     Path(__file__).resolve().parents[1] / ".github" / "workflows" / "build-windows.yml"
 ).read_text(encoding="utf-8")
+SELECTOR = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "select_squirrel_delta_candidates.py"
+).read_text(encoding="utf-8")
 
 
 class WindowsWorkflowContractTests(unittest.TestCase):
@@ -57,6 +62,18 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         self.assertIn("PREVIOUS_PACKAGE=", fetch)
         self.assertIn("PREVIOUS_RELEASES=", fetch)
 
+    def test_delta_inventory_paginates_with_a_bounded_truncation_sentinel(self):
+        fetch = WORKFLOW[
+            WORKFLOW.index("- name: Fetch previous Squirrel feed for delta") :
+        ]
+        fetch = fetch[
+            : fetch.index("- name: Windows - Create unsigned Squirrel.Windows release")
+        ]
+        self.assertIn("--limit 501", fetch)
+        self.assertIn("selector's 500-entry ceiling", fetch)
+        self.assertIn("_MAX_RELEASES = 500", SELECTOR)
+        self.assertIn("_MAX_INVENTORY_BYTES = 1024 * 1024", SELECTOR)
+
         build = WORKFLOW[
             WORKFLOW.index(
                 "- name: Windows - Create unsigned Squirrel.Windows release"
@@ -65,12 +82,8 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         build = build[: build.index("- name: Verify unsigned installer contract")]
         self.assertIn('-PreviousPackagePath "$env:PREVIOUS_PACKAGE"', build)
         self.assertIn('-PreviousReleasesPath "$env:PREVIOUS_RELEASES"', build)
-        self.assertIn(
-            '-PreviousPackageSha256 "$env:PREVIOUS_PACKAGE_SHA256"', build
-        )
-        self.assertIn(
-            '-PreviousReleasesSha256 "$env:PREVIOUS_RELEASES_SHA256"', build
-        )
+        self.assertIn('-PreviousPackageSha256 "$env:PREVIOUS_PACKAGE_SHA256"', build)
+        self.assertIn('-PreviousReleasesSha256 "$env:PREVIOUS_RELEASES_SHA256"', build)
         self.assertIn('-PreviousSourceTag "$env:PREVIOUS_SOURCE_TAG"', build)
         self.assertIn('-PreviousChannel "$env:PREVIOUS_CHANNEL"', build)
 

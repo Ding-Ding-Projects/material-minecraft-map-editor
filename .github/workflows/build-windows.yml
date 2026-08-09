@@ -103,7 +103,9 @@ jobs:
       run: |
         $destination = Join-Path $PWD 'installer\dist\squirrel\previous'
         New-Item -ItemType Directory -Force $destination | Out-Null
-        $releaseJson = & gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName,isDraft,isPrerelease,publishedAt
+        # gh release list paginates internally. Fetch one sentinel beyond the
+        # selector's 500-entry ceiling so a truncated inventory fails closed.
+        $releaseJson = & gh release list --repo $env:GITHUB_REPOSITORY --limit 501 --json tagName,isDraft,isPrerelease,publishedAt
         if ($LASTEXITCODE -ne 0) { throw "gh release list failed with exit code $LASTEXITCODE" }
         $candidateTags = @($releaseJson | & python scripts/select_squirrel_delta_candidates.py `
           --current-source $env:CURRENT_SOURCE_TAG --channel $env:CURRENT_CHANNEL --limit 8)

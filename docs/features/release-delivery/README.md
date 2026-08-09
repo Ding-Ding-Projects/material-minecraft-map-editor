@@ -17,8 +17,9 @@ installed-client comparisons. Automated source tags must keep patch zero;
 stable source tags that enter the reserved range fail closed so their package
 identity cannot collide with an automated build.
 
-Push and release builds search at most 100 published releases and consider at
-most eight candidates from the build's explicit `automated` or `stable`
+Push and release builds request a bounded 501-entry inventory: 500 selectable
+records plus one truncation sentinel. The selector accepts at most 500 entries
+and 1 MiB, then considers at most eight candidates from the build's explicit `automated` or `stable`
 channel, ordered by semantic version rather than publication time. A candidate
 becomes a delta base only when its `RELEASES` index
 contains exactly one row matching the downloaded full package's filename,
@@ -59,6 +60,8 @@ unattributed `git blame` lines.
   candidate.
 - A stable tag in patch range `100000..999999`, an automated tag with a nonzero
   source patch, or an automated run above `899999` fails closed.
+- A noncanonical tag alias, repeated semantic version, or inventory beyond the
+  500-record selector ceiling fails closed.
 - Once a safe pair is selected, a missing current delta, hash/size mismatch, or
   delta row in the client feed fails packaging.
 - A missing first-job or publication timestamp fails release-note publication

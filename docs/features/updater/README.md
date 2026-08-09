@@ -19,6 +19,10 @@ in the reserved `100000..999999` range, so they rank above the legacy stable
 source tags must use patch zero and runs `0..899999`; stable source tags must
 stay outside the reserved patch range. The selected release-download route and
 release-notes URL must both match the project's immutable GitHub paths and tag.
+Tags are accepted only in their canonical forms: `major.minor.patch` for stable
+releases and `major.minor.0-dev.run` for automated releases. Prefix, separator,
+case, whitespace, and leading-zero aliases are rejected, as are duplicate tags
+or version/package-identity collisions.
 
 The download/apply command has a documented 900-second ceiling, sized for the
 observed approximately 87 MiB full package plus local filesystem work; the
@@ -28,24 +32,47 @@ or unsaved work produce a recoverable failed state and never interrupt active
 editing. The app never invokes a signer and every published Windows artifact is
 explicitly unsigned.
 
+The process bridge follows the output shape in Squirrel.Windows 2.0.1 source
+commit [`eef37460`](https://github.com/Squirrel/Squirrel.Windows/commit/eef37460aef77b2f9de8cd2237c1e55b344a6554).
+`--checkForUpdate` may emit zero or more bounded integer progress lines from 0
+through 100, followed by one strict JSON line containing exactly `currentVersion`,
+`futureVersion`, and `releasesToApply`. An update is available only when that
+array is nonempty. `--update` may emit progress lines only; its exit code is the
+result. A second check must then report no remaining releases, equal current and
+future versions, and the exact version selected before the download. Each child
+stream is limited to 64 KiB and each result to 4,096 progress lines.
+
 ## Security and accessibility
 
 Only `https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/<validated-tag>/`
 may reach `Update.exe`; generic GitHub, raw-content, API, latest-release, other
 owner, and other repository paths are rejected. The inventory resolver uses
-only its exact API route, requires HTTP 200 JSON, and rejects redirects before
-parsing. Release notes must be the matching exact HTTPS project release route
+only its exact API route, requires HTTP 200 JSON, and rejects redirects on every
+page before parsing. It reads at most five 100-item pages, 1 MiB per page and
+5 MiB in aggregate, and fails if the fifth page is full rather than silently
+truncating the inventory. Release notes must be the matching exact HTTPS project release route
 with no query, fragment, credentials, or custom port, and the UI revalidates it
 before opening the browser. Updater discovery accepts only the expected
 `Update.exe` beside an immediate Squirrel `app-<version>` directory and never
 walks arbitrary ancestors. Package hashes are checked before staging. Restart
-preserves unsaved-work protection and focus. The responsive banner stacks its
+uses Squirrel's official `--processStartAndWait` command with the installed
+executable basename. One generation-guarded close transaction asks every open
+page once, preserves the ready state if launch or close fails, and waits 500 ms
+for the updater handoff before exiting. If `Update.exe` exits during that
+window, the app cancels the preapproval, keeps the ready banner, reports the
+exit code, and does not close. The responsive banner stacks its
 message above keyboard-operable Material actions, is localized, remains
 persistent until dismissed, and records deduplicated history entries.
 
 ## Verification
 
-Run `python -m pytest -q tests/test_squirrel_version.py tests/test_updater_banner_contract.py tests/api/framework/test_squirrel_update.py tests/api/framework/test_update_copy.py`.
+Run `python -m pytest -q tests/test_squirrel_version.py tests/test_updater_banner_contract.py tests/test_updater_surface_contract.py tests/api/framework/test_squirrel_update.py tests/api/framework/test_update_copy.py`.
+Then run
+`pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_squirrel_cli_output.ps1`.
+The pinned real-CLI fixture verifies the actual 2.0.1 shape and reports its
+progress-line count, line ending, terminal-newline state, blank-line count,
+versions, release count, and stderr byte count before deleting its bounded
+application-data fixture.
 Hosted proof is the Windows workflow's Squirrel artifact and unsigned-signature
 contract, not a static source check.
 

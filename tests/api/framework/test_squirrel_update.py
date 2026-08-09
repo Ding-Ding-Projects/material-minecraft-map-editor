@@ -60,6 +60,32 @@ def _live_inventory() -> list[object]:
     return list(reversed(payload["releases"]))
 
 
+def _check_output(
+    current: str,
+    future: str,
+    releases: tuple[str, ...],
+    *,
+    progress: tuple[int, ...] = (0, 50, 100),
+) -> str:
+    payload = {
+        "currentVersion": current,
+        "futureVersion": future,
+        "releasesToApply": [
+            {"version": version, "releaseNotes": f"Notes for {version}"}
+            for version in releases
+        ],
+    }
+    return (
+        "\n".join(
+            [
+                *(str(value) for value in progress),
+                json.dumps(payload, separators=(",", ":")),
+            ]
+        )
+        + "\n"
+    )
+
+
 def test_feed_requires_https_and_no_credentials():
     feed = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/"
     assert validate_feed_url(feed).startswith("https://")
@@ -99,6 +125,24 @@ def test_release_version_is_numeric_and_channel_explicit():
         release_version("0.10.1-dev.427", "automated")
     with pytest.raises(ValueError):
         release_version("0.10.76", "unknown")
+
+
+@pytest.mark.parametrize(
+    "tag",
+    (
+        "v0.10.0-dev.426",
+        "0.10.0-dev426",
+        "0.10.0-dev-426",
+        "0.10.0-Dev.426",
+        "0.10.0-dev.0426",
+        "v0.10.76",
+        "0.10.076",
+    ),
+)
+def test_noncanonical_release_tag_aliases_fail_closed(tag):
+    channel = "automated" if "dev" in tag.lower() else "stable"
+    with pytest.raises(ValueError, match="not canonical"):
+        release_version(tag, channel)
 
 
 def test_live_inventory_resolves_latest_feed_within_explicit_channel(monkeypatch):
@@ -154,6 +198,96 @@ def test_release_inventory_rejects_redirect_status_and_content_type(
         resolve_latest_feed(10.0, "automated")
 
 
+def test_release_inventory_paginates_to_a_candidate_after_first_100(monkeypatch):
+    page_one = [
+        {"tag_name": f"9.9.{index + 1}", "draft": False, "assets": []}
+        for index in range(squirrel_update.RELEASES_PER_PAGE)
+    ]
+    candidate = next(
+        release
+        for release in _live_inventory()
+        if isinstance(release, dict) and release.get("tag_name") == "0.10.0-dev.426"
+    )
+    calls: list[str] = []
+
+    def open_page(request, **_kwargs):
+        calls.append(request.full_url)
+        page = 1 if request.full_url.endswith("page=1") else 2
+        return _Response(
+            page_one if page == 1 else [candidate],
+            final_url=request.full_url,
+        )
+
+    monkeypatch.setattr(squirrel_update, "urlopen", open_page)
+    feed, _notes = resolve_latest_feed(10.0, "automated")
+
+    assert feed.endswith("/releases/download/0.10.0-dev.426/")
+    assert calls == [
+        squirrel_update._release_inventory_url(1),
+        squirrel_update._release_inventory_url(2),
+    ]
+
+
+def test_release_inventory_validates_every_page_final_route(monkeypatch):
+    page_one = [
+        {"tag_name": f"9.9.{index + 1}", "draft": False, "assets": []}
+        for index in range(squirrel_update.RELEASES_PER_PAGE)
+    ]
+
+    def open_page(request, **_kwargs):
+        if request.full_url.endswith("page=1"):
+            return _Response(page_one, final_url=request.full_url)
+        return _Response([], final_url=squirrel_update._release_inventory_url(1))
+
+    monkeypatch.setattr(squirrel_update, "urlopen", open_page)
+    with pytest.raises(ValueError, match="redirected unexpectedly"):
+        resolve_latest_feed(10.0, "automated")
+
+
+def test_release_inventory_fails_at_bounded_pagination_ceiling(monkeypatch):
+    full_page = [
+        {"tag_name": f"9.9.{index + 1}", "draft": False, "assets": []}
+        for index in range(squirrel_update.RELEASES_PER_PAGE)
+    ]
+    monkeypatch.setattr(
+        squirrel_update,
+        "urlopen",
+        lambda request, **_kwargs: _Response(full_page, final_url=request.full_url),
+    )
+    with pytest.raises(ValueError, match="bounded page limit"):
+        resolve_latest_feed(10.0, "automated")
+
+
+def test_release_inventory_enforces_aggregate_byte_limit(monkeypatch):
+    page_one = [
+        {"tag_name": f"9.9.{index + 1}", "draft": False, "assets": []}
+        for index in range(squirrel_update.RELEASES_PER_PAGE)
+    ]
+    page_one_size = len(json.dumps(page_one).encode("utf-8"))
+    monkeypatch.setattr(
+        squirrel_update, "_MAX_RELEASES_AGGREGATE_BYTES", page_one_size + 1
+    )
+
+    def open_page(request, **_kwargs):
+        payload = page_one if request.full_url.endswith("page=1") else []
+        return _Response(payload, final_url=request.full_url)
+
+    monkeypatch.setattr(squirrel_update, "urlopen", open_page)
+    with pytest.raises(ValueError, match="inventory exceeded the byte limit"):
+        resolve_latest_feed(10.0, "automated")
+
+
+def test_release_inventory_rejects_noncanonical_channel_alias(monkeypatch):
+    alias = {"tag_name": "v0.10.0-dev.426", "draft": False, "assets": []}
+    monkeypatch.setattr(
+        squirrel_update,
+        "urlopen",
+        lambda request, **_kwargs: _Response([alias], final_url=request.full_url),
+    )
+    with pytest.raises(ValueError, match="not canonical"):
+        resolve_latest_feed(10.0, "automated")
+
+
 def test_update_detection_is_explicit(tmp_path):
     install_root = tmp_path / "Amulet"
     app_directory = install_root / "app-0.10.100426"
@@ -194,11 +328,12 @@ def test_source_build_keeps_not_installed_state(monkeypatch):
 def test_check_reports_available_without_wx(tmp_path, monkeypatch):
     updater = tmp_path / "Update.exe"
     updater.write_bytes(b"fixture")
-    # Keep subprocess testing platform-neutral by replacing the bridge runner.
     monkeypatch.setattr(
         squirrel_update,
-        "_run_update",
-        lambda *_args, **_kwargs: {"futureReleaseEntry": {"version": "1.2.3"}},
+        "_run_check_for_update",
+        lambda *_args, **_kwargs: squirrel_update.SquirrelCheckResult(
+            "1.2.2", "1.2.3", ("1.2.3",)
+        ),
     )
     feed = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/"
     state = check_for_update(feed, update_exe=updater)
@@ -210,6 +345,25 @@ def test_check_reports_available_without_wx(tmp_path, monkeypatch):
     )
 
 
+def test_check_reports_up_to_date_only_when_releases_to_apply_is_empty(
+    tmp_path, monkeypatch
+):
+    updater = tmp_path / "Update.exe"
+    updater.write_bytes(b"fixture")
+    monkeypatch.setattr(
+        squirrel_update,
+        "_run_check_for_update",
+        lambda *_args, **_kwargs: squirrel_update.SquirrelCheckResult(
+            "1.2.3", "1.2.3", ()
+        ),
+    )
+    feed = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/"
+
+    state = check_for_update(feed, update_exe=updater)
+
+    assert state.status == "up_to_date"
+
+
 def test_default_check_carries_validated_live_release_notes(tmp_path, monkeypatch):
     updater = tmp_path / "Update.exe"
     updater.write_bytes(b"fixture")
@@ -219,8 +373,10 @@ def test_default_check_carries_validated_live_release_notes(tmp_path, monkeypatc
     )
     monkeypatch.setattr(
         squirrel_update,
-        "_run_update",
-        lambda *_args, **_kwargs: {"futureReleaseEntry": {"version": "0.10.100426"}},
+        "_run_check_for_update",
+        lambda *_args, **_kwargs: squirrel_update.SquirrelCheckResult(
+            "0.10.100424", "0.10.100426", ("0.10.100426",)
+        ),
     )
 
     state = check_for_update(update_exe=updater)
@@ -237,11 +393,15 @@ def test_stage_update_is_ready_and_unsigned(tmp_path, monkeypatch):
     updater.write_bytes(b"fixture")
     calls = []
 
-    def run(*args, **_kwargs):
+    def apply(*args, **_kwargs):
         calls.append(args)
-        return {}
 
-    monkeypatch.setattr(squirrel_update, "_run_update", run)
+    def check(*args, **_kwargs):
+        calls.append(args)
+        return squirrel_update.SquirrelCheckResult("0.10.100426", "0.10.100426", ())
+
+    monkeypatch.setattr(squirrel_update, "_run_apply_update", apply)
+    monkeypatch.setattr(squirrel_update, "_run_check_for_update", check)
     notes = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.0-dev.426"
     state = stage_update(
         "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/",
@@ -259,6 +419,45 @@ def test_stage_update_is_ready_and_unsigned(tmp_path, monkeypatch):
     )
 
 
+@pytest.mark.parametrize(
+    ("verification", "message"),
+    (
+        (
+            squirrel_update.SquirrelCheckResult(
+                "0.10.100425", "0.10.100426", ("0.10.100426",)
+            ),
+            "did not finish staging",
+        ),
+        (
+            squirrel_update.SquirrelCheckResult("0.10.100425", "0.10.100426", ()),
+            "currentVersion and futureVersion differed",
+        ),
+        (
+            squirrel_update.SquirrelCheckResult("0.10.100425", "0.10.100425", ()),
+            "did not match the selected update",
+        ),
+    ),
+)
+def test_stage_update_requires_exact_post_update_state(
+    tmp_path, monkeypatch, verification, message
+):
+    updater = tmp_path / "Update.exe"
+    updater.write_bytes(b"fixture")
+    monkeypatch.setattr(squirrel_update, "_run_apply_update", lambda *_args: None)
+    monkeypatch.setattr(
+        squirrel_update, "_run_check_for_update", lambda *_args: verification
+    )
+
+    state = stage_update(
+        "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/",
+        update_exe=updater,
+        version="0.10.100426",
+    )
+
+    assert state.status == "failed"
+    assert message in (state.detail or "")
+
+
 def test_stage_update_rejects_invalid_release_notes_before_running(
     tmp_path, monkeypatch
 ):
@@ -266,7 +465,7 @@ def test_stage_update_rejects_invalid_release_notes_before_running(
     updater.write_bytes(b"fixture")
     monkeypatch.setattr(
         squirrel_update,
-        "_run_update",
+        "_run_update_process",
         lambda *_args, **_kwargs: pytest.fail("Update.exe must not run"),
     )
     state = stage_update(
@@ -294,7 +493,7 @@ def test_stage_update_rejects_non_project_feed_before_running(
     updater.write_bytes(b"fixture")
     monkeypatch.setattr(
         squirrel_update,
-        "_run_update",
+        "_run_update_process",
         lambda *_args, **_kwargs: pytest.fail("Update.exe must not run"),
     )
 
@@ -311,7 +510,7 @@ def test_stage_update_rejects_release_notes_for_different_tag_before_running(
     updater.write_bytes(b"fixture")
     monkeypatch.setattr(
         squirrel_update,
-        "_run_update",
+        "_run_update_process",
         lambda *_args, **_kwargs: pytest.fail("Update.exe must not run"),
     )
     state = stage_update(
@@ -321,3 +520,115 @@ def test_stage_update_rejects_release_notes_for_different_tag_before_running(
     )
     assert state.status == "failed"
     assert "do not match" in (state.detail or "")
+
+
+def test_official_check_shape_is_progress_then_strict_json():
+    result = squirrel_update._parse_check_output(
+        _check_output("0.10.100425", "0.10.100426", ("0.10.100426",))
+    )
+    assert result == squirrel_update.SquirrelCheckResult(
+        "0.10.100425", "0.10.100426", ("0.10.100426",)
+    )
+
+
+def test_official_check_shape_allows_no_progress_callback():
+    output = _check_output("0.10.100426", "0.10.100426", (), progress=())
+    assert squirrel_update._parse_check_output(output) == (
+        squirrel_update.SquirrelCheckResult("0.10.100426", "0.10.100426", ())
+    )
+
+
+def test_check_parser_accepts_real_cli_crlf_and_one_terminal_newline():
+    output = _check_output("0.10.100426", "0.10.100427", ("0.10.100427",)).replace(
+        "\n", "\r\n"
+    )
+    assert squirrel_update._parse_check_output(output).future_version == ("0.10.100427")
+
+
+@pytest.mark.parametrize(
+    "output",
+    (
+        # A pretty-printed whole-stdout document is not one strict final JSON line.
+        json.dumps(
+            {
+                "currentVersion": "1.0.0",
+                "futureVersion": "1.0.0",
+                "releasesToApply": [],
+            },
+            indent=2,
+        )
+        + "\n",
+        '0\n\n{"currentVersion":"1","futureVersion":"1","releasesToApply":[]}\n',
+        '0\n{"currentVersion":"1","futureVersion":"1","releasesToApply":[]}\n\n',
+        # The earlier fictional field must never be accepted as a Squirrel result.
+        '0\n{"futureReleaseEntry":{"version":"1.0.1"}}\n',
+        '0\n101\n{"currentVersion":"1","futureVersion":"1","releasesToApply":[]}\n',
+        '0\n1.5\n{"currentVersion":"1","futureVersion":"1","releasesToApply":[]}\n',
+        '0\n{"currentVersion":"1","futureVersion":"2","releasesToApply":[],"extra":true}\n',
+        '0\n{"currentVersion":"1","futureVersion":"2","releasesToApply":[{"version":"2","releaseNotes":"","extra":true}]}\n',
+    ),
+)
+def test_check_output_mutations_fail_closed(output):
+    with pytest.raises(RuntimeError):
+        squirrel_update._parse_check_output(output)
+
+
+@pytest.mark.parametrize("output", ("0\n50\n100\n", ""))
+def test_update_accepts_only_numeric_progress(output):
+    squirrel_update._parse_update_output(output)
+
+
+@pytest.mark.parametrize("output", ("{}\n", "-1\n", "101\n", "50 %\n"))
+def test_update_rejects_non_progress_output(output):
+    with pytest.raises(RuntimeError):
+        squirrel_update._parse_update_output(output)
+
+
+@pytest.mark.parametrize(
+    "script",
+    (
+        f"print('x' * {squirrel_update._MAX_PROCESS_STDOUT_BYTES + 1})",
+        (
+            "import sys; sys.stderr.write('x' * "
+            f"{squirrel_update._MAX_PROCESS_STDERR_BYTES + 1})"
+        ),
+    ),
+)
+def test_process_stdout_and_stderr_are_bounded(script):
+    with pytest.raises(RuntimeError, match="size limit"):
+        squirrel_update._run_update_process(
+            Path(sys.executable),
+            ("-c", script),
+            10.0,
+        )
+
+
+def test_check_and_update_use_distinct_exact_arguments(monkeypatch, tmp_path):
+    updater = tmp_path / "Update.exe"
+    feed = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/"
+    calls: list[tuple[Path, tuple[str, ...], float]] = []
+
+    def run(executable, arguments, timeout):
+        calls.append((executable, tuple(arguments), timeout))
+        if arguments[0].startswith("--checkForUpdate="):
+            return _check_output("1.0.0", "1.0.0", ())
+        return "0\n50\n100\n"
+
+    monkeypatch.setattr(squirrel_update, "_run_update_process", run)
+    squirrel_update._run_apply_update(updater, feed, 12.0)
+    squirrel_update._run_check_for_update(updater, feed, 12.0)
+
+    assert calls == [
+        (updater, ("--update=" + feed,), 12.0),
+        (updater, ("--checkForUpdate=" + feed,), 12.0),
+    ]
+
+
+def test_restart_command_uses_official_exact_argv(tmp_path):
+    updater = tmp_path / "Update.exe"
+    executable = tmp_path / "app-0.10.100426" / "Amulet.exe"
+    assert squirrel_update.build_restart_command(updater, executable) == (
+        str(updater),
+        "--processStartAndWait",
+        "Amulet.exe",
+    )

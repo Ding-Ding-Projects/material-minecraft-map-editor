@@ -26,7 +26,9 @@
   patch range 100000..999999 is reserved against stable collisions, and the
   explicit-channel resolver binds the exact immutable project feed and release
   notes through a documented 900-second staging budget into the Material update
-  banner.
+  banner. Check/update output, five-page inventory discovery, exact post-stage
+  version proof, and the official guarded process-start handoff are now covered
+  by focused mutation and boundary tests.
 - ✅ Hosted release publication produces unsigned Setup.exe, RELEASES, and the
   full nupkg. Publication timing is measured through GitHub's confirmed publish
   timestamp, push builds validate a prior index/package pair before seeding

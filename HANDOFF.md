@@ -46,6 +46,29 @@ matching immutable release-notes URL through the ready state, and exposes that
 validated URL from the responsive Material banner. These are local tests until
 the integration build and installed-client path are proven.
 
+The latest local correction follows the pinned Squirrel.Windows 2.0.1 command
+shape: check output is bounded progress followed by strict final JSON, update
+output is bounded progress only, and post-update verification must report the
+exact selected installed version with no releases left to apply. Restart uses
+the official process-start-and-wait argument and executable basename through a
+single generation-guarded, preapproved close transaction with a 500 ms handoff;
+failure leaves the ready state intact. Application inventory discovery validates
+up to five exact REST pages with per-page and aggregate limits. Workflow delta
+selection accepts 500 records plus a 501st truncation sentinel, so a compatible
+predecessor after the first 100 releases is no longer hidden. Canonical tags and
+unique semantic/package identities are mandatory. This correction remains
+local-only until independent review and integration.
+
+Local verification for this correction completed with 338 pytest cases and
+439 subtests passing, PowerShell parsing passing, and structural `actionlint`
+passing with shellcheck disabled on the Windows host. The two-version Squirrel
+smoke produced a 4,999-byte delta with SHA-256
+`854744bf8d803014f7efc1b232ab84ec0ca7be8ea5cf2819376434d4efc00cf8`
+while retaining one advertised full-package row. The pinned real 2.0.1 CLI
+probe exited 0 with three numeric progress lines, CRLF, one terminal newline,
+zero blank lines, one release to apply, and zero stderr bytes. Hosted and
+installed-client verification remain separate integration gates.
+
 ## Offline documentation browser
 
 The offline-docs integration commit adds a deterministic bundle generated from every
