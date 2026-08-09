@@ -15,6 +15,7 @@
       <button class="nav-tab" role="tab" aria-selected="false" tabindex="-1" data-tab="features">Features</button>
       <button class="nav-tab" role="tab" aria-selected="false" tabindex="-1" data-tab="guides">Guides</button>
       <button class="nav-tab" role="tab" aria-selected="false" tabindex="-1" data-tab="community">Community</button>
+      <button class="nav-tab" role="tab" aria-selected="false" tabindex="-1" data-tab="settings">Settings</button>
     </nav>
     <a class="button button-tonal" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor" target="_blank" rel="noreferrer">View source ↗</a>
   </header>
@@ -53,6 +54,20 @@
     <section id="community" class="page-section" role="tabpanel" data-page="community" tabindex="-1" hidden>
       <div class="section-heading"><div><div class="eyebrow">OPEN PROJECT</div><h1>Bring a question, a fix, or a map.</h1><p>The best project documentation is paired with a real conversation.</p></div></div>
       <div class="community-grid"><a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">☷</span><h2>Discussions</h2><p>Compare workflows and ask for help from the community.</p><span>Open discussions ↗</span></a><a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">!</span><h2>Issues</h2><p>Report reproducible bugs and propose improvements.</p><span>Browse issues ↗</span></a><a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">✎</span><h2>Contributing</h2><p>Read the project guidance before opening a pull request.</p><span>Read the guide ↗</span></a></div>
+    </section>
+
+    <section id="settings" class="page-section" role="tabpanel" data-page="settings" tabindex="-1" hidden>
+      <div class="section-heading"><div><div class="eyebrow">PERSONALIZE THIS SITE</div><h1>Make the workspace yours.</h1><p>Preferences persist in this browser and apply immediately. Funny levels style the surrounding copy; facts and links stay exact.</p></div><div class="search-stack"><label class="search-field"><span aria-hidden="true">⌕</span><input id="settings-search" type="search" placeholder="Search settings" autocomplete="off"><kbd>/</kbd></label><details class="regex-builder"><summary>Regex builder</summary><div class="regex-controls"><label><input id="settings-regex" type="checkbox"> Use regular expression</label><input id="settings-pattern" type="text" placeholder="Pattern (plain text by default)" aria-label="Settings regex pattern"><output id="settings-feedback" aria-live="polite"></output></div></details></div></div>
+      <div class="settings-grid" id="settings-grid">
+        <label class="setting-card" data-search="language mode english cantonese bilingual"><span>Language mode</span><select id="site-language"><option value="english">English</option><option value="cantonese">香港粵語</option><option value="bilingual">Bilingual · 雙語</option></select><small>Controls the site's primary labels. Bilingual mode keeps both labels visible.</small></label>
+        <label class="setting-card" data-search="english funny level playful"><span>English funny level <output id="funny-en-value">1</output>/5</span><input id="funny-en" type="range" min="1" max="5" value="1"><small>Styles explanatory copy from serious to playful; it never changes facts.</small></label>
+        <label class="setting-card" data-search="cantonese funny level playful"><span>Cantonese funny level <output id="funny-yue-value">1</output>/5</span><input id="funny-yue" type="range" min="1" max="5" value="1"><small>獨立調校粵語語氣，唔會改變實際資料。</small></label>
+        <label class="setting-card" data-search="theme light dark appearance"><span>Theme</span><select id="site-theme"><option value="light">Light</option><option value="dark">Dark</option></select><small>Applies Material 3 surface and content roles immediately.</small></label>
+        <label class="setting-card" data-search="density compact comfortable appearance"><span>Density</span><select id="site-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select><small>Changes spacing without hiding content or shrinking touch targets.</small></label>
+        <label class="setting-card" data-search="accent seed color appearance"><span>Accent seed colour</span><input id="site-accent" type="color" value="#4d5f92"><small>Updates the primary Material 3 role for this site only.</small></label>
+        <button class="button button-tonal" id="reset-site-settings" type="button">Reset site settings</button>
+      </div>
+      <p id="settings-empty" class="empty-state" hidden>No settings match that search.</p>
     </section>
   </main>
   <footer><span>Amulet Map Editor</span><span>Open source · Built for curious map makers</span><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor" target="_blank" rel="noreferrer">GitHub ↗</a></footer>
