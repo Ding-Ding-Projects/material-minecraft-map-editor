@@ -188,6 +188,14 @@ class SquirrelDeltaBaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not match release source"):
             validate_source_match("0.10.0-dev424", "0.10.0-dev.426", "automated")
 
+    def test_release_source_rejects_reserved_stable_and_unbounded_automation(self):
+        with self.assertRaisesRegex(ValueError, "reserved automated range"):
+            validate_source_match("0.10.100427", "0.10.100427", "stable")
+        with self.assertRaisesRegex(ValueError, "supported maximum"):
+            validate_source_match("0.10.1000000", "0.10.0-dev.900000", "automated")
+        with self.assertRaisesRegex(ValueError, "patch zero"):
+            validate_source_match("0.10.100427", "0.10.1-dev.427", "automated")
+
     def test_package_download_size_is_bounded(self):
         with TemporaryDirectory() as directory:
             package = self._package(Path(directory), "0.10.0-dev414")

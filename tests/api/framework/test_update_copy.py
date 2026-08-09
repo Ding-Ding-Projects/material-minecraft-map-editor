@@ -30,9 +30,7 @@ def test_update_copy_respects_each_language_funny_level(monkeypatch):
     title, body = update_copy.update_copy("ready_to_restart", version="1.2.3")
 
     assert title == "Update ready"
-    assert (
-        "1.2.3" not in body
-    )  # staging copy states the actual action, not a guessed version
+    assert "1.2.3" in body
     assert "waiting politely" in body
 
 
@@ -67,3 +65,13 @@ def test_update_copy_school_projection_is_english_and_serious(monkeypatch):
     assert title == "Update check failed"
     assert "offline" in body
     assert "snacks" not in body
+
+
+def test_release_notes_label_follows_language_mode(monkeypatch):
+    prefs = _Prefs(language_mode="bilingual")
+    monkeypatch.setattr(update_copy.preferences, "load", lambda: prefs)
+    monkeypatch.setattr(
+        update_copy.school_mode, "presentation_preferences", lambda value: value
+    )
+
+    assert update_copy.release_notes_label() == "Release notes · 版本說明"

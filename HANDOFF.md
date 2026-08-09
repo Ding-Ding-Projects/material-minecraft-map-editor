@@ -34,6 +34,18 @@ completion still comes from GitHub's post-publication `publishedAt` value.
 These delta changes are local source, fixture, and contract-test claims until
 the integrated SHA completes its hosted release run.
 
+Automated source tags now resolve to monotonic numeric Squirrel package
+versions in reserved patch range `100000..999999`, above legacy stable
+`0.10.76`; stable tags in that range and automated runs above `899999` fail
+closed. The updater defaults to an explicit automated channel, selects live
+inventory numerically, rejects redirected/non-JSON/non-200 inventory responses,
+and sends only the exact immutable project release route to the immediate
+Squirrel install root. It allows 900 seconds for the observed approximately 87
+MiB package plus filesystem staging, preserves the selected version and
+matching immutable release-notes URL through the ready state, and exposes that
+validated URL from the responsive Material banner. These are local tests until
+the integration build and installed-client path are proven.
+
 ## Offline documentation browser
 
 The offline-docs integration commit adds a deterministic bundle generated from every

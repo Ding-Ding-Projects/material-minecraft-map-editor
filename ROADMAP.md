@@ -22,6 +22,11 @@
 - ✅ Unsigned PyInstaller + Squirrel.Windows contract with Setup.exe, RELEASES,
   full nupkg, and Authenticode `NotSigned` checks.
 - ✅ Bounded startup/manual update check with an unsigned status-bar state.
+- ✅ Automated Squirrel versions rank numerically above legacy stable 0.10.76;
+  patch range 100000..999999 is reserved against stable collisions, and the
+  explicit-channel resolver binds the exact immutable project feed and release
+  notes through a documented 900-second staging budget into the Material update
+  banner.
 - ✅ Hosted release publication produces unsigned Setup.exe, RELEASES, and the
   full nupkg. Publication timing is measured through GitHub's confirmed publish
   timestamp, push builds validate a prior index/package pair before seeding

@@ -38,6 +38,8 @@ _AUTOMATED_SOURCE = re.compile(
 )
 _STABLE_SOURCE = re.compile(r"^v?(?P<version>\d+\.\d+\.\d+)$")
 _AUTOMATED_PATCH_BASE = 100_000
+_AUTOMATED_RUN_LIMIT = 899_999
+_AUTOMATED_PATCH_LIMIT = _AUTOMATED_PATCH_BASE + _AUTOMATED_RUN_LIMIT
 
 
 @dataclass(frozen=True)
@@ -185,11 +187,26 @@ def validate_source_match(
 
     if channel == "stable":
         match = _STABLE_SOURCE.fullmatch(expected_source.strip())
-        allowed = {match.group("version")} if match else set()
+        if match:
+            patch = int(match.group("version").rsplit(".", 1)[1])
+            if _AUTOMATED_PATCH_BASE <= patch <= _AUTOMATED_PATCH_LIMIT:
+                raise ValueError(
+                    "stable patch enters the reserved automated range "
+                    f"{_AUTOMATED_PATCH_BASE}..{_AUTOMATED_PATCH_LIMIT}"
+                )
+            allowed = {match.group("version")}
+        else:
+            allowed = set()
     elif channel == "automated":
         match = _AUTOMATED_SOURCE.fullmatch(expected_source.strip())
         if match:
+            if int(match.group("patch")) != 0:
+                raise ValueError("automated source tags must use patch zero")
             run = int(match.group("run"))
+            if run > _AUTOMATED_RUN_LIMIT:
+                raise ValueError(
+                    f"automated run exceeds the supported maximum {_AUTOMATED_RUN_LIMIT}"
+                )
             allowed = {
                 f"{match.group('core')}-dev{run}",
                 (

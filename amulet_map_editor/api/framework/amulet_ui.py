@@ -47,6 +47,7 @@ from .squirrel_update import (
     find_update_exe,
     stage_update,
     SquirrelUpdateState,
+    validate_release_notes_url,
 )
 
 log = logging.getLogger(__name__)
@@ -130,19 +131,43 @@ class AmuletUI(wx.Frame):
         self._shell_sizer.Add(self._command_bar, 0, wx.EXPAND)
         self._update_banner = wx.Panel(self._shell)
         self._update_banner.SetName("Update notification")
-        self._update_banner_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._update_banner_sizer = wx.BoxSizer(wx.VERTICAL)
+        self._update_banner_actions_sizer = wx.BoxSizer(wx.VERTICAL)
         self._update_banner_text = wx.StaticText(self._update_banner)
         self._update_banner_text.SetName("Update notification message")
         self._update_banner_text.Wrap(620)
         self._update_banner_sizer.Add(
-            self._update_banner_text, 1, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12
+            self._update_banner_text, 0, wx.EXPAND | wx.BOTTOM, 8
         )
-        self._update_banner_action = wx.Button(self._update_banner)
-        self._update_banner_action.SetName("Update notification primary action")
-        self._update_banner_sizer.Add(self._update_banner_action, 0, wx.RIGHT, 8)
-        self._update_banner_later = wx.Button(self._update_banner, label="Later")
-        self._update_banner_later.SetName("Update notification later action")
-        self._update_banner_sizer.Add(self._update_banner_later, 0)
+        self._update_banner_action = MaterialButton(
+            self._update_banner,
+            "Update action",
+            variant="filled",
+            name="Update notification primary action",
+        )
+        self._update_banner_actions_sizer.Add(
+            self._update_banner_action, 0, wx.ALIGN_RIGHT | wx.BOTTOM, 4
+        )
+        self._update_banner_release_notes = MaterialButton(
+            self._update_banner,
+            "Release notes",
+            variant="text",
+            name="Update notification release notes",
+        )
+        self._update_banner_release_notes.Hide()
+        self._update_banner_actions_sizer.Add(
+            self._update_banner_release_notes, 0, wx.ALIGN_RIGHT | wx.BOTTOM, 4
+        )
+        self._update_banner_later = MaterialButton(
+            self._update_banner,
+            "Later",
+            variant="text",
+            name="Update notification later action",
+        )
+        self._update_banner_actions_sizer.Add(
+            self._update_banner_later, 0, wx.ALIGN_RIGHT
+        )
+        self._update_banner_sizer.Add(self._update_banner_actions_sizer, 0, wx.EXPAND)
         self._update_banner.SetSizer(self._update_banner_sizer)
         self._update_banner.Hide()
         self._shell_sizer.Add(self._update_banner, 0, wx.EXPAND | wx.ALL, 8)
@@ -194,6 +219,9 @@ class AmuletUI(wx.Frame):
         self._scheduled_timer = wx.CallLater(1000, self._refresh_scheduled_runtime)
         self._notification_toasts: list[NotificationToast] = []
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
+        self._update_banner_release_notes.Bind(
+            wx.EVT_BUTTON, self._open_update_release_notes
+        )
         self._update_banner_later.Bind(wx.EVT_BUTTON, self._hide_update_banner)
         self.CreateStatusBar()
         wx.CallLater(1000, self._check_for_updates_async)
@@ -498,6 +526,8 @@ class AmuletUI(wx.Frame):
         """Keep the side rail compact while preserving the editor viewport."""
 
         self._apply_tab_rail()
+        self._update_banner_text.Wrap(max(240, event.GetSize().width - 48))
+        self._update_banner.Layout()
         event.Skip()
 
     def _open_command_palette(self, _event=None) -> None:
@@ -556,20 +586,46 @@ class AmuletUI(wx.Frame):
             return
         self.SetStatusText("Downloading update in the background…")
         feed_url = self._update_state.feed_url
+        version = self._update_state.version
+        release_notes_url = self._update_state.release_notes_url
         self._update_stage_thread = threading.Thread(
             target=self._stage_update_worker,
-            args=(feed_url,),
+            args=(feed_url, version, release_notes_url),
             name="amulet-update-stage",
             daemon=True,
         )
         self._update_stage_thread.start()
 
-    def _stage_update_worker(self, feed_url: str | None) -> None:
+    def _stage_update_worker(
+        self,
+        feed_url: str | None,
+        version: str | None,
+        release_notes_url: str | None,
+    ) -> None:
         if not feed_url:
             state = SquirrelUpdateState("failed", detail="Update feed is missing")
         else:
-            state = stage_update(feed_url)
+            state = stage_update(
+                feed_url,
+                version=version,
+                release_notes_url=release_notes_url,
+            )
         wx.CallAfter(self._show_update_state, state)
+
+    def _open_update_release_notes(self, _event=None) -> None:
+        """Open only the immutable release URL carried by the selected feed."""
+
+        release_notes_url = self._update_state.release_notes_url
+        if not release_notes_url:
+            self.SetStatusText("Release notes are unavailable for this update")
+            return
+        try:
+            release_notes_url = validate_release_notes_url(release_notes_url)
+        except ValueError as exc:
+            self.SetStatusText(f"Release notes URL was rejected: {exc}")
+            return
+        if not wx.LaunchDefaultBrowser(release_notes_url):
+            self.SetStatusText("Could not open the release notes")
 
     def _restart_to_install_update(self, _event=None) -> None:
         """Restart only after Squirrel has reported a ready staged update."""
@@ -627,6 +683,17 @@ class AmuletUI(wx.Frame):
         action_label, later_label = update_copy.action_labels(state.status)
         self._update_banner_action.SetLabel(action_label)
         self._update_banner_later.SetLabel(later_label)
+        self._update_banner_release_notes.SetLabel(update_copy.release_notes_label())
+        release_notes_url = state.release_notes_url
+        try:
+            if release_notes_url:
+                validate_release_notes_url(release_notes_url)
+        except ValueError:
+            release_notes_url = None
+        self._update_banner_release_notes.Show(release_notes_url is not None)
+        self._update_banner_release_notes.SetToolTip(
+            "Open the immutable GitHub release notes for this update."
+        )
         if state.status == "available":
             self._update_banner_action.SetToolTip(
                 "Download the unsigned update in the background."
@@ -648,7 +715,14 @@ class AmuletUI(wx.Frame):
             title, body = update_copy.update_copy(
                 state.status, version=state.version, detail=state.detail
             )
-            notification_key = (state.status, state.version, state.detail, title, body)
+            notification_key = (
+                state.status,
+                state.version,
+                state.release_notes_url,
+                state.detail,
+                title,
+                body,
+            )
             if notification_key != self._last_update_notification_key:
                 notifications.add(
                     (
@@ -676,7 +750,7 @@ class AmuletUI(wx.Frame):
             )
         elif state.status == "ready_to_restart":
             self.SetStatusText(
-                "Update ready (unsigned) — choose Restart to install update"
+                f"Update {state.version or 'new version'} ready (unsigned) — choose Restart to install update"
             )
         elif state.status == "failed":
             self.SetStatusText(f"Update check failed: {state.detail or 'offline'}")

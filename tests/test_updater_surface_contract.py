@@ -2,14 +2,11 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_startup_does_not_wire_the_legacy_modal_update_dialog():
-    app = (ROOT / "amulet_map_editor/api/framework/app.py").read_text(
-        encoding="utf-8"
-    )
+    app = (ROOT / "amulet_map_editor/api/framework/app.py").read_text(encoding="utf-8")
     ui = (ROOT / "amulet_map_editor/api/framework/amulet_ui.py").read_text(
         encoding="utf-8"
     )
@@ -18,3 +15,4 @@ def test_startup_does_not_wire_the_legacy_modal_update_dialog():
     assert "_check_for_updates_async" in ui
     assert "_stage_update_async" in ui
     assert "_restart_to_install_update" in ui
+    assert "_open_update_release_notes" in ui

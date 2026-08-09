@@ -96,8 +96,8 @@ include:
 - a native scheduled-settings editor and versioned local rule engine for
   language, theme, density, and accent overrides, including priorities,
   weekdays, date ranges, time windows, and deterministic precedence;
-- a non-blocking Windows update-status bridge with an allowlisted HTTPS feed and
-  explicit unsigned-package warnings; and
+- a non-blocking Windows update-status bridge restricted to the project's exact
+  immutable HTTPS release route, with explicit unsigned-package warnings; and
 - a safe external-editor bridge that discovers Visual Studio Code installations,
   persists a validated executable, and opens exported folders as workspace roots;
 - a bounded startup dim-sum surprise foundation that reads authoritative dish
@@ -386,7 +386,7 @@ passes. GitHub SHA-256 asset digests are checked when available. Read
 | Tracked desktop captures | Twelve genuine images inspected: seven historical workflow captures, four earlier wxPython runtime baselines, and one exact-commit Material shell capture. |
 | Preference and regex behavior | Covered by repository unit tests, including bounded persistence, plain/regex matching, invalid patterns, and capture groups. |
 | Scheduled-settings behavior | Covered by model and UI-contract tests for persistence, validation, precedence, weekday/date/time boundaries, reordering, and bilingual UI strings. |
-| Squirrel update bridge | Covered by wx-independent tests for HTTPS validation, discovery, available state, staging state, and unsigned warning. |
+| Squirrel update bridge | Covered by wx-independent tests for explicit-channel numeric discovery, the exact immutable project feed and matching release-note URL, redirect/status/content-type rejection, immediate-layout updater discovery, a bounded 900-second stage budget, available/ready state continuity, and the unsigned warning. |
 | Windows release | The inspected `0.10.0-dev.414` release is non-draft and contains `Setup.exe`, `RELEASES`, and `Amulet-0.10.0-dev414-full.nupkg`. |
 | Current Material 3 desktop pixels | The main shell is captured from exact commit `b3cbec1c`; earlier dialog captures remain migration baselines and do not claim full M3 completion. |
 | Live project-site deployment | Not claimed: `docs/site/` remains an incomplete landing shell, and the repository has no verified owner-hosted URL or homepage value for it. |

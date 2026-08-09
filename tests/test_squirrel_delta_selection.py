@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from scripts.select_squirrel_delta_candidates import select_candidates
+from scripts.select_squirrel_delta_candidates import (
+    parse_channel_version,
+    select_candidates,
+)
 
 FIXTURE = (
     Path(__file__).parent / "fixtures" / "squirrel_release_inventory_20260809.json"
@@ -56,3 +59,21 @@ def test_duplicate_inventory_tag_fails_closed():
             channel="automated",
             limit=8,
         )
+
+
+def test_reserved_stable_patch_collision_fails_closed():
+    with pytest.raises(ValueError, match="reserved automated range"):
+        select_candidates(
+            [{"tag_name": "0.10.100427", "draft": False}],
+            current_source="0.10.1000000",
+            channel="stable",
+            limit=8,
+        )
+
+
+def test_automated_source_range_is_bounded():
+    assert parse_channel_version("0.10.0-dev.899999", "automated") is not None
+    with pytest.raises(ValueError, match="supported maximum"):
+        parse_channel_version("0.10.0-dev.900000", "automated")
+    with pytest.raises(ValueError, match="patch zero"):
+        parse_channel_version("0.10.1-dev.427", "automated")

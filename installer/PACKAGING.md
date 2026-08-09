@@ -3,11 +3,15 @@
 The supported Windows release artifact is an **unsigned Squirrel.Windows
 release** built from the PyInstaller bundle by `installer/build-squirrel.ps1`.
 
-CI dev builds use a dotted source version such as `0.10.0-dev.154`, but
-Squirrel.Windows 2.0.1 reads package metadata with the older NuGet semantic
-version parser.  `scripts/normalize_squirrel_version.py` maps that bounded CI
-shape to `0.10.0-dev154` before packaging; stable release versions and
-single-token prereleases are preserved.  The normalized value is used
+CI dev builds use a dotted source tag such as `0.10.0-dev.154`, while older
+packages used a lexical prerelease such as `0.10.0-dev154`. That lexical form
+can rank below the legacy stable `0.10.76`. The public source tag stays dotted,
+but `scripts/normalize_squirrel_version.py` maps the bounded automated run to
+the monotonic numeric package version `0.10.100154`. Package patches
+`100000..999999` are reserved for automated runs `0..899999`; automated source
+tags must keep patch zero, and stable tags entering that range fail closed to
+prevent a package-identity collision. Stable versions outside that range and
+single-token prereleases are preserved. The resolved package value is used
 consistently for the package, `RELEASES`, `Setup.exe` directory, and uploaded
 asset names.
 Each architecture produces `Setup.exe`, `RELEASES`, and a full `.nupkg`; delta
@@ -56,9 +60,13 @@ rows.
 
 The runtime bridge in
 `amulet_map_editor/api/framework/squirrel_update.py` validates an HTTPS feed,
-reports available/ready/failed/not-installed states, and leaves restart under
-explicit user control. It never invokes signing and always exposes the
-unsigned-artifact warning.
+but permits only this project's exact immutable release-download route to reach
+`Update.exe`. Its exact release-inventory API rejects redirects, non-200
+responses, and non-JSON content, and updater discovery does not walk above the
+immediate Squirrel install root. The bridge reports
+available/ready/failed/not-installed states and leaves restart under explicit
+user control. It never invokes signing and always exposes the unsigned-artifact
+warning.
 
 Code signing is intentionally disabled. Users may see an unknown-publisher or
 SmartScreen warning when installing the unsigned artifact.

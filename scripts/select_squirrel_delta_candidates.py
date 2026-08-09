@@ -17,6 +17,9 @@ _AUTOMATED = re.compile(
 _STABLE = re.compile(r"^v?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$")
 _MAX_INVENTORY_BYTES = 256 * 1024
 _MAX_RELEASES = 100
+_AUTOMATED_PATCH_BASE = 100_000
+_AUTOMATED_RUN_LIMIT = 899_999
+_AUTOMATED_PATCH_LIMIT = _AUTOMATED_PATCH_BASE + _AUTOMATED_RUN_LIMIT
 
 
 @dataclass(frozen=True, order=True)
@@ -38,11 +41,27 @@ def parse_channel_version(tag: str, channel: str) -> ChannelVersion | None:
     match = pattern.fullmatch(tag.strip())
     if not match:
         return None
+    patch = int(match.group("patch"))
+    if channel == "automated":
+        run = int(match.group("run"))
+        if patch != 0:
+            raise ValueError("automated source tags must use patch zero")
+        if run > _AUTOMATED_RUN_LIMIT:
+            raise ValueError(
+                f"automated run exceeds the supported maximum {_AUTOMATED_RUN_LIMIT}"
+            )
+    else:
+        run = 0
+        if _AUTOMATED_PATCH_BASE <= patch <= _AUTOMATED_PATCH_LIMIT:
+            raise ValueError(
+                "stable patch enters the reserved automated range "
+                f"{_AUTOMATED_PATCH_BASE}..{_AUTOMATED_PATCH_LIMIT}"
+            )
     return ChannelVersion(
         int(match.group("major")),
         int(match.group("minor")),
-        int(match.group("patch")),
-        int(match.group("run")) if channel == "automated" else 0,
+        patch,
+        run,
     )
 
 

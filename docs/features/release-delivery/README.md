@@ -8,6 +8,15 @@ publishes one unique non-draft release. The required assets are `Setup.exe`,
 `RELEASES`, and the full `.nupkg`; any generated delta package travels beside
 them.
 
+Automated public tags retain the readable `0.10.0-dev.<run>` form, while the
+Squirrel package version uses the reserved numeric patch range
+`100000..999999`: automated run `0` maps to patch `100000`, and the maximum run
+`899999` maps to patch `999999`. This ranks every current automated package
+above the legacy stable `0.10.76` and removes lexical prerelease ordering from
+installed-client comparisons. Automated source tags must keep patch zero;
+stable source tags that enter the reserved range fail closed so their package
+identity cannot collide with an automated build.
+
 Push and release builds search at most 100 published releases and consider at
 most eight candidates from the build's explicit `automated` or `stable`
 channel, ordered by semantic version rather than publication time. A candidate
@@ -48,6 +57,8 @@ unattributed `git blame` lines.
 - A selected pair with mismatched names, versions, hashes, sizes, index rows, or
   asset metadata fails closed instead of falling back to a less trustworthy
   candidate.
+- A stable tag in patch range `100000..999999`, an automated tag with a nonzero
+  source patch, or an automated run above `899999` fails closed.
 - Once a safe pair is selected, a missing current delta, hash/size mismatch, or
   delta row in the client feed fails packaging.
 - A missing first-job or publication timestamp fails release-note publication
