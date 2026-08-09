@@ -1,5 +1,6 @@
 import wx
 from amulet_map_editor import lang
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 
 class WarningDialog(wx.Dialog):
@@ -40,6 +41,10 @@ class WarningDialog(wx.Dialog):
         self.SetAffirmativeId(self._understand_button.GetId())
 
         self.Layout()
+        # Apply synchronously as well as through the global window-create hook:
+        # startup is the first user-visible decision surface and must not flash
+        # the legacy caption/white native dialog before the M3 chrome arrives.
+        apply_material3(self)
 
     @property
     def do_not_show_again(self) -> bool:
