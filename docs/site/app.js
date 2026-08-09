@@ -8,10 +8,116 @@ import {
   rgbHsl,
 } from './theme.mjs';
 
+const EXPECTED_RELEASE_ORIGIN = 'https://github.com';
+const EXPECTED_RELEASE_REPOSITORY = '/Ding-Ding-Projects/material-minecraft-map-editor';
+const EXPECTED_PHOTO_REPOSITORY = '/Ding-Ding-Projects/dim-sum-photos';
+const localizationResponse = await fetch(new URL('./i18n.json', import.meta.url), { cache: 'no-store' });
+if (!localizationResponse.ok) throw new Error('Localization resources are unavailable');
+const localization = await localizationResponse.json();
+if (localization?.schemaVersion !== 1 || !localization.messages || !localization.toneSuffixes) {
+  throw new Error('Localization resources are invalid');
+}
+const searchInventoryResponse = await fetch(new URL('./search-surfaces.json', import.meta.url), { cache: 'no-store' });
+if (!searchInventoryResponse.ok) throw new Error('Search surface inventory is unavailable');
+const searchInventory = await searchInventoryResponse.json();
+if (searchInventory?.schemaVersion !== 1 || !Array.isArray(searchInventory.surfaces)) {
+  throw new Error('Search surface inventory is invalid');
+}
+const messages = localization.messages;
+const localizedBindings = [];
+const localizedAttributeBindings = [];
+const localizedOptionBindings = [];
+let commandPalette = null;
+let paletteSearchController = null;
+let activeLocalization = { mode: 'english', funnyEn: 1, funnyYue: 1 };
+const searchControllers = new Map();
+
 const query = (selector, root = document) => root.querySelector(selector);
 const queryAll = (selector, root = document) => [...root.querySelectorAll(selector)];
 const tabs = queryAll('.nav-tab');
 const pages = queryAll('.page-section');
+
+function formatMessage(template, values = {}) {
+  return String(template).replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (_match, name) => String(values[name] ?? `{${name}}`));
+}
+
+function messageFor(key, language, values = {}) {
+  const template = language === 'zh-Hant' ? messages[key] : key;
+  return formatMessage(typeof template === 'string' ? template : key, values);
+}
+
+function toneMessage(value, sourceKey, language, level) {
+  if (!/[.!?…]$/.test(sourceKey) || sourceKey.length < 20) return value;
+  const suffixes = localization.toneSuffixes[language] || [];
+  return `${value}${suffixes[Math.max(0, Math.min(4, Number(level || 1) - 1))] || ''}`;
+}
+
+function refreshLocalizedBinding(binding, funnyEn = 1, funnyYue = 1) {
+  binding.english.textContent = toneMessage(messageFor(binding.key, 'en', binding.values), binding.key, 'en', funnyEn);
+  binding.cantonese.textContent = toneMessage(messageFor(binding.key, 'zh-Hant', binding.values), binding.key, 'zh-Hant', funnyYue);
+}
+
+function createLocalizedCopy(key, values = {}) {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'localized-copy';
+  wrapper.dataset.i18nKey = key;
+  const english = document.createElement('span');
+  english.lang = 'en';
+  const cantonese = document.createElement('span');
+  cantonese.lang = 'zh-Hant';
+  wrapper.append(english, cantonese);
+  const binding = { wrapper, english, cantonese, key, values };
+  localizedBindings.push(binding);
+  refreshLocalizedBinding(binding, activeLocalization.funnyEn, activeLocalization.funnyYue);
+  return wrapper;
+}
+
+function setLocalizedContent(element, key, values = {}) {
+  if (!element) return;
+  element.replaceChildren(createLocalizedCopy(key, values));
+}
+
+function localizedString(key, mode, values = {}) {
+  const english = messageFor(key, 'en', values);
+  const cantonese = messageFor(key, 'zh-Hant', values);
+  if (mode === 'bilingual') return `${english} / ${cantonese}`;
+  return mode === 'cantonese' ? cantonese : english;
+}
+
+function setLocalizedAttribute(element, attribute, key, values = {}) {
+  if (!element) return;
+  localizedAttributeBindings.push({ element, attribute, key, values });
+  element.setAttribute(attribute, localizedString(key, activeLocalization.mode, values));
+}
+
+function installStaticLocalization() {
+  const excluded = new Set(['CODE', 'KBD', 'OPTION', 'SCRIPT', 'STYLE']);
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    const parent = node.parentElement;
+    const key = node.nodeValue?.trim();
+    if (!parent || !key || excluded.has(parent.tagName) || parent.closest('[aria-hidden="true"]')) return;
+    if (!Object.prototype.hasOwnProperty.call(messages, key)) return;
+    const before = node.nodeValue.match(/^\s*/)?.[0] || '';
+    const after = node.nodeValue.match(/\s*$/)?.[0] || '';
+    node.replaceWith(document.createTextNode(before), createLocalizedCopy(key), document.createTextNode(after));
+  });
+
+  ['aria-label', 'placeholder', 'title'].forEach((attribute) => {
+    queryAll(`[${attribute}]`).forEach((element) => {
+      const key = element.getAttribute(attribute);
+      if (key && Object.prototype.hasOwnProperty.call(messages, key)) localizedAttributeBindings.push({ element, attribute, key, values: {} });
+    });
+  });
+  queryAll('option').forEach((option) => {
+    const key = option.textContent.trim();
+    if (Object.prototype.hasOwnProperty.call(messages, key)) localizedOptionBindings.push({ option, key });
+  });
+}
+
+installStaticLocalization();
 
 function showTab(name, { updateHash = true, focus = true } = {}) {
   if (!tabs.some((tab) => tab.dataset.tab === name)) return;
@@ -25,6 +131,11 @@ function showTab(name, { updateHash = true, focus = true } = {}) {
     const active = page.dataset.page === name;
     page.hidden = !active;
     page.classList.toggle('is-visible', active);
+  });
+  searchControllers.forEach((controller) => {
+    const page = controller.search.closest('.page-section')?.dataset.page;
+    if (page && page !== name) controller.cancel();
+    if (page === name) controller.apply({ immediate: true });
   });
   if (updateHash) history.replaceState(null, '', `#${name}`);
   if (focus) query(`#${CSS.escape(name)}`)?.focus({ preventScroll: true });
@@ -56,8 +167,20 @@ queryAll('[data-tab-link]').forEach((control) => {
 function safePublicationUrl(value, releaseTag, assetName) {
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return null;
-    if (!url.pathname.endsWith(`/${assetName}`) || !url.pathname.includes(`/download/${releaseTag}/`)) return null;
+    if (url.origin !== EXPECTED_RELEASE_ORIGIN || url.username || url.password || url.search || url.hash) return null;
+    const expectedPath = `${EXPECTED_RELEASE_REPOSITORY}/releases/download/${releaseTag}/${assetName}`;
+    if (url.pathname !== expectedPath) return null;
+    return url.href;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function safePhotoUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.origin !== EXPECTED_RELEASE_ORIGIN || url.username || url.password || url.search || url.hash) return null;
+    if (!url.pathname.startsWith(`${EXPECTED_PHOTO_REPOSITORY}/releases/download/catalog-v1`) || !url.pathname.endsWith('.png')) return null;
     return url.href;
   } catch (_error) {
     return null;
@@ -68,6 +191,11 @@ function verifiedManifest(manifest) {
   if (manifest?.schemaVersion !== 1 || manifest.verified !== true || !/^[0-9a-f]{40}$/i.test(String(manifest.commit || ''))) return false;
   const tag = String(manifest.releaseTag || '');
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(tag)) return false;
+  if (manifest.releaseUrl !== `${EXPECTED_RELEASE_ORIGIN}${EXPECTED_RELEASE_REPOSITORY}/releases/tag/${tag}`) return false;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(String(manifest.publishedAt || ''))) return false;
+  if (!String(manifest.codeName?.en || '').trim() || !String(manifest.codeName?.zhHant || '').trim()) return false;
+  if (!safePhotoUrl(manifest.codeName?.photoUrl)) return false;
+  if (manifest.delta?.emitted !== false || !String(manifest.delta?.reason || '').trim()) return false;
   return ['Setup.exe', 'RELEASES', 'full.nupkg'].every((key) => {
     const asset = manifest.assets?.[key];
     if (!asset || typeof asset.sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(asset.sha256)) return false;
@@ -100,72 +228,247 @@ async function loadPublicationManifest(config) {
     const asset = manifest.assets['Setup.exe'];
     const url = safePublicationUrl(asset.url, tag, 'Setup.exe');
     if (!url) throw new Error('Setup.exe is not immutable');
-    query('#release-eyebrow').textContent = `VERIFIED WINDOWS BUILD · ${tag}`;
-    query('#release-title').textContent = localized('release', settings.language?.value || 'english');
-    query('#release-copy').textContent = 'This immutable unsigned Squirrel.Windows installer is backed by the verified tag, commit, asset path, and SHA-256 release manifest. Windows may show an unknown-publisher warning because signing is intentionally disabled.';
+    setLocalizedContent(query('#release-eyebrow'), 'VERIFIED WINDOWS BUILD · {tag}', { tag });
+    setLocalizedContent(query('#release-title'), 'Install the verified unsigned Squirrel package');
+    setLocalizedContent(query('#release-copy'), 'This immutable unsigned Squirrel.Windows installer is backed by the verified tag, commit, asset path, byte size, and SHA-256 release manifest. Windows may show an unknown-publisher warning because signing is intentionally disabled.');
+    const codeName = manifest.codeName?.en && manifest.codeName?.zhHant
+      ? `${manifest.codeName.en} · ${manifest.codeName.zhHant}`
+      : '';
+    const codeNameElement = query('#release-code-name');
+    const codeNameLink = query('#release-code-name-link');
+    const photoUrl = safePhotoUrl(manifest.codeName?.photoUrl);
+    if (codeName && photoUrl) {
+      setLocalizedContent(codeNameLink, 'Release code name: {codeName}', { codeName });
+      codeNameLink.href = photoUrl;
+      codeNameElement.hidden = false;
+    } else {
+      codeNameElement.hidden = true;
+      codeNameLink.removeAttribute('href');
+    }
     releaseDownload.hidden = false;
     releaseDownload.href = url;
     releaseDownload.removeAttribute('data-tab-link');
     releaseDownload.target = '_blank';
     releaseDownload.rel = 'noreferrer';
-    releaseDownload.textContent = `Download Setup.exe · ${tag} · Windows x64 ↗`;
+    setLocalizedContent(releaseDownload, 'Download Setup.exe · {tag} · Windows x64 ↗', { tag });
   } catch (_error) {
     releaseDownload.hidden = true;
+    query('#release-code-name').hidden = true;
+    query('#release-code-name-link').removeAttribute('href');
   }
 }
 
-function escaped(value) {
+function escapeRegexLiteral(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function safeRegExp(raw, sourceFlags = 'i') {
-  const value = String(raw || '');
-  if (value.length > 256) throw new Error('Pattern is limited to 256 characters');
-  if (!/^[dgimsuvy]*$/.test(sourceFlags)) throw new Error('Unsupported regular-expression flag');
-  if (/\([^()]*[+*][^()]*\)[+*{]/.test(value)) throw new Error('Nested quantifiers are disabled');
-  return new RegExp(value || '(?!)', sourceFlags);
-}
+const REGEX_WORKER_TIMEOUT_MS = 900;
 
-function buildMatcher(raw, regex, sourceFlags = 'i') {
-  const value = String(raw || '');
-  if (value.length > 256) throw new Error('Pattern is limited to 256 characters');
-  return safeRegExp(regex ? value : escaped(value), sourceFlags);
-}
+class SafeRegexWorker {
+  constructor() {
+    this.worker = null;
+    this.resolvePending = null;
+  }
 
-function wireSearch({ search, pattern, toggle, flags, feedback, records, text, empty }) {
-  const apply = () => {
-    const regex = Boolean(toggle?.checked);
-    const raw = (regex ? pattern?.value : search?.value) || '';
-    let matcher;
-    try {
-      matcher = buildMatcher(raw, regex, regex ? (flags?.value || 'i') : 'i');
-      if (feedback) feedback.textContent = regex ? 'Valid JavaScript regular expression' : 'Plain-text mode';
-    } catch (error) {
-      if (feedback) feedback.textContent = `Invalid pattern: ${error.message}`;
-      records().forEach((record) => { record.hidden = true; });
-      if (empty) empty.hidden = false;
-      return;
-    }
-    let count = 0;
-    records().forEach((record) => {
-      matcher.lastIndex = 0;
-      const match = !raw || matcher.test(text(record));
-      record.hidden = !match;
-      if (match) count += 1;
+  cancel() {
+    if (this.worker) this.worker.terminate();
+    this.worker = null;
+    if (this.resolvePending) this.resolvePending({ cancelled: true });
+    this.resolvePending = null;
+  }
+
+  evaluate(request) {
+    this.cancel();
+    const worker = new Worker(new URL('./regex-worker.mjs', import.meta.url), { type: 'module' });
+    this.worker = worker;
+    return new Promise((resolve) => {
+      this.resolvePending = resolve;
+      const finish = (result) => {
+        if (this.worker !== worker) return;
+        clearTimeout(timer);
+        worker.terminate();
+        this.worker = null;
+        this.resolvePending = null;
+        resolve(result);
+      };
+      const timer = setTimeout(
+        () => finish({ timeout: true }),
+        REGEX_WORKER_TIMEOUT_MS,
+      );
+      worker.addEventListener('message', (event) => finish(event.data), { once: true });
+      worker.addEventListener('error', () => finish({ workerError: true }), { once: true });
+      worker.postMessage({ id: 1, request });
     });
-    if (empty) empty.hidden = count !== 0;
+  }
+}
+
+function createBuilderButton(label, accessibleLabel, snippet, pattern, search, toggle) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  setLocalizedContent(button, label);
+  setLocalizedAttribute(button, 'aria-label', accessibleLabel);
+  button.addEventListener('click', () => {
+    const start = pattern.selectionStart ?? pattern.value.length;
+    const end = pattern.selectionEnd ?? start;
+    const selected = pattern.value.slice(start, end);
+    const value = typeof snippet === 'function' ? snippet(selected) : snippet;
+    pattern.setRangeText(value, start, end, 'end');
+    search.value = pattern.value;
+    toggle.checked = true;
+    pattern.dispatchEvent(new Event('input', { bubbles: true }));
+    pattern.focus();
+  });
+  return button;
+}
+
+function upgradeRegexBuilder({ surface, search, pattern, toggle, feedback }) {
+  const details = query(`#${CSS.escape(surface.builderId)}`);
+  const controls = query('.regex-controls', details);
+  if (!details || !controls) throw new Error(`Missing regex builder for ${surface.name}`);
+  const guide = document.createElement('div');
+  guide.className = 'regex-guide';
+  const title = document.createElement('span');
+  title.className = 'regex-guide-title';
+  setLocalizedContent(title, 'Guided building blocks');
+  guide.append(
+    title,
+    createBuilderButton('Literal', 'Insert literal', (selected) => escapeRegexLiteral(selected || 'text'), pattern, search, toggle),
+    createBuilderButton('Character class', 'Insert character class', '[A-Za-z0-9_]', pattern, search, toggle),
+    createBuilderButton('Anchors', 'Insert start and end anchors', '^$', pattern, search, toggle),
+    createBuilderButton('Group', 'Insert capture group', (selected) => `(${selected || 'text'})`, pattern, search, toggle),
+    createBuilderButton('Alternation', 'Insert alternation', (selected) => selected ? `${selected}|other` : 'one|two', pattern, search, toggle),
+    createBuilderButton('Quantifier', 'Insert bounded quantifier', '{1,3}', pattern, search, toggle),
+  );
+  const actions = document.createElement('div');
+  actions.className = 'regex-actions';
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  setLocalizedContent(copy, 'Copy pattern');
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(`/${pattern.value}/${query(`#${CSS.escape(surface.flagsId)}`).value}`);
+      setLocalizedContent(feedback, 'Pattern copied');
+    } catch (_error) {
+      setLocalizedContent(feedback, 'Clipboard is unavailable');
+    }
+  });
+  const exportButton = document.createElement('button');
+  exportButton.type = 'button';
+  setLocalizedContent(exportButton, 'Export pattern');
+  exportButton.addEventListener('click', () => {
+    const payload = JSON.stringify({ schemaVersion: 1, engine: 'JavaScript RegExp', pattern: pattern.value, flags: query(`#${CSS.escape(surface.flagsId)}`).value }, null, 2);
+    const url = URL.createObjectURL(new Blob([`${payload}\n`], { type: 'application/json' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `amulet-${surface.name}-regex.json`;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setLocalizedContent(feedback, 'Pattern export downloaded');
+  });
+  actions.append(copy, exportButton);
+  controls.prepend(guide);
+  controls.append(actions);
+  details.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    details.open = false;
+    search.focus();
+  });
+  let wasOpen = details.open;
+  details.addEventListener('toggle', () => {
+    if (wasOpen && !details.open) queueMicrotask(() => search.focus());
+    wasOpen = details.open;
+  });
+}
+
+function wireSearch({ search, pattern, toggle, flags, sample, feedback, captures, records, text, empty, onMatches }) {
+  const surface = searchInventory.surfaces.find((entry) => entry.searchId === search?.id);
+  if (!surface) throw new Error(`Search field ${search?.id || 'unknown'} is absent from the hand-written inventory`);
+  for (const id of [surface.builderId, surface.toggleId, surface.patternId, surface.flagsId, surface.sampleId, surface.feedbackId, surface.capturesId]) {
+    if (!query(`#${CSS.escape(id)}`)) throw new Error(`Search inventory target is missing: ${id}`);
+  }
+  const regexWorker = new SafeRegexWorker();
+  let generation = 0;
+  let debounce = null;
+  const applyMatches = (sourceRecords, matches) => {
+    const matched = sourceRecords.filter((_record, index) => matches[index]);
+    if (onMatches) onMatches(matched);
+    else sourceRecords.forEach((record, index) => { record.hidden = !matches[index]; });
+    if (empty) empty.hidden = matched.length !== 0;
+    return matched.length;
   };
-  search?.addEventListener('input', () => {
-    if (toggle && !toggle.checked) pattern.value = search.value;
-    apply();
-  });
-  toggle?.addEventListener('change', () => {
-    pattern.value = search.value;
-    apply();
-  });
-  pattern?.addEventListener('input', apply);
-  flags?.addEventListener('change', apply);
-  return apply;
+  const updateSample = (sampleResult) => {
+    if (!captures) return;
+    if (!sampleResult?.matched) setLocalizedContent(captures, 'Sample does not match');
+    else if (sampleResult.match === '') setLocalizedContent(captures, 'Sample matched with zero-width result at {index}', { index: sampleResult.index });
+    else if (sampleResult.captures?.length) setLocalizedContent(captures, 'Captures: {captures}', { captures: sampleResult.captures.join(' · ') });
+    else setLocalizedContent(captures, 'Sample match at {index}: {match}', { index: sampleResult.index, match: sampleResult.match });
+  };
+  const apply = ({ immediate = false } = {}) => {
+    generation += 1;
+    const currentGeneration = generation;
+    if (debounce) clearTimeout(debounce);
+    regexWorker.cancel();
+    const sourceRecords = records();
+    const raw = String(search?.value || '');
+    if (!toggle?.checked) {
+      const needle = raw.toLocaleLowerCase();
+      const matches = sourceRecords.map((record) => !needle || String(text(record)).toLocaleLowerCase().includes(needle));
+      const count = applyMatches(sourceRecords, matches);
+      setLocalizedContent(feedback, 'Plain-text mode');
+      const sampleText = String(sample?.value || '');
+      const index = needle ? sampleText.toLocaleLowerCase().indexOf(needle) : 0;
+      updateSample(index >= 0 ? { matched: true, index, match: needle ? sampleText.slice(index, index + raw.length) : '', captures: [] } : { matched: false });
+      return Promise.resolve(count);
+    }
+    const run = async () => {
+      const result = await regexWorker.evaluate({ pattern: raw, flags: flags?.value || 'i', sample: sample?.value || '', records: sourceRecords.map(text) });
+      if (currentGeneration !== generation || result.cancelled) return 0;
+      if (result.timeout) {
+        setLocalizedContent(feedback, 'Regex evaluation timed out; the worker was stopped and no stale result was applied.');
+        return 0;
+      }
+      if (result.workerError) {
+        setLocalizedContent(feedback, 'Regex worker failed; no search result was changed.');
+        return 0;
+      }
+      if (!result.ok) {
+        setLocalizedContent(feedback, 'Invalid pattern: {message}', { message: result.error || 'Invalid JavaScript regular expression' });
+        return 0;
+      }
+      const count = applyMatches(sourceRecords, result.matches);
+      setLocalizedContent(feedback, 'Live matches: {count}', { count });
+      updateSample(result.sample);
+      return count;
+    };
+    if (immediate) return run();
+    return new Promise((resolve) => {
+      debounce = setTimeout(() => { debounce = null; run().then(resolve); }, 120);
+    });
+  };
+  const controller = {
+    search,
+    surface,
+    apply,
+    cancel() {
+      generation += 1;
+      if (debounce) clearTimeout(debounce);
+      debounce = null;
+      regexWorker.cancel();
+    },
+  };
+  upgradeRegexBuilder({ surface, search, pattern, toggle, feedback });
+  search.addEventListener('input', () => { pattern.value = search.value; apply(); });
+  pattern.addEventListener('input', () => { search.value = pattern.value; apply(); });
+  toggle.addEventListener('change', () => { pattern.value = search.value; apply({ immediate: true }); });
+  flags.addEventListener('change', () => apply({ immediate: true }));
+  sample.addEventListener('input', () => apply());
+  searchControllers.set(surface.name, controller);
+  if (searchControllers.size === searchInventory.surfaces.length) {
+    document.documentElement.dataset.searchInventoryReady = 'true';
+  }
+  apply({ immediate: true });
+  return controller;
 }
 
 const featureSearch = query('#feature-search');
@@ -175,33 +478,18 @@ const featureFlags = query('#feature-flags');
 const featureFeedback = query('#regex-feedback');
 const featureCaptures = query('#regex-captures');
 const featureSample = query('#feature-sample');
-const filterFeatures = wireSearch({
+wireSearch({
   search: featureSearch,
   pattern: featurePattern,
   toggle: featureToggle,
   flags: featureFlags,
+  sample: featureSample,
   feedback: featureFeedback,
+  captures: featureCaptures,
   records: () => queryAll('#feature-grid .feature-card'),
   text: (card) => `${card.dataset.search || ''} ${card.textContent}`,
   empty: query('#feature-empty'),
 });
-
-function updateFeatureSample() {
-  if (!featureCaptures) return;
-  try {
-    const raw = (featureToggle?.checked ? featurePattern?.value : featureSearch?.value) || '';
-    const matcher = buildMatcher(raw, Boolean(featureToggle?.checked), featureToggle?.checked ? featureFlags?.value : 'i');
-    const match = raw ? matcher.exec(featureSample?.value || '') : null;
-    featureCaptures.textContent = match?.length > 1 ? `Captures: ${match.slice(1).join(' · ')}` : 'No capture groups in sample';
-  } catch (_error) {
-    featureCaptures.textContent = '';
-  }
-}
-
-[featureSearch, featurePattern, featureToggle, featureFlags, featureSample].forEach((control) => control?.addEventListener('input', () => {
-  filterFeatures();
-  updateFeatureSample();
-}));
 
 const settings = {
   language: query('#site-language'),
@@ -218,43 +506,23 @@ const settings = {
   scale: query('#site-scale'),
 };
 const settingsKey = 'amulet-site-settings-v2';
-const languageCopy = {
-  english: {
-    home: 'Home', features: 'Features', docs: 'Documentation', guides: 'Guides', community: 'Community', settings: 'Settings',
-    source: 'View source ↗', install: 'Open the install guide', explore: 'Explore features →',
-    release: 'Install the verified unsigned Squirrel package', close: 'Close', reset: 'Reset site settings',
-    back: 'Back to all articles', suggested: 'Suggested articles',
-  },
-  cantonese: {
-    home: '首頁', features: '功能', docs: '說明文件', guides: '指南', community: '社群', settings: '設定',
-    source: '睇原始碼 ↗', install: '開啟安裝指南', explore: '探索功能 →',
-    release: '安裝已核實但未簽署嘅 Squirrel 套件', close: '關閉', reset: '重設網站設定',
-    back: '返回所有文章', suggested: '建議文章',
-  },
-};
-
-function localized(key, language) {
-  const english = languageCopy.english[key] || key;
-  const cantonese = languageCopy.cantonese[key] || english;
-  if (language === 'bilingual') return `${english} · ${cantonese}`;
-  return language === 'cantonese' ? cantonese : english;
-}
-
-function applyLanguage(language) {
+function applyLanguage(language, funnyEn = 1, funnyYue = 1) {
   const mode = ['english', 'cantonese', 'bilingual'].includes(language) ? language : 'english';
+  activeLocalization = { mode, funnyEn, funnyYue };
   document.documentElement.lang = mode === 'cantonese' ? 'zh-Hant' : 'en';
-  tabs.forEach((tab) => {
-    tab.textContent = localized(tab.dataset.tab, mode);
-    tab.setAttribute('aria-label', localized(tab.dataset.tab, mode));
+  document.documentElement.dataset.language = mode;
+  localizedBindings.forEach((binding) => {
+    if (binding.wrapper.isConnected) refreshLocalizedBinding(binding, funnyEn, funnyYue);
   });
-  query('.top-app-bar > .button')?.replaceChildren(document.createTextNode(localized('source', mode)));
-  query('[data-tab-link="guides"]')?.replaceChildren(document.createTextNode(localized('install', mode)));
-  query('[data-tab-link="features"]')?.replaceChildren(document.createTextNode(localized('explore', mode)));
-  query('#release-title')?.replaceChildren(document.createTextNode(localized('release', mode)));
-  query('#reset-site-settings')?.replaceChildren(document.createTextNode(localized('reset', mode)));
-  query('#command-palette .button')?.replaceChildren(document.createTextNode(localized('close', mode)));
-  query('#article-back')?.replaceChildren(document.createTextNode(localized('back', mode)));
-  query('#suggested-title')?.replaceChildren(document.createTextNode(localized('suggested', mode)));
+  localizedAttributeBindings.forEach(({ element, attribute, key, values }) => {
+    if (element.isConnected) element.setAttribute(attribute, localizedString(key, mode, values));
+  });
+  localizedOptionBindings.forEach(({ option, key }) => {
+    option.textContent = localizedString(key, mode);
+  });
+  document.title = localizedString('Amulet Map Editor · World editing, made clear', mode);
+  query('meta[name="description"]')?.setAttribute('content', localizedString('Amulet Map Editor — an open-source Minecraft world editor.', mode));
+  if (commandPalette?.open) paletteSearchController?.apply({ immediate: true });
 }
 
 function parseRgb(value) {
@@ -303,21 +571,11 @@ function applySettings({ persist = true } = {}) {
   const roles = applyThemeRoles(document.documentElement, value.accent, value.theme);
   const primarySurface = contrastRatio(roles.primary, roles.surface).toFixed(2);
   const onPrimary = contrastRatio(roles.onPrimary, roles.primary).toFixed(2);
-  query('#accent-contrast')?.replaceChildren(`Derived primary/surface: ${primarySurface}:1 · On-primary/primary: ${onPrimary}:1`);
+  setLocalizedContent(query('#accent-contrast'), 'Derived primary/surface: {primary}:1 · On-primary/primary: {onPrimary}:1', { primary: primarySurface, onPrimary });
   query('#site-scale-value')?.replaceChildren(`${value.scale}%`);
   query('#funny-en-value')?.replaceChildren(String(value.funnyEn));
   query('#funny-yue-value')?.replaceChildren(String(value.funnyYue));
-  applyLanguage(value.language);
-  const copy = query('#settings-copy');
-  if (copy) {
-    const english = value.funnyEn >= 4
-      ? 'Shell preferences apply immediately; the buttons may now grin a little, while canonical article text keeps its serious shoes on.'
-      : 'Preferences persist in this browser and apply immediately. Language and funny-level controls style the site shell; canonical article text remains unchanged.';
-    const cantonese = value.funnyYue >= 4
-      ? '介面設定即時生效，啲掣可以笑少少；技術文章繼續著住正經鞋。'
-      : '設定會保存在此瀏覽器並即時生效；語言同玩味程度只改介面，技術文章保持原文。';
-    copy.textContent = value.language === 'bilingual' ? `${english} · ${cantonese}` : value.language === 'cantonese' ? cantonese : english;
-  }
+  applyLanguage(value.language, value.funnyEn, value.funnyYue);
   if (persist) {
     try { localStorage.setItem(settingsKey, JSON.stringify(value)); } catch (_error) { /* Browser storage may be unavailable. */ }
   }
@@ -377,7 +635,9 @@ wireSearch({
   pattern: query('#settings-pattern'),
   toggle: query('#settings-regex'),
   flags: query('#settings-flags'),
+  sample: query('#settings-sample'),
   feedback: query('#settings-feedback'),
+  captures: query('#settings-captures'),
   records: () => queryAll('#settings-grid .setting-card'),
   text: (card) => `${card.dataset.search || ''} ${card.textContent}`,
   empty: query('#settings-empty'),
@@ -386,7 +646,7 @@ wireSearch({
 let articles = [];
 let articleBySlug = new Map();
 let currentArticle = null;
-let filterArticles = () => {};
+let filterArticles = null;
 
 function articleSlugFromHref(href) {
   const path = String(href || '').split('#', 1)[0];
@@ -546,15 +806,18 @@ function renderArticleCards() {
     card.dataset.search = `${article.title} ${article.summary} ${article.markdown}`;
     const eyebrow = document.createElement('span');
     eyebrow.className = 'eyebrow';
-    eyebrow.textContent = 'FEATURE ARTICLE';
+    setLocalizedContent(eyebrow, 'FEATURE ARTICLE');
     const title = document.createElement('h2');
     title.textContent = article.title;
+    title.lang = 'en';
     const summary = document.createElement('p');
     summary.textContent = article.summary;
+    summary.lang = 'en';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'inline-link';
-    button.textContent = 'Read on this site →';
+    setLocalizedContent(button, 'Read on this site →');
+    setLocalizedAttribute(button, 'aria-label', 'Open article: {title}', { title: article.title });
     button.dataset.article = article.slug;
     button.addEventListener('click', () => openArticle(article.slug));
     card.append(eyebrow, title, summary, button);
@@ -563,7 +826,7 @@ function renderArticleCards() {
   query('#article-grid').replaceChildren(...cards);
 }
 
-function openArticle(slug, { updateHash = true } = {}) {
+function openArticle(slug, { updateHash = true, focus = true } = {}) {
   const article = articleBySlug.get(slug);
   if (!article) return false;
   currentArticle = article;
@@ -574,20 +837,22 @@ function openArticle(slug, { updateHash = true } = {}) {
   query('#article-status').hidden = true;
   const view = query('#article-view');
   view.hidden = false;
-  query('#article-source').textContent = `${article.sourcePath} · SHA-256 ${article.sha256.slice(0, 12)}…`;
+  setLocalizedContent(query('#article-source'), 'Source article in reviewed English · {source} · SHA-256 {digest}…', { source: article.sourcePath, digest: article.sha256.slice(0, 12) });
   renderMarkdown(article.markdown, query('#article-content'));
   const suggestions = article.suggested.map((suggestedSlug) => {
     const suggested = articleBySlug.get(suggestedSlug);
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = suggested.title;
+    button.lang = 'en';
+    setLocalizedAttribute(button, 'aria-label', 'Open article: {title}', { title: suggested.title });
     button.addEventListener('click', () => openArticle(suggestedSlug));
     return button;
   });
   query('#suggested-list').replaceChildren(...suggestions);
   if (updateHash) history.replaceState(null, '', `#docs/${article.slug}`);
   view.scrollIntoView({ block: 'start' });
-  query('#article-title')?.focus?.({ preventScroll: true });
+  if (focus) query('#article-title')?.focus?.({ preventScroll: true });
   return true;
 }
 
@@ -596,7 +861,7 @@ function closeArticle({ updateHash = true } = {}) {
   query('#docs-heading').hidden = false;
   query('#article-grid').hidden = false;
   query('#article-view').hidden = true;
-  filterArticles();
+  filterArticles?.apply({ immediate: true });
   if (updateHash) history.replaceState(null, '', '#docs');
   query('#docs-search')?.focus({ preventScroll: true });
 }
@@ -617,7 +882,9 @@ async function loadArticles(config) {
     pattern: query('#docs-pattern'),
     toggle: query('#docs-regex'),
     flags: query('#docs-flags'),
+    sample: query('#docs-sample'),
     feedback: query('#docs-feedback'),
+    captures: query('#docs-captures'),
     records: () => queryAll('#article-grid .article-card'),
     text: (card) => card.dataset.search || card.textContent,
     empty: query('#docs-empty'),
@@ -627,6 +894,7 @@ async function loadArticles(config) {
 }
 
 const palette = query('#command-palette');
+commandPalette = palette;
 const paletteSearch = query('#palette-search');
 const palettePattern = query('#palette-pattern');
 const paletteRegex = query('#palette-regex');
@@ -643,52 +911,59 @@ const paletteItems = [
   ['Reset site settings', 'Restore persisted site preferences', 'settings', '#reset-site-settings'],
 ];
 
+function englishText(element, fallback) {
+  return (element ? query('[lang="en"]', element)?.textContent?.trim() : '') || element?.textContent?.trim() || fallback;
+}
+
 queryAll('#feature-grid .feature-card').forEach((card, index) => {
-  const title = query('h2', card)?.textContent?.trim() || `Feature ${index + 1}`;
-  paletteItems.push([title, query('p', card)?.textContent?.trim() || 'Open feature details', 'features', `#feature-grid .feature-card:nth-of-type(${index + 1})`]);
+  const title = englishText(query('h2', card), `Feature ${index + 1}`);
+  paletteItems.push([title, englishText(query('p', card), 'Open feature details'), 'features', `#feature-grid .feature-card:nth-of-type(${index + 1})`]);
 });
 queryAll('#settings-grid .setting-card').forEach((card, index) => {
-  const title = query('span', card)?.textContent?.trim() || `Setting ${index + 1}`;
-  paletteItems.push([title, query('.setting-help', card)?.textContent?.trim() || 'Open setting', 'settings', `#settings-grid .setting-card:nth-of-type(${index + 1})`]);
+  const title = englishText(query(':scope > span', card), `Setting ${index + 1}`);
+  paletteItems.push([title, englishText(query('.setting-help', card), 'Open setting'), 'settings', `#settings-grid .setting-card:nth-of-type(${index + 1})`]);
 });
 
 function addArticlesToPalette() {
   articles.forEach((article) => paletteItems.push([article.title, article.summary, 'docs', `article:${article.slug}`]));
-  if (palette?.open) renderPalette();
+  if (palette?.open) paletteSearchController?.apply({ immediate: true });
 }
 
 let paletteActiveIndex = 0;
 let paletteOpener = null;
+let paletteDestination = null;
+let currentPaletteMatches = paletteItems;
+
+function focusablePaletteDestination(target) {
+  if (!target) return null;
+  if (target.matches('.page-section, #article-title')) return target;
+  const control = query('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex="0"]', target);
+  if (control) return control;
+  target.tabIndex = -1;
+  return target;
+}
 
 function activatePaletteItem(item) {
-  if (item[3].startsWith('article:')) openArticle(item[3].slice(8));
-  else {
+  if (item[3].startsWith('article:')) {
+    openArticle(item[3].slice(8), { focus: false });
+    paletteDestination = query('#article-title');
+  } else {
     if (item[0] === 'Reset site settings') query('#reset-site-settings')?.click();
-    showTab(item[2]);
+    showTab(item[2], { focus: false });
     const target = query(item[3]);
+    const ownerController = [...searchControllers.values()].find(
+      (controller) => controller.search.closest('.page-section')?.dataset.page === item[2],
+    );
+    ownerController?.cancel();
+    if (target && 'hidden' in target) target.hidden = false;
     target?.scrollIntoView({ block: 'center' });
-    target?.focus?.({ preventScroll: true });
+    paletteDestination = focusablePaletteDestination(target);
   }
   palette.close();
 }
 
-function renderPalette({ focusResult = false } = {}) {
-  const regex = Boolean(paletteRegex?.checked);
-  const raw = (regex ? palettePattern?.value : paletteSearch?.value) || '';
-  let matcher;
-  try {
-    matcher = buildMatcher(raw, regex, regex ? (paletteFlags?.value || 'i') : 'i');
-    paletteFeedback.textContent = regex ? 'Valid JavaScript regular expression' : 'Plain-text mode';
-  } catch (error) {
-    paletteFeedback.textContent = `Invalid pattern: ${error.message}`;
-    paletteResults.replaceChildren();
-    paletteSearch.removeAttribute('aria-activedescendant');
-    return;
-  }
-  const matches = paletteItems.filter((item) => {
-    matcher.lastIndex = 0;
-    return !raw || matcher.test(`${item[0]} ${item[1]}`);
-  });
+function renderPalette(matches = currentPaletteMatches, { focusResult = false } = {}) {
+  currentPaletteMatches = matches;
   paletteActiveIndex = Math.min(paletteActiveIndex, Math.max(0, matches.length - 1));
   const buttons = matches.map((item, index) => {
     const button = document.createElement('button');
@@ -700,11 +975,21 @@ function renderPalette({ focusResult = false } = {}) {
     button.tabIndex = index === paletteActiveIndex ? 0 : -1;
     const text = document.createElement('span');
     const strong = document.createElement('strong');
-    strong.textContent = item[0];
+    if (Object.prototype.hasOwnProperty.call(messages, item[0])) setLocalizedContent(strong, item[0]);
+    else { strong.textContent = item[0]; strong.lang = 'en'; }
     const small = document.createElement('small');
-    small.textContent = item[1];
+    if (Object.prototype.hasOwnProperty.call(messages, item[1])) setLocalizedContent(small, item[1]);
+    else { small.textContent = item[1]; small.lang = 'en'; }
     text.append(strong, document.createElement('br'), small);
     button.append(text, document.createTextNode('↗'));
+    const actionKey = item[3].startsWith('article:')
+      ? 'Open article: {title}'
+      : item[3].includes('.feature-card')
+        ? 'Open feature: {title}'
+        : item[3].includes('.setting-card') || item[3] === '#reset-site-settings'
+          ? 'Open setting: {title}'
+          : 'Open page: {title}';
+    setLocalizedAttribute(button, 'aria-label', actionKey, { title: item[0] });
     button.addEventListener('click', () => activatePaletteItem(item));
     button.addEventListener('keydown', (event) => {
       if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -713,7 +998,7 @@ function renderPalette({ focusResult = false } = {}) {
       if (event.key === 'ArrowUp') paletteActiveIndex = (index + buttons.length - 1) % buttons.length;
       if (event.key === 'Home') paletteActiveIndex = 0;
       if (event.key === 'End') paletteActiveIndex = buttons.length - 1;
-      renderPalette({ focusResult: true });
+      renderPalette(currentPaletteMatches, { focusResult: true });
     });
     return button;
   });
@@ -730,13 +1015,27 @@ function renderPalette({ focusResult = false } = {}) {
   }
 }
 
+paletteSearchController = wireSearch({
+  search: paletteSearch,
+  pattern: palettePattern,
+  toggle: paletteRegex,
+  flags: paletteFlags,
+  sample: query('#palette-sample'),
+  feedback: paletteFeedback,
+  captures: query('#palette-captures'),
+  records: () => paletteItems,
+  text: (item) => `${item[0]} ${messages[item[0]] || ''} ${item[1]} ${messages[item[1]] || ''}`,
+  onMatches: (matches) => { paletteActiveIndex = 0; renderPalette(matches); },
+});
+
 function openPalette() {
   if (!palette || palette.open) return;
   paletteOpener = document.activeElement;
+  paletteDestination = null;
   palette.showModal();
   paletteSearch.setAttribute('aria-expanded', 'true');
   paletteActiveIndex = 0;
-  renderPalette();
+  paletteSearchController.apply({ immediate: true });
   queueMicrotask(() => {
     paletteSearch.focus();
     paletteSearch.select();
@@ -745,16 +1044,19 @@ function openPalette() {
 
 palette?.addEventListener('close', () => {
   paletteSearch.setAttribute('aria-expanded', 'false');
-  paletteOpener?.focus?.();
+  paletteSearchController.cancel();
+  const destination = paletteDestination;
+  const opener = paletteOpener;
+  paletteDestination = null;
+  paletteOpener = null;
+  const restoreFocus = () => {
+    const target = destination?.isConnected ? destination : opener;
+    target?.scrollIntoView?.({ block: 'center' });
+    target?.focus?.({ preventScroll: true });
+  };
+  if (destination) requestAnimationFrame(() => requestAnimationFrame(restoreFocus));
+  else queueMicrotask(restoreFocus);
 });
-paletteSearch?.addEventListener('input', () => {
-  if (paletteRegex && !paletteRegex.checked) palettePattern.value = paletteSearch.value;
-  paletteActiveIndex = 0;
-  renderPalette();
-});
-paletteRegex?.addEventListener('change', () => { palettePattern.value = paletteSearch.value; renderPalette(); });
-palettePattern?.addEventListener('input', renderPalette);
-paletteFlags?.addEventListener('change', renderPalette);
 paletteSearch?.addEventListener('keydown', (event) => {
   const buttons = queryAll('.palette-result', paletteResults);
   if (!buttons.length) return;
@@ -764,7 +1066,7 @@ paletteSearch?.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowUp') paletteActiveIndex = (paletteActiveIndex + buttons.length - 1) % buttons.length;
     if (event.key === 'Home') paletteActiveIndex = 0;
     if (event.key === 'End') paletteActiveIndex = buttons.length - 1;
-    renderPalette();
+    renderPalette(currentPaletteMatches);
   }
   if (event.key === 'Enter') {
     event.preventDefault();
@@ -803,10 +1105,11 @@ loadSiteConfig()
   .then((config) => Promise.allSettled([loadPublicationManifest(config), loadArticles(config)]))
   .then((results) => {
     if (results[1]?.status === 'rejected') {
-      query('#article-status').textContent = 'The bundled article catalog could not be loaded. The rest of the site remains available.';
+      setLocalizedContent(query('#article-status'), 'The bundled article catalog could not be loaded. The rest of the site remains available.');
     }
   })
   .catch(() => {
-    query('#article-status').textContent = 'Site configuration could not be loaded. The static shell remains available.';
+    setLocalizedContent(query('#article-status'), 'Site configuration could not be loaded. The static shell remains available.');
     query('#release-download').hidden = true;
+    query('#release-code-name').hidden = true;
   });

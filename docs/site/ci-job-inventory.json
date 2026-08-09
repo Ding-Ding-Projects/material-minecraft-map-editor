@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "workflow": ".github/workflows/site.yml",
+  "jobs": {
+    "validate-and-package": {
+      "runnerImage": "ubuntu-24.04",
+      "dependencies": [
+        {
+          "name": "repository source",
+          "constraint": "current workflow commit",
+          "source": "actions/checkout@v4",
+          "bootstrap": "Checkout step"
+        },
+        {
+          "name": "Node.js",
+          "constraint": "22",
+          "source": "actions/setup-node@v4",
+          "bootstrap": "Set up Node.js 22 step"
+        },
+        {
+          "name": "Python",
+          "constraint": "3.13",
+          "source": "actions/setup-python@v6",
+          "bootstrap": "Set up Python 3.13 step"
+        },
+        {
+          "name": "pytest",
+          "constraint": "9.1.1",
+          "source": "PyPI",
+          "bootstrap": "Bootstrap site validation dependencies step"
+        },
+        {
+          "name": "GitHub CLI",
+          "constraint": ">=2",
+          "source": "cli.github.com official apt repository",
+          "bootstrap": "Bootstrap and inventory host tools step"
+        },
+        {
+          "name": "Docker Engine and CLI",
+          "constraint": "ubuntu-24.04 hosted runner image",
+          "source": "GitHub-hosted runner image with docker/setup-buildx-action@v3",
+          "bootstrap": "Bootstrap Docker Buildx and prove Docker daemon step"
+        },
+        {
+          "name": "Google Chrome or Chromium",
+          "constraint": "ubuntu-24.04 hosted runner image",
+          "source": "GitHub-hosted runner browser inventory",
+          "bootstrap": "Bootstrap and inventory host tools step"
+        },
+        {
+          "name": "nginx static runtime",
+          "constraint": "1.27.4-alpine pinned OCI index",
+          "source": "Dockerfile FROM instruction",
+          "bootstrap": "Build owner-hosted site image step"
+        }
+      ],
+      "requiredEvidence": [
+        "context.json",
+        "docker-version.txt",
+        "site-tests.xml",
+        "release-api.json",
+        "site-cdp-report.json",
+        "site-http-runtime.txt"
+      ]
+    }
+  }
+}

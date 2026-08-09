@@ -1,31 +1,42 @@
 {
   "schemaVersion": 1,
   "verified": true,
-  "releaseTag": "0.10.0-dev.424",
-  "commit": "d86e73a2f0746012158cd49774e36887ec92a01d",
+  "releaseTag": "0.10.0-dev.426",
+  "commit": "d47031726b5b1de67ebb9987f211c7d28e6f94c8",
+  "releaseUrl": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.0-dev.426",
+  "publishedAt": "2026-08-09T16:42:50Z",
+  "codeName": {
+    "en": "Black Sesame Bao",
+    "zhHant": "芝麻包",
+    "photoUrl": "https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/catalog-v1/hk-dish-0059-black-sesame-bao.png"
+  },
+  "delta": {
+    "emitted": false,
+    "reason": "RELEASES contains the current full package only; no delta asset was emitted."
+  },
   "workflowTiming": {
-    "started": "2026-08-09T16:16:18Z",
-    "completed": "2026-08-09T16:20:24Z",
-    "duration": "00:04:06"
+    "started": "2026-08-09T16:38:49Z",
+    "completed": "2026-08-09T16:42:50Z",
+    "duration": "00:04:01"
   },
   "assets": {
     "Setup.exe": {
       "name": "Setup.exe",
-      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.424/Setup.exe",
-      "bytes": 87012864,
-      "sha256": "2de0065bdb3e66b076acdfbaf3a9307f4b02752fddd539847f71e761849a2e7a"
+      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/Setup.exe",
+      "bytes": 87019520,
+      "sha256": "a52d92b6d25cfcec15114b410f4f82be540d49e35810403dd32274bf256e5188"
     },
     "RELEASES": {
       "name": "RELEASES",
-      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.424/RELEASES",
+      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/RELEASES",
       "bytes": 84,
-      "sha256": "556d34c65f45e5860e9923e6d6e01ca42813ebf10e43c50e8bd71902e3c853e6"
+      "sha256": "241a547600a9728eaa71dd2168eeae44375dda68837517ae8859fbc4fca55750"
     },
     "full.nupkg": {
-      "name": "Amulet-0.10.0-dev424-full.nupkg",
-      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.424/Amulet-0.10.0-dev424-full.nupkg",
-      "bytes": 86874581,
-      "sha256": "78c20e1c61f08b574081dc4ee133b419c19dda161dfc5ffe258e12fb53ab8262"
+      "name": "Amulet-0.10.0-dev426-full.nupkg",
+      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/Amulet-0.10.0-dev426-full.nupkg",
+      "bytes": 86880504,
+      "sha256": "02f51fcaedc10a3c8d1dda2320303b36a6dea47e5e38670ccfe1540030f28a8c"
     }
   }
 }

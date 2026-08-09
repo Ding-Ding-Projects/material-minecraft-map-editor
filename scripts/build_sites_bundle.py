@@ -12,7 +12,7 @@ from generate_site_articles import encoded_catalog
 from verify_site_release_manifest import validate_bundle
 
 WORKER = """const SECURITY_HEADERS = {
-  'Content-Security-Policy': \"default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'\",
+  'Content-Security-Policy': \"default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self'\",
   'Permissions-Policy': 'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Content-Type-Options': 'nosniff',

@@ -38,9 +38,50 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Bootstrap Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Bootstrap site validation dependencies
         shell: bash
-        run: python -m pip install --disable-pip-version-check --no-input pytest==9.1.1
+        run: |
+          set -euo pipefail
+          mkdir -p build/evidence-input
+          python -m pip install --disable-pip-version-check --no-input pytest==9.1.1
+
+      - name: Bootstrap and inventory host tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v gh >/dev/null 2>&1; then
+            sudo mkdir -p -m 755 /etc/apt/keyrings
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+              | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+            sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+              | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y gh
+          fi
+          gh --version
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [[ -z "$CHROME_BIN" ]]; then
+            echo "::error::ubuntu-24.04 browser inventory has no Google Chrome or Chromium"
+            exit 1
+          fi
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+
+      - name: Prove Docker daemon availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "::error::ubuntu-24.04 Docker CLI is unavailable"
+            exit 1
+          fi
+          docker version | tee build/evidence-input/docker-version.txt
+          docker info >> build/evidence-input/docker-version.txt
+          docker buildx version >> build/evidence-input/docker-version.txt
 
       - name: Validate dependency-free site source
         shell: bash
@@ -48,7 +89,11 @@ jobs:
           set -euo pipefail
           node --check docs/site/app.js
           node --check docs/site/theme.mjs
+          node --check docs/site/regex-worker.mjs
+          node --check scripts/verify_site_cdp.mjs
+          node scripts/test_site_regex_worker.mjs
           python3 scripts/generate_site_articles.py --check
+          python3 scripts/verify_site_ci_inventory.py
           python3 - <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
@@ -64,7 +109,27 @@ jobs:
             tests/test_site_m3_surface_tokens_contract.py \
             tests/test_site_palette_inventory_contract.py \
             tests/test_site_publication_contract.py \
-            tests/test_site_owner_host_completeness.py
+            tests/test_site_owner_host_completeness.py \
+            tests/test_site_localization_contract.py \
+            tests/test_site_regex_worker_contract.py \
+            --junitxml=build/evidence-input/site-tests.xml
+
+      - name: Compare the manifest with GitHub release evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_site_release_manifest.py docs/site
+          RELEASE_TAG="$(python3 -c 'import json; print(json.load(open("docs/site/release-manifest.json", encoding="utf-8"))["releaseTag"])')"
+          if [[ ! "$RELEASE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
+            echo "::error::release tag failed the bounded workflow check"
+            exit 1
+          fi
+          gh api "repos/Ding-Ding-Projects/material-minecraft-map-editor/releases/tags/$RELEASE_TAG" \
+            > build/evidence-input/release-api.json
+          python3 scripts/verify_site_release_manifest.py docs/site \
+            --github-api-json build/evidence-input/release-api.json
 
       - name: Prepare owner-hosted static bundle
         shell: bash
@@ -95,8 +160,88 @@ jobs:
       - name: Build owner-hosted site image
         run: docker build --file build/site/Dockerfile --tag amulet-material3-site:${{ github.sha }} build/site
 
+      - name: Exercise the actual owner-hosted image and Chromium UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONTAINER_NAME="amulet-site-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          CHROME_PROFILE="$RUNNER_TEMP/amulet-site-chrome-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          CHROME_PID=""
+          cleanup() {
+            if [[ -n "$CHROME_PID" ]]; then kill "$CHROME_PID" >/dev/null 2>&1 || true; fi
+            docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker run --detach --name "$CONTAINER_NAME" \
+            --publish 127.0.0.1:18080:8080 \
+            amulet-material3-site:${{ github.sha }} >/dev/null
+          python3 - <<'PY'
+          import time
+          from urllib.request import urlopen
+          for _ in range(60):
+              try:
+                  with urlopen("http://127.0.0.1:18080/healthz", timeout=1) as response:
+                      if response.status == 200:
+                          break
+              except OSError:
+                  time.sleep(0.25)
+          else:
+              raise SystemExit("owner-hosted image did not become healthy")
+          PY
+          python3 scripts/verify_site_http_runtime.py http://127.0.0.1:18080 \
+            | tee build/evidence-input/site-http-runtime.txt
+          "$CHROME_BIN" --headless=new --no-sandbox --disable-dev-shm-usage \
+            --disable-background-networking --remote-allow-origins='*' \
+            --remote-debugging-port=19222 --user-data-dir="$CHROME_PROFILE" \
+            about:blank > build/evidence-input/chrome-runtime.log 2>&1 &
+          CHROME_PID=$!
+          python3 - <<'PY'
+          import time
+          from urllib.request import urlopen
+          for _ in range(80):
+              try:
+                  with urlopen("http://127.0.0.1:19222/json/version", timeout=1) as response:
+                      if response.status == 200:
+                          break
+              except OSError:
+                  time.sleep(0.25)
+          else:
+              raise SystemExit("headless Chrome DevTools endpoint did not become ready")
+          PY
+          node scripts/verify_site_cdp.mjs \
+            --origin http://127.0.0.1:18080 \
+            --cdp http://127.0.0.1:19222 \
+            --report build/evidence-input/site-cdp-report.json
+
       - name: Export site image
         run: docker save amulet-material3-site:${{ github.sha }} | gzip -9 > amulet-material3-site-${{ github.sha }}.tar.gz
+
+      - name: Collect bounded site evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          CI_RUN_ID: ${{ github.run_id }}
+          CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+          CI_COMMIT_SHA: ${{ github.sha }}
+          CI_JOB_STATUS: ${{ job.status }}
+          CI_RUNNER_OS: ${{ runner.os }}
+          CI_RUNNER_ARCH: ${{ runner.arch }}
+          CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          CI_RUNNER_NAME: ${{ runner.name }}
+        run: |
+          python3 scripts/collect_site_ci_evidence.py \
+            --input build/evidence-input \
+            --output build/site-evidence
+
+      - name: Upload bounded site evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: amulet-material3-site-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/site-evidence/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload owner-hosted image
         if: ${{ always() }}

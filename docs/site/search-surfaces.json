@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "surfaces": [
+    {
+      "name": "features",
+      "searchId": "feature-search",
+      "builderId": "feature-regex-builder",
+      "toggleId": "feature-regex",
+      "patternId": "feature-pattern",
+      "flagsId": "feature-flags",
+      "sampleId": "feature-sample",
+      "feedbackId": "regex-feedback",
+      "capturesId": "regex-captures"
+    },
+    {
+      "name": "documentation",
+      "searchId": "docs-search",
+      "builderId": "docs-regex-builder",
+      "toggleId": "docs-regex",
+      "patternId": "docs-pattern",
+      "flagsId": "docs-flags",
+      "sampleId": "docs-sample",
+      "feedbackId": "docs-feedback",
+      "capturesId": "docs-captures"
+    },
+    {
+      "name": "settings",
+      "searchId": "settings-search",
+      "builderId": "settings-regex-builder",
+      "toggleId": "settings-regex",
+      "patternId": "settings-pattern",
+      "flagsId": "settings-flags",
+      "sampleId": "settings-sample",
+      "feedbackId": "settings-feedback",
+      "capturesId": "settings-captures"
+    },
+    {
+      "name": "palette",
+      "searchId": "palette-search",
+      "builderId": "palette-regex-builder",
+      "toggleId": "palette-regex",
+      "patternId": "palette-pattern",
+      "flagsId": "palette-flags",
+      "sampleId": "palette-sample",
+      "feedbackId": "palette-feedback",
+      "capturesId": "palette-captures"
+    }
+  ]
+}

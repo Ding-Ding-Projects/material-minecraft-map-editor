@@ -11,7 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "docs" / "site"
 sys.path.insert(0, str(ROOT / "scripts"))
-from verify_site_release_manifest import validate_bundle  # noqa: E402
+from verify_site_release_manifest import (  # noqa: E402
+    validate_bundle,
+    validate_github_release_api,
+)
 
 
 class SitePublicationContractTests(unittest.TestCase):
@@ -21,15 +24,17 @@ class SitePublicationContractTests(unittest.TestCase):
             (SITE / "release-manifest.json").read_text(encoding="utf-8")
         )
         self.assertTrue(manifest["verified"])
-        self.assertEqual(manifest["releaseTag"], "0.10.0-dev.424")
-        self.assertEqual(manifest["commit"], "d86e73a2f0746012158cd49774e36887ec92a01d")
-        self.assertEqual(manifest["workflowTiming"]["duration"], "00:04:06")
+        self.assertEqual(manifest["releaseTag"], "0.10.0-dev.426")
+        self.assertEqual(manifest["commit"], "d47031726b5b1de67ebb9987f211c7d28e6f94c8")
+        self.assertEqual(manifest["workflowTiming"]["duration"], "00:04:01")
+        self.assertEqual(manifest["codeName"]["en"], "Black Sesame Bao")
+        self.assertFalse(manifest["delta"]["emitted"])
         self.assertEqual(
             set(manifest["assets"]), {"Setup.exe", "RELEASES", "full.nupkg"}
         )
-        self.assertEqual(manifest["assets"]["Setup.exe"]["bytes"], 87012864)
+        self.assertEqual(manifest["assets"]["Setup.exe"]["bytes"], 87019520)
         self.assertEqual(manifest["assets"]["RELEASES"]["bytes"], 84)
-        self.assertEqual(manifest["assets"]["full.nupkg"]["bytes"], 86874581)
+        self.assertEqual(manifest["assets"]["full.nupkg"]["bytes"], 86880504)
 
     def test_site_bundle_can_use_an_explicit_https_base_url(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -61,30 +66,51 @@ class SitePublicationContractTests(unittest.TestCase):
             shutil.copytree(SITE, copy)
             manifest_path = copy / "release-manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest.update(
-                {"verified": True, "releaseTag": "0.10.99", "commit": "a" * 40}
+            original_url = manifest["assets"]["Setup.exe"]["url"]
+            invalid_urls = (
+                original_url.replace("github.com", "downloads.example.test"),
+                original_url.replace(
+                    "Ding-Ding-Projects/material-minecraft-map-editor",
+                    "Ding-Ding-Projects/wrong-repository",
+                ),
+                original_url + "?candidate=true",
+                original_url.replace("https://", "https://user:secret@"),
             )
-            manifest["assets"] = {
-                name: {
-                    "name": (
-                        "Amulet-0.10.99-full.nupkg" if name == "full.nupkg" else name
-                    ),
-                    "url": (
-                        f"https://downloads.example.test/releases/download/0.10.99/Amulet-0.10.99-full.nupkg"
-                        if name == "full.nupkg"
-                        else f"https://downloads.example.test/releases/download/0.10.99/{name}"
-                    ),
-                    "bytes": 1,
-                    "sha256": "b" * 64,
-                }
-                for name in ("Setup.exe", "RELEASES", "full.nupkg")
-            }
+            for invalid_url in invalid_urls:
+                manifest["assets"]["Setup.exe"]["url"] = invalid_url
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+                with self.subTest(invalid_url=invalid_url), self.assertRaises(ValueError):
+                    validate_bundle(copy)
+            manifest["assets"]["Setup.exe"]["url"] = original_url
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             validate_bundle(copy)
-            manifest["assets"]["Setup.exe"]["url"] += "?candidate=true"
-            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-            with self.assertRaises(ValueError):
-                validate_bundle(copy)
+
+    def test_github_api_sizes_digests_and_urls_must_match(self):
+        manifest = validate_bundle(SITE)
+        release = {
+            "draft": False,
+            "prerelease": False,
+            "tag_name": manifest["releaseTag"],
+            "html_url": manifest["releaseUrl"],
+            "published_at": manifest["publishedAt"],
+            "assets": [
+                {
+                    "name": asset["name"],
+                    "size": asset["bytes"],
+                    "digest": f"sha256:{asset['sha256']}",
+                    "browser_download_url": asset["url"],
+                }
+                for asset in manifest["assets"].values()
+            ],
+        }
+        validate_github_release_api(manifest, release)
+        release["assets"][0]["size"] += 1
+        with self.assertRaisesRegex(ValueError, "size differs"):
+            validate_github_release_api(manifest, release)
+        release["assets"][0]["size"] -= 1
+        release["assets"][0]["digest"] = "sha256:" + "0" * 64
+        with self.assertRaisesRegex(ValueError, "digest differs"):
+            validate_github_release_api(manifest, release)
 
     def test_bundle_paths_and_workflow_timing_fail_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -126,7 +152,10 @@ class SitePublicationContractTests(unittest.TestCase):
         self.assertIn('id="release-download"', html)
         self.assertNotIn("releases/download/0.10.55/Setup.exe", html)
         self.assertIn("function verifiedManifest(manifest)", app)
+        self.assertIn("function safePhotoUrl(value)", app)
+        self.assertIn("EXPECTED_PHOTO_REPOSITORY", app)
         self.assertIn("['Setup.exe', 'RELEASES', 'full.nupkg']", app)
+        self.assertIn('id="release-code-name-link"', html)
         self.assertEqual(html.count('class="setting-provenance"'), 9)
         self.assertEqual(html.count('class="setting-help"'), 9)
         self.assertIn('id="site-accent-hex"', html)

@@ -7,17 +7,20 @@ service is required.
 
 ## Local preview
 
-From the repository root, serve `docs/site` with a static server, for example:
+From the repository root, use the production-like preview server so JavaScript
+modules, including the regex Worker, have the same MIME types and security
+headers as the owner-hosted image:
 
 ```powershell
-py -3 -m http.server 8000 --directory docs/site
+py -3 scripts/serve_site_preview.py --port 8000
 ```
 
 Open `http://127.0.0.1:8000`. The site explicitly documents the `0.10`
 development line and has six keyboard-accessible tabs,
-roving tab focus, four bounded search surfaces with adjacent regex builders,
-responsive layouts, visible focus, reduced-motion handling, and a command
-palette on <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>.
+roving tab focus, four independently stateful search surfaces with adjacent
+full regex builders, responsive layouts, visible focus, reduced-motion
+handling, and a command palette on
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>.
 
 ## Complete on-site feature manual
 
@@ -52,26 +55,43 @@ the computed primary/surface and on-primary/primary contrast ratios.
 
 The command palette keeps focus in its labelled combobox, exposes the active
 option through `aria-activedescendant`, gives the active row a visible state,
-supports arrow/Home/End/Enter operation, and returns focus to the invoking
-control when it closes. The article catalog and suggested navigation use real
-buttons, and all generated destinations are validated before publication.
+and supports arrow/Home/End/Enter operation. Escape or cancel returns focus to
+the invoking control. Activating a result instead closes the palette, reveals
+the exact destination even when an earlier filter hid it, then focuses its real
+page, feature-card control, setting, or article heading. The article catalog
+and suggested navigation use real buttons, and all generated destinations are
+validated before publication.
 
-Language and funny-level preferences are deliberately honest about their
-current boundary: they style the site shell, navigation, actions, and optional
-microcopy. Canonical technical article bodies preserve their reviewed source
-language until a reviewed translation exists; selecting a shell language does
-not pretend those articles were translated.
+The complete site chrome inventory is localized in English and natural Hong
+Kong Cantonese: headings, navigation, controls, status/error messages, release
+copy, settings, feature cards, article chrome, and accessible names. Bilingual
+mode renders separate `lang="en"` and `lang="zh-Hant"` nodes. The two persisted
+funny-level controls style complete factual messages independently at every
+level. Canonical technical article bodies preserve their reviewed English
+source language until reviewed translations exist, and the article surface
+discloses that boundary instead of claiming a full body translation.
+
+Each of the four search bars opens its own attached full JavaScript RegExp
+builder with guided literals, character classes, anchors, groups, alternation,
+quantifiers, raw pattern and flags, bounded sample text, live matches and
+capture groups, copy, and JSON export. Plain text stays in-process and is the
+default. Explicit regex work runs only in a locally bundled module Worker after
+a 120 ms debounce. Each query has generation cancellation and a 900 ms hard
+budget that includes Worker startup; timeout terminates that Worker so an
+adversarial expression cannot freeze the page or deliver a stale result after
+navigation or closure.
 
 ## Verified Windows installer
 
 The checked-in release manifest identifies the immutable verified release
-`0.10.0-dev.424` at commit
-`d86e73a2f0746012158cd49774e36887ec92a01d`. It records exact byte sizes and
+`0.10.0-dev.426` at commit
+`d47031726b5b1de67ebb9987f211c7d28e6f94c8`. It records exact byte sizes and
 SHA-256 digests for `Setup.exe`, `RELEASES`, and
-`Amulet-0.10.0-dev424-full.nupkg`. The browser only
+`Amulet-0.10.0-dev426-full.nupkg`. The browser only
 reveals `Setup.exe` after the manifest passes its exact tag, commit, name, path,
 size, and digest contract. The recorded workflow ran from
-`2026-08-09T16:16:18Z` to `2026-08-09T16:20:24Z` (`00:04:06`). These unsigned
+`2026-08-09T16:38:49Z` to `2026-08-09T16:42:50Z` (`00:04:01`). Its code name is
+`Black Sesame Bao · 芝麻包`, linked to the public catalog photo. These unsigned
 Squirrel.Windows assets can trigger the
 Windows unknown-publisher warning. This release did not produce a delta
 package, and the site does not claim otherwise.
@@ -82,9 +102,10 @@ The Docker image uses the multi-architecture `nginx:1.27.4-alpine` base pinned
 to OCI index digest
 `sha256:4ff102c5d78d254a6f0da062b3cf39eaf07f01eec0927fd21e219d0af8bc0591`;
 that index includes `linux/arm64/v8`. Nginx runs as its unprivileged user on
-container port `8080`. It serves only the public site files, adds CSP and browser
-security headers, and exposes `/healthz`. The image health check verifies the JSON health response without an
-external dependency.
+container port `8080`. It serves only the public site files, serves every `.mjs`
+module as `application/javascript` under `nosniff`, adds CSP and browser
+security headers, and exposes `/healthz`. The image health check verifies the
+JSON health response without an external dependency.
 
 The Compose service is read-only, drops all Linux capabilities, disallows new
 privileges, bounds processes/CPU/memory, and uses a small writable `/tmp` mount.
@@ -148,7 +169,12 @@ turning a mistyped output path into a recursive deletion request.
 
 The `Material 3 site` workflow checks JavaScript syntax, article freshness,
 HTML/link/accessibility contracts, computed contrast across representative
-accent seeds, the immutable release manifest, and both Docker and
-Sites-compatible builds. It emits the exact static bundle and owner-hosted
-image as artifacts. Those transport packages are not a claim that a public
-hostname has been configured.
+accent seeds, the immutable release manifest against GitHub API asset digests
+and sizes, and both Docker and Sites-compatible builds. It builds and starts the
+actual image, asserts JavaScript MIME, the 18-card catalog, deep article route,
+palette, and verified release link, then runs the Chromium focus, visibility,
+Worker-timeout, and narrow overflow matrix. A hand-written job/dependency
+inventory proves bootstrap coverage. Safe evidence collection runs even after
+failure and records the run id, commit SHA, job status, and runner context in a
+bounded artifact. The exact static bundle and owner-hosted image are transport
+packages, not a claim that a public hostname has been configured.
