@@ -299,6 +299,20 @@ class TabWorkspace:
         ).normalised()
         return self.save()
 
+    def activate_tab(self, tab_id: str) -> TabState:
+        """Select a tab after a search result is activated or restored."""
+
+        if not any(item.tab_id == tab_id for item in self.state.tabs):
+            raise ValueError(f"Unknown tab id: {tab_id}")
+        self.state = TabState(
+            self.state.version,
+            self.state.dock,
+            self.state.tabs,
+            self.state.groups,
+            tab_id,
+        ).normalised()
+        return self.save()
+
     def add_tab(
         self,
         title: str,

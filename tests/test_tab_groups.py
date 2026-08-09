@@ -72,6 +72,10 @@ def test_reorder_keeps_pinned_region_protected_and_groups_ordered(
     assert [tab.tab_id for tab in workspace.state.tabs] == ["b", "a", "d", "c"]
     workspace.reorder_group(first_group.group_id, 1)
     assert [group.group_id for group in workspace.state.groups] == ["second", "first"]
+    workspace.activate_tab("d")
+    assert workspace.state.active_tab_id == "d"
+    with pytest.raises(ValueError):
+        workspace.activate_tab("missing")
 
 
 def test_four_searches_are_independent_and_plain_text_first(tmp_path, monkeypatch):
