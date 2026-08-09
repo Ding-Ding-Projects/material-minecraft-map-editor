@@ -58,6 +58,16 @@ class NotificationHistoryDialog(wx.Dialog):
             values = (item.severity, item.title, item.body, item.created_at)
             for column, value in enumerate(values, start=1):
                 self.list.SetItem(index, column, value)
+        # Keep the real text readable at the captured 1140px surface and at
+        # narrower windows: reserve fixed room for state/severity, then divide
+        # the remaining width between message and timestamp instead of letting
+        # wx truncate every column to its label width.
+        width = max(520, self.list.GetClientSize().width)
+        self.list.SetColumnWidth(0, 92)
+        self.list.SetColumnWidth(1, 92)
+        self.list.SetColumnWidth(2, max(140, int(width * 0.22)))
+        self.list.SetColumnWidth(3, max(180, int(width * 0.43)))
+        self.list.SetColumnWidth(4, max(170, int(width * 0.20)))
         self.dismiss.Enable(bool(self._items))
         self.dismiss_all.Enable(bool(self._items))
 
