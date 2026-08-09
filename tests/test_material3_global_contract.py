@@ -27,3 +27,12 @@ def test_material3_covers_common_collection_and_selection_controls():
     )
     for control in ("wx.ListBox", "wx.ListCtrl", "wx.TreeCtrl", "wx.Notebook", "wx.CheckBox", "wx.Gauge"):
         assert control in source
+
+
+def test_dialogs_receive_borderless_material_chrome():
+    source = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(
+        encoding="utf-8"
+    )
+    assert "_ensure_material_dialog_chrome" in source
+    assert "wx.NO_BORDER" in source
+    assert "MaterialTitleBar(window" in source

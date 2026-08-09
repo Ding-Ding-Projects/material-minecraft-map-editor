@@ -110,6 +110,35 @@ def _children(window: wx.Window) -> Iterable[wx.Window]:
     yield from window.GetChildren()
 
 
+def _ensure_material_dialog_chrome(window: wx.Window) -> None:
+    """Replace wx's caption with the shared M3 title bar once content exists."""
+
+    if not isinstance(window, wx.Dialog) or getattr(
+        window, "_material3_dialog_chrome", False
+    ):
+        return
+    content = window.GetSizer()
+    if content is None:
+        # Dialog constructors often install their sizer after EVT_WINDOW_CREATE;
+        # the next apply_material3 pass will retry without changing state.
+        return
+    from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
+
+    style = window.GetWindowStyleFlag()
+    window.SetWindowStyleFlag(
+        (style & ~wx.CAPTION & ~wx.SYSTEM_MENU & ~wx.MINIMIZE_BOX & ~wx.MAXIMIZE_BOX)
+        | wx.NO_BORDER
+        | wx.RESIZE_BORDER
+    )
+    title_bar = MaterialTitleBar(window, window.GetTitle() or "Amulet")
+    outer = wx.BoxSizer(wx.VERTICAL)
+    outer.Add(title_bar, 0, wx.EXPAND)
+    outer.Add(content, 1, wx.EXPAND)
+    wx.Dialog.SetSizer(window, outer)
+    window._material3_dialog_chrome = True
+    window.Layout()
+
+
 def apply_material3(window: wx.Window) -> None:
     """Apply M3 roles to a window tree.
 
@@ -121,6 +150,8 @@ def apply_material3(window: wx.Window) -> None:
 
     if getattr(window, "_material3_opt_out", False):
         return
+
+    _ensure_material_dialog_chrome(window)
 
     palette = _active_palette()
 
