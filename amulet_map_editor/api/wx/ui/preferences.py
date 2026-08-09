@@ -8,6 +8,7 @@ typography are sourced from one persisted :mod:`api.preferences` record.
 from __future__ import annotations
 
 from datetime import date
+from dataclasses import asdict
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional, Tuple
 import re
@@ -21,6 +22,7 @@ from amulet_map_editor.api import (
     changelog,
     external_editor,
     export_actions,
+    local_history,
     preferences,
     school_mode,
 )
@@ -1743,6 +1745,14 @@ class ChangelogDialog(wx.Dialog):
             _chrome_copy("changelog_match_count", self._language_mode).format(
                 count=len(filtered.entries)
             )
+        )
+        # Settings are user-managed records too: keep an append-only local
+        # snapshot without allowing a history filesystem/git failure to block
+        # the preference change itself.
+        local_history.safe_record(
+            "preferences",
+            asdict(saved_preferences),
+            record_type="settings",
         )
         rows = [
             f"{entry.version} — {entry.released_on.isoformat()} — {entry.changes[0].summary}"
