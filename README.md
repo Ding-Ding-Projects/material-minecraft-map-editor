@@ -73,6 +73,10 @@ include:
   staged per-property or appearance-only global reset controls;
 - a tabbed native Preferences dialog with searchable settings, a bounded Python
   `re` builder, and a `Ctrl+Shift+F` command palette;
+- a shared School-mode presentation lock with a renamed label, salted unlock
+  verifier, and native controls that remove inapplicable language settings;
+- a persisted notification history with search, bulk dismissal, and Markdown
+  export from the native menu and command palette;
 - a shared, renamed School-mode presentation lock with salted local unlock
   verification, English-only forced presentation, and recoverable prior
   language/funny-level choices;
