@@ -10,6 +10,7 @@ param(
 
     [string] $InputDirectory = (Join-Path $PSScriptRoot 'dist\amulet'),
     [string] $OutputDirectory = (Join-Path $PSScriptRoot 'dist\squirrel'),
+    [string] $PreviousPackagePath = '',
     # Keep the bootstrap executable immutable: the NuGet "latest" alias is a
     # moving target and would let a packaging run silently change toolchains.
     [ValidatePattern('^v\d+\.\d+\.\d+$')]
@@ -96,6 +97,15 @@ try {
 
     $releaseDir = Join-Path $out "Amulet-$Version-Windows-$Architecture"
     New-Item -ItemType Directory -Force $releaseDir | Out-Null
+    $previousPackageName = $null
+    if (-not [string]::IsNullOrWhiteSpace($PreviousPackagePath)) {
+        $previous = Get-Item -LiteralPath $PreviousPackagePath -ErrorAction Stop
+        if ($previous.Extension -ne '.nupkg' -or $previous.Name -notmatch '-full\.nupkg$') {
+            throw "Previous Squirrel package must be a full .nupkg: $PreviousPackagePath"
+        }
+        $previousPackageName = $previous.Name
+        Copy-Item -LiteralPath $previous.FullName -Destination (Join-Path $releaseDir $previousPackageName) -Force
+    }
     $squirrel = Join-Path $squirrelRoot 'tools\Squirrel.exe'
     $oldLocation = Get-Location
     try {
@@ -126,6 +136,12 @@ try {
     foreach ($name in $required) {
         $path = Join-Path $releaseDir $name
         if (-not (Test-Path $path)) { throw "Squirrel did not create required artifact: $name" }
+    }
+
+    # The previous full package is an input to releasify, not a new public
+    # asset. Remove it after Squirrel has had the chance to emit a delta.
+    if ($previousPackageName) {
+        Remove-Item -LiteralPath (Join-Path $releaseDir $previousPackageName) -Force -ErrorAction SilentlyContinue
     }
 
     $signatureTargets = Get-ChildItem -Path $releaseDir -File |
