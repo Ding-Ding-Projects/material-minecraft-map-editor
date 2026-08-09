@@ -82,18 +82,19 @@ class ScheduledSettingsUiContractTestCase(unittest.TestCase):
         self.assertIn("control.Enable(False)", build_source)
         self.assertIn('self._schedule_text("loaderror"', build_source)
 
-    def test_rule_form_uses_domain_models_and_no_external_sources(self):
+    def test_rule_form_uses_domain_models_and_validated_source_metadata(self):
         form_source = ast.get_source_segment(
             self.source, self.methods["_rule_from_schedule_form"]
         )
         self.assertIn("schedules.ScheduledValues", form_source)
         self.assertIn("schedules.ScheduleRule", form_source)
         self.assertIn("schedules.ALL_WEEKDAYS", form_source)
+        self.assertIn("scheduled_sources.ScheduleSource", form_source)
+        self.assertIn('self.schedule_source_url.ChangeValue("")', self.source)
         lowered = self.source.lower()
         self.assertNotIn("requests.", lowered)
         self.assertNotIn("urllib.", lowered)
-        self.assertNotIn("home_assistant", lowered)
-        self.assertNotIn("homeassistant", lowered)
+        self.assertIn("scheduled source url", lowered)
 
     def test_baseline_locales_cover_schedule_labels_and_validation(self):
         required = {
@@ -109,6 +110,10 @@ class ScheduledSettingsUiContractTestCase(unittest.TestCase):
             "preferences.schedule.theme",
             "preferences.schedule.density",
             "preferences.schedule.accent",
+            "preferences.schedule.source",
+            "preferences.schedule.sourceurl",
+            "preferences.schedule.sourceentity",
+            "preferences.schedule.sourcerefresh",
             "preferences.schedule.validationerror",
             "preferences.schedule.loaderror",
             "preferences.schedule.saveerror",

@@ -24,6 +24,7 @@ from amulet_map_editor.api import (
     export_actions,
     local_history,
     preferences,
+    scheduled_sources,
     school_mode,
 )
 from amulet_map_editor.api import lang
@@ -1010,6 +1011,28 @@ class PreferencesDialog(wx.Dialog):
         self.schedule_priority = wx.SpinCtrl(page, min=-10000, max=10000, initial=0)
         add_row("priority", self.schedule_priority)
 
+        self.schedule_source_kind = wx.Choice(
+            page,
+            choices=[
+                self._schedule_text("source.local"),
+                self._schedule_text("source.api"),
+                self._schedule_text("source.homeassistant"),
+            ],
+        )
+        self.schedule_source_kind.SetName("Scheduled source kind")
+        add_row("source", self.schedule_source_kind)
+        self.schedule_source_url = wx.TextCtrl(page)
+        self.schedule_source_url.SetHint(self._schedule_text("source.url.hint"))
+        self.schedule_source_url.SetName("Scheduled source URL")
+        add_row("sourceurl", self.schedule_source_url)
+        self.schedule_source_entity = wx.TextCtrl(page)
+        self.schedule_source_entity.SetHint(self._schedule_text("source.entity.hint"))
+        self.schedule_source_entity.SetName("Home Assistant entity")
+        add_row("sourceentity", self.schedule_source_entity)
+        self.schedule_source_refresh = wx.SpinCtrl(page, min=30, max=86400, initial=300)
+        self.schedule_source_refresh.SetName("Scheduled source refresh seconds")
+        add_row("sourcerefresh", self.schedule_source_refresh)
+
         weekday_panel = wx.Panel(page)
         weekday_sizer = wx.WrapSizer(wx.HORIZONTAL)
         self.schedule_every_day = wx.CheckBox(
@@ -1094,6 +1117,10 @@ class PreferencesDialog(wx.Dialog):
             self.schedule_enabled,
             self.schedule_label,
             self.schedule_priority,
+            self.schedule_source_kind,
+            self.schedule_source_url,
+            self.schedule_source_entity,
+            self.schedule_source_refresh,
             self.schedule_every_day,
             *self.schedule_weekdays,
             self.schedule_start_date,
@@ -1117,6 +1144,7 @@ class PreferencesDialog(wx.Dialog):
             wx.EVT_BUTTON, lambda event: self._move_schedule_rule(1)
         )
         self.schedule_apply.Bind(wx.EVT_BUTTON, self._apply_schedule_rule)
+        self.schedule_source_kind.Bind(wx.EVT_CHOICE, self._source_kind_changed)
         for control in (
             self.schedule_label,
             self.schedule_start_date,
@@ -1141,6 +1169,9 @@ class PreferencesDialog(wx.Dialog):
             self.schedule_density,
         ):
             control.Bind(wx.EVT_CHOICE, self._mark_schedule_dirty)
+        for control in (self.schedule_source_url, self.schedule_source_entity):
+            control.Bind(wx.EVT_TEXT, self._mark_schedule_dirty)
+        self.schedule_source_refresh.Bind(wx.EVT_SPINCTRL, self._mark_schedule_dirty)
 
         outer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
@@ -1184,6 +1215,15 @@ class PreferencesDialog(wx.Dialog):
             self.schedule_enabled.SetValue(True if rule is None else rule.enabled)
             self.schedule_label.SetValue("" if rule is None else rule.label)
             self.schedule_priority.SetValue(0 if rule is None else rule.priority)
+            source = {} if rule is None else dict(rule.source or {})
+            source_kind = source.get("kind", "local")
+            self.schedule_source_kind.SetSelection(
+                {"local": 0, "api": 1, "home_assistant": 2}.get(source_kind, 0)
+            )
+            self.schedule_source_url.SetValue(str(source.get("url", "")))
+            self.schedule_source_entity.SetValue(str(source.get("entity_id", "")))
+            self.schedule_source_refresh.SetValue(int(source.get("refresh_seconds", 300)))
+            self._update_schedule_source_controls()
             active_weekdays = schedules.ALL_WEEKDAYS if rule is None else rule.weekdays
             every_day = active_weekdays == schedules.ALL_WEEKDAYS
             self.schedule_every_day.SetValue(every_day)
@@ -1264,6 +1304,13 @@ class PreferencesDialog(wx.Dialog):
             ),
             accent=self.schedule_accent.GetValue().strip() or None,
         )
+        source_kind = ("local", "api", "home_assistant")[self.schedule_source_kind.GetSelection()]
+        source = scheduled_sources.ScheduleSource(
+            kind=source_kind,
+            url=self.schedule_source_url.GetValue().strip(),
+            entity_id=self.schedule_source_entity.GetValue().strip(),
+            refresh_seconds=self.schedule_source_refresh.GetValue(),
+        ).as_dict()
         return schedules.ScheduleRule(
             rule_id=(
                 current.rule_id
@@ -1286,8 +1333,24 @@ class PreferencesDialog(wx.Dialog):
             end_date=self.schedule_end_date.GetValue().strip() or None,
             start_time=self.schedule_start_time.GetValue().strip(),
             end_time=self.schedule_end_time.GetValue().strip(),
+            source=source,
             values=values,
         )
+
+    def _source_kind_changed(self, _event: wx.Event) -> None:
+        if self.schedule_source_kind.GetSelection() == 0:
+            self.schedule_source_url.ChangeValue("")
+            self.schedule_source_entity.ChangeValue("")
+        self._update_schedule_source_controls()
+        self._mark_schedule_dirty(_event)
+
+    def _update_schedule_source_controls(self) -> None:
+        selected = self.schedule_source_kind.GetSelection()
+        is_local = selected == 0
+        is_home_assistant = selected == 2
+        self.schedule_source_url.Enable(not is_local)
+        self.schedule_source_entity.Enable(is_home_assistant)
+        self.schedule_source_refresh.Enable(not is_local)
 
     def _apply_schedule_rule(self, _event: Optional[wx.Event] = None) -> bool:
         try:

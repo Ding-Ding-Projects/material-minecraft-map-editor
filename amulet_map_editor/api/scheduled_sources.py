@@ -28,7 +28,7 @@ _ALLOWED_KEYS = {"language_mode", "theme", "density", "accent"}
 _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
-class SourceValidationError(ValueError):
+class SourceValidationError(ScheduleValidationError):
     """Raised when a source cannot be represented safely."""
 
 
