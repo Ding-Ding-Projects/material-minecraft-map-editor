@@ -11,6 +11,7 @@ param(
     [string] $InputDirectory = (Join-Path $PSScriptRoot 'dist\amulet'),
     [string] $OutputDirectory = (Join-Path $PSScriptRoot 'dist\squirrel'),
     [string] $PreviousPackagePath = '',
+    [string] $PreviousReleasesPath = '',
     # Keep the bootstrap executable immutable: the NuGet "latest" alias is a
     # moving target and would let a packaging run silently change toolchains.
     [ValidatePattern('^v\d+\.\d+\.\d+$')]
@@ -38,6 +39,18 @@ function Get-Sha256([string] $Path) {
     try {
         $bytes = [IO.File]::ReadAllBytes($Path)
         return ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').ToLowerInvariant()
+    }
+    finally { $sha.Dispose() }
+}
+
+function Get-Sha1([string] $Path) {
+    $sha = [Security.Cryptography.SHA1]::Create()
+    try {
+        $stream = [IO.File]::OpenRead($Path)
+        try {
+            return ([BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '').ToLowerInvariant()
+        }
+        finally { $stream.Dispose() }
     }
     finally { $sha.Dispose() }
 }
@@ -97,6 +110,36 @@ function Invoke-SquirrelWithTimeout([string] $FilePath, [string[]] $ArgumentList
 
 try {
     New-Item -ItemType Directory -Force $scratch, $packageLib, $out | Out-Null
+    $hasPreviousPackage = -not [string]::IsNullOrWhiteSpace($PreviousPackagePath)
+    $hasPreviousReleases = -not [string]::IsNullOrWhiteSpace($PreviousReleasesPath)
+    if ($hasPreviousPackage -ne $hasPreviousReleases) {
+        throw 'PreviousPackagePath and PreviousReleasesPath must be supplied together.'
+    }
+    $previousPackageName = $null
+    $validatedPreviousPackage = $null
+    $validatedPreviousIndex = $null
+    if ($hasPreviousPackage) {
+        $previous = Get-Item -LiteralPath $PreviousPackagePath -ErrorAction Stop
+        if ($previous.Extension -ne '.nupkg' -or $previous.Name -notmatch '-full\.nupkg$') {
+            throw "Previous Squirrel package must be a full .nupkg: $PreviousPackagePath"
+        }
+        $previousIndex = Get-Item -LiteralPath $PreviousReleasesPath -ErrorAction Stop
+        if ($previousIndex.Name -cne 'RELEASES') {
+            throw "Previous Squirrel index must be named RELEASES: $PreviousReleasesPath"
+        }
+        $previousPackageName = $previous.Name
+        $validatedPreviousPackage = Join-Path $scratch $previousPackageName
+        $validatedPreviousIndex = Join-Path $scratch 'previous-RELEASES'
+        Copy-Item -LiteralPath $previous.FullName -Destination $validatedPreviousPackage -Force
+        $deltaValidator = Join-Path $PSScriptRoot '..\scripts\validate_squirrel_delta_base.py'
+        Invoke-Native 'python' @(
+            $deltaValidator,
+            '--current', $Version,
+            '--package', $validatedPreviousPackage,
+            '--releases', $previousIndex.FullName,
+            '--output-releases', $validatedPreviousIndex
+        )
+    }
     $nugetUri = "https://dist.nuget.org/win-x86-commandline/$NuGetVersion/nuget.exe"
     Invoke-Native 'curl.exe' @(
         '--fail', '--location', '--silent', '--show-error', '--retry', '4',
@@ -153,15 +196,13 @@ try {
     Invoke-Native $nuget @('pack', $nuspecPath, '-OutputDirectory', $scratch, '-NoPackageAnalysis')
 
     $releaseDir = Join-Path $out "Amulet-$Version-Windows-$Architecture"
+    if (Test-Path -LiteralPath $releaseDir) {
+        Remove-Item -LiteralPath $releaseDir -Recurse -Force
+    }
     New-Item -ItemType Directory -Force $releaseDir | Out-Null
-    $previousPackageName = $null
-    if (-not [string]::IsNullOrWhiteSpace($PreviousPackagePath)) {
-        $previous = Get-Item -LiteralPath $PreviousPackagePath -ErrorAction Stop
-        if ($previous.Extension -ne '.nupkg' -or $previous.Name -notmatch '-full\.nupkg$') {
-            throw "Previous Squirrel package must be a full .nupkg: $PreviousPackagePath"
-        }
-        $previousPackageName = $previous.Name
-        Copy-Item -LiteralPath $previous.FullName -Destination (Join-Path $releaseDir $previousPackageName) -Force
+    if ($previousPackageName) {
+        Copy-Item -LiteralPath $validatedPreviousPackage -Destination (Join-Path $releaseDir $previousPackageName) -Force
+        Copy-Item -LiteralPath $validatedPreviousIndex -Destination (Join-Path $releaseDir 'RELEASES') -Force
     }
     $squirrel = Join-Path $squirrelRoot 'tools\Squirrel.exe'
     $oldLocation = Get-Location
@@ -175,7 +216,7 @@ try {
         # A first release has no prior full package from which a delta can be
         # calculated. Skipping that impossible delta keeps Setup.exe and
         # RELEASES deterministic; later runs retain delta generation.
-        if (-not (Get-ChildItem $out -Recurse -File -Filter '*-full.nupkg' -ErrorAction SilentlyContinue)) {
+        if (-not $previousPackageName) {
             $releasifyArgs += '--no-delta'
         }
         Invoke-SquirrelWithTimeout $squirrel $releasifyArgs $SquirrelTimeoutSeconds
@@ -185,6 +226,9 @@ try {
     # Squirrel 2.0.1 dispatches archive work asynchronously on some Windows
     # runners. Wait for the release contract rather than trusting process exit.
     $required = @('Setup.exe', 'RELEASES', "Amulet-$Version-full.nupkg")
+    if ($previousPackageName) {
+        $required += "Amulet-$Version-delta.nupkg"
+    }
     $deadline = [DateTime]::UtcNow.AddSeconds(60)
     while ([DateTime]::UtcNow -lt $deadline -and
         (@($required | Where-Object { -not (Test-Path (Join-Path $releaseDir $_)) }).Count -gt 0)) {
@@ -212,9 +256,61 @@ try {
             throw "Unsigned policy violated: $($file.Name) reports $signatureStatus"
         }
     }
-    $releaseIndex = Get-Content (Join-Path $releaseDir 'RELEASES') -Raw
+    $releaseIndexPath = Join-Path $releaseDir 'RELEASES'
+    $releaseIndex = Get-Content $releaseIndexPath -Raw
+    $entryPattern = '^(?<sha1>[0-9a-fA-F]{40})\s+(?<filename>\S+)\s+(?<size>\d+)(?:\s+#\s+\d{1,3}%)?$'
+    $entries = @()
+    foreach ($line in ($releaseIndex -split '\r?\n')) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        if ($line -notmatch $entryPattern) {
+            throw "Squirrel generated an invalid RELEASES entry: $line"
+        }
+        $entries += [pscustomobject]@{
+            Sha1 = $Matches.sha1.ToLowerInvariant()
+            Filename = $Matches.filename
+            Size = [long]$Matches.size
+        }
+    }
+
+    # Squirrel carries prior rows into its generated feed. Those inputs are
+    # useful for delta construction but are not assets in this release. Emit a
+    # publish-safe index containing only current files that have been verified
+    # against the generated hashes and byte sizes.
+    $currentPackageNames = @()
+    if ($previousPackageName) {
+        $currentPackageNames += "Amulet-$Version-delta.nupkg"
+    }
+    $currentPackageNames += "Amulet-$Version-full.nupkg"
+    $publishableEntries = @()
+    foreach ($packageName in $currentPackageNames) {
+        $matches = @($entries | Where-Object { $_.Filename -ceq $packageName })
+        if ($matches.Count -ne 1) {
+            throw "RELEASES must contain exactly one current entry for $packageName; found $($matches.Count)."
+        }
+        $artifact = Get-Item -LiteralPath (Join-Path $releaseDir $packageName) -ErrorAction Stop
+        $actualSha1 = Get-Sha1 $artifact.FullName
+        if ($matches[0].Sha1 -ne $actualSha1) {
+            throw "RELEASES SHA-1 mismatch for $packageName"
+        }
+        if ($matches[0].Size -ne $artifact.Length) {
+            throw "RELEASES size mismatch for $packageName"
+        }
+        $publishableEntries += "$actualSha1 $packageName $($artifact.Length)"
+    }
+    [IO.File]::WriteAllText(
+        $releaseIndexPath,
+        ($publishableEntries -join "`n"),
+        [Text.UTF8Encoding]::new($false)
+    )
+    $releaseIndex = Get-Content $releaseIndexPath -Raw
     if ($releaseIndex -notmatch [regex]::Escape("Amulet-$Version-full.nupkg")) {
         throw 'RELEASES does not reference the full package'
+    }
+    if ($previousPackageName -and $releaseIndex -notmatch [regex]::Escape("Amulet-$Version-delta.nupkg")) {
+        throw 'RELEASES does not reference the required delta package'
+    }
+    if ($previousPackageName -and $releaseIndex -match [regex]::Escape($previousPackageName)) {
+        throw 'RELEASES still advertises the unpublished previous full package'
     }
     Write-Output "Squirrel.Windows $SquirrelVersion produced unsigned artifacts in $releaseDir"
 }

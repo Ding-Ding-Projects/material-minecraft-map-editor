@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -7,8 +8,11 @@ import zipfile
 
 from scripts.validate_squirrel_delta_base import (
     is_strictly_older,
+    parse_release_index,
     parse_version,
     validate_delta_base,
+    validate_release_pair,
+    write_single_release_index,
 )
 
 NUSPEC = """<?xml version="1.0" encoding="utf-8"?>
@@ -39,6 +43,25 @@ class SquirrelDeltaBaseTests(unittest.TestCase):
             archive.writestr("lib/net45/Amulet.exe", b"fixture")
         return path
 
+    def _releases(
+        self,
+        root: Path,
+        package: Path,
+        *,
+        filename: str | None = None,
+        sha1: str | None = None,
+        size: int | None = None,
+        extra: str = "",
+    ) -> Path:
+        path = root / "RELEASES"
+        digest = hashlib.sha1(package.read_bytes(), usedforsecurity=False).hexdigest()
+        line = (
+            f"{sha1 or digest} {filename or package.name} "
+            f"{package.stat().st_size if size is None else size}"
+        )
+        path.write_text(f"{extra}{line}\n", encoding="utf-8")
+        return path
+
     def test_strict_order_supports_monotonic_dev_and_stable_release(self):
         self.assertTrue(
             is_strictly_older(
@@ -59,6 +82,55 @@ class SquirrelDeltaBaseTests(unittest.TestCase):
                 "0.10.0-dev414",
                 validate_delta_base(package, "0.10.0-dev415"),
             )
+
+    def test_valid_release_pair_is_accepted_and_staged_without_stale_rows(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = self._package(root, "0.10.0-dev414")
+            releases = self._releases(
+                root,
+                package,
+                extra=("0" * 40 + " Amulet-0.10.0-dev413-delta.nupkg 99\n"),
+            )
+            entry = validate_release_pair(releases, package)
+            staged = root / "staged" / "RELEASES"
+            write_single_release_index(entry, staged)
+
+            self.assertEqual(package.name, entry.filename)
+            self.assertEqual((entry,), parse_release_index(staged))
+            self.assertNotIn("dev413", staged.read_text(encoding="utf-8"))
+
+    def test_release_pair_rejects_hash_size_and_filename_mismatches(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = self._package(root, "0.10.0-dev414")
+            cases = (
+                ({"sha1": "0" * 40}, "SHA-1 mismatch"),
+                ({"size": package.stat().st_size + 1}, "size mismatch"),
+                (
+                    {"filename": "Amulet-0.10.0-dev413-full.nupkg"},
+                    "exactly one entry",
+                ),
+            )
+            for options, expected in cases:
+                with self.subTest(expected=expected):
+                    releases = self._releases(root, package, **options)
+                    with self.assertRaisesRegex(ValueError, expected):
+                        validate_release_pair(releases, package)
+
+    def test_release_pair_rejects_duplicate_or_malformed_index_entries(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = self._package(root, "0.10.0-dev414")
+            releases = self._releases(root, package)
+            line = releases.read_text(encoding="utf-8")
+            releases.write_text(line + line, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "exactly one entry"):
+                validate_release_pair(releases, package)
+
+            releases.write_text("this is not a Squirrel feed\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "invalid RELEASES entry"):
+                validate_release_pair(releases, package)
 
     def test_equal_or_newer_package_is_rejected(self):
         with TemporaryDirectory() as directory:

@@ -24,9 +24,10 @@
 - ✅ Bounded startup/manual update check with an unsigned status-bar state.
 - ✅ Hosted release publication produces unsigned Setup.exe, RELEASES, and the
   full nupkg. Publication timing is measured through GitHub's confirmed publish
-  timestamp, push builds safely seed delta generation when an older full
-  package exists, and release notes report reproducible line attribution;
-  ⏳ end-to-end restart/update proof remains.
+  timestamp, push builds validate a prior index/package pair before seeding
+  delta generation, and release notes report reproducible line attribution.
+  A selected pair now makes a current delta and a current-only feed mandatory;
+  ⏳ hosted delta publication and end-to-end restart/update proof remain.
 
 ## Documentation
 

@@ -82,7 +82,7 @@ jobs:
         "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "build_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-    - name: Fetch previous full package for delta
+    - name: Fetch previous Squirrel feed for delta
       shell: pwsh
       env:
         GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
@@ -102,22 +102,30 @@ jobs:
         } catch {
           Write-Warning "Could not enumerate prior releases; delta generation will be skipped: $($_.Exception.Message)"
         }
-        $selected = $null
+        $selectedPackage = $null
+        $selectedReleases = $null
         :releaseSearch foreach ($candidate in $candidates) {
           $candidateDirectory = Join-Path $destination ([guid]::NewGuid().ToString('N'))
           New-Item -ItemType Directory -Force $candidateDirectory | Out-Null
           try {
+            & gh release download $candidate.tagName --repo $env:GITHUB_REPOSITORY --pattern 'RELEASES' --dir $candidateDirectory --clobber
+            if ($LASTEXITCODE -ne 0) { throw "gh release download RELEASES failed with exit code $LASTEXITCODE" }
             & gh release download $candidate.tagName --repo $env:GITHUB_REPOSITORY --pattern 'Amulet-*-full.nupkg' --dir $candidateDirectory --clobber
-            if ($LASTEXITCODE -ne 0) { throw "gh release download failed with exit code $LASTEXITCODE" }
+            if ($LASTEXITCODE -ne 0) { throw "gh release download full package failed with exit code $LASTEXITCODE" }
+            $releaseIndexes = @(Get-ChildItem $candidateDirectory -File -Filter 'RELEASES')
+            if ($releaseIndexes.Count -ne 1) {
+              throw "Release $($candidate.tagName) must contain exactly one RELEASES index; found $($releaseIndexes.Count)."
+            }
             $packages = @(Get-ChildItem $candidateDirectory -File -Filter 'Amulet-*-full.nupkg')
             if (-not $packages) {
               Write-Warning "Release $($candidate.tagName) had no full package; this candidate was skipped."
             }
             foreach ($package in $packages) {
-              $validation = & python scripts/validate_squirrel_delta_base.py --current $env:CURRENT_VERSION --package $package.FullName 2>&1
+              $validation = & python scripts/validate_squirrel_delta_base.py --current $env:CURRENT_VERSION --package $package.FullName --releases $releaseIndexes[0].FullName 2>&1
               if ($LASTEXITCODE -eq 0) {
-                $selected = $package
-                Write-Host "Previous full package selected for delta: $($package.Name) ($validation)"
+                $selectedPackage = $package
+                $selectedReleases = $releaseIndexes[0]
+                Write-Host "Previous Squirrel feed selected for delta: $($package.Name) + RELEASES ($validation)"
                 break releaseSearch
               }
               Write-Warning "Skipping unsafe delta base from $($candidate.tagName): $validation"
@@ -126,11 +134,13 @@ jobs:
             Write-Warning "Could not inspect release $($candidate.tagName) for a delta base: $($_.Exception.Message)"
           }
         }
-        if ($selected) {
-          "PREVIOUS_PACKAGE=$($selected.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        if ($selectedPackage -and $selectedReleases) {
+          "PREVIOUS_PACKAGE=$($selectedPackage.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_RELEASES=$($selectedReleases.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         } else {
           Write-Host 'No prior release available; this is a full-only first release.'
           "PREVIOUS_PACKAGE=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_RELEASES=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         }
 
     - name: Windows - Create unsigned Squirrel.Windows release
@@ -142,18 +152,31 @@ jobs:
         -InputDirectory "$PWD/installer/dist/amulet"
         -OutputDirectory "$PWD/installer/dist/squirrel"
         -PreviousPackagePath "$env:PREVIOUS_PACKAGE"
+        -PreviousReleasesPath "$env:PREVIOUS_RELEASES"
 
     - name: Verify unsigned installer contract
       shell: pwsh
       run: |
         $releaseDir = Join-Path $PWD "installer/dist/squirrel/Amulet-$env:BUILD_VERSION-Windows-${{ matrix.cfg.architecture }}"
         $required = @('Setup.exe', 'RELEASES', "Amulet-$env:BUILD_VERSION-full.nupkg")
+        if (-not [string]::IsNullOrWhiteSpace($env:PREVIOUS_PACKAGE)) {
+          $required += "Amulet-$env:BUILD_VERSION-delta.nupkg"
+        }
         foreach ($name in $required) {
           $path = Join-Path $releaseDir $name
           if (-not (Test-Path -LiteralPath $path)) { throw "Expected Squirrel artifact was not produced: $path" }
         }
         $releaseIndex = Get-Content (Join-Path $releaseDir 'RELEASES') -Raw
         if ($releaseIndex -notmatch [regex]::Escape("Amulet-$env:BUILD_VERSION-full.nupkg")) { throw 'RELEASES does not reference the full package' }
+        $releaseNames = @($releaseIndex -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { ($_ -split '\s+')[1] })
+        $expectedReleaseNames = @("Amulet-$env:BUILD_VERSION-full.nupkg")
+        if (-not [string]::IsNullOrWhiteSpace($env:PREVIOUS_PACKAGE)) {
+          $expectedReleaseNames += "Amulet-$env:BUILD_VERSION-delta.nupkg"
+        }
+        $difference = @(Compare-Object -ReferenceObject $expectedReleaseNames -DifferenceObject $releaseNames)
+        if ($difference.Count -ne 0) {
+          throw "RELEASES advertises files outside the publishable current release: $($releaseNames -join ', ')"
+        }
         Get-ChildItem $releaseDir -File -Include '*.exe', '*.dll' | ForEach-Object {
           $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName
           if ($signature.Status -ne 'NotSigned') { throw "Unsigned policy violated for $($_.Name): $($signature.Status)" }

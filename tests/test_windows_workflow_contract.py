@@ -28,7 +28,7 @@ class WindowsWorkflowContractTests(unittest.TestCase):
 
     def test_push_builds_also_search_for_a_safe_delta_base(self):
         step = WORKFLOW[
-            WORKFLOW.index("- name: Fetch previous full package for delta") :
+            WORKFLOW.index("- name: Fetch previous Squirrel feed for delta") :
         ]
         step = step[
             : step.index("- name: Windows - Create unsigned Squirrel.Windows release")
@@ -36,6 +36,36 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("if: github.event_name == 'release'", step)
         self.assertIn("scripts/validate_squirrel_delta_base.py", step)
         self.assertIn("CURRENT_VERSION", step)
+
+    def test_delta_base_is_a_matched_releases_and_package_pair(self):
+        fetch = WORKFLOW[
+            WORKFLOW.index("- name: Fetch previous Squirrel feed for delta") :
+        ]
+        fetch = fetch[
+            : fetch.index("- name: Windows - Create unsigned Squirrel.Windows release")
+        ]
+        self.assertIn("--pattern 'RELEASES'", fetch)
+        self.assertIn("--releases $releaseIndexes[0].FullName", fetch)
+        self.assertIn("PREVIOUS_PACKAGE=", fetch)
+        self.assertIn("PREVIOUS_RELEASES=", fetch)
+
+        build = WORKFLOW[
+            WORKFLOW.index(
+                "- name: Windows - Create unsigned Squirrel.Windows release"
+            ) :
+        ]
+        build = build[: build.index("- name: Verify unsigned installer contract")]
+        self.assertIn('-PreviousPackagePath "$env:PREVIOUS_PACKAGE"', build)
+        self.assertIn('-PreviousReleasesPath "$env:PREVIOUS_RELEASES"', build)
+
+    def test_selected_delta_base_requires_current_delta_and_publish_safe_index(self):
+        verify = WORKFLOW[
+            WORKFLOW.index("- name: Verify unsigned installer contract") :
+        ]
+        verify = verify[: verify.index("- name: Publish to PyPi")]
+        self.assertIn('"Amulet-$env:BUILD_VERSION-delta.nupkg"', verify)
+        self.assertIn("Compare-Object", verify)
+        self.assertIn("publishable current release", verify)
 
     def test_release_notes_explain_line_scope_and_surviving_attribution(self):
         self.assertIn("repository-grand-total", WORKFLOW)

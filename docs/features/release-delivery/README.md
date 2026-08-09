@@ -8,11 +8,19 @@ publishes one unique non-draft release. The required assets are `Setup.exe`,
 `RELEASES`, and the full `.nupkg`; any generated delta package travels beside
 them.
 
-Push and release builds search the published release inventory for a prior full
-package. A candidate becomes a delta base only after its archive, NuGet package
-identity, filename/metadata version agreement, and strictly older version are
-validated. If no safe candidate exists, Squirrel produces the required full
-release without a delta.
+Push and release builds search the published release inventory for a prior
+Squirrel feed. A candidate becomes a delta base only when its `RELEASES` index
+contains exactly one row matching the downloaded full package's filename,
+SHA-1, and byte size, and the package is a valid `Amulet` NuGet archive with a
+strictly older, filename-matched metadata version. The validator writes a
+single-row staging index so stale rows cannot make Squirrel select an asset
+that was not downloaded. If no safe pair exists, Squirrel produces the
+required full release without a delta.
+
+When a pair is selected, packaging fails unless Squirrel emits the current
+delta package. The generated feed is then reduced to verified current full and
+delta rows; the prior package and any historical index rows are build inputs,
+not assets advertised by the new release.
 
 Automatic publication starts as a draft carrying the recursion marker, then is
 published exactly once. The workflow reads the resulting `publishedAt`
@@ -31,8 +39,10 @@ unattributed `git blame` lines.
 ## Failure modes
 
 - A failed test or package build prevents publication.
-- A missing or unsafe prior package skips only delta generation; required full
-  assets remain mandatory.
+- A missing, unsafe, or unmatched prior `RELEASES`/full-package pair skips that
+  candidate; required full assets remain mandatory.
+- Once a safe pair is selected, a missing current delta, hash/size mismatch, or
+  stale historical row fails packaging instead of publishing a lying feed.
 - A missing first-job or publication timestamp fails release-note publication
   instead of inventing a duration.
 - Existing immutable asset names are never overwritten.
@@ -41,10 +51,12 @@ unattributed `git blame` lines.
 ## Security
 
 Release tokens remain in the workflow credential environment and are never
-printed. Event tag data is normalized before it reaches the CLI. Prior packages
-must be valid NuGet ZIP archives for the `Amulet` package and strictly older
-than the candidate. Executables and DLLs must report `NotSigned`; the workflow
-never requests or invokes signing.
+printed. Event tag data is normalized before it reaches the CLI. Prior indexes
+are bounded to 256 KiB, parsed as strict UTF-8 Squirrel entries, and may name
+only local asset basenames. Prior packages must match the index's SHA-1 and
+size, be valid NuGet ZIP archives for the `Amulet` package, and be strictly
+older than the candidate. Executables and DLLs must report `NotSigned`; the
+workflow never requests or invokes signing.
 
 ## Verification
 

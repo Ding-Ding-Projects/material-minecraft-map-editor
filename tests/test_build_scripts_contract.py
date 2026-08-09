@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -11,12 +10,12 @@ def test_root_build_scripts_are_touchless_and_use_supported_paths():
     assert '"numpy~=1.26"' in build and "--no-build-isolation" in build
     assert "PYTHON_ARGS=-3.11" in build and "PYTHON_ARGS=-3.11" in installer
     assert "Python311\\python.exe" in build and "Python311\\python.exe" in installer
-    assert "py -3.11 -c \"import sys\"" in build
+    assert 'py -3.11 -c "import sys"' in build
     assert "bootstrap-python.ps1" in build and "ExecutionPolicy Bypass" in build
     assert "assert sys.version_info[:2] == (3, 11)" in build
     assert "assert sys.version_info[:2] == (3, 11)" in installer
     assert "build.bat" in installer and "PyInstaller" in installer
-    assert "choice /M \"Launch Amulet now\"" in build
+    assert 'choice /M "Launch Amulet now"' in build
     assert "if errorlevel 2 goto :build_done" in build
     assert "build-squirrel.ps1" in installer
     assert "-InputDirectory" in installer and "-OutputDirectory" in installer
@@ -28,7 +27,16 @@ def test_root_build_scripts_are_touchless_and_use_supported_paths():
     assert "Windows PowerShell 5.1" in squirrel
     assert "ArgumentList" in squirrel and "Arguments" in squirrel
     assert "function Get-Sha256" in squirrel
+    assert "function Get-Sha1" in squirrel
     assert "Get-FileHash" not in squirrel
+    assert (
+        "PreviousPackagePath and PreviousReleasesPath must be supplied together"
+        in squirrel
+    )
+    assert "--output-releases" in squirrel
+    assert '"Amulet-$Version-delta.nupkg"' in squirrel
+    assert "publishableEntries" in squirrel
+    assert "unpublished previous full package" in squirrel
     for prohibited in ("signtool", "azuresigntool", "codesign"):
         assert prohibited not in installer.lower()
     bootstrap = (ROOT / "scripts/bootstrap-python.ps1").read_text(encoding="utf-8")

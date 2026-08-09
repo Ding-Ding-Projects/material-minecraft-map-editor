@@ -11,12 +11,22 @@ single-token prereleases are preserved.  The normalized value is used
 consistently for the package, `RELEASES`, `Setup.exe` directory, and uploaded
 asset names.
 Each architecture produces `Setup.exe`, `RELEASES`, and a full `.nupkg`; delta
-packages are emitted when a prior full package is safely available. Push and
-manual release runs both search prior published releases, validate the NuGet
-archive, package identity, metadata version, and strictly older version before
-passing a base to Squirrel. An absent, corrupt, mismatched, or newer package is
-skipped without weakening the required full-package contract. CI verifies the
-release index and checks every generated executable and DLL with
+packages are emitted when a prior feed is safely available. Push and manual
+release runs download the prior `RELEASES` and full package together. The pair
+is accepted only when the index has exactly one matching filename whose SHA-1
+and byte size match the local package, and the NuGet archive has the `Amulet`
+identity, a filename-matched metadata version, and a version strictly older
+than the candidate. `build-squirrel.ps1` receives both paths, revalidates the
+pair, and stages a one-row prior index before releasify. Supplying only half of
+the pair fails closed.
+
+After releasify, a selected prior pair makes the current delta mandatory. The
+script verifies the current full and delta hashes and sizes against Squirrel's
+generated entries, removes the prior package input, and rewrites `RELEASES` to
+contain only the current downloadable full and delta assets. An absent,
+corrupt, mismatched, or newer pair is skipped without weakening the first-
+release full-package contract; a selected pair that produces no delta blocks
+packaging. CI also checks every generated executable and DLL with
 `Get-AuthenticodeSignature`, which must report `NotSigned`.
 
 New automatic releases are assembled as drafts, then published once. The

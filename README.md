@@ -356,7 +356,10 @@ python -m PyInstaller -y --distpath ./installer/dist installer/Amulet.spec
 
 The packaging script downloads pinned NuGet and Squirrel.Windows inputs, checks
 the NuGet SHA-256, produces `Setup.exe`, `RELEASES`, and a full `.nupkg`, and
-fails if an executable or DLL is signed. Read
+fails if an executable or DLL is signed. CI supplies a prior `RELEASES` and
+full package only as a validated pair; when supplied, the script requires a
+current delta and emits a feed containing only the current downloadable full
+and delta packages. Read
 [`installer/PACKAGING.md`](installer/PACKAGING.md) before changing this path.
 
 ### Contribution checklist

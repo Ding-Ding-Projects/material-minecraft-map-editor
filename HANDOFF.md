@@ -21,13 +21,15 @@ owner-controlled host are actually verified.
 
 ## Release contract repair
 
-The Windows workflow now searches safe prior full packages on pushes as well as
-release events, validates delta bases before Squirrel receives them, and derives
-automatic-release completion from GitHub's post-publication `publishedAt`
-value. `scripts/count_lines.py` reports explicit generated and excluded rows,
-project and repository totals, and internally checked surviving agent/person/
-unattributed attribution. These are local source and contract-test claims until
-the integration SHA completes its hosted release run.
+The Windows workflow now downloads a prior `RELEASES` index and full package as
+one matched pair on pushes and release events. It checks filename, SHA-1, byte
+size, NuGet identity, metadata version, and strict version ordering before
+Squirrel receives a single-row staging feed. A selected pair makes the current
+delta mandatory, while the published index is reduced to verified current full
+and delta entries so it cannot advertise stale inputs. Automatic-release
+completion still comes from GitHub's post-publication `publishedAt` value.
+These delta changes are local source, fixture, and contract-test claims until
+the integrated SHA completes its hosted release run.
 
 ## Offline documentation browser
 
