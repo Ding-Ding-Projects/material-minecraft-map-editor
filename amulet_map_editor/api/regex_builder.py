@@ -8,6 +8,7 @@ from typing import List, Optional, Pattern, Tuple
 
 MAX_PATTERN_LENGTH = 4096
 MAX_SAMPLE_LENGTH = 100_000
+_NESTED_QUANTIFIER = re.compile(r"\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)[+*{]")
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,10 @@ class RegexBuilder:
     def compile(self) -> Pattern[str]:
         if len(self.pattern) > MAX_PATTERN_LENGTH:
             raise ValueError(f"Pattern is limited to {MAX_PATTERN_LENGTH} characters")
+        if self.regex_enabled and _NESTED_QUANTIFIER.search(self.pattern):
+            raise ValueError(
+                "Nested quantifiers are disabled to protect the UI from catastrophic backtracking"
+            )
         return re.compile(
             self.pattern if self.regex_enabled else re.escape(self.pattern), self.flags
         )
