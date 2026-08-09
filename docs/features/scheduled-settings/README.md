@@ -6,7 +6,10 @@ Amulet has a local schedule contract for four existing user preferences:
 language mode, theme, density, and accent colour. The native wx Preferences
 dialog includes a **Schedule** tab for loading, adding, editing, removing, and
 reordering these rules. The persistence, validation, matching, and precedence
-module remains wx-independent. Resolved values are not applied at runtime yet.
+module remains wx-independent. The desktop shell resolves matching rules after
+startup and on a bounded five-minute cadence; theme, density, and accent values
+apply live through the M3 token layer without writing remote values to base
+preferences.
 
 The contract is in `amulet_map_editor/api/scheduled_settings.py`, and the native
 editor is in `amulet_map_editor/api/wx/ui/preferences.py`. It uses the
@@ -88,8 +91,11 @@ queries, fragments, redirects, public HTTP, unknown fields, unsupported
 versions, oversized payloads, and malformed entity IDs; it returns a
 non-blocking failure result with a three-second bound and expects callers to
 obtain Home Assistant tokens from the operating-system credential vault.
-Runtime refresh application, cancellation generations, and UI status remain
-explicit follow-up work.
+Runtime refresh application is non-blocking: local matches apply first, active
+API/Home Assistant sources refresh through the generation-safe coordinator, and
+a stale or failed response leaves the last valid local state in place. The
+shell reports active rule identifiers in its status bar and stops the
+coordinator during close.
 
 `ScheduledRefreshCoordinator` supplies the non-blocking runtime primitive for
 that follow-up. It runs a daemon refresh, obtains a Home Assistant token only
@@ -121,6 +127,8 @@ payloads, Home Assistant on/off behavior, and malformed-response fallback.
 `tests/test_scheduled_refresh.py` covers apply success, fetch failure,
 non-blocking apply failure, asynchronous cancellation, and stale-response
 suppression.
+`tests/test_scheduled_runtime.py` covers live local resolution and fail-safe
+handling of malformed stored schedules.
 
 ## Suggested articles
 

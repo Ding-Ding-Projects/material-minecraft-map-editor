@@ -14,7 +14,7 @@ from functools import wraps
 from typing import Callable, Iterable, TypeVar
 
 import wx
-from amulet_map_editor.api import preferences, school_mode
+from amulet_map_editor.api import preferences, school_mode, scheduled_runtime
 
 
 @dataclass(frozen=True)
@@ -85,7 +85,10 @@ def _on_colour(background: wx.Colour) -> wx.Colour:
 def _active_palette() -> dict[str, wx.Colour]:
     """Resolve persisted appearance values into the live native palette."""
     prefs = school_mode.presentation_preferences(preferences.load())
-    if prefs.theme == "dark":
+    runtime = scheduled_runtime.current_values()
+    theme = runtime.get("theme", prefs.theme)
+    accent_value = runtime.get("accent", prefs.accent)
+    if theme == "dark":
         palette = {
             "surface": wx.Colour(20, 18, 24),
             "surface_container": wx.Colour(33, 31, 38),
@@ -105,7 +108,7 @@ def _active_palette() -> dict[str, wx.Colour]:
         }
     palette["primary"] = TOKENS.primary
     try:
-        accent = wx.Colour(prefs.accent)
+        accent = wx.Colour(accent_value)
         if accent.IsOk():
             palette["primary"] = accent
     except (TypeError, ValueError):
@@ -117,7 +120,7 @@ def _active_palette() -> dict[str, wx.Colour]:
     palette["primary_container"] = _blend_colour(
         palette["primary"],
         palette["surface_container"],
-        0.65 if prefs.theme == "dark" else 0.82,
+        0.65 if theme == "dark" else 0.82,
     )
     palette["on_primary_container"] = _on_colour(palette["primary_container"])
     return palette
@@ -148,7 +151,7 @@ def _control_min_height(window: wx.Window) -> int:
     """Resolve the touch target from the persisted M3 density choice."""
 
     prefs = school_mode.presentation_preferences(preferences.load())
-    density = prefs.density
+    density = scheduled_runtime.current_values().get("density", prefs.density)
     target = {"compact": 36, "comfortable": 40, "spacious": 48}.get(
         density, 40
     )

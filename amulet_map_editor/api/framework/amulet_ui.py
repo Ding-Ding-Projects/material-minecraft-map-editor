@@ -23,6 +23,7 @@ from amulet_map_editor.api import (
     preferences,
     school_mode,
     tts_narrator,
+    scheduled_runtime,
 )
 from . import update_copy
 from amulet_map_editor.api.wx.material3 import apply_material3
@@ -138,6 +139,10 @@ class AmuletUI(wx.Frame):
         self._dim_sum_toast = None
         self._last_update_notification_key = None
         self._update_timer = None
+        self._scheduled_runtime = scheduled_runtime.ScheduledRuntimeController(
+            on_state=self._apply_scheduled_runtime_state
+        )
+        self._scheduled_timer = wx.CallLater(1000, self._refresh_scheduled_runtime)
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
         self._update_banner_later.Bind(wx.EVT_BUTTON, self._hide_update_banner)
         self.CreateStatusBar()
@@ -147,6 +152,32 @@ class AmuletUI(wx.Frame):
         )
 
         self.Bind(wx.EVT_CLOSE, self._on_app_close)
+
+    def _refresh_scheduled_runtime(self) -> None:
+        if self.IsBeingDeleted():
+            return
+        prefs = school_mode.presentation_preferences(preferences.load())
+        base = {
+            key: getattr(prefs, key)
+            for key in ("language_mode", "theme", "density", "accent")
+        }
+        threading.Thread(
+            target=self._scheduled_runtime.refresh,
+            args=(base,),
+            name="amulet-scheduled-settings",
+            daemon=True,
+        ).start()
+        self._scheduled_timer = wx.CallLater(5 * 60 * 1000, self._refresh_scheduled_runtime)
+
+    def _apply_scheduled_runtime_state(self, state: scheduled_runtime.RuntimeScheduleState) -> None:
+        wx.CallAfter(self._finish_scheduled_runtime_state, state)
+
+    def _finish_scheduled_runtime_state(self, state: scheduled_runtime.RuntimeScheduleState) -> None:
+        if self.IsBeingDeleted():
+            return
+        apply_material3(self)
+        if state.matched_rule_ids:
+            self.SetStatusText("Scheduled settings active: " + ", ".join(state.matched_rule_ids))
 
     def begin_startup_dim_sum_surprise(self) -> None:
         """Start the optional delight after startup gates have completed.
@@ -439,6 +470,9 @@ class AmuletUI(wx.Frame):
         """Stop the refresh timer before the notebook applies close protection."""
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
+        if self._scheduled_timer is not None and self._scheduled_timer.IsRunning():
+            self._scheduled_timer.Stop()
+        self._scheduled_runtime.stop()
         self._narrator.close()
         if self._dim_sum_toast is not None:
             self._dim_sum_toast.dismiss()
