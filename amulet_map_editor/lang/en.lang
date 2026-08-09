@@ -97,6 +97,8 @@ main_menu.licence_title=Third Party Licenses
 language_select.title=Language Select
 language_select.help=Select the language to use in Amulet from the list below.
 language_select.contribute=If you want to fix or add translations click here.
+language_select.ok=Apply
+language_select.cancel=Cancel
 
 # Support Dialog
 licence_dialog.title=Amulet

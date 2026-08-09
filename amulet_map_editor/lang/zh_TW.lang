@@ -132,6 +132,8 @@ main_menu.discord=Amulet Discord
 language_select.title=選擇語言
 language_select.help=從下面的列表中選擇要在Amulet中使用的語言。
 language_select.contribute=如果您想改善或增加翻譯，請點擊這裡。
+language_select.ok=套用
+language_select.cancel=取消
 
 # 資助視窗
 licence_dialog.title=Amulet
