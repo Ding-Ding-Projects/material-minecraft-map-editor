@@ -5,8 +5,6 @@ import locale
 import logging
 import os
 
-from amulet_map_editor.api import config
-from .warning_dialog import WarningDialog
 from amulet_map_editor.api.wx.material3 import apply_material3
 
 # Disable OpenGL_accelerate logging
@@ -15,6 +13,7 @@ logging.getLogger("OpenGL.GL.shaders").setLevel(logging.INFO)
 logging.getLogger("PIL.PngImagePlugin").setLevel(logging.INFO)
 
 log = logging.getLogger(__name__)
+
 
 def centre_on_main_screen(window: wx.TopLevelWindow) -> None:
     # The normal CentreOnParent method makes the window no larger than its parent which is often undesired.
@@ -55,20 +54,9 @@ class AmuletApp(wx.App):
             f"Shown AmuletUI at {self._amulet_ui.GetRect()} maximised={self._amulet_ui.IsMaximized()}"
         )
 
-        meta_config = config.get("amulet_meta", {})
-
-        if not meta_config.get("do_not_show_warning_dialog", False):
-            warning_dialog = WarningDialog(self._amulet_ui)
-            centre_on_main_screen(warning_dialog)
-            log.debug(f"Showing warning dialog at {warning_dialog.GetRect()}")
-            warning_dialog.ShowModal()
-            if warning_dialog.do_not_show_again:
-                meta_config["do_not_show_warning_dialog"] = True
-                config.put("amulet_meta", meta_config)
-
-        # The first-run/license/warning gates above have completed.  Schedule
-        # the optional draw only after the event loop returns so startup stays
-        # usable and no modal surface is interrupted.
+        # Startup has no acknowledgement, purchase, review, or promotional
+        # gate. Schedule the optional delight only after the usable shell has
+        # returned to the event loop.
         wx.CallLater(0, self._amulet_ui.begin_startup_dim_sum_surprise)
 
         return True

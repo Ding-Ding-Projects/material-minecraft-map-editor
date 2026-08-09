@@ -5,13 +5,21 @@ from __future__ import annotations
 import wx
 
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.components import MaterialWindowButton
 
 
 class MaterialTitleBar(wx.Panel):
     """A keyboard-accessible title bar with real frame window actions."""
 
-    def __init__(self, frame: wx.Frame, title: str):
-        super().__init__(frame, size=wx.Size(-1, 44))
+    def __init__(self, parent: wx.Window, title: str):
+        super().__init__(parent, size=wx.Size(-1, 44))
+        frame = (
+            parent
+            if isinstance(parent, wx.TopLevelWindow)
+            else parent.GetTopLevelParent()
+        )
+        if not isinstance(frame, wx.TopLevelWindow):
+            raise TypeError("MaterialTitleBar requires a top-level window parent")
         self._frame = frame
         self._drag_origin: wx.Point | None = None
         self.SetMinSize(wx.Size(-1, 44))
@@ -33,12 +41,13 @@ class MaterialTitleBar(wx.Panel):
             control.Bind(wx.EVT_LEFT_DCLICK, lambda _event: self._toggle_maximize())
         apply_material3(self)
 
-    def _button(self, label: str, name: str, handler) -> wx.Button:
-        button = wx.Button(self, label=label, name=name, size=wx.Size(44, 40))
-        button.SetMinSize(wx.Size(44, 40))
-        button.SetToolTip(name)
-        button.Bind(wx.EVT_BUTTON, handler)
-        return button
+    def _button(self, label: str, name: str, handler) -> MaterialWindowButton:
+        action = {
+            "—": "minimize",
+            "□": "maximize",
+            "×": "close",
+        }[label]
+        return MaterialWindowButton(self, action, name, handler)
 
     def set_title(self, title: str) -> None:
         self.brand.SetLabel(title)

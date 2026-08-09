@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -22,14 +21,21 @@ def test_material3_consumes_persisted_appearance_tokens():
     assert "prefs.density" in source
     assert "_blend_colour" in source
     assert "_on_colour" in source
-    assert "palette[\"primary_container\"] = _blend_colour" in source
+    assert 'palette["primary_container"] = _blend_colour' in source
 
 
 def test_material3_covers_common_collection_and_selection_controls():
     source = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(
         encoding="utf-8"
     )
-    for control in ("wx.ListBox", "wx.ListCtrl", "wx.TreeCtrl", "wx.Notebook", "wx.CheckBox", "wx.Gauge"):
+    for control in (
+        "wx.ListBox",
+        "wx.ListCtrl",
+        "wx.TreeCtrl",
+        "wx.Notebook",
+        "wx.CheckBox",
+        "wx.Gauge",
+    ):
         assert control in source
 
 
@@ -48,7 +54,7 @@ def test_secondary_frames_receive_the_same_material_chrome():
     )
     assert "_ensure_material_frame_chrome" in source
     assert "wx.Frame.SetSizer(window, outer)" in source
-    assert "hasattr(window, \"_title_bar\")" in source
+    assert 'hasattr(window, "_title_bar")' in source
 
 
 def test_editable_controls_use_m3_surface_roles():
@@ -95,13 +101,14 @@ def test_informational_workflows_use_nonblocking_notifications():
         assert "wx.MessageBox" not in source
 
 
-def test_startup_has_no_purchase_gate():
+def test_startup_has_no_acknowledgement_or_purchase_gate():
     source = (ROOT / "amulet_map_editor/api/framework/app.py").read_text(
         encoding="utf-8"
     )
     assert "LicenceDialog" not in source
+    assert "WarningDialog" not in source
     assert "Buy a license" not in source
-    assert "ShowModal()" in source  # the remaining warning is an actual first-run decision
+    assert "ShowModal()" not in source
 
 
 def test_main_menu_has_no_unsolicited_sponsor_promotion_and_styles_legal_surfaces():
@@ -122,9 +129,15 @@ def test_main_menu_user_manual_uses_the_bundled_offline_documentation_browser():
     source = (ROOT / "amulet_map_editor/api/framework/pages/main_menu.py").read_text(
         encoding="utf-8"
     )
-    assert "from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog" in source
+    assert (
+        "from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog"
+        in source
+    )
     assert "with DocumentationDialog(self) as dialog:" in source
-    assert "github.com/Amulet-Team/Amulet-Map-Editor/blob/master/amulet_map_editor/readme.md" not in source
+    assert (
+        "github.com/Amulet-Team/Amulet-Map-Editor/blob/master/amulet_map_editor/readme.md"
+        not in source
+    )
 
 
 def test_removed_sponsor_labels_do_not_remain_in_localization_resources():
@@ -165,9 +178,9 @@ def test_remaining_informational_paths_use_the_notification_bridge():
 
 
 def test_operation_error_message_dialog_is_nonblocking():
-    source = (ROOT / "amulet_map_editor/programs/edit/api/canvas/edit_canvas.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        ROOT / "amulet_map_editor/programs/edit/api/canvas/edit_canvas.py"
+    ).read_text(encoding="utf-8")
     assert "Operation failed" in source
     assert "with wx.MessageDialog(self, msg, style=wx.OK)" not in source
 

@@ -3,9 +3,9 @@ import logging
 
 import wx
 import wx.adv
-import wx.lib.inspection
 
 from amulet_map_editor.api import image, lang, preferences
+from amulet_map_editor.api.wx.components import MaterialButton, MaterialCard
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from .base_page import BasePageUI
@@ -21,85 +21,109 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
 
         root_sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(root_sizer)
+        root_sizer.AddStretchSpacer(1)
 
-        top_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        root_sizer.Add(top_sizer, 1, wx.EXPAND, 0)
-        top_sizer.AddSpacer(64)
-        top_sizer.AddStretchSpacer(1)
-
-        top_centre_sizer = wx.BoxSizer(wx.VERTICAL)
-        top_sizer.Add(top_centre_sizer, 0, wx.EXPAND)
-        top_centre_sizer.AddStretchSpacer(1)
-
-        menu_sizer = wx.BoxSizer(wx.VERTICAL)
-        top_centre_sizer.Add(menu_sizer)
-
-        name_sizer = wx.BoxSizer()
-        menu_sizer.Add(name_sizer, 0, wx.CENTER)
-        icon_img = image.logo.amulet_logo.bitmap(64, 64)
-
-        icon = wx.StaticBitmap(self, wx.ID_ANY, icon_img, (0, 0), (64, 64))
-        icon2 = wx.StaticBitmap(self, wx.ID_ANY, icon_img, (0, 0), (64, 64))
-        icon2.Bind(
-            wx.EVT_LEFT_DOWN, lambda evt: wx.lib.inspection.InspectionTool().Show()
+        self._start_card = MaterialCard(self, name="Get started card")
+        self._start_card.SetMinSize(wx.Size(520, -1))
+        card_sizer = wx.BoxSizer(wx.VERTICAL)
+        self._start_card.SetSizer(card_sizer)
+        root_sizer.Add(
+            self._start_card,
+            0,
+            wx.ALIGN_CENTER_HORIZONTAL | wx.LEFT | wx.RIGHT,
+            24,
         )
-        name_sizer.Add(icon, flag=wx.CENTER)
 
-        self._amulet_name = wx.StaticText(self)
-        name_sizer.Add(
-            self._amulet_name, flag=wx.CENTER | wx.LEFT | wx.RIGHT, border=10
+        hero = wx.BoxSizer(wx.HORIZONTAL)
+        card_sizer.Add(hero, 0, wx.ALL | wx.EXPAND, 28)
+        icon = wx.StaticBitmap(
+            self._start_card,
+            wx.ID_ANY,
+            image.logo.amulet_logo.bitmap(64, 64),
+            (0, 0),
+            (64, 64),
         )
-        name_sizer.Add(icon2, flag=wx.CENTER)
-        self._open_world_button = wx.Button(self)
+        hero.Add(icon, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 18)
+        hero_copy = wx.BoxSizer(wx.VERTICAL)
+        hero.Add(hero_copy, 1, wx.ALIGN_CENTER_VERTICAL)
+        self._amulet_name = wx.StaticText(
+            self._start_card, name="Main menu title heading"
+        )
+        hero_copy.Add(self._amulet_name, 0, wx.BOTTOM | wx.EXPAND, 6)
+        self._hero_subtitle = wx.StaticText(
+            self._start_card, name="Main menu supporting text"
+        )
+        hero_copy.Add(self._hero_subtitle, 0, wx.EXPAND)
+
+        actions = wx.BoxSizer(wx.VERTICAL)
+        card_sizer.Add(actions, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 28)
+        self._open_world_button = MaterialButton(
+            self._start_card, "", variant="filled", name="Open world"
+        )
         self._open_world_button.Bind(
             wx.EVT_BUTTON, lambda _: open_level_from_dialog(self)
         )
-        menu_sizer.Add(self._open_world_button, 0, wx.ALL | wx.EXPAND, 5)
+        actions.Add(self._open_world_button, 0, wx.BOTTOM | wx.EXPAND, 10)
 
-        self._user_manual_button = wx.Button(self)
+        self._user_manual_button = MaterialButton(
+            self._start_card, "", variant="tonal", name="Offline user manual"
+        )
         self._user_manual_button.Bind(wx.EVT_BUTTON, self._documentation)
-        menu_sizer.Add(self._user_manual_button, 0, wx.ALL | wx.EXPAND, 5)
+        actions.Add(self._user_manual_button, 0, wx.BOTTOM | wx.EXPAND, 16)
 
-        self._bug_tracker_button = wx.Button(self)
+        community_actions = wx.BoxSizer(wx.HORIZONTAL)
+        actions.Add(community_actions, 0, wx.EXPAND)
+        self._bug_tracker_button = MaterialButton(
+            self._start_card, "", variant="outlined", name="Bug tracker"
+        )
         self._bug_tracker_button.Bind(wx.EVT_BUTTON, self._bugs)
-        menu_sizer.Add(self._bug_tracker_button, 0, wx.ALL | wx.EXPAND, 5)
+        community_actions.Add(self._bug_tracker_button, 1, wx.RIGHT | wx.EXPAND, 6)
 
-        self._discord_button = wx.Button(self)
+        self._discord_button = MaterialButton(
+            self._start_card, "", variant="outlined", name="Community"
+        )
         self._discord_button.Bind(wx.EVT_BUTTON, self._discord)
-        menu_sizer.Add(self._discord_button, 0, wx.ALL | wx.EXPAND, 5)
+        community_actions.Add(self._discord_button, 1, wx.LEFT | wx.EXPAND, 6)
 
-        top_centre_sizer.AddStretchSpacer(1)
-        top_sizer.AddStretchSpacer(1)
-
-        side_sizer = wx.BoxSizer(wx.VERTICAL)
-
-        self._lang_button = wx.BitmapButton(
-            self, bitmap=image.icon.tablericons.language.bitmap(64, 64)
+        card_sizer.Add(
+            wx.StaticLine(self._start_card), 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 28
+        )
+        utility_actions = wx.BoxSizer(wx.HORIZONTAL)
+        card_sizer.Add(utility_actions, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 18)
+        self._lang_button = MaterialButton(
+            self._start_card, "", variant="text", name="Choose language"
         )
         self._lang_button.Bind(wx.EVT_BUTTON, self._select_language)
-        side_sizer.Add(self._lang_button, 0, wx.ALIGN_RIGHT)
-
-        self._licence_button = wx.BitmapButton(
-            self, bitmap=image.icon.tablericons.license.bitmap(64, 64)
+        utility_actions.Add(self._lang_button, 0, wx.RIGHT, 8)
+        self._licence_button = MaterialButton(
+            self._start_card, "", variant="text", name="Third-party licenses"
         )
         self._licence_button.Bind(wx.EVT_BUTTON, self._show_licences)
-        side_sizer.Add(self._licence_button, 0, wx.ALIGN_RIGHT)
+        utility_actions.Add(self._licence_button, 0, wx.LEFT, 8)
 
-        top_sizer.Add(side_sizer)
+        root_sizer.AddStretchSpacer(1)
 
-        apply_material3(self)
         self._load_strings()
+        apply_material3(self)
 
     def _load_strings(self):
         self._amulet_name.SetLabel(preferences.load().display_name)
+        self._hero_subtitle.SetLabel(lang.get("main_menu.hero_subtitle"))
+        self._hero_subtitle.Wrap(400)
         self._open_world_button.SetLabel(lang.get("main_menu.open_world"))
+        self._open_world_button.SetToolTip(
+            lang.get("main_menu.open_world_backup_tooltip")
+        )
         self._user_manual_button.SetLabel(lang.get("main_menu.user_manual"))
         self._user_manual_button.SetToolTip(lang.get("app.browser_open_tooltip"))
         self._bug_tracker_button.SetLabel(lang.get("main_menu.bug_tracker"))
         self._bug_tracker_button.SetToolTip(lang.get("app.browser_open_tooltip"))
         self._discord_button.SetLabel(lang.get("main_menu.discord"))
         self._discord_button.SetToolTip(lang.get("app.browser_open_tooltip"))
+        self._lang_button.SetLabel(lang.get("language_select.title"))
+        self._licence_button.SetLabel(lang.get("main_menu.licence_title"))
         self._licence_button.SetToolTip(lang.get("main_menu.licence_tooltip"))
+        self.Layout()
 
     def _documentation(self, _event):
         # Keep the user manual available offline and inside the app's own M3 UI.
@@ -166,9 +190,7 @@ class LangSelectDialog(wx.Dialog):
         sizer_2 = wx.StdDialogButtonSizer()
         sizer_1.Add(sizer_2, 0, wx.ALIGN_RIGHT | wx.ALL, 4)
 
-        self._button_ok = wx.Button(
-            self, wx.ID_OK, lang.get("language_select.ok")
-        )
+        self._button_ok = wx.Button(self, wx.ID_OK, lang.get("language_select.ok"))
         self._button_ok.SetDefault()
         sizer_2.AddButton(self._button_ok)
 

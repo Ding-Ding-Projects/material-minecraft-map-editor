@@ -12,6 +12,7 @@ and verification evidence.
 - [Dim-sum surprise](dim-sum-surprise/README.md)
 - [External editor](external-editor/README.md)
 - [Local history](local-history/README.md)
+- [Material application shell](material-shell/README.md)
 - [Notification centre](notification-centre/README.md)
 - [Offline documentation](offline-documentation/README.md)
 - [Release code name](release-code-name/README.md)

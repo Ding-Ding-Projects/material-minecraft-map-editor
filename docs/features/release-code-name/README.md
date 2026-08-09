@@ -6,7 +6,7 @@ The Windows release workflow resolves one unused bilingual dish name from the pu
 
 ## Configuration and failure modes
 
-The resolver is network-backed during publication and accepts an optional `GH_TOKEN` for GitHui API rate-limit headroom. It fails closed when the catalog, release inventory, bilingual name, or public image asset cannot be verified; this prevents a guessed code name from entering a release. A release can still be retried after the public catalog is available.
+The resolver is network-backed during publication and accepts an optional `GH_TOKEN` for GitHub API rate-limit headroom. It fails closed when the catalog, release inventory, bilingual name, or public image asset cannot be verified; this prevents a guessed code name from entering a release. A release can still be retried after the public catalog is available.
 
 ## Security
 

@@ -1,13 +1,9 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
 M3_SURFACES = (
-    "amulet_map_editor/api/framework/warning_dialog.py",
-    "amulet_map_editor/api/framework/update_check.py",
-    "amulet_map_editor/api/framework/licence_dialog.py",
     "amulet_map_editor/api/framework/pages/main_menu.py",
     "amulet_map_editor/api/framework/pages/_legal.py",
     "amulet_map_editor/api/wx/util/key_config.py",

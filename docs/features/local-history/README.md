@@ -50,7 +50,7 @@ history directory. Credentials and project files are not copied into this
 repository by the history module.
 
 The local repository uses a fixed local author identity and has no configured
-upstream. It is never synchronised or dewed unless a future user-facing export
+upstream. It is never synchronized or pushed unless a future user-facing export
 flow explicitly offers that choice. Restoring is itself a new commit, keeping
 undo operations undoable.
 

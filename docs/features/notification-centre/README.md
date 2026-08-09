@@ -5,6 +5,13 @@ information, progress, warning, success, and error messages. It keeps
 dismissed messages reviewable instead of erasing the only explanation of what
 the app did.
 
+Application startup is deliberately quiet: it does not open acknowledgement,
+purchase, review, rating, donation, sponsorship, or promotional prompts. Safety
+guidance remains available in context and in the offline documentation. The
+bounded unsigned-updater banner is operational status rather than promotion;
+it appears only for available, ready, or failed update states and never blocks
+the editor.
+
 ## Behaviour
 
 - Stores at most 200 validated records with UTC timestamps, severity, title,

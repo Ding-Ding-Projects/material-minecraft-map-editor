@@ -3,6 +3,8 @@
 ## Material 3 modernization
 
 - ✅ Shared wxPython colour, typography, spacing, shape, and control-size tokens.
+- ✅ Owner-drawn M3 shell card, action buttons, caption controls, and application
+  command bar, with a quiet startup path and no acknowledgement or purchase gate.
 - 🏃 Roll the tokens through remaining dialogs and editor pages.
 - ✅ Persisted language, funny-level, appearance, and regex-builder foundation.
 - ✅ Versioned named appearance presets, validated JSON interchange, and
@@ -25,8 +27,8 @@
 
 ## Documentation
 
-- ✅ Material 3 responsive landing/docs source under `docs/site/`, routed to the
-  owner-controlled repository.
+- 🏃 Material 3 landing shell under `docs/site/`; local feature articles,
+  complete settings parity, and owner-controlled publication remain in progress.
 - ✅ wx-independent offline documentation bundle with deterministic feature
   discovery, SHA-256 completeness checks, local article search, and internal
   link navigation.

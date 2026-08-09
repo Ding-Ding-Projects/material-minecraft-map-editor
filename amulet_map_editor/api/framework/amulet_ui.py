@@ -26,6 +26,7 @@ from amulet_map_editor.api import (
     scheduled_runtime,
 )
 from . import update_copy
+from amulet_map_editor.api.wx.components import MaterialButton
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
 from amulet_map_editor.api.wx.ui.preferences import (
@@ -69,7 +70,7 @@ class SideTabRail(wx.Panel):
         self._notebook = notebook
         self._ids: list[int] = []
         self.list = wx.ListBox(self, name="Side tab rail")
-        self.list.SetMinSize(wx.Size(220, -1))
+        self.list.SetMinSize(wx.Size(160, -1))
         self.list.Bind(wx.EVT_LISTBOX, self._activate)
         root = wx.BoxSizer(wx.VERTICAL)
         heading = wx.StaticText(self, label="Open tabs")
@@ -121,6 +122,12 @@ class AmuletUI(wx.Frame):
         self._shell_sizer = wx.BoxSizer(wx.VERTICAL)
         self._title_bar = MaterialTitleBar(self._shell, title)
         self._shell_sizer.Add(self._title_bar, 0, wx.EXPAND)
+        self._command_bar = wx.Panel(self._shell, name="Application command bar")
+        self._command_bar._material3_surface_role = "surface_container"
+        self._command_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._command_bar.SetSizer(self._command_bar_sizer)
+        self._command_menus: list[wx.Menu] = []
+        self._shell_sizer.Add(self._command_bar, 0, wx.EXPAND)
         self._update_banner = wx.Panel(self._shell)
         self._update_banner.SetName("Update notification")
         self._update_banner_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -195,6 +202,7 @@ class AmuletUI(wx.Frame):
         )
 
         self.Bind(wx.EVT_CLOSE, self._on_app_close)
+        self.Bind(wx.EVT_SIZE, self._on_frame_size)
 
     def show_notification(
         self, title: str, body: str, *, severity: str = "info"
@@ -374,7 +382,10 @@ class AmuletUI(wx.Frame):
             }
         )
         menu_dict = self._level_notebook.extend_menu(menu_dict)
-        menu_bar = wx.MenuBar()
+        self._command_bar_sizer.Clear(delete_windows=True)
+        for old_menu in self._command_menus:
+            old_menu.Destroy()
+        self._command_menus.clear()
         for menu_name, menu_data in menu_dict.items():
             menu = wx.Menu()
             separator = False
@@ -407,11 +418,24 @@ class AmuletUI(wx.Frame):
                         wx_id, menu_item_name, menu_item_description
                     )
                     menu.Bind(wx.EVT_MENU, callback, menu_item)
-            menu_bar.Append(menu, menu_name)
-        old_menu = self.GetMenuBar()
-        self.SetMenuBar(menu_bar)
-        if old_menu is not None:
-            old_menu.Destroy()
+            label = menu_name.replace("&", "")
+            button = MaterialButton(
+                self._command_bar,
+                label,
+                variant="text",
+                name=f"{label} menu",
+            )
+            button.SetMinSize(wx.Size(max(72, button.GetBestSize().width), 40))
+            button.Bind(
+                wx.EVT_BUTTON,
+                lambda _event, control=button, popup=menu: control.PopupMenu(
+                    popup, wx.Point(0, control.GetClientSize().height)
+                ),
+            )
+            self._command_bar_sizer.Add(button, 0, wx.LEFT | wx.RIGHT, 2)
+            self._command_menus.append(menu)
+        apply_material3(self._command_bar)
+        self._command_bar.Layout()
 
     def _open_preferences(self, _event=None) -> None:
         dialog = PreferencesDialog(self)
@@ -454,7 +478,10 @@ class AmuletUI(wx.Frame):
         """Project left/right docking into a live keyboard-selectable rail."""
 
         dock = self._level_notebook._tab_workspace.state.dock
-        side = dock in (TabDock.LEFT, TabDock.RIGHT)
+        side = (
+            dock in (TabDock.LEFT, TabDock.RIGHT)
+            and self._level_notebook.GetPageCount() > 1
+        )
         self._tab_rail.Show(side)
         self._tab_content_sizer.Detach(self._tab_rail)
         if side and dock is TabDock.RIGHT:
@@ -462,9 +489,16 @@ class AmuletUI(wx.Frame):
         elif side:
             self._tab_content_sizer.Insert(0, self._tab_rail, 0, wx.EXPAND)
         if side:
-            self._tab_rail.SetMinSize(wx.Size(220, -1))
+            rail_width = 160 if self.GetClientSize().width < 900 else 200
+            self._tab_rail.SetMinSize(wx.Size(rail_width, -1))
             self._tab_rail.sync()
         self._tab_content.Layout()
+
+    def _on_frame_size(self, event: wx.SizeEvent) -> None:
+        """Keep the side rail compact while preserving the editor viewport."""
+
+        self._apply_tab_rail()
+        event.Skip()
 
     def _open_command_palette(self, _event=None) -> None:
         page = self._level_notebook.GetCurrentPage()
@@ -729,7 +763,7 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
         """Add a tab and enable it."""
         self.AddPage(page, obj_name, True)
         if self._owner_frame is not None:
-            self._owner_frame._tab_rail.sync()
+            self._owner_frame._apply_tab_rail()
 
     def close_level(self, path: str):
         """Close a given world and remove it from the notebook"""
@@ -752,7 +786,7 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
             else:
                 evt.Veto()
         if self._owner_frame is not None:
-            self._owner_frame._tab_rail.sync()
+            wx.CallAfter(self._owner_frame._apply_tab_rail)
 
     def _page_changing(self, evt: wx.BookCtrlEvent):
         old_selection_index = evt.GetOldSelection()

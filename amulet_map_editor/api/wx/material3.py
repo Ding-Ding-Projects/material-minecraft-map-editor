@@ -1,10 +1,8 @@
-"""Small Material 3 foundation for the wxPython interface.
+"""Material 3 token and component foundation for the wxPython interface.
 
-The editor predates a design-token system and has many independently-created
-controls.  This module keeps the first step deliberately narrow: one palette,
-typography scale, spacing tokens, and an idempotent application helper.  It
-does not replace native controls or alter event behaviour, so it is safe to
-roll out across existing pages incrementally.
+The high-visibility application shell uses owner-drawn M3 controls, while this
+module projects the same semantic palette, typography, density, and appearance
+roles through legacy native pages during their incremental component migration.
 """
 
 from __future__ import annotations
@@ -62,7 +60,9 @@ def _ignore_destroyed_window(function: _WindowFunc) -> _WindowFunc:
     return guarded  # type: ignore[return-value]
 
 
-def _blend_colour(first: wx.Colour, second: wx.Colour, second_weight: float) -> wx.Colour:
+def _blend_colour(
+    first: wx.Colour, second: wx.Colour, second_weight: float
+) -> wx.Colour:
     """Blend two RGB roles while keeping the result inside the M3 gamut."""
 
     weight = min(1.0, max(0.0, second_weight))
@@ -96,6 +96,8 @@ def _active_palette() -> dict[str, wx.Colour]:
             "on_surface_variant": wx.Colour(202, 196, 208),
             "primary_container": wx.Colour(74, 63, 99),
             "on_primary_container": wx.Colour(234, 221, 255),
+            "outline": wx.Colour(147, 143, 153),
+            "error": wx.Colour(255, 180, 171),
         }
     else:
         palette = {
@@ -105,6 +107,8 @@ def _active_palette() -> dict[str, wx.Colour]:
             "on_surface_variant": wx.Colour(68, 71, 78),
             "primary_container": wx.Colour(214, 227, 255),
             "on_primary_container": wx.Colour(40, 71, 117),
+            "outline": wx.Colour(116, 119, 127),
+            "error": wx.Colour(186, 26, 26),
         }
     palette["primary"] = TOKENS.primary
     try:
@@ -152,9 +156,7 @@ def _control_min_height(window: wx.Window) -> int:
 
     prefs = school_mode.presentation_preferences(preferences.load())
     density = scheduled_runtime.current_values().get("density", prefs.density)
-    target = {"compact": 36, "comfortable": 40, "spacious": 48}.get(
-        density, 40
-    )
+    target = {"compact": 36, "comfortable": 40, "spacious": 48}.get(density, 40)
     return max(target, window.GetBestSize().height)
 
 
@@ -295,7 +297,27 @@ def apply_material3(window: wx.Window) -> None:
     if hasattr(window, "SetNonActiveTabTextColour"):
         window.SetNonActiveTabTextColour(palette["on_surface_variant"])
 
-    window.SetBackgroundColour(palette["surface"])
+    surface_role = getattr(window, "_material3_surface_role", None)
+    if surface_role is not None:
+        window.SetBackgroundColour(palette.get(surface_role, palette["surface"]))
+    elif isinstance(
+        window,
+        (
+            wx.TopLevelWindow,
+            wx.Panel,
+            wx.ScrolledWindow,
+            wx.Notebook,
+            wx.ListBox,
+            wx.ListCtrl,
+            wx.TreeCtrl,
+            wx.CollapsiblePane,
+        ),
+    ):
+        window.SetBackgroundColour(palette["surface"])
+    elif window.GetParent() is not None:
+        # Leaf controls inherit the semantic surface that owns them. Resetting
+        # every label to the page surface painted pale rectangles through cards.
+        window.SetBackgroundColour(window.GetParent().GetBackgroundColour())
     window.SetForegroundColour(palette["on_surface"])
     if isinstance(window, wx.TopLevelWindow):
         window.SetFont(_font_for(window, 10))
@@ -317,7 +339,8 @@ def apply_material3(window: wx.Window) -> None:
                 wx.CollapsiblePane,
             ),
         ):
-            child.SetBackgroundColour(palette["surface"])
+            surface_role = getattr(child, "_material3_surface_role", "surface")
+            child.SetBackgroundColour(palette.get(surface_role, palette["surface"]))
         if isinstance(child, wx.StaticLine):
             child.SetForegroundColour(palette["outline"])
         if isinstance(
@@ -339,24 +362,37 @@ def apply_material3(window: wx.Window) -> None:
             child.SetFont(
                 _font_for(
                     child,
-                    14 if any(
-                        marker in child.GetName().lower()
-                        for marker in ("title", "heading")
-                    )
-                    else 10,
-                    wx.FONTWEIGHT_MEDIUM
-                    if any(
-                        marker in child.GetName().lower()
-                        for marker in ("title", "heading")
-                    )
-                    else wx.FONTWEIGHT_NORMAL,
+                    (
+                        14
+                        if any(
+                            marker in child.GetName().lower()
+                            for marker in ("title", "heading")
+                        )
+                        else 10
+                    ),
+                    (
+                        wx.FONTWEIGHT_MEDIUM
+                        if any(
+                            marker in child.GetName().lower()
+                            for marker in ("title", "heading")
+                        )
+                        else wx.FONTWEIGHT_NORMAL
+                    ),
                 )
             )
             if isinstance(
                 child,
-                (wx.CheckBox, wx.RadioButton, wx.RadioBox, wx.Slider, wx.CollapsiblePane),
+                (
+                    wx.CheckBox,
+                    wx.RadioButton,
+                    wx.RadioBox,
+                    wx.Slider,
+                    wx.CollapsiblePane,
+                ),
             ):
                 child.SetMinSize(wx.Size(-1, _control_min_height(child)))
+            elif isinstance(child, wx.StaticText):
+                child.SetBackgroundColour(window.GetBackgroundColour())
         elif isinstance(child, (wx.ListBox, wx.ListCtrl, wx.TreeCtrl)):
             child.SetFont(_font_for(child, 10))
             child.SetMinSize(wx.Size(-1, max(child.GetBestSize().height, 120)))
@@ -366,7 +402,9 @@ def apply_material3(window: wx.Window) -> None:
             child.SetFont(_font_for(child, 10, wx.FONTWEIGHT_MEDIUM))
             child.SetBackgroundColour(palette["primary_container"])
             child.SetForegroundColour(palette["on_primary_container"])
-            child.SetMinSize(wx.Size(max(child.GetBestSize().width, 88), _control_min_height(child)))
+            child.SetMinSize(
+                wx.Size(max(child.GetBestSize().width, 88), _control_min_height(child))
+            )
         elif isinstance(
             child,
             (

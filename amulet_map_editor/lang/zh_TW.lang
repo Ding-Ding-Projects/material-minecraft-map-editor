@@ -123,7 +123,9 @@ menu_bar.help.menu_name=說明(&H)
 # 主選單
 ## 開始畫面
 main_menu.tab_name=主選單
+main_menu.hero_subtitle=由一個清爽起點開啟 Minecraft 世界、將工作留在本機，並前往所有編輯工具。
 main_menu.open_world=開啟世界
+main_menu.open_world_backup_tooltip=選擇要編輯的世界；重要世界在修改前請另外保留備份。
 main_menu.user_manual=用戶手冊
 main_menu.bug_tracker=錯誤追蹤器
 main_menu.discord=Amulet Discord
@@ -134,23 +136,6 @@ language_select.help=從下面的列表中選擇要在Amulet中使用的語言�
 language_select.contribute=如果您想改善或增加翻譯，請點擊這裡。
 language_select.ok=套用
 language_select.cancel=取消
-
-# 資助視窗
-licence_dialog.title=Amulet
-licence_dialog.header=您必須擁有許可證才能使用Amulet。
-licence_dialog.quit_button=關閉Amulet。
-licence_dialog.continue_button=我有許可證。
-licence_dialog.buy_button=購買許可證。
-licence_dialog.content_1=由2025年12月11日起，您必須擁有許可證才能使用Amulet。
-licence_dialog.content_2=Pathway Studios在過去六年裡一直在資助 Amulet 的開發，但他們已決定從2026年起停止資助。
-licence_dialog.content_3=我一直希望Amulet能免費提供給那些經濟有困難的用戶使用。這在Pathway Studios資助這個計畫期間確實實現了，但這段時間已經結束了。我認為唯一能夠支持Amulet持續開發的方法就是向用戶收費。我明白這個決定可能不受歡迎，但這是我能想到的唯一讓Amulet繼續運作下去的方法。
-licence_dialog.content_4=Amulet的未來 \n在過去兩年，我一直在從零開始重寫Amulet。 \n現在，大部分函式庫都使用C++編寫，以提高速度和平行運算能力。而新應用程式則使用Qt來提供更多針對使用者介面的控制。 \n現在，重寫後的版本距離能夠完全取代目前版本的Amulet還有一段路要走，但如果資金允許，重寫後的測試版本應該很快就會發布。
-
-# 警告對話框
-warning_dialog.title=歡迎使用Amulet
-warning_dialog.content=您好，歡迎使用Amulet。 \n\n我們建議在Amulet中開啟世界之前先備份您的世界。 \n\n我們努力確保Amulet不會損壞世界，但儲存格式的說明文件不足且不斷變化，有時我們也會出現錯誤。 \n\n出於這些原因，我們僅支援經過測試的正式版Minecraft。 \nJava快照、Bedrock測試版和實驗性功能或者能正常使用，但未經測試，因此不正式支援。 \n\n現時我們暫不支援修改實體，而物品則僅支援在同一平臺內修改。 \n如果您發現需要增加的功能或需要修復的錯誤，請在我們的錯誤追蹤器中報告。 \n在建立新議題之前，請使用搜尋工具查看是否已有人報告過。 \n\n如果您是新手，我們建議您閱讀用戶手冊以熟悉程式。 \n\n- Amulet團隊
-warning_dialog.do_not_show_again=不再顯示
-warning_dialog.i_understand=我已瞭解
 
 # 更新檢查
 ## 當Amulet有新版本可用時顯示的窗口
