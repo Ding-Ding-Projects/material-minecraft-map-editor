@@ -16,7 +16,7 @@ from amulet_map_editor import __version__, lang
 from amulet_map_editor.api.framework.pages import WorldPageUI
 from .pages import AmuletMainMenu, BasePageUI
 
-from amulet_map_editor.api import image, preferences
+from amulet_map_editor.api import image, notifications, preferences
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.preferences import (
     PreferencesDialog,
@@ -280,12 +280,27 @@ class AmuletUI(wx.Frame):
         """Render a persistent, non-modal status message for update state."""
         self._update_state = state
         if state.status == "available":
+            notifications.add(
+                "info",
+                "Update available",
+                f"{state.version or 'A new version'} is available; choose Stage available update.",
+            )
             self.SetStatusText(
                 f"Update available: {state.version or 'new version'} (unsigned) — choose Stage available update"
             )
         elif state.status == "ready_to_restart":
+            notifications.add(
+                "success",
+                "Update ready",
+                "The unsigned update is staged; choose Restart to install update.",
+            )
             self.SetStatusText("Update ready (unsigned) — choose Restart to install update")
         elif state.status == "failed":
+            notifications.add(
+                "error",
+                "Update check failed",
+                state.detail or "The update feed was unavailable; try again later.",
+            )
             self.SetStatusText(f"Update check failed: {state.detail or 'offline'}")
         elif state.status == "not_installed":
             self.SetStatusText("Updates unavailable in this installation")
