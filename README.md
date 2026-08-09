@@ -11,7 +11,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](setup.cfg)
 [![Material Design 3 migration](https://img.shields.io/badge/UI-Material%20Design%203%20migration-6750A4)](ROADMAP.md)
 
-[Download verified Windows build 0.10.40](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.40/Setup.exe)
+[Download verified Windows build 0.10.55](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Setup.exe)
 · [All releases](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases)
 · [Project site source](docs/site/index.html)
 · [Documentation](amulet_map_editor/readme.md)
@@ -176,8 +176,8 @@ verified from builds and tests rather than inferred from these images.
 
 ### Recommended install
 
-1. Download the verified [`0.10.40 Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.40/Setup.exe), or choose a newer version from [all releases](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases) after checking its exact assets.
-2. Read the matching [`0.10.40` release notes and asset list](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.40).
+1. Download the verified [`0.10.55 Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Setup.exe), or choose a newer version from [all releases](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases) after checking its exact assets.
+2. Read the matching [`0.10.55` release notes and asset list](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.55).
 3. Close Minecraft, back up the world you intend to edit, and run the installer.
 4. Open the copied world in Amulet and make a small, reviewable change first.
 
@@ -191,12 +191,12 @@ verified from builds and tests rather than inferred from these images.
 
 The Windows workflow packages the PyInstaller application into:
 
-- [`Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.40/Setup.exe) — verified 0.10.40 interactive bootstrap installer;
-- [`RELEASES`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.40/RELEASES) — verified 0.10.40 Squirrel release index; and
-- [`Amulet-0.10.40-full.nupkg`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.40/Amulet-0.10.40-full.nupkg) — verified application payload used by install and update flows.
+- [`Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Setup.exe) — verified 0.10.55 interactive bootstrap installer;
+- [`RELEASES`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/RELEASES) — verified 0.10.55 Squirrel release index; and
+- [`Amulet-0.10.55-full.nupkg`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Amulet-0.10.55-full.nupkg) — verified application payload used by install and update flows.
 
 The release inspected while this README was written was
-[`0.10.40`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.40),
+[`0.10.55`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.55),
 published on 2026-08-09 with all three required assets. Later versions should
 be evaluated from their own immutable release page rather than assumed to have
 the same asset set.
@@ -310,7 +310,7 @@ fails if an executable or DLL is signed. Read
 | Preference and regex behavior | Covered by repository unit tests, including bounded persistence, plain/regex matching, invalid patterns, and capture groups. |
 | Scheduled-settings behavior | Covered by model and UI-contract tests for persistence, validation, precedence, weekday/date/time boundaries, reordering, and bilingual UI strings. |
 | Squirrel update bridge | Covered by wx-independent tests for HTTPS validation, discovery, available state, staging state, and unsigned warning. |
-| Windows release | The inspected `0.10.40` release is non-draft and contains `Setup.exe`, `RELEASES`, and `Amulet-0.10.40-full.nupkg`. |
+| Windows release | The inspected `0.10.55` release is non-draft and contains `Setup.exe`, `RELEASES`, and `Amulet-0.10.55-full.nupkg`. |
 | Current Material 3 desktop pixels | Not claimed: no current wx runtime capture or tracked screenshot harness is available in this checkout. |
 | Live project-site deployment | Not claimed: `docs/site/` is source-complete, but the repository has no verified Pages configuration or homepage URL for this site. |
 
