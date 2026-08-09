@@ -297,6 +297,9 @@ class EditTagDialog(wx.Frame):
             parent,
             title=_copy("edit_title", self._language_mode),
             size=(500, 280),
+            # The shared M3 frame chrome owns the title bar; avoid a native
+            # caption flash before the editor's content is styled.
+            style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
 
         self.save_callback = save_callback
