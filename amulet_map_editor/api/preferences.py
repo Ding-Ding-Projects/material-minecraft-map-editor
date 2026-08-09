@@ -17,6 +17,7 @@ PREFERENCES_ID = "amulet_preferences"
 PREFERENCES_VERSION = 1
 LANGUAGE_MODES: Tuple[str, ...] = ("english", "cantonese", "bilingual")
 THEMES: Tuple[str, ...] = ("light", "dark", "system")
+DENSITIES: Tuple[str, ...] = ("compact", "comfortable", "spacious")
 
 
 @dataclass
@@ -40,11 +41,7 @@ class Preferences:
             self.language_mode if self.language_mode in LANGUAGE_MODES else "english"
         )
         self.theme = self.theme if self.theme in THEMES else "system"
-        self.density = (
-            self.density
-            if self.density in ("compact", "comfortable", "spacious")
-            else "comfortable"
-        )
+        self.density = self.density if self.density in DENSITIES else "comfortable"
         try:
             self.funny_level_english = min(5, max(1, int(self.funny_level_english)))
         except (TypeError, ValueError):
