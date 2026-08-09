@@ -1,4 +1,5 @@
 import wx
+from amulet_map_editor.api.wx.material3 import apply_material3
 from wx.lib import newevent
 from typing import Tuple, Dict, Optional, List, Union
 import weakref
@@ -395,7 +396,7 @@ if __name__ == "__main__":
     def main():
         translation_manager = PyMCTranslate.new_translation_manager()
         app = wx.App()
-        dialog = wx.Dialog(None)
+        dialog = wx.Dialog(None, style=wx.NO_BORDER | wx.RESIZE_BORDER)
         sizer = wx.BoxSizer()
         dialog.SetSizer(sizer)
         sizer.Add(
@@ -414,6 +415,7 @@ if __name__ == "__main__":
         )
         dialog.Show()
         dialog.Fit()
+        apply_material3(dialog)
         app.MainLoop()
 
     main()

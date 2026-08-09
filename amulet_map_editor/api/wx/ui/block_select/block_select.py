@@ -4,6 +4,7 @@ from typing import Tuple
 import PyMCTranslate
 
 from amulet_map_editor.api.wx.ui.base_select import BaseSelect
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 
 class BlockSelect(BaseSelect):
@@ -52,10 +53,11 @@ if __name__ == "__main__":
     def main():
         app = wx.App()
         translation_manager = PyMCTranslate.new_translation_manager()
-        dialog = wx.Dialog(None)
+        dialog = wx.Dialog(None, style=wx.NO_BORDER | wx.RESIZE_BORDER)
         sizer = wx.BoxSizer()
         dialog.SetSizer(sizer)
         sizer.Add(BlockSelect(dialog, translation_manager, "java", (1, 16, 0), False))
+        apply_material3(dialog)
         dialog.Show()
         dialog.Fit()
         app.MainLoop()

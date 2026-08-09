@@ -1,4 +1,5 @@
 import wx
+from amulet_map_editor.api.wx.material3 import apply_material3
 import wx.lib.scrolledpanel
 from typing import List
 
@@ -193,12 +194,13 @@ if __name__ == "__main__":
     def main():
         app = wx.App()
         translation_manager = PyMCTranslate.new_translation_manager()
-        dialog = wx.Dialog(None, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        dialog = wx.Dialog(None, style=wx.NO_BORDER | wx.RESIZE_BORDER)
         sizer = wx.BoxSizer()
         dialog.SetSizer(sizer)
         sizer.Add(MultiBlockDefine(dialog, translation_manager), 1, wx.EXPAND)
         dialog.Show()
         dialog.Fit()
+        apply_material3(dialog)
         app.MainLoop()
 
     main()

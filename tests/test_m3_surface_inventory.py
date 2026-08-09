@@ -20,6 +20,11 @@ M3_SURFACES = (
     "amulet_map_editor/api/wx/ui/preferences.py",
     "amulet_map_editor/api/wx/ui/nbt_editor.py",
     "amulet_map_editor/api/wx/ui/confirm.py",
+    "amulet_map_editor/api/wx/ui/block_select/block_select.py",
+    "amulet_map_editor/api/wx/ui/block_select/block_define.py",
+    "amulet_map_editor/api/wx/ui/block_select/multi_block_define.py",
+    "amulet_map_editor/api/wx/ui/block_select/properties.py",
+    "amulet_map_editor/api/wx/ui/version_select.py",
 )
 
 

@@ -1,5 +1,6 @@
 from amulet_map_editor.api.wx.ui.simple import SimpleChoice, SimpleChoiceAny
 import wx
+from amulet_map_editor.api.wx.material3 import apply_material3
 from wx.lib import newevent
 import PyMCTranslate
 from typing import Tuple, Optional, Type, Any
@@ -260,12 +261,13 @@ if __name__ == "__main__":
             VersionSelect,
             lambda *args: VersionSelect(*args, show_force_blockstate=False),
         ):
-            dialog = wx.Dialog(None)
+            dialog = wx.Dialog(None, style=wx.NO_BORDER | wx.RESIZE_BORDER)
             sizer = wx.BoxSizer()
             dialog.SetSizer(sizer)
             sizer.Add(cls(dialog, translation_manager))
             dialog.Show()
             dialog.Fit()
+            apply_material3(dialog)
         app.MainLoop()
 
     main()
