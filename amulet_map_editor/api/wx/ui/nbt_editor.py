@@ -10,11 +10,23 @@ from amulet_map_editor.api.wx.ui import simple
 import amulet_nbt as nbt
 
 from amulet_map_editor.api import image
+from amulet_map_editor.api import lang, preferences
 from amulet_map_editor.api.wx.nonblocking import notify
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 nbt_resources = image.nbt
 
 NBT_FILE = b"\x0a\x00\x0b\x68\x65\x6c\x6c\x6f\x20\x77\x6f\x72\x6c\x64\x08\x00\x04\x6e\x61\x6d\x65\x00\x09\x42\x61\x6e\x61\x6e\x72\x61\x6d\x61\x00"
+
+
+def _copy(key: str, mode: str) -> str:
+    english = lang.get(f"nbt.en.{key}")
+    cantonese = lang.get(f"nbt.zh.{key}")
+    if mode == "cantonese":
+        return cantonese
+    if mode == "bilingual":
+        return f"{english} · {cantonese}"
+    return english
 
 
 class NBTRadioButton(simple.SimplePanel):
@@ -41,6 +53,7 @@ class NBTRadioButton(simple.SimplePanel):
 class NBTEditor(simple.SimplePanel):
     def __init__(self, parent, nbt_data, root_tag_name="", callback=None):
         super(NBTEditor, self).__init__(parent)
+        self._language_mode = preferences.load().language_mode
 
         self.nbt_data = nbt_data
 
@@ -70,8 +83,12 @@ class NBTEditor(simple.SimplePanel):
         self.add_object(self.tree, 1, wx.ALL | wx.CENTER | wx.EXPAND)
 
         button_row = simple.SimplePanel(self, wx.HORIZONTAL)
-        self.commit_button = wx.Button(button_row, label="Commit")
-        self.cancel_button = wx.Button(button_row, label="Cancel")
+        self.commit_button = wx.Button(
+            button_row, label=_copy("commit", self._language_mode)
+        )
+        self.cancel_button = wx.Button(
+            button_row, label=_copy("cancel", self._language_mode)
+        )
 
         button_row.add_object(self.commit_button, space=0)
         button_row.add_object(self.cancel_button, space=0)
@@ -82,6 +99,7 @@ class NBTEditor(simple.SimplePanel):
         self.add_object(button_row, space=0)
 
         self.callback = callback
+        apply_material3(self)
 
     def commit(self, evt):
         self.callback(self.nbt_data)
@@ -274,8 +292,11 @@ class EditTagDialog(wx.Frame):
     def __init__(
         self, parent, tag_name, tag, tag_types, create=False, save_callback=None
     ):
+        self._language_mode = preferences.load().language_mode
         super(EditTagDialog, self).__init__(
-            parent, title="Edit NBT Tag", size=(500, 280)
+            parent,
+            title=_copy("edit_title", self._language_mode),
+            size=(500, 280),
         )
 
         self.save_callback = save_callback
@@ -289,7 +310,9 @@ class EditTagDialog(wx.Frame):
         tag_type_panel = simple.SimplePanel(main_panel)
         button_panel = simple.SimplePanel(main_panel, sizer_dir=wx.HORIZONTAL)
 
-        name_label = wx.StaticText(name_panel, label="Name: ")
+        name_label = wx.StaticText(
+            name_panel, label=_copy("name", self._language_mode)
+        )
         self.name_field = wx.TextCtrl(name_panel)
 
         if tag_name == "" and not create:
@@ -300,7 +323,9 @@ class EditTagDialog(wx.Frame):
         name_panel.add_object(name_label, space=0, options=wx.ALL | wx.CENTER)
         name_panel.add_object(self.name_field, space=1, options=wx.ALL | wx.EXPAND)
 
-        value_label = wx.StaticText(value_panel, label="Value: ")
+        value_label = wx.StaticText(
+            value_panel, label=_copy("value", self._language_mode)
+        )
         self.value_field = wx.TextCtrl(value_panel)
 
         if isinstance(tag, (nbt.TAG_Compound, nbt.TAG_List)):
@@ -330,8 +355,12 @@ class EditTagDialog(wx.Frame):
 
         tag_type_panel.SetSizerAndFit(tag_type_sizer)
 
-        self.save_button = wx.Button(button_panel, label="Save")
-        self.cancel_button = wx.Button(button_panel, label="Cancel")
+        self.save_button = wx.Button(
+            button_panel, label=_copy("save", self._language_mode)
+        )
+        self.cancel_button = wx.Button(
+            button_panel, label=_copy("cancel", self._language_mode)
+        )
 
         button_panel.add_object(self.save_button, space=0)
         button_panel.add_object(self.cancel_button, space=0)
@@ -348,6 +377,7 @@ class EditTagDialog(wx.Frame):
 
         self.SetSize((235, 260))
         self.Layout()
+        apply_material3(self)
 
     def value_changed(self, evt):
         tag_value = evt.GetString()
