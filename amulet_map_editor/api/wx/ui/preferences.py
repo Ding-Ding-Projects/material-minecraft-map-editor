@@ -7,13 +7,14 @@ typography are sourced from one persisted :mod:`api.preferences` record.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable, Iterable, List, Optional, Tuple
 import re
 import uuid
 
 import wx
 
-from amulet_map_editor.api import preferences
+from amulet_map_editor.api import appearance_presets, preferences
 from amulet_map_editor.api import lang
 from amulet_map_editor.api import scheduled_settings as schedules
 from amulet_map_editor.api.regex_builder import RegexBuilder
@@ -32,6 +33,12 @@ class PreferencesDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
         super().__init__(parent, title="Preferences", size=wx.Size(620, 480))
         self._prefs = preferences.load()
+        self._appearance_load_error: Optional[str] = None
+        try:
+            self._appearance_presets = list(appearance_presets.load_presets())
+        except appearance_presets.AppearancePresetValidationError as exc:
+            self._appearance_presets = []
+            self._appearance_load_error = str(exc)
         self._schedule_load_error: Optional[str] = None
         try:
             self._schedule_rules = list(schedules.load().rules)
@@ -129,7 +136,9 @@ class PreferencesDialog(wx.Dialog):
         self._tabs.AddPage(page, "Language", True)
 
     def _build_appearance_tab(self) -> None:
-        page = wx.Panel(self._tabs)
+        page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
+        page.SetScrollRate(0, 12)
+        root = wx.BoxSizer(wx.VERTICAL)
         grid = wx.FlexGridSizer(0, 2, 12, 16)
         grid.AddGrowableCol(1, 1)
         grid.Add(
@@ -173,16 +182,8 @@ class PreferencesDialog(wx.Dialog):
             wx.ALIGN_CENTER_VERTICAL,
         )
         self.font = wx.FontPickerCtrl(page)
-        if self._prefs.ui_font:
-            self.font.SetSelectedFont(
-                wx.Font(
-                    10,
-                    wx.FONTFAMILY_DEFAULT,
-                    wx.FONTSTYLE_NORMAL,
-                    wx.FONTWEIGHT_NORMAL,
-                    faceName=self._prefs.ui_font,
-                )
-            )
+        self._set_appearance_font(self._prefs.ui_font)
+        self.font.Bind(wx.EVT_FONTPICKER_CHANGED, self._select_appearance_font)
         grid.Add(self.font, 1, wx.EXPAND)
         grid.Add(
             _label(
@@ -201,9 +202,289 @@ class PreferencesDialog(wx.Dialog):
             style=wx.SL_LABELS,
         )
         grid.Add(self.scale, 1, wx.EXPAND)
-        page.SetSizer(wx.BoxSizer(wx.VERTICAL))
-        page.GetSizer().Add(grid, 0, wx.EXPAND | wx.ALL, 18)
+        root.Add(grid, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        root.Add(
+            _label(
+                page,
+                "Named appearance presets",
+                "Save, load, import, or export the five appearance values above.",
+            ),
+            0,
+            wx.BOTTOM,
+            6,
+        )
+        preset_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.appearance_preset_list = wx.Choice(page, choices=[])
+        self.appearance_preset_list.SetName("Named appearance presets")
+        self.appearance_preset_name = wx.TextCtrl(page)
+        self.appearance_preset_name.SetHint("Preset name")
+        self.appearance_preset_name.SetName("New appearance preset name")
+        preset_row.Add(self.appearance_preset_list, 1, wx.EXPAND | wx.RIGHT, 8)
+        preset_row.Add(self.appearance_preset_name, 1, wx.EXPAND)
+        root.Add(preset_row, 0, wx.EXPAND | wx.BOTTOM, 8)
+
+        preset_actions = wx.WrapSizer(wx.HORIZONTAL)
+        self.appearance_preset_load = wx.Button(page, label="Load selected")
+        self.appearance_preset_save = wx.Button(page, label="Save preset")
+        self.appearance_preset_update = wx.Button(page, label="Update selected")
+        self.appearance_preset_export = wx.Button(page, label="Export selected…")
+        self.appearance_preset_import = wx.Button(page, label="Import preset…")
+        for control in (
+            self.appearance_preset_load,
+            self.appearance_preset_save,
+            self.appearance_preset_update,
+            self.appearance_preset_export,
+            self.appearance_preset_import,
+        ):
+            preset_actions.Add(control, 0, wx.RIGHT | wx.BOTTOM, 8)
+        root.Add(preset_actions, 0, wx.EXPAND)
+
+        reset_row = wx.WrapSizer(wx.HORIZONTAL)
+        self.appearance_reset_property = wx.Choice(
+            page,
+            choices=["Theme", "Density", "Accent colour", "UI font", "UI scale"],
+        )
+        self.appearance_reset_property.SetSelection(0)
+        self.appearance_reset_property.SetName("Appearance property to reset")
+        self.appearance_reset_selected = wx.Button(page, label="Reset selected value")
+        self.appearance_reset_all = wx.Button(page, label="Reset all appearance")
+        reset_row.Add(self.appearance_reset_property, 1, wx.EXPAND | wx.RIGHT, 8)
+        reset_row.Add(self.appearance_reset_selected, 0, wx.RIGHT, 8)
+        reset_row.Add(self.appearance_reset_all, 0)
+        root.Add(reset_row, 0, wx.EXPAND | wx.TOP, 4)
+
+        self.appearance_status = wx.StaticText(page, label="")
+        self.appearance_status.SetName("Appearance preset status")
+        self.appearance_status.Wrap(540)
+        root.Add(self.appearance_status, 0, wx.EXPAND | wx.TOP, 10)
+
+        self.appearance_preset_list.Bind(wx.EVT_CHOICE, self._select_appearance_preset)
+        self.appearance_preset_load.Bind(wx.EVT_BUTTON, self._load_appearance_preset)
+        self.appearance_preset_save.Bind(wx.EVT_BUTTON, self._save_appearance_preset)
+        self.appearance_preset_update.Bind(
+            wx.EVT_BUTTON, self._update_appearance_preset
+        )
+        self.appearance_preset_export.Bind(
+            wx.EVT_BUTTON, self._export_appearance_preset
+        )
+        self.appearance_preset_import.Bind(
+            wx.EVT_BUTTON, self._import_appearance_preset
+        )
+        self.appearance_reset_selected.Bind(
+            wx.EVT_BUTTON, self._reset_appearance_property
+        )
+        self.appearance_reset_all.Bind(wx.EVT_BUTTON, self._reset_appearance_form)
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
+        page.SetSizer(outer)
+        page.FitInside()
+        self._appearance_tab_index = self._tabs.GetPageCount()
         self._tabs.AddPage(page, "Appearance")
+        self._appearance_library_controls = (
+            self.appearance_preset_list,
+            self.appearance_preset_name,
+            self.appearance_preset_load,
+            self.appearance_preset_save,
+            self.appearance_preset_update,
+            self.appearance_preset_export,
+            self.appearance_preset_import,
+        )
+        if self._appearance_load_error is None:
+            self._refresh_appearance_presets()
+        else:
+            self.appearance_preset_list.Set([])
+            for control in self._appearance_library_controls:
+                control.Enable(False)
+            self._show_appearance_message(
+                "Stored presets could not be loaded and were left unchanged: "
+                + self._appearance_load_error,
+                error=True,
+            )
+
+    def _show_appearance_message(self, message: str, error: bool = False) -> None:
+        self.appearance_status.SetLabel(message)
+        self.appearance_status.SetForegroundColour(
+            wx.Colour(180, 40, 40) if error else wx.Colour(40, 120, 70)
+        )
+        self.appearance_status.Wrap(540)
+
+    def _set_appearance_font(self, font_name: str) -> None:
+        font = (
+            wx.Font(
+                10,
+                wx.FONTFAMILY_DEFAULT,
+                wx.FONTSTYLE_NORMAL,
+                wx.FONTWEIGHT_NORMAL,
+                faceName=font_name,
+            )
+            if font_name
+            else wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        )
+        self.font.SetSelectedFont(font)
+        self._appearance_font_uses_platform_default = not bool(font_name)
+
+    def _select_appearance_font(self, _event: wx.Event) -> None:
+        self._appearance_font_uses_platform_default = False
+
+    def _appearance_values_from_form(self) -> appearance_presets.AppearanceValues:
+        return appearance_presets.AppearanceValues(
+            theme=preferences.THEMES[self.theme.GetSelection()],
+            density=preferences.DENSITIES[self.density.GetSelection()],
+            accent=self.accent.GetValue().strip(),
+            ui_font=(
+                ""
+                if self._appearance_font_uses_platform_default
+                else self.font.GetSelectedFont().GetFaceName()
+            ),
+            ui_scale=self.scale.GetValue() / 100.0,
+        ).validated()
+
+    def _set_appearance_form(self, values: appearance_presets.AppearanceValues) -> None:
+        values = values.validated()
+        self.theme.SetSelection(preferences.THEMES.index(values.theme))
+        self.density.SetSelection(preferences.DENSITIES.index(values.density))
+        self.accent.SetValue(values.accent)
+        self._set_appearance_font(values.ui_font)
+        self.scale.SetValue(round(values.ui_scale * 100))
+
+    def _refresh_appearance_presets(self, selected_name: str = "") -> None:
+        self._appearance_presets = list(appearance_presets.load_presets())
+        labels = [preset.name for preset in self._appearance_presets]
+        self.appearance_preset_list.Set(labels)
+        if selected_name:
+            selected = next(
+                (
+                    index
+                    for index, label in enumerate(labels)
+                    if label.casefold() == selected_name.casefold()
+                ),
+                wx.NOT_FOUND,
+            )
+            self.appearance_preset_list.SetSelection(selected)
+
+    def _selected_appearance_preset(
+        self,
+    ) -> Optional[appearance_presets.AppearancePreset]:
+        selected = self.appearance_preset_list.GetSelection()
+        if 0 <= selected < len(self._appearance_presets):
+            return self._appearance_presets[selected]
+        return None
+
+    def _select_appearance_preset(self, _event: wx.Event) -> None:
+        preset = self._selected_appearance_preset()
+        if preset is not None:
+            self.appearance_preset_name.SetValue(preset.name)
+
+    def _load_appearance_preset(self, _event: wx.Event) -> None:
+        preset = self._selected_appearance_preset()
+        if preset is None:
+            self._show_appearance_message("Select a preset to load.", error=True)
+            return
+        self._set_appearance_form(preset.values)
+        self.appearance_preset_name.SetValue(preset.name)
+        self._show_appearance_message(
+            f'Loaded "{preset.name}" into this dialog. Choose OK to apply it.'
+        )
+
+    def _save_appearance_preset(self, _event: wx.Event) -> None:
+        try:
+            values = self._appearance_values_from_form()
+            name = self.appearance_preset_name.GetValue().strip()
+            preset = appearance_presets.save_preset(name, values, replace=False)
+            self._refresh_appearance_presets(preset.name)
+        except (appearance_presets.AppearancePresetValidationError, OSError) as exc:
+            self._show_appearance_message(f"Preset was not saved: {exc}", error=True)
+            return
+        self._show_appearance_message(f'Saved appearance preset "{preset.name}".')
+
+    def _update_appearance_preset(self, _event: wx.Event) -> None:
+        selected = self._selected_appearance_preset()
+        if selected is None:
+            self._show_appearance_message("Select a preset to update.", error=True)
+            return
+        try:
+            values = self._appearance_values_from_form()
+            preset = appearance_presets.save_preset(selected.name, values, replace=True)
+            self._refresh_appearance_presets(preset.name)
+        except (appearance_presets.AppearancePresetValidationError, OSError) as exc:
+            self._show_appearance_message(f"Preset was not updated: {exc}", error=True)
+            return
+        self.appearance_preset_name.SetValue(preset.name)
+        self._show_appearance_message(f'Updated appearance preset "{preset.name}".')
+
+    def _export_appearance_preset(self, _event: wx.Event) -> None:
+        preset = self._selected_appearance_preset()
+        if preset is None:
+            self._show_appearance_message("Select a preset to export.", error=True)
+            return
+        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", preset.name).strip("-.")
+        with wx.FileDialog(
+            self,
+            "Export appearance preset",
+            defaultFile=(safe_name or "appearance-preset") + ".json",
+            wildcard="JSON files (*.json)|*.json",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            path = Path(dialog.GetPath())
+        try:
+            path.write_text(
+                appearance_presets.export_preset(preset),
+                encoding="utf-8",
+                newline="\n",
+            )
+        except OSError as exc:
+            self._show_appearance_message(f"Preset was not exported: {exc}", error=True)
+            return
+        self._show_appearance_message(f'Exported "{preset.name}" to {path}.')
+
+    def _import_appearance_preset(self, _event: wx.Event) -> None:
+        with wx.FileDialog(
+            self,
+            "Import appearance preset",
+            wildcard="JSON files (*.json)|*.json",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            path = Path(dialog.GetPath())
+        try:
+            with path.open("rb") as stream:
+                payload = stream.read(appearance_presets.MAX_IMPORT_BYTES + 1)
+            preset = appearance_presets.import_preset(payload)
+            self._refresh_appearance_presets(preset.name)
+        except (appearance_presets.AppearancePresetValidationError, OSError) as exc:
+            self._show_appearance_message(f"Preset was not imported: {exc}", error=True)
+            return
+        self._show_appearance_message(f'Imported appearance preset "{preset.name}".')
+
+    def _reset_appearance_property(self, _event: wx.Event) -> None:
+        property_name = appearance_presets.APPEARANCE_FIELDS[
+            self.appearance_reset_property.GetSelection()
+        ]
+        defaults = appearance_presets.SHIPPED_APPEARANCE
+        if property_name == "theme":
+            self.theme.SetSelection(preferences.THEMES.index(defaults.theme))
+        elif property_name == "density":
+            self.density.SetSelection(preferences.DENSITIES.index(defaults.density))
+        elif property_name == "accent":
+            self.accent.SetValue(defaults.accent)
+        elif property_name == "ui_font":
+            self._set_appearance_font(defaults.ui_font)
+        else:
+            self.scale.SetValue(round(defaults.ui_scale * 100))
+        self._show_appearance_message(
+            "Reset the selected value in this dialog. Choose OK to apply it."
+        )
+
+    def _reset_appearance_form(self, _event: wx.Event) -> None:
+        self._set_appearance_form(appearance_presets.SHIPPED_APPEARANCE)
+        self._show_appearance_message(
+            "Reset all appearance values in this dialog. Choose OK to apply them."
+        )
 
     def _schedule_text(self, key: str, **values: object) -> str:
         text = lang.get(f"preferences.schedule.{key}")
@@ -659,21 +940,25 @@ class PreferencesDialog(wx.Dialog):
                 self._tabs.SetSelection(self._schedule_tab_index)
                 return
         language_mode = preferences.LANGUAGE_MODES[self.language.GetSelection()]
-        theme = preferences.THEMES[self.theme.GetSelection()]
-        font = self.font.GetSelectedFont().GetFaceName()
+        try:
+            appearance = self._appearance_values_from_form()
+        except appearance_presets.AppearancePresetValidationError as exc:
+            self._show_appearance_message(
+                f"Appearance settings were not saved: {exc}", error=True
+            )
+            self._tabs.SetSelection(self._appearance_tab_index)
+            return
         preferences.save(
             preferences.Preferences(
                 language_mode=language_mode,
                 funny_level_english=self.funny_en.GetValue(),
                 funny_level_cantonese=self.funny_yue.GetValue(),
                 show_dialog_emojis=self.dialog_emojis.GetValue(),
-                theme=theme,
-                density=("compact", "comfortable", "spacious")[
-                    self.density.GetSelection()
-                ],
-                accent=self.accent.GetValue(),
-                ui_font=font,
-                ui_scale=self.scale.GetValue() / 100.0,
+                theme=appearance.theme,
+                density=appearance.density,
+                accent=appearance.accent,
+                ui_font=appearance.ui_font,
+                ui_scale=appearance.ui_scale,
             )
         )
         # Apply the persisted language and appearance choices immediately to
