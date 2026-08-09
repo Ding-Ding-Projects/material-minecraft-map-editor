@@ -125,7 +125,13 @@ class ChangelogTestCase(unittest.TestCase):
             ),
         )
         self.assertEqual(("fixture",), tuple(entry.version for entry in result.entries))
-        self.assertTrue(all(change.action == "fixed" for entry in result.entries for change in entry.changes))
+        self.assertTrue(
+            all(
+                change.action == "fixed"
+                for entry in result.entries
+                for change in entry.changes
+            )
+        )
 
     def test_text_filter_accepts_bounded_regex_builder_hook(self):
         builder = RegexBuilder(r"Wayland|x11", flags=re.IGNORECASE, regex_enabled=True)
@@ -211,8 +217,8 @@ class ChangelogTestCase(unittest.TestCase):
 
     def test_core_import_and_catalog_loading_do_not_require_wx(self):
         completed = subprocess.run(
-                [
-                    sys.executable,
+            [
+                sys.executable,
                 "-c",
                 "import sys; sys.modules['wx'] = None; "
                 "from amulet_map_editor.api.changelog import load_bundled_catalog; "

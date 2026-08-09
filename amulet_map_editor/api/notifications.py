@@ -85,7 +85,9 @@ def add(severity: str, title: str, body: str) -> Notification:
     return item
 
 
-def search(query: str = "", *, regex: bool = False, include_dismissed: bool = True) -> List[Notification]:
+def search(
+    query: str = "", *, regex: bool = False, include_dismissed: bool = True
+) -> List[Notification]:
     query = _text(query, "query") if query else ""
     try:
         matcher = re.compile(query if regex else re.escape(query), re.IGNORECASE)
@@ -112,16 +114,27 @@ def bulk_dismiss(notification_ids: Iterable[str]) -> int:
 
 
 def export_json(values: Sequence[Notification] | None = None) -> str:
-    return json.dumps(
-        [asdict(item) for item in (list_notifications() if values is None else values)],
-        ensure_ascii=False,
-        indent=2,
-    ) + "\n"
+    return (
+        json.dumps(
+            [
+                asdict(item)
+                for item in (list_notifications() if values is None else values)
+            ],
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n"
+    )
 
 
 def export_markdown(values: Sequence[Notification] | None = None) -> str:
     selected = list_notifications() if values is None else list(values)
-    lines = ["# Notification history", "", "| Time (UTC) | Severity | Title | Body | State |", "| --- | --- | --- | --- | --- |"]
+    lines = [
+        "# Notification history",
+        "",
+        "| Time (UTC) | Severity | Title | Body | State |",
+        "| --- | --- | --- | --- | --- |",
+    ]
     for item in selected:
         state = "dismissed" if item.dismissed else "active"
         title = item.title.replace("|", "\\|")

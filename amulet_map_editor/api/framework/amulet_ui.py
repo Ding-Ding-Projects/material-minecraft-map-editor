@@ -72,7 +72,9 @@ class AmuletUI(wx.Frame):
         self._shell_sizer = wx.BoxSizer(wx.VERTICAL)
         self._title_bar = MaterialTitleBar(self._shell, title)
         self._shell_sizer.Add(self._title_bar, 0, wx.EXPAND)
-        self._level_notebook = AmuletLevelNotebook(self._shell, agwStyle=NOTEBOOK_MENU_STYLE)
+        self._level_notebook = AmuletLevelNotebook(
+            self._shell, agwStyle=NOTEBOOK_MENU_STYLE
+        )
         self._level_notebook.init()
         self._shell_sizer.Add(self._level_notebook, 1, wx.EXPAND)
         self._shell.SetSizer(self._shell_sizer)
@@ -245,7 +247,10 @@ class AmuletUI(wx.Frame):
         if self._update_state.status != "available":
             self.SetStatusText("No update is ready to stage; check for updates first")
             return
-        if self._update_stage_thread is not None and self._update_stage_thread.is_alive():
+        if (
+            self._update_stage_thread is not None
+            and self._update_stage_thread.is_alive()
+        ):
             return
         self.SetStatusText("Downloading update in the background…")
         feed_url = self._update_state.feed_url
@@ -298,7 +303,9 @@ class AmuletUI(wx.Frame):
                 "Update ready",
                 "The unsigned update is staged; choose Restart to install update.",
             )
-            self.SetStatusText("Update ready (unsigned) — choose Restart to install update")
+            self.SetStatusText(
+                "Update ready (unsigned) — choose Restart to install update"
+            )
         elif state.status == "failed":
             notifications.add(
                 "error",

@@ -24,7 +24,9 @@ class NotificationHistoryDialog(wx.Dialog):
 
         self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
         self.list.SetName("Notification history list")
-        for index, label in enumerate(("State", "Severity", "Title", "Message", "Time (UTC)")):
+        for index, label in enumerate(
+            ("State", "Severity", "Title", "Message", "Time (UTC)")
+        ):
             self.list.InsertColumn(index, label)
         root.Add(self.list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
@@ -56,7 +58,9 @@ class NotificationHistoryDialog(wx.Dialog):
             self.search.SetToolTip(str(exc))
         self.list.DeleteAllItems()
         for item in self._items:
-            index = self.list.InsertItem(self.list.GetItemCount(), "dismissed" if item.dismissed else "active")
+            index = self.list.InsertItem(
+                self.list.GetItemCount(), "dismissed" if item.dismissed else "active"
+            )
             values = (item.severity, item.title, item.body, item.created_at)
             for column, value in enumerate(values, start=1):
                 self.list.SetItem(index, column, value)

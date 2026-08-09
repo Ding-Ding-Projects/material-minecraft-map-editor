@@ -22,7 +22,9 @@ class NotificationHistoryTestCase(unittest.TestCase):
         self.assertEqual(len(self.notifications.search("world")), 1)
         self.assertEqual(len(self.notifications.search("Backup", regex=True)), 1)
         self.assertEqual(self.notifications.bulk_dismiss([first.notification_id]), 1)
-        self.assertEqual(len(self.notifications.list_notifications(include_dismissed=False)), 1)
+        self.assertEqual(
+            len(self.notifications.list_notifications(include_dismissed=False)), 1
+        )
         self.assertIn("\\|", self.notifications.export_markdown())
         self.assertIn(second.notification_id, self.notifications.export_json())
 

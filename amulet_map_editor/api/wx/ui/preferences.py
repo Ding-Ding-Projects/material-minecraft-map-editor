@@ -15,7 +15,12 @@ import uuid
 
 import wx
 
-from amulet_map_editor.api import appearance_presets, changelog, preferences, school_mode
+from amulet_map_editor.api import (
+    appearance_presets,
+    changelog,
+    preferences,
+    school_mode,
+)
 from amulet_map_editor.api import lang
 from amulet_map_editor.api import scheduled_settings as schedules
 from amulet_map_editor.api.regex_builder import RegexBuilder
@@ -213,7 +218,9 @@ class PreferencesDialog(wx.Dialog):
         self.school_credential = wx.TextCtrl(
             page, style=wx.TE_PASSWORD, name="School mode unlock credential"
         )
-        self.school_credential.SetHint("4–128 characters; leave blank to keep the current credential")
+        self.school_credential.SetHint(
+            "4–128 characters; leave blank to keep the current credential"
+        )
         grid.Add(self.school_credential, 1, wx.EXPAND)
         grid.AddSpacer(1)
         self.identity_status = wx.StaticText(page, label="")
@@ -360,9 +367,15 @@ class PreferencesDialog(wx.Dialog):
         self.appearance_preset_import.Bind(
             wx.EVT_BUTTON, self._import_appearance_preset
         )
-        self.appearance_preset_delete.Bind(wx.EVT_BUTTON, self._delete_appearance_preset)
-        self.appearance_preset_search.Bind(wx.EVT_TEXT, lambda _event: self._refresh_appearance_presets())
-        self.appearance_preset_regex.Bind(wx.EVT_CHECKBOX, lambda _event: self._refresh_appearance_presets())
+        self.appearance_preset_delete.Bind(
+            wx.EVT_BUTTON, self._delete_appearance_preset
+        )
+        self.appearance_preset_search.Bind(
+            wx.EVT_TEXT, lambda _event: self._refresh_appearance_presets()
+        )
+        self.appearance_preset_regex.Bind(
+            wx.EVT_CHECKBOX, lambda _event: self._refresh_appearance_presets()
+        )
         self.appearance_reset_selected.Bind(
             wx.EVT_BUTTON, self._reset_appearance_property
         )
@@ -455,13 +468,19 @@ class PreferencesDialog(wx.Dialog):
         self._appearance_presets = list(appearance_presets.load_presets())
         query = self.appearance_preset_search.GetValue().strip()
         if query:
-            builder = RegexBuilder(query, regex_enabled=self.appearance_preset_regex.GetValue())
+            builder = RegexBuilder(
+                query, regex_enabled=self.appearance_preset_regex.GetValue()
+            )
             try:
                 self._appearance_presets = [
-                    preset for preset in self._appearance_presets if builder.search([preset.name])
+                    preset
+                    for preset in self._appearance_presets
+                    if builder.search([preset.name])
                 ]
             except (ValueError, re.error) as exc:
-                self._show_appearance_message(f"Invalid preset search: {exc}", error=True)
+                self._show_appearance_message(
+                    f"Invalid preset search: {exc}", error=True
+                )
                 self._appearance_presets = []
         labels = [preset.name for preset in self._appearance_presets]
         self.appearance_preset_list.Set(labels)
@@ -1075,7 +1094,9 @@ class PreferencesDialog(wx.Dialog):
                 school_mode.enable()
             elif not self.school_enabled.GetValue() and current_school.enabled:
                 if not credential or not school_mode.unlock(credential):
-                    raise ValueError("Enter the current unlock credential to leave School mode.")
+                    raise ValueError(
+                        "Enter the current unlock credential to leave School mode."
+                    )
         except ValueError as exc:
             wx.MessageBox(str(exc), "Preferences", wx.OK | wx.ICON_WARNING, self)
             return
@@ -1182,15 +1203,23 @@ class ChangelogDialog(wx.Dialog):
         root = wx.BoxSizer(wx.VERTICAL)
         filters = wx.FlexGridSizer(0, 2, 8, 10)
         filters.AddGrowableCol(1, 1)
-        filters.Add(wx.StaticText(self, label="Search releases and changes"), 0, wx.ALIGN_CENTER_VERTICAL)
+        filters.Add(
+            wx.StaticText(self, label="Search releases and changes"),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
         self.query = wx.TextCtrl(self)
         self.query.SetHint("Plain text search; use Regex for an explicit pattern")
         filters.Add(self.query, 1, wx.EXPAND)
-        filters.Add(wx.StaticText(self, label="Start date (ISO)"), 0, wx.ALIGN_CENTER_VERTICAL)
+        filters.Add(
+            wx.StaticText(self, label="Start date (ISO)"), 0, wx.ALIGN_CENTER_VERTICAL
+        )
         self.start_date = wx.TextCtrl(self)
         self.start_date.SetHint("YYYY-MM-DD")
         filters.Add(self.start_date, 1, wx.EXPAND)
-        filters.Add(wx.StaticText(self, label="End date (ISO)"), 0, wx.ALIGN_CENTER_VERTICAL)
+        filters.Add(
+            wx.StaticText(self, label="End date (ISO)"), 0, wx.ALIGN_CENTER_VERTICAL
+        )
         self.end_date = wx.TextCtrl(self)
         self.end_date.SetHint("YYYY-MM-DD")
         filters.Add(self.end_date, 1, wx.EXPAND)
@@ -1200,7 +1229,13 @@ class ChangelogDialog(wx.Dialog):
         self.feedback.Wrap(560)
         filters.Add(self.feedback, 1, wx.EXPAND)
         filters.Add(wx.StaticText(self, label="Action"), 0, wx.ALIGN_CENTER_VERTICAL)
-        action_values = ["All actions", *(name for name, _count in changelog.available_actions(self._catalog.entries))]
+        action_values = [
+            "All actions",
+            *(
+                name
+                for name, _count in changelog.available_actions(self._catalog.entries)
+            ),
+        ]
         self.action = wx.Choice(self, choices=action_values)
         self.action.SetSelection(0)
         filters.Add(self.action, 1, wx.EXPAND)
@@ -1234,7 +1269,11 @@ class ChangelogDialog(wx.Dialog):
         query = changelog.ChangelogQuery(
             start_date=self._parse_date(self.start_date),
             end_date=self._parse_date(self.end_date),
-            actions=(() if self.action.GetSelection() <= 0 else (self.action.GetStringSelection(),)),
+            actions=(
+                ()
+                if self.action.GetSelection() <= 0
+                else (self.action.GetStringSelection(),)
+            ),
             text=self.query.GetValue()[:4096],
         )
         matcher = None

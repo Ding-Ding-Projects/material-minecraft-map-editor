@@ -19,7 +19,9 @@ from typing import Any, Dict, Optional
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 
-DEFAULT_FEED_URL = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/"
+DEFAULT_FEED_URL = (
+    "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/"
+)
 RELEASES_API_URL = "https://api.github.com/repos/Ding-Ding-Projects/material-minecraft-map-editor/releases?per_page=100"
 ALLOWED_FEED_HOSTS = {"github.com", "raw.githubusercontent.com", "api.github.com"}
 
@@ -68,13 +70,21 @@ def _release_version(tag: object) -> tuple[int, int, int, int, str]:
     if not match:
         return (-1, -1, -1, -1, "")
     suffix = match.group(4) or ""
-    return (int(match.group(1)), int(match.group(2)), int(match.group(3)), 0 if suffix else 1, suffix)
+    return (
+        int(match.group(1)),
+        int(match.group(2)),
+        int(match.group(3)),
+        0 if suffix else 1,
+        suffix,
+    )
 
 
 def _resolve_latest_feed(timeout: float) -> str:
     """Choose the highest published release, not GitHub's completion-order latest."""
 
-    request = Request(RELEASES_API_URL, headers={"Accept": "application/vnd.github+json"})
+    request = Request(
+        RELEASES_API_URL, headers={"Accept": "application/vnd.github+json"}
+    )
     with urlopen(request, timeout=timeout) as response:
         payload = json.loads(response.read(1_000_000).decode("utf-8"))
     if not isinstance(payload, list):
@@ -87,7 +97,10 @@ def _resolve_latest_feed(timeout: float) -> str:
         assets = release.get("assets")
         if not isinstance(tag, str) or not isinstance(assets, list):
             continue
-        if not any(isinstance(asset, dict) and asset.get("name") == "RELEASES" for asset in assets):
+        if not any(
+            isinstance(asset, dict) and asset.get("name") == "RELEASES"
+            for asset in assets
+        ):
             continue
         version = _release_version(tag)
         if version[0] >= 0:
