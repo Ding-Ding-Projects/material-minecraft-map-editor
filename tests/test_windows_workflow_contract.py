@@ -25,6 +25,12 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         for asset in ("Setup.exe", "RELEASES", "-full.nupkg"):
             self.assertIn(asset, WORKFLOW)
 
+    def test_failed_packaging_still_collects_bounded_diagnostics(self):
+        self.assertIn("if: ${{ always() }}", WORKFLOW)
+        self.assertIn("continue-on-error: true", WORKFLOW)
+        self.assertIn("if-no-files-found: warn", WORKFLOW)
+        self.assertIn("retention-days: 7", WORKFLOW)
+
 
 if __name__ == "__main__":
     unittest.main()

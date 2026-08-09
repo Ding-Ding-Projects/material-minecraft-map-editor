@@ -159,9 +159,13 @@ jobs:
 
     - name: Upload Release Asset
       uses: actions/upload-artifact@v6
+      if: ${{ always() }}
+      continue-on-error: true
       with:
         name: Amulet-${{ steps.resolve-version.outputs.build_version }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
         path: ./installer/dist/squirrel/Amulet-${{ steps.resolve-version.outputs.build_version }}-Windows-${{ matrix.cfg.architecture }}
+        if-no-files-found: warn
+        retention-days: 7
 
   publish:
     name: Publish unsigned Squirrel release
