@@ -15,7 +15,7 @@ import uuid
 
 import wx
 
-from amulet_map_editor.api import appearance_presets, changelog, preferences
+from amulet_map_editor.api import appearance_presets, changelog, preferences, school_mode
 from amulet_map_editor.api import lang
 from amulet_map_editor.api import scheduled_settings as schedules
 from amulet_map_editor.api.regex_builder import RegexBuilder
@@ -34,6 +34,7 @@ class PreferencesDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
         super().__init__(parent, title="Preferences", size=wx.Size(620, 480))
         self._prefs = preferences.load()
+        self._school = school_mode.load()
         self._appearance_load_error: Optional[str] = None
         try:
             self._appearance_presets = list(appearance_presets.load_presets())
@@ -165,6 +166,38 @@ class PreferencesDialog(wx.Dialog):
         identity_row.Add(self.display_name, 1, wx.EXPAND | wx.RIGHT, 8)
         identity_row.Add(self.display_name_reset, 0)
         grid.Add(identity_row, 1, wx.EXPAND)
+        grid.Add(
+            _label(
+                page,
+                "School mode",
+                "A shared local presentation lock. It forces English, serious copy, and no dialog emojis while enabled.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        school_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.school_name = wx.TextCtrl(page, value=self._school.mode_name)
+        self.school_name.SetMaxLength(school_mode.MAX_MODE_NAME_LENGTH)
+        self.school_name.SetName("School mode name")
+        self.school_enabled = wx.CheckBox(page, label="Enabled")
+        self.school_enabled.SetValue(self._school.enabled)
+        school_row.Add(self.school_name, 1, wx.EXPAND | wx.RIGHT, 8)
+        school_row.Add(self.school_enabled, 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(school_row, 1, wx.EXPAND)
+        grid.Add(
+            _label(
+                page,
+                "Unlock credential",
+                "Set a local credential used to leave School mode. Only a salted verifier is stored.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        self.school_credential = wx.TextCtrl(
+            page, style=wx.TE_PASSWORD, name="School mode unlock credential"
+        )
+        self.school_credential.SetHint("4–128 characters; leave blank to keep the current credential")
+        grid.Add(self.school_credential, 1, wx.EXPAND)
         grid.AddSpacer(1)
         self.identity_status = wx.StaticText(page, label="")
         self.identity_status.SetName("App display name validation")
@@ -1015,6 +1048,20 @@ class PreferencesDialog(wx.Dialog):
                 self._tabs.SetSelection(self._schedule_tab_index)
                 return
         language_mode = preferences.LANGUAGE_MODES[self.language.GetSelection()]
+        try:
+            school_mode.set_mode_name(self.school_name.GetValue())
+            credential = self.school_credential.GetValue()
+            current_school = school_mode.load()
+            if credential:
+                school_mode.set_unlock_credential(credential)
+            if self.school_enabled.GetValue() and not current_school.enabled:
+                school_mode.enable()
+            elif not self.school_enabled.GetValue() and current_school.enabled:
+                if not credential or not school_mode.unlock(credential):
+                    raise ValueError("Enter the current unlock credential to leave School mode.")
+        except ValueError as exc:
+            wx.MessageBox(str(exc), "Preferences", wx.OK | wx.ICON_WARNING, self)
+            return
         try:
             display_name = preferences.validate_display_name(
                 self.display_name.GetValue()
