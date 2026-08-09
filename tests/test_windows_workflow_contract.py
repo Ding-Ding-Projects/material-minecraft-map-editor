@@ -106,6 +106,8 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         self.assertIn("--json", resolve)
         self.assertIn("BUILD_CHANNEL=", resolve)
         self.assertIn("BUILD_SOURCE_TAG=", resolve)
+        self.assertIn("build_channel=$channel", resolve)
+        self.assertIn("source_tag=$source", resolve)
 
     def test_release_notes_explain_line_scope_and_surviving_attribution(self):
         self.assertIn("repository-grand-total", WORKFLOW)
@@ -121,10 +123,33 @@ class WindowsWorkflowContractTests(unittest.TestCase):
 
     def test_release_tag_is_environment_backed_and_normalized(self):
         self.assertIn(
-            "RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || '' }}", WORKFLOW
+            "RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || inputs.release_tag || '' }}",
+            WORKFLOW,
         )
         self.assertIn('tag="$(python3 scripts/normalize_release_tag.py)"', WORKFLOW)
         self.assertNotIn('tag="${{ github.event.release.tag_name', WORKFLOW)
+
+    def test_manual_and_release_publication_share_the_built_canonical_identity(self):
+        self.assertIn("release_tag:", WORKFLOW)
+        self.assertIn(
+            "Optional canonical major.minor.patch or major.minor.0-dev.run tag",
+            WORKFLOW,
+        )
+        self.assertIn(
+            "RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag || '' }}",
+            WORKFLOW,
+        )
+        self.assertIn(
+            "RELEASE_TAG_FALLBACK: ${{ needs.deploy.outputs.source_tag }}", WORKFLOW
+        )
+        self.assertIn(
+            "RELEASE_TAG_EXPECTED_SOURCE: ${{ needs.deploy.outputs.source_tag }}",
+            WORKFLOW,
+        )
+        self.assertIn(
+            "RELEASE_TAG_EXPECTED_VERSION: ${{ needs.deploy.outputs.build_version }}",
+            WORKFLOW,
+        )
 
     def test_squirrel_assets_remain_required(self):
         for asset in ("Setup.exe", "RELEASES", "-full.nupkg"):

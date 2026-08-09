@@ -16,6 +16,11 @@ above the legacy stable `0.10.76` and removes lexical prerelease ordering from
 installed-client comparisons. Automated source tags must keep patch zero;
 stable source tags that enter the reserved range fail closed so their package
 identity cannot collide with an automated build.
+Only canonical `major.minor.patch` and `major.minor.0-dev.run` tags may enter
+packaging or publication. Push fallback, optional manual-dispatch input, and
+release-event tags use the same validator. Publication repeats the validation
+against the deploy job's exact canonical source tag and numeric package version,
+so an alias or collision cannot label assets that installed clients reject.
 
 Push and release builds request a bounded 501-entry inventory: 500 selectable
 records plus one truncation sentinel. The selector accepts at most 500 entries
@@ -60,7 +65,8 @@ unattributed `git blame` lines.
   candidate.
 - A stable tag in patch range `100000..999999`, an automated tag with a nonzero
   source patch, or an automated run above `899999` fails closed.
-- A noncanonical tag alias, repeated semantic version, or inventory beyond the
+- A noncanonical build, manual, or release-event tag alias; a source/package
+  identity mismatch; a repeated semantic version; or inventory beyond the
   500-record selector ceiling fails closed.
 - Once a safe pair is selected, a missing current delta, hash/size mismatch, or
   delta row in the client feed fails packaging.
@@ -72,7 +78,8 @@ unattributed `git blame` lines.
 ## Security
 
 Release tokens remain in the workflow credential environment and are never
-printed. Event tag data is normalized before it reaches the CLI. Each inspected
+printed. Event and manual tag data is strictly validated before it reaches the
+CLI. Each inspected
 release is limited to 32 assets. Prior indexes are limited to 256 KiB; prior
 package downloads are limited to 128 MiB, 20,000 archive members, 512 MiB per
 member, and 1 GiB extracted content. The workflow validates GitHub's SHA-256

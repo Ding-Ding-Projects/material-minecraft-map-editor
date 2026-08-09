@@ -1,4 +1,4 @@
-"""Resolve an Amulet source tag to a monotonic Squirrel.Windows version.
+"""Validate an Amulet source tag and map it to a Squirrel.Windows version.
 
 Legacy automatic packages used prerelease text such as ``0.10.0-dev154``.
 Squirrel's updater can compare that suffix lexically and rank a new build below
@@ -13,12 +13,14 @@ from dataclasses import asdict, dataclass
 import json
 import re
 
-_STABLE = re.compile(r"^(?P<core>\d+\.\d+\.\d+)$")
-_DEV_BUILD = re.compile(
-    r"^(?P<core>\d+\.\d+\.\d+)-dev[.-]?(?P<run>\d+)$",
-    re.IGNORECASE,
+_COMPONENT = r"(?:0|[1-9]\d*)"
+_STABLE = re.compile(
+    rf"^(?P<major>{_COMPONENT})\.(?P<minor>{_COMPONENT})\." rf"(?P<patch>{_COMPONENT})$"
 )
-_SINGLE_PRERELEASE = re.compile(r"^(?P<core>\d+\.\d+\.\d+)-(?P<label>[0-9A-Za-z-]+)$")
+_DEV_BUILD = re.compile(
+    rf"^(?P<major>{_COMPONENT})\.(?P<minor>{_COMPONENT})\."
+    rf"(?P<patch>{_COMPONENT})-dev\.(?P<run>{_COMPONENT})$"
+)
 AUTOMATED_PATCH_BASE = 100_000
 AUTOMATED_RUN_LIMIT = 899_999
 AUTOMATED_PATCH_LIMIT = AUTOMATED_PATCH_BASE + AUTOMATED_RUN_LIMIT
@@ -34,40 +36,29 @@ class SquirrelVersionResolution:
 def _resolve_candidate(value: str) -> SquirrelVersionResolution | None:
     stable = _STABLE.fullmatch(value)
     if stable:
-        core = stable.group("core")
-        patch = int(core.rsplit(".", 1)[1])
+        patch = int(stable.group("patch"))
         if AUTOMATED_PATCH_BASE <= patch <= AUTOMATED_PATCH_LIMIT:
             raise ValueError(
                 "stable patch enters the reserved automated range "
                 f"{AUTOMATED_PATCH_BASE}..{AUTOMATED_PATCH_LIMIT}"
             )
-        return SquirrelVersionResolution(core, "stable", core)
+        return SquirrelVersionResolution(value, "stable", value)
 
     dev = _DEV_BUILD.fullmatch(value)
     if dev:
-        core = dev.group("core")
-        major, minor, source_patch = core.split(".")
-        if int(source_patch) != 0:
+        major = dev.group("major")
+        minor = dev.group("minor")
+        if int(dev.group("patch")) != 0:
             raise ValueError("automated source tags must use patch zero")
         run = int(dev.group("run"))
         if run > AUTOMATED_RUN_LIMIT:
-            return None
+            raise ValueError(
+                f"automated run exceeds the supported maximum {AUTOMATED_RUN_LIMIT}"
+            )
         return SquirrelVersionResolution(
             f"{major}.{minor}.{AUTOMATED_PATCH_BASE + run}",
             "automated",
-            f"{core}-dev.{run}",
-        )
-
-    prerelease = _SINGLE_PRERELEASE.fullmatch(value)
-    if prerelease:
-        core = prerelease.group("core")
-        label = prerelease.group("label")
-        family = re.match(r"[A-Za-z-]+", label)
-        channel = "preview-" + (family.group(0).lower() if family else "other")
-        return SquirrelVersionResolution(
-            f"{core}-{label}",
-            channel,
-            f"{core}-{label}",
+            value,
         )
     return None
 
@@ -77,23 +68,21 @@ def resolve_squirrel_version(
 ) -> SquirrelVersionResolution:
     """Resolve package version, explicit channel, and canonical source tag."""
 
-    candidate = (raw or "").strip().lstrip("vV")
-    fallback_candidate = fallback.strip().lstrip("vV")
-    resolution = _resolve_candidate(candidate) if candidate else None
-    if resolution is not None:
-        return resolution
-    fallback_resolution = _resolve_candidate(fallback_candidate)
-    if fallback_resolution is not None:
-        return fallback_resolution
-    raise ValueError("fallback must be a Squirrel-compatible major.minor.patch version")
+    candidate = raw if raw not in (None, "") else fallback
+    resolution = _resolve_candidate(candidate)
+    if resolution is None:
+        raise ValueError(
+            "source tag must be canonical major.minor.patch or " "major.minor.0-dev.run"
+        )
+    return resolution
 
 
 def normalize_squirrel_version(raw: str | None, fallback: str) -> str:
     """Return a monotonic version accepted by Squirrel.Windows 2.0.1.
 
-    The fallback is normalized through the same rules.  Invalid or unsupported
-    source tags intentionally use the deterministic fallback rather than
-    guessing at a release version.
+    The fallback is used only when the source tag is absent. Every supplied
+    source tag is validated exactly; aliases never silently become a different
+    published package identity.
     """
 
     return resolve_squirrel_version(raw, fallback).version

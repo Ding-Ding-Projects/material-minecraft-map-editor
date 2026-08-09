@@ -40,8 +40,8 @@ versions in reserved patch range `100000..999999`, above legacy stable
 closed. The updater defaults to an explicit automated channel, selects live
 inventory numerically, rejects redirected/non-JSON/non-200 inventory responses,
 and sends only the exact immutable project release route to the immediate
-Squirrel install root. It allows 900 seconds for the observed approximately 87
-MiB package plus filesystem staging, preserves the selected version and
+  Squirrel install root. It allows one 900-second deadline for the observed
+  approximately 87 MiB package, filesystem staging, and post-check, preserves the selected version and
 matching immutable release-notes URL through the ready state, and exposes that
 validated URL from the responsive Material banner. These are local tests until
 the integration build and installed-client path are proven.
@@ -58,6 +58,19 @@ selection accepts 500 records plus a 501st truncation sentinel, so a compatible
 predecessor after the first 100 releases is no longer hidden. Canonical tags and
 unique semantic/package identities are mandatory. This correction remains
 local-only until independent review and integration.
+
+The fourth local correction carries that canonical contract through the build
+normalizer, optional manual tag, release event, and final publication step.
+Aliases no longer fall back to a different automated identity, and the
+publisher must reproduce both the exact deploy source tag and package version.
+Update checks now spend one monotonic deadline across REST pagination and the
+CLI; staging spends one 900-second deadline across apply and post-check. The
+parser recognizes only CRLF, LF, and lone CR records, preserves raw NEL and
+Unicode line-separator content inside JSON notes, and rejects empty release
+lists with unequal current/future versions. The pinned CLI probe drains both
+streams asynchronously, kills on timeout, and includes a hung-child lifecycle
+self-test. This fourth correction is also local-only pending review and hosted
+proof.
 
 Local verification for this correction completed with 338 pytest cases and
 439 subtests passing, PowerShell parsing passing, and structural `actionlint`

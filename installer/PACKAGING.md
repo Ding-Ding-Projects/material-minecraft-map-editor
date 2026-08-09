@@ -10,8 +10,12 @@ but `scripts/normalize_squirrel_version.py` maps the bounded automated run to
 the monotonic numeric package version `0.10.100154`. Package patches
 `100000..999999` are reserved for automated runs `0..899999`; automated source
 tags must keep patch zero, and stable tags entering that range fail closed to
-prevent a package-identity collision. Stable versions outside that range and
-single-token prereleases are preserved. The resolved package value is used
+prevent a package-identity collision. Publication accepts only exact canonical
+`major.minor.patch` or `major.minor.0-dev.run` source tags. Prefixes, alternate
+`dev` separators, case changes, whitespace, leading zeroes, and unsupported
+prereleases fail closed instead of falling back to a different package. Manual
+workflow input and release events are checked again against the exact built
+source tag and numeric package version before any release API call. The resolved package value is used
 consistently for the package, `RELEASES`, `Setup.exe` directory, and uploaded
 asset names.
 Each architecture produces `Setup.exe`, `RELEASES`, and a full `.nupkg`; delta
@@ -54,7 +58,10 @@ directory.
 Run `scripts/smoke_squirrel_cli_output.ps1` to exercise the pinned 2.0.1
 `--checkForUpdate` executable itself. Its tiny local feed asserts strict
 progress plus final-JSON output and reports line endings, terminal newline,
-blank lines, versions, release count, and stderr bytes before cleanup.
+blank lines, versions, release count, and stderr bytes before cleanup. The
+probe drains stdout and stderr asynchronously before its bounded process wait,
+kills a timed-out child, then waits a bounded five seconds for both reads. Run
+it with `-LifecycleSelfTest` for the network-free hung-child mutation.
 
 New automatic releases are assembled as drafts, then published once. The
 workflow reads GitHub's resulting `publishedAt` value before calculating the
@@ -72,9 +79,13 @@ responses, and non-JSON content, and updater discovery does not walk above the
 immediate Squirrel install root. The bridge reports
 available/ready/failed/not-installed states and leaves restart under explicit
 user control. Its five-page REST inventory, stdout, stderr, progress count,
-timeout, and response sizes are explicitly bounded. It parses the official
+timeout, and response sizes are explicitly bounded. All REST pages and the CLI
+check spend one monotonic check deadline; apply plus post-check spend one
+900-second staging deadline rather than receiving 900 seconds apiece. It parses the official
 Squirrel 2.0.1 progress-then-JSON check output separately from the progress-only
-update output and proves the exact installed version afterward. Restart uses
+update output, recognizes only CRLF, LF, and lone CR record separators, rejects
+an empty release list whose current and future versions differ, and proves the
+exact installed version afterward. Restart uses
 `--processStartAndWait`, a basename-only target, and one guarded preapproved
 close transaction with a 500 ms handoff. It never invokes signing and always
 exposes the unsigned-artifact warning.

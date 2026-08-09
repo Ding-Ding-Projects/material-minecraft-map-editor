@@ -22,11 +22,17 @@ release-notes URL must both match the project's immutable GitHub paths and tag.
 Tags are accepted only in their canonical forms: `major.minor.patch` for stable
 releases and `major.minor.0-dev.run` for automated releases. Prefix, separator,
 case, whitespace, and leading-zero aliases are rejected, as are duplicate tags
-or version/package-identity collisions.
+or version/package-identity collisions. The build normalizer, manual workflow
+input, release-event tag, and final publisher all enforce that same contract;
+the publisher also requires the tag to reproduce the exact built source and
+numeric package identities.
 
-The download/apply command has a documented 900-second ceiling, sized for the
-observed approximately 87 MiB full package plus local filesystem work; the
-post-stage verification command has the same bounded ceiling. Invalid URLs,
+The complete apply-plus-post-check transaction has one documented 900-second
+monotonic deadline, sized for the observed approximately 87 MiB full package
+plus local filesystem work. The update check likewise gives all REST inventory
+pages and the CLI check one shared caller-supplied deadline. Each next operation
+receives only the remaining time and fails before starting when none remains,
+so pagination or verification cannot multiply the configured budget. Invalid URLs,
 offline responses, malformed metadata, hash mismatches, cancellation, timeout,
 or unsaved work produce a recoverable failed state and never interrupt active
 editing. The app never invokes a signer and every published Windows artifact is
@@ -37,7 +43,10 @@ commit [`eef37460`](https://github.com/Squirrel/Squirrel.Windows/commit/eef37460
 `--checkForUpdate` may emit zero or more bounded integer progress lines from 0
 through 100, followed by one strict JSON line containing exactly `currentVersion`,
 `futureVersion`, and `releasesToApply`. An update is available only when that
-array is nonempty. `--update` may emit progress lines only; its exit code is the
+array is nonempty; an empty array is valid only when current and future versions
+are equal. CRLF, LF, and lone CR are the only record separators, so valid raw
+NEL or Unicode line-separator characters inside JSON release notes are retained
+as content. `--update` may emit progress lines only; its exit code is the
 result. A second check must then report no remaining releases, equal current and
 future versions, and the exact version selected before the download. Each child
 stream is limited to 64 KiB and each result to 4,096 progress lines.
@@ -72,7 +81,8 @@ Then run
 The pinned real-CLI fixture verifies the actual 2.0.1 shape and reports its
 progress-line count, line ending, terminal-newline state, blank-line count,
 versions, release count, and stderr byte count before deleting its bounded
-application-data fixture.
+application-data fixture. `-LifecycleSelfTest` proves the probe kills a hung
+child before awaiting its two asynchronous output reads within a second bound.
 Hosted proof is the Windows workflow's Squirrel artifact and unsigned-signature
 contract, not a static source check.
 

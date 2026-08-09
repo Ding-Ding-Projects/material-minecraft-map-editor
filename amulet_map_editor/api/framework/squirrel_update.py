@@ -301,17 +301,41 @@ def _validate_inventory_response(response: object, expected_url: str) -> None:
         raise ValueError("GitHub releases inventory was not JSON")
 
 
-def _resolve_latest_feed(timeout: float, channel: str) -> tuple[str, str]:
+def _start_deadline(timeout: float, operation: str) -> float:
+    """Return one monotonic deadline for an end-to-end update transaction."""
+
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError(f"{operation} timeout must be finite and positive")
+    return time.monotonic() + timeout
+
+
+def _remaining_time(deadline: float, operation: str) -> float:
+    """Return remaining transaction time or fail before starting more work."""
+
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError(f"{operation} exceeded its end-to-end timeout")
+    return remaining
+
+
+def _resolve_latest_feed(
+    timeout: float, channel: str, *, deadline: float | None = None
+) -> tuple[str, str]:
     """Choose the numerically highest published feed in one explicit channel."""
 
+    transaction_deadline = deadline
+    if transaction_deadline is None:
+        transaction_deadline = _start_deadline(timeout, "Squirrel feed resolution")
     payload: list[object] = []
     aggregate_bytes = 0
     for page in range(1, _MAX_RELEASE_PAGES + 1):
         page_url = _release_inventory_url(page)
         request = Request(page_url, headers={"Accept": "application/vnd.github+json"})
-        with urlopen(request, timeout=timeout) as response:
+        page_timeout = _remaining_time(transaction_deadline, "Squirrel feed resolution")
+        with urlopen(request, timeout=page_timeout) as response:
             _validate_inventory_response(response, page_url)
             body = response.read(_MAX_RELEASES_RESPONSE_BYTES + 1)
+        _remaining_time(transaction_deadline, "Squirrel feed resolution")
         if len(body) > _MAX_RELEASES_RESPONSE_BYTES:
             raise ValueError(f"GitHub releases page {page} exceeded the size limit")
         aggregate_bytes += len(body)
@@ -521,12 +545,25 @@ def _validate_progress_line(line: str) -> None:
         )
 
 
+def _split_process_lines(stdout: str) -> list[str]:
+    """Split only CRLF, LF, or lone CR process-record separators."""
+
+    if not stdout:
+        return []
+    lines = re.split(r"\r\n|\n|\r", stdout)
+    if stdout.endswith(("\r", "\n")):
+        # Exactly one terminal newline terminates the final record. Additional
+        # blank records remain visible and are rejected by the strict parsers.
+        lines.pop()
+    return lines
+
+
 def _parse_update_output(stdout: str) -> None:
     """Validate that ``--update`` emitted only bounded 0..100 progress lines."""
 
     if "\x00" in stdout:
         raise RuntimeError("Squirrel Update.exe returned a NUL byte")
-    lines = stdout.splitlines()
+    lines = _split_process_lines(stdout)
     if len(lines) > _MAX_PROGRESS_LINES:
         raise RuntimeError("Squirrel Update.exe returned too many progress lines")
     for line in lines:
@@ -558,7 +595,7 @@ def _parse_check_output(stdout: str) -> SquirrelCheckResult:
 
     if "\x00" in stdout:
         raise RuntimeError("Squirrel Update.exe returned a NUL byte")
-    lines = stdout.splitlines()
+    lines = _split_process_lines(stdout)
     if not lines:
         raise RuntimeError("Squirrel Update.exe check omitted final JSON")
     if len(lines) > _MAX_PROGRESS_LINES + 1:
@@ -595,6 +632,10 @@ def _parse_check_output(stdout: str) -> SquirrelCheckResult:
     if release_versions and release_versions[-1] != future_version:
         raise RuntimeError(
             "Squirrel Update.exe futureVersion did not match releasesToApply"
+        )
+    if not release_versions and current_version != future_version:
+        raise RuntimeError(
+            "Squirrel Update.exe reported no releases but versions differed"
         )
     return SquirrelCheckResult(
         current_version=current_version,
@@ -641,8 +682,11 @@ def check_for_update(
     """Check the Squirrel feed and return a state suitable for a notification."""
 
     try:
+        deadline = _start_deadline(timeout, "Squirrel update check")
         if feed_url is None or feed_url == DEFAULT_FEED_URL:
-            feed, release_notes_url = _resolve_latest_feed(timeout, channel)
+            feed, release_notes_url = _resolve_latest_feed(
+                timeout, channel, deadline=deadline
+            )
         else:
             feed = validate_feed_url(feed_url)
             release_notes_url = _release_notes_from_feed(feed)
@@ -663,12 +707,24 @@ def check_for_update(
             detail="Squirrel install not detected",
         )
     try:
-        result = _run_check_for_update(updater, feed, timeout)
+        result = _run_check_for_update(
+            updater,
+            feed,
+            _remaining_time(deadline, "Squirrel update check"),
+        )
         if current_version is not None and result.current_version != str(
             current_version
         ):
             raise RuntimeError(
                 "Squirrel currentVersion did not match the running application"
+            )
+        if (
+            not result.releases_to_apply
+            and result.current_version != result.future_version
+        ):
+            raise RuntimeError(
+                "Squirrel reported no releases but currentVersion and "
+                "futureVersion differed"
             )
     except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         return SquirrelUpdateState(
@@ -699,6 +755,7 @@ def stage_update(
     """Download/apply the selected update; restart remains an explicit UI action."""
 
     try:
+        deadline = _start_deadline(timeout, "Squirrel update staging")
         feed = validate_feed_url(feed_url)
         notes = (
             validate_release_notes_url(release_notes_url)
@@ -723,8 +780,16 @@ def stage_update(
         )
     try:
         expected_version = _bounded_version(version, "expected update version")
-        _run_apply_update(updater, feed, timeout)
-        verification = _run_check_for_update(updater, feed, timeout)
+        _run_apply_update(
+            updater,
+            feed,
+            _remaining_time(deadline, "Squirrel update staging"),
+        )
+        verification = _run_check_for_update(
+            updater,
+            feed,
+            _remaining_time(deadline, "Squirrel update staging"),
+        )
         if verification.releases_to_apply:
             raise RuntimeError("Squirrel did not finish staging the selected update")
         if verification.current_version != verification.future_version:

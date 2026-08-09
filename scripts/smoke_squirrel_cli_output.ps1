@@ -1,7 +1,113 @@
 [CmdletBinding()]
-param()
+param(
+    [switch] $LifecycleSelfTest
+)
 
 $ErrorActionPreference = 'Stop'
+
+function Invoke-BoundedProcessCapture {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [Diagnostics.ProcessStartInfo] $StartInfo,
+        [ValidateRange(1, 600000)]
+        [int] $TimeoutMilliseconds,
+        [ValidateRange(1, 30000)]
+        [int] $ReadTimeoutMilliseconds = 5000,
+        [ValidateRange(1, 1048576)]
+        [int] $MaximumStreamBytes = 65536
+    )
+
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $StartInfo
+    try {
+        [void] $process.Start()
+        # Both pipes must drain before waiting for process exit or either full
+        # pipe can deadlock the probe before its timeout is ever observed.
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $timedOut = -not $process.WaitForExit($TimeoutMilliseconds)
+        if ($timedOut) {
+            try {
+                $process.Kill($true)
+            }
+            catch {
+                $process.Kill()
+            }
+            if (-not $process.WaitForExit(5000)) {
+                throw 'Squirrel probe did not terminate within 5 seconds after kill'
+            }
+        }
+
+        $readTasks = [Threading.Tasks.Task[]] @($stdoutTask, $stderrTask)
+        if (-not [Threading.Tasks.Task]::WaitAll(
+                $readTasks,
+                $ReadTimeoutMilliseconds
+            )) {
+            if (-not $process.HasExited) {
+                try {
+                    $process.Kill($true)
+                }
+                catch {
+                    $process.Kill()
+                }
+                [void] $process.WaitForExit(5000)
+            }
+            throw "Squirrel probe output reads exceeded $ReadTimeoutMilliseconds ms"
+        }
+
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+        if ([Text.Encoding]::UTF8.GetByteCount($stdout) -gt $MaximumStreamBytes -or
+            [Text.Encoding]::UTF8.GetByteCount($stderr) -gt $MaximumStreamBytes) {
+            throw "Squirrel probe output exceeded $MaximumStreamBytes bytes per stream"
+        }
+        if ($timedOut) {
+            throw [TimeoutException]::new(
+                "Squirrel probe exceeded $TimeoutMilliseconds ms and was killed"
+            )
+        }
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Stdout = $stdout
+            Stderr = $stderr
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
+if ($LifecycleSelfTest) {
+    $selfTestInfo = [Diagnostics.ProcessStartInfo]::new()
+    $selfTestInfo.FileName = (Get-Process -Id $PID).Path
+    $selfTestInfo.ArgumentList.Add('-NoProfile')
+    $selfTestInfo.ArgumentList.Add('-Command')
+    $selfTestInfo.ArgumentList.Add('Start-Sleep -Seconds 30')
+    $selfTestInfo.UseShellExecute = $false
+    $selfTestInfo.CreateNoWindow = $true
+    $selfTestInfo.RedirectStandardOutput = $true
+    $selfTestInfo.RedirectStandardError = $true
+    $selfTestTimer = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        Invoke-BoundedProcessCapture `
+            -StartInfo $selfTestInfo `
+            -TimeoutMilliseconds 250 | Out-Null
+        throw 'Lifecycle self-test child unexpectedly completed'
+    }
+    catch [TimeoutException] {
+        $selfTestTimer.Stop()
+        if ($selfTestTimer.ElapsedMilliseconds -gt 10000) {
+            throw 'Lifecycle self-test did not kill the hung child promptly'
+        }
+        [pscustomobject]@{
+            lifecycle = 'hung-child-killed'
+            elapsed_ms = $selfTestTimer.ElapsedMilliseconds
+        } | ConvertTo-Json -Compress
+        return
+    }
+}
+
 $localAppData = [Environment]::GetFolderPath(
     [Environment+SpecialFolder]::LocalApplicationData
 )
@@ -87,17 +193,13 @@ try {
     $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    [void] $process.Start()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
-    if (-not $process.WaitForExit(30000)) {
-        $process.Kill()
-        throw 'Squirrel checkForUpdate probe timed out'
-    }
-    if ($process.ExitCode -ne 0) {
-        throw "Squirrel checkForUpdate failed with exit code $($process.ExitCode): $stderr"
+    $capture = Invoke-BoundedProcessCapture `
+        -StartInfo $startInfo `
+        -TimeoutMilliseconds 30000
+    $stdout = $capture.Stdout
+    $stderr = $capture.Stderr
+    if ($capture.ExitCode -ne 0) {
+        throw "Squirrel checkForUpdate failed with exit code $($capture.ExitCode): $stderr"
     }
 
     $endsCrLf = $stdout.EndsWith("`r`n")
@@ -136,7 +238,7 @@ try {
 
     [pscustomobject]@{
         squirrel_version = '2.0.1'
-        exit_code = $process.ExitCode
+        exit_code = $capture.ExitCode
         progress_lines = $lines.Count - 1
         newline = if ($endsCrLf) { 'CRLF' } elseif ($endsLf) { 'LF' } else { 'none' }
         terminal_newline = $endsCrLf -or $endsLf

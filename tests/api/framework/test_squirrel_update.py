@@ -364,6 +364,91 @@ def test_check_reports_up_to_date_only_when_releases_to_apply_is_empty(
     assert state.status == "up_to_date"
 
 
+def test_check_rejects_empty_release_list_when_versions_differ(tmp_path, monkeypatch):
+    updater = tmp_path / "Update.exe"
+    updater.write_bytes(b"fixture")
+    monkeypatch.setattr(
+        squirrel_update,
+        "_run_check_for_update",
+        lambda *_args, **_kwargs: squirrel_update.SquirrelCheckResult(
+            "1.2.2", "1.2.3", ()
+        ),
+    )
+    feed = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/"
+
+    state = check_for_update(feed, update_exe=updater)
+
+    assert state.status == "failed"
+    assert "reported no releases" in (state.detail or "")
+
+
+def test_check_resolver_pages_and_cli_share_one_monotonic_budget(tmp_path, monkeypatch):
+    updater = tmp_path / "Update.exe"
+    updater.write_bytes(b"fixture")
+    page_one = [
+        {"tag_name": f"9.9.{index + 1}", "draft": False, "assets": []}
+        for index in range(squirrel_update.RELEASES_PER_PAGE)
+    ]
+    candidate = next(
+        release
+        for release in _live_inventory()
+        if isinstance(release, dict) and release.get("tag_name") == "0.10.0-dev.426"
+    )
+    now = [100.0]
+    rest_timeouts: list[float] = []
+    cli_timeouts: list[float] = []
+
+    def open_page(request, *, timeout):
+        rest_timeouts.append(timeout)
+        if request.full_url.endswith("page=1"):
+            now[0] += 4.0
+            return _Response(page_one, final_url=request.full_url)
+        now[0] += 3.0
+        return _Response([candidate], final_url=request.full_url)
+
+    def run_check(_updater, _feed, timeout):
+        cli_timeouts.append(timeout)
+        return squirrel_update.SquirrelCheckResult(
+            "0.10.100425", "0.10.100426", ("0.10.100426",)
+        )
+
+    monkeypatch.setattr(squirrel_update.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(squirrel_update, "urlopen", open_page)
+    monkeypatch.setattr(squirrel_update, "_run_check_for_update", run_check)
+
+    state = check_for_update(update_exe=updater, timeout=10.0)
+
+    assert state.status == "available"
+    assert rest_timeouts == pytest.approx([10.0, 6.0])
+    assert cli_timeouts == pytest.approx([3.0])
+
+
+def test_check_deadline_exhaustion_after_rest_prevents_cli_check(tmp_path, monkeypatch):
+    updater = tmp_path / "Update.exe"
+    updater.write_bytes(b"fixture")
+    now = [20.0]
+    cli_calls = []
+
+    def open_page(request, *, timeout):
+        assert timeout == pytest.approx(5.0)
+        now[0] += 6.0
+        return _Response(_live_inventory(), final_url=request.full_url)
+
+    monkeypatch.setattr(squirrel_update.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(squirrel_update, "urlopen", open_page)
+    monkeypatch.setattr(
+        squirrel_update,
+        "_run_check_for_update",
+        lambda *_args: cli_calls.append(True),
+    )
+
+    state = check_for_update(update_exe=updater, timeout=5.0)
+
+    assert state.status == "failed"
+    assert "end-to-end timeout" in (state.detail or "")
+    assert cli_calls == []
+
+
 def test_default_check_carries_validated_live_release_notes(tmp_path, monkeypatch):
     updater = tmp_path / "Update.exe"
     updater.write_bytes(b"fixture")
@@ -415,8 +500,68 @@ def test_stage_update_is_ready_and_unsigned(tmp_path, monkeypatch):
     assert state.release_notes_url == notes
     assert len(calls) == 2
     assert all(
-        call[2] == squirrel_update.UPDATE_STAGE_TIMEOUT_SECONDS for call in calls
+        0 < call[2] <= squirrel_update.UPDATE_STAGE_TIMEOUT_SECONDS for call in calls
     )
+    assert calls[1][2] <= calls[0][2]
+
+
+def test_stage_apply_and_post_check_share_one_900_second_budget(tmp_path, monkeypatch):
+    updater = tmp_path / "Update.exe"
+    updater.write_bytes(b"fixture")
+    now = [50.0]
+    received: list[tuple[str, float]] = []
+
+    def apply(_updater, _feed, timeout):
+        received.append(("apply", timeout))
+        now[0] += 650.0
+
+    def check(_updater, _feed, timeout):
+        received.append(("check", timeout))
+        return squirrel_update.SquirrelCheckResult("0.10.100426", "0.10.100426", ())
+
+    monkeypatch.setattr(squirrel_update.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(squirrel_update, "_run_apply_update", apply)
+    monkeypatch.setattr(squirrel_update, "_run_check_for_update", check)
+
+    state = stage_update(
+        "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/",
+        update_exe=updater,
+        version="0.10.100426",
+    )
+
+    assert state.status == "ready_to_restart"
+    assert [name for name, _timeout in received] == ["apply", "check"]
+    assert [timeout for _name, timeout in received] == pytest.approx([900.0, 250.0])
+
+
+def test_stage_deadline_exhaustion_prevents_multiplied_post_check(
+    tmp_path, monkeypatch
+):
+    updater = tmp_path / "Update.exe"
+    updater.write_bytes(b"fixture")
+    now = [10.0]
+    checked = []
+
+    def apply(_updater, _feed, _timeout):
+        now[0] += squirrel_update.UPDATE_STAGE_TIMEOUT_SECONDS + 1
+
+    monkeypatch.setattr(squirrel_update.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(squirrel_update, "_run_apply_update", apply)
+    monkeypatch.setattr(
+        squirrel_update,
+        "_run_check_for_update",
+        lambda *_args: checked.append(True),
+    )
+
+    state = stage_update(
+        "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/",
+        update_exe=updater,
+        version="0.10.100426",
+    )
+
+    assert state.status == "failed"
+    assert "end-to-end timeout" in (state.detail or "")
+    assert checked == []
 
 
 @pytest.mark.parametrize(
@@ -543,6 +688,43 @@ def test_check_parser_accepts_real_cli_crlf_and_one_terminal_newline():
         "\n", "\r\n"
     )
     assert squirrel_update._parse_check_output(output).future_version == ("0.10.100427")
+
+
+@pytest.mark.parametrize("separator", ("\r\n", "\n", "\r"))
+def test_check_parser_accepts_only_documented_process_record_separators(separator):
+    output = _check_output("0.10.100426", "0.10.100427", ("0.10.100427",)).replace(
+        "\n", separator
+    )
+    assert squirrel_update._parse_check_output(output).future_version == ("0.10.100427")
+
+
+def test_json_release_notes_keep_raw_nel_and_unicode_line_separator():
+    payload = {
+        "currentVersion": "0.10.100426",
+        "futureVersion": "0.10.100427",
+        "releasesToApply": [
+            {
+                "version": "0.10.100427",
+                "releaseNotes": "first\u0085middle\u2028last",
+            }
+        ],
+    }
+    output = (
+        "0\r\n"
+        + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        + "\r\n"
+    )
+
+    assert squirrel_update._parse_check_output(output).releases_to_apply == (
+        "0.10.100427",
+    )
+
+
+def test_check_parser_rejects_empty_releases_when_versions_differ():
+    with pytest.raises(RuntimeError, match="no releases but versions differed"):
+        squirrel_update._parse_check_output(
+            _check_output("0.10.100426", "0.10.100427", ())
+        )
 
 
 @pytest.mark.parametrize(

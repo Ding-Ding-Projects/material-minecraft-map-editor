@@ -25,8 +25,10 @@
 - ✅ Automated Squirrel versions rank numerically above legacy stable 0.10.76;
   patch range 100000..999999 is reserved against stable collisions, and the
   explicit-channel resolver binds the exact immutable project feed and release
-  notes through a documented 900-second staging budget into the Material update
-  banner. Check/update output, five-page inventory discovery, exact post-stage
+  notes through one documented 900-second apply-and-verify deadline into the Material update
+  banner. All inventory pages and the CLI check share one check deadline;
+  canonical build/manual/release tags, strict record separators, empty-result
+  version equality, five-page inventory discovery, exact post-stage
   version proof, and the official guarded process-start handoff are now covered
   by focused mutation and boundary tests.
 - ✅ Hosted release publication produces unsigned Setup.exe, RELEASES, and the

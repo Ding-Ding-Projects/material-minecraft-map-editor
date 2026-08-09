@@ -18,6 +18,8 @@ def test_root_build_scripts_are_touchless_and_use_supported_paths():
     assert 'choice /M "Launch Amulet now"' in build
     assert "if errorlevel 2 goto :build_done" in build
     assert "build-squirrel.ps1" in installer
+    assert 'set "BUILD_VERSION=0.10.0-dev-local"' in installer
+    assert "normalize_squirrel_version.py" not in installer
     assert "-InputDirectory" in installer and "-OutputDirectory" in installer
     assert "RELEASE_DIR" in installer
     assert "Setup.exe was not produced" in installer

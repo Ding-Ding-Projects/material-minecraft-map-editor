@@ -4,6 +4,11 @@ on:
   push:
     branches: ['**']
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional canonical major.minor.patch or major.minor.0-dev.run tag
+        required: false
+        type: string
   release:
     types: [published]
 
@@ -15,6 +20,8 @@ jobs:
     if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
     outputs:
       build_version: ${{ steps.resolve-version.outputs.build_version }}
+      build_channel: ${{ steps.resolve-version.outputs.build_channel }}
+      source_tag: ${{ steps.resolve-version.outputs.source_tag }}
       tests_passed: ${{ steps.release-gating-tests.outcome == 'success' }}
     strategy:
       fail-fast: false
@@ -69,7 +76,7 @@ jobs:
       id: resolve-version
       shell: pwsh
       env:
-        RELEASE_TAG: ${{ github.event.release.tag_name }}
+        RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag || '' }}
         RUN_NUMBER: ${{ github.run_number }}
       run: |
         $raw = $env:RELEASE_TAG
@@ -92,6 +99,8 @@ jobs:
         "BUILD_CHANNEL=$channel" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "BUILD_SOURCE_TAG=$source" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "build_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        "build_channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        "source_tag=$source" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     - name: Fetch previous Squirrel feed for delta
       shell: pwsh
@@ -296,8 +305,10 @@ jobs:
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
-          RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || '' }}
-          RELEASE_TAG_FALLBACK: 0.10.0-dev.${{ github.run_number }}
+          RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || inputs.release_tag || '' }}
+          RELEASE_TAG_FALLBACK: ${{ needs.deploy.outputs.source_tag }}
+          RELEASE_TAG_EXPECTED_SOURCE: ${{ needs.deploy.outputs.source_tag }}
+          RELEASE_TAG_EXPECTED_VERSION: ${{ needs.deploy.outputs.build_version }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
           RUN_SHA: ${{ github.sha }}
