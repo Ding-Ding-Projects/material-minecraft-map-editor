@@ -5,6 +5,7 @@ from __future__ import annotations
 import wx
 
 from amulet_map_editor.api import notifications
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 
 class NotificationHistoryDialog(wx.Dialog):
@@ -43,6 +44,7 @@ class NotificationHistoryDialog(wx.Dialog):
         self.export.Bind(wx.EVT_BUTTON, self._export)
         close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CLOSE))
         self._refresh()
+        apply_material3(self)
 
     def _refresh(self, _event=None) -> None:
         try:
