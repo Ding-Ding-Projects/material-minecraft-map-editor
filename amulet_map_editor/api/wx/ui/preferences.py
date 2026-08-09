@@ -1605,6 +1605,7 @@ class CommandPaletteDialog(wx.Dialog):
         self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self.query.Bind(wx.EVT_TEXT_ENTER, self._run)
         self.results.Bind(wx.EVT_LISTBOX_DCLICK, self._run)
+        self.results.Bind(wx.EVT_KEY_DOWN, self._on_result_key)
 
     def _open_regex_builder(self, _event) -> None:
         with RegexBuilderDialog(
@@ -1642,6 +1643,31 @@ class CommandPaletteDialog(wx.Dialog):
                 self.EndModal(wx.ID_OK)
                 callback()
                 return
+
+    def _on_result_key(self, event: wx.KeyEvent) -> None:
+        """Keep palette result navigation explicit and screen-reader friendly."""
+        count = self.results.GetCount()
+        if count == 0:
+            event.Skip()
+            return
+        key = event.GetKeyCode()
+        current = max(0, self.results.GetSelection())
+        if key == wx.WXK_DOWN:
+            self.results.SetSelection(min(count - 1, current + 1))
+            return
+        if key == wx.WXK_UP:
+            self.results.SetSelection(max(0, current - 1))
+            return
+        if key == wx.WXK_HOME:
+            self.results.SetSelection(0)
+            return
+        if key == wx.WXK_END:
+            self.results.SetSelection(count - 1)
+            return
+        if key in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._run(event)
+            return
+        event.Skip()
 
 
 class ChangelogDialog(wx.Dialog):
