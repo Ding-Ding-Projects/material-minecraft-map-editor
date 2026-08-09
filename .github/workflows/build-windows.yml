@@ -211,7 +211,12 @@ jobs:
           test -n "$started" || { echo 'Could not resolve the deploy job start time for release timing notes'; exit 1; }
           duration="$(STARTED="$started" python3 -c 'from datetime import datetime,timezone; import os; s=datetime.fromisoformat(os.environ["STARTED"].replace("Z","+00:00")); n=datetime.now(timezone.utc); elapsed=max(0,int((n-s).total_seconds())); print(f"{elapsed//3600:02d}:{(elapsed%3600)//60:02d}:{elapsed%60:02d}")')"
           line_table="$(python3 scripts/count_lines.py)"
-          eval "$(python3 scripts/resolve_dim_sum_code_name.py)"
+          while IFS='=' read -r key value; do
+            case "$key" in
+              DIM_SUM_CODE_NAME) DIM_SUM_CODE_NAME="$value" ;;
+              DIM_SUM_PHOTO_URL) DIM_SUM_PHOTO_URL="$value" ;;
+            esac
+          done < <(python3 scripts/resolve_dim_sum_code_name.py)
           test -n "${DIM_SUM_CODE_NAME:-}" || { echo 'Dim-sum code name was not resolved'; exit 1; }
           test -n "${DIM_SUM_PHOTO_URL:-}" || { echo 'Dim-sum public photo URL was not resolved'; exit 1; }
           notes_file="$(mktemp)"

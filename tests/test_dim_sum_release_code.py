@@ -36,3 +36,10 @@ def test_resolver_fails_when_no_published_unused_image_exists():
         assert "No unused catalog dish" in str(exc)
     else:
         raise AssertionError("resolver should fail closed")
+
+
+def test_workflow_parses_resolver_output_without_eval():
+    workflow = (ROOT / ".github/workflows/build-windows.yml").read_text(encoding="utf-8")
+    assert 'eval "$(python3 scripts/resolve_dim_sum_code_name.py)"' not in workflow
+    assert "while IFS='=' read -r key value" in workflow
+    assert 'case "$key" in' in workflow
