@@ -120,9 +120,15 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          test -f release-assets/Setup.exe
-          test -f release-assets/RELEASES
-          test -n "$(find release-assets -type f -name '*.nupkg' -print -quit)"
+          setup_path="$(find release-assets -type f -name 'Setup.exe' -print -quit)"
+          releases_path="$(find release-assets -type f -name 'RELEASES' -print -quit)"
+          nupkg_path="$(find release-assets -type f -name '*-full.nupkg' -print -quit)"
+          test -n "$setup_path" || { echo 'Setup.exe was not found in the downloaded artifact'; exit 1; }
+          test -n "$releases_path" || { echo 'RELEASES was not found in the downloaded artifact'; exit 1; }
+          test -n "$nupkg_path" || { echo 'full Squirrel package was not found in the downloaded artifact'; exit 1; }
+          cp "$setup_path" release-assets/Setup.exe
+          cp "$releases_path" release-assets/RELEASES
+          cp "$nupkg_path" release-assets/$(basename "$nupkg_path")
           tag="0.10.${GITHUB_RUN_NUMBER}"
           completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           line_table="$(python3 scripts/count_lines.py)"
