@@ -1619,6 +1619,7 @@ class PreferencesDialog(wx.Dialog):
             return text
 
     def _build_schedule_tab(self) -> None:
+        mode = self._prefs.language_mode
         page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
         page.SetScrollRate(0, 12)
         root = wx.BoxSizer(wx.VERTICAL)

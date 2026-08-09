@@ -93,3 +93,6 @@ def test_preferences_uses_resources_instead_of_english_only_proof_values():
 
     assert "field.text.SetName(accessible_name)" in SOURCE
     assert "field.picker.SetName(accessible_name)" in SOURCE
+    schedule_start = SOURCE.index("def _build_schedule_tab")
+    schedule_end = SOURCE.index("def _mark_schedule_dirty", schedule_start)
+    assert "mode = self._prefs.language_mode" in SOURCE[schedule_start:schedule_end]
