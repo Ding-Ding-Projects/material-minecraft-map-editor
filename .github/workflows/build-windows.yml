@@ -113,6 +113,8 @@ jobs:
     needs: deploy
     runs-on: ubuntu-24.04
     steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
       - name: Download x64 Squirrel artifacts
         uses: actions/download-artifact@v4
         with:
@@ -130,8 +132,9 @@ jobs:
           test -n "$(find release-assets -type f -name '*.nupkg' -print -quit)"
           tag="0.10.${GITHUB_RUN_NUMBER}"
           completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          line_table="$(python3 scripts/count_lines.py)"
           gh release create "$tag" $(find release-assets -type f -print) \
             --repo "$GITHUB_REPOSITORY" \
             --title "Amulet Map Editor $tag" \
-            --notes "Unsigned Squirrel.Windows release. Workflow completed: $completed. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning." \
+            --notes "Unsigned Squirrel.Windows release. Workflow completed: $completed. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning.\n\nLine count (CI, scripts/count_lines.py):\n\n$line_table\n\nDim-sum photo: unavailable in this repository's tracked catalog; no image is claimed." \
             --target "$GITHUB_SHA"
