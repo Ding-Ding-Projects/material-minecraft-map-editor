@@ -16,7 +16,7 @@ from amulet_map_editor import __version__, lang
 from amulet_map_editor.api.framework.pages import WorldPageUI
 from .pages import AmuletMainMenu, BasePageUI
 
-from amulet_map_editor.api import image, notifications, preferences
+from amulet_map_editor.api import image, notifications, preferences, tts_narrator
 from . import update_copy
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
@@ -118,6 +118,9 @@ class AmuletUI(wx.Frame):
         self._update_thread = None
         self._update_stage_thread = None
         self._update_state = SquirrelUpdateState("unknown")
+        # The narrator is opt-in and defaults to a no-op backend, so wiring the
+        # event boundary never makes startup depend on an installed voice.
+        self._narrator = tts_narrator.Narrator()
         self._last_update_notification_key = None
         self._update_timer = None
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
@@ -342,6 +345,7 @@ class AmuletUI(wx.Frame):
         """Stop the refresh timer before the notebook applies close protection."""
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
+        self._narrator.close()
         self._level_notebook.on_app_close(event)
 
     def _update_primary_action(self, _event=None) -> None:
@@ -397,6 +401,12 @@ class AmuletUI(wx.Frame):
                     ),
                     title,
                     body,
+                )
+                tts_narrator.announce_event(
+                    self._narrator,
+                    "updates",
+                    title + ". " + body,
+                    title + ". " + body,
                 )
                 self._last_update_notification_key = notification_key
         elif state.status in {"up_to_date", "not_installed"}:
