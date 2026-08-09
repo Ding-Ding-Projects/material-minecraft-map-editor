@@ -1,17 +1,17 @@
 # Windows packaging contract
 
-The supported Windows release artifact is an **unsigned NSIS installer** built
-from `installer/windows.nsi` and the PyInstaller bundle. The release workflow
-must verify that the expected `Amulet-<version>-Windows-<architecture>.exe`
-exists and that `Get-AuthenticodeSignature` reports `NotSigned`.
+The supported Windows release artifact is an **unsigned Squirrel.Windows
+release** built from the PyInstaller bundle by `installer/build-squirrel.ps1`.
+Each architecture produces `Setup.exe`, `RELEASES`, and a full `.nupkg`; delta
+packages are emitted when a prior full package is available. CI verifies the
+release index and checks every generated executable and DLL with
+`Get-AuthenticodeSignature`, which must report `NotSigned`.
 
-This project is a native Python/PyInstaller application and does not ship the
-Electron/Squirrel.Windows update metadata (`RELEASES`, `.nupkg`, or Squirrel
-delta packages). CI therefore must not label the NSIS executable as a
-Squirrel.Windows installer or silently substitute Squirrel packaging. Adding a
-Squirrel channel would require a separately designed update contract and
-runtime integration; until then, the NSIS artifact is the only supported
-Windows installer.
+The runtime bridge in
+`amulet_map_editor/api/framework/squirrel_update.py` validates an HTTPS feed,
+reports available/ready/failed/not-installed states, and leaves restart under
+explicit user control. It never invokes signing and always exposes the
+unsigned-artifact warning.
 
 Code signing is intentionally disabled. Users may see an unknown-publisher or
 SmartScreen warning when installing the unsigned artifact.
