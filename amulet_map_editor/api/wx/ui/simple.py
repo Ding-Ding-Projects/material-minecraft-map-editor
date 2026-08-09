@@ -16,6 +16,11 @@ class SimpleSizer:
 
     def add_object(self, obj, space=1, options=wx.ALL):
         self.sizer.Add(obj, space, options, 5)
+        # Panels are commonly populated after construction. Re-apply the
+        # semantic roles at the insertion point so late controls do not miss
+        # the shared Material 3 sizing and contrast contract.
+        if isinstance(obj, wx.Window):
+            apply_material3(obj)
 
 
 class SimplePanel(wx.Panel, SimpleSizer):
