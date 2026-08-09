@@ -13,5 +13,11 @@ set "PYTHON_CMD=py -3.11"
 %PYTHON_CMD% -m pip install --user --upgrade pip build cython versioneer "numpy~=1.26" >nul || (echo [build] dependency bootstrap failed.& exit /b 1)
 %PYTHON_CMD% -m pip install --user --editable . --no-build-isolation || (echo [build] editable package build failed.& exit /b 1)
 if "%SILENT_MODE%"=="0" echo [build] source package is ready; run py -3 -m amulet_map_editor to launch it.
-if "%SILENT_MODE%"=="0" pause
+if "%SILENT_MODE%"=="0" (
+  choice /M "Launch Amulet now"
+  if errorlevel 2 goto :build_done
+  %PYTHON_CMD% -m amulet_map_editor
+  if errorlevel 1 exit /b 1
+)
+:build_done
 exit /b 0

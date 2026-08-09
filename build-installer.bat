@@ -18,12 +18,12 @@ set "RELEASE_DIR=%~dp0installer\dist\squirrel\Amulet-%BUILD_VERSION%-Windows-x64
 if not exist "%RELEASE_DIR%\Setup.exe" (echo [installer] Setup.exe was not produced.& exit /b 1)
 if not exist "%RELEASE_DIR%\RELEASES" (echo [installer] RELEASES was not produced.& exit /b 1)
 if not exist "%RELEASE_DIR%\Amulet-%BUILD_VERSION%-full.nupkg" (echo [installer] full Squirrel package was not produced.& exit /b 1)
-if "%SILENT_MODE%"=="0" (
-  echo [installer] SHA-256 digests:
-  certutil -hashfile "%RELEASE_DIR%\Setup.exe" SHA256 | findstr /R /V /C:"CertUtil" /C:"SHA256"
-  certutil -hashfile "%RELEASE_DIR%\RELEASES" SHA256 | findstr /R /V /C:"CertUtil" /C:"SHA256"
-  certutil -hashfile "%RELEASE_DIR%\Amulet-%BUILD_VERSION%-full.nupkg" SHA256 | findstr /R /V /C:"CertUtil" /C:"SHA256"
-)
+echo [installer] SHA-256 digests:
+echo [installer] Setup.exe
+certutil -hashfile "%RELEASE_DIR%\Setup.exe" SHA256 | findstr /R /V /C:"CertUtil" /C:"SHA256"
+echo [installer] RELEASES
+certutil -hashfile "%RELEASE_DIR%\RELEASES" SHA256 | findstr /R /V /C:"CertUtil" /C:"SHA256"
+echo [installer] full nupkg
+certutil -hashfile "%RELEASE_DIR%\Amulet-%BUILD_VERSION%-full.nupkg" SHA256 | findstr /R /V /C:"CertUtil" /C:"SHA256"
 if "%SILENT_MODE%"=="0" echo [installer] unsigned Squirrel artifacts are under installer\dist\squirrel
-if "%SILENT_MODE%"=="0" pause
 exit /b 0

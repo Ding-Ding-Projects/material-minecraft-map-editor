@@ -12,11 +12,14 @@ def test_root_build_scripts_are_touchless_and_use_supported_paths():
     assert "PYTHON_CMD=py -3.11" in build and "PYTHON_CMD=py -3.11" in installer
     assert "bootstrap-python.ps1" in build and "ExecutionPolicy Bypass" in build
     assert "build.bat" in installer and "PyInstaller" in installer
+    assert "choice /M \"Launch Amulet now\"" in build
+    assert "if errorlevel 2 goto :build_done" in build
     assert "build-squirrel.ps1" in installer
     assert "-InputDirectory" in installer and "-OutputDirectory" in installer
     assert "RELEASE_DIR" in installer
     assert "Setup.exe was not produced" in installer
     assert "certutil -hashfile" in installer
+    assert installer.count("certutil -hashfile") == 3
     squirrel = (ROOT / "installer/build-squirrel.ps1").read_text(encoding="utf-8")
     assert "Windows PowerShell 5.1" in squirrel
     assert "ArgumentList" in squirrel and "Arguments" in squirrel
