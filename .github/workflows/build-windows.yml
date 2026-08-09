@@ -12,6 +12,9 @@ permissions:
 
 jobs:
   deploy:
+    if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
+    outputs:
+      build_version: ${{ steps.resolve-version.outputs.build_version }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,17 +60,21 @@ jobs:
         python -m PyInstaller -y --distpath ./installer/dist installer/Amulet.spec
 
     - name: Resolve build version
+      id: resolve-version
       shell: pwsh
       env:
         RELEASE_TAG: ${{ github.event.release.tag_name }}
+        RUN_NUMBER: ${{ github.run_number }}
       run: |
         $raw = $env:RELEASE_TAG
-        if ([string]::IsNullOrWhiteSpace($raw)) { $raw = '0.10.0-dev.${{ github.run_number }}' }
+        $fallback = "0.10.0-dev.$env:RUN_NUMBER"
+        if ([string]::IsNullOrWhiteSpace($raw)) { $raw = $fallback }
         if ($raw -match '^v?(\d+\.\d+\.\d+)(?:[-.]?([abrc]\d*(?:[.-].*)?))?$') {
           $version = $Matches[1]
           if ($Matches[2]) { $version += '-' + $Matches[2] }
-        } else { $version = '0.10.0-dev.${{ github.run_number }}' }
+        } else { $version = $fallback }
         "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "build_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     - name: Windows - Create unsigned Squirrel.Windows release
       shell: pwsh
@@ -104,28 +111,38 @@ jobs:
     - name: Upload Release Asset
       uses: actions/upload-artifact@v6
       with:
-        name: Amulet-${{ env.BUILD_VERSION }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
-        path: ./installer/dist/squirrel/Amulet-${{ env.BUILD_VERSION }}-Windows-${{ matrix.cfg.architecture }}
+        name: Amulet-${{ steps.resolve-version.outputs.build_version }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
+        path: ./installer/dist/squirrel/Amulet-${{ steps.resolve-version.outputs.build_version }}-Windows-${{ matrix.cfg.architecture }}
 
   publish:
     name: Publish unsigned Squirrel release
     needs: deploy
+    # A release created by this job emits a `published` event of its own.  The
+    # marker in our notes prevents that event from trying to upload the same
+    # immutable assets a second time, while still allowing manually published
+    # releases to use this path.
+    if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Checkout release commit
         uses: actions/checkout@v4
       - name: Download x64 Squirrel artifacts
         uses: actions/download-artifact@v4
         with:
-          name: Amulet-${{ github.event.release.tag_name || format('0.10.0-dev.{0}', github.run_number) }}-Windows-x64
+          name: Amulet-${{ needs.deploy.outputs.build_version }}-Windows-x64
           path: release-assets
           merge-multiple: true
 
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          RELEASE_EVENT_TAG: ${{ github.event.release.tag_name || '' }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           setup_path="$(find release-assets -type f -name 'Setup.exe' -print -quit)"
@@ -134,16 +151,22 @@ jobs:
           test -n "$setup_path" || { echo 'Setup.exe was not found in the downloaded artifact'; exit 1; }
           test -n "$releases_path" || { echo 'RELEASES was not found in the downloaded artifact'; exit 1; }
           test -n "$nupkg_path" || { echo 'full Squirrel package was not found in the downloaded artifact'; exit 1; }
-          cp "$setup_path" release-assets/Setup.exe
-          cp "$releases_path" release-assets/RELEASES
-          cp "$nupkg_path" release-assets/$(basename "$nupkg_path")
-          tag="${{ github.event.release.tag_name || format('0.10.0-dev.{0}', github.run_number) }}"
+          if [[ "$setup_path" != "release-assets/Setup.exe" ]]; then cp -- "$setup_path" release-assets/Setup.exe; fi
+          if [[ "$releases_path" != "release-assets/RELEASES" ]]; then cp -- "$releases_path" release-assets/RELEASES; fi
+          nupkg_name="$(basename -- "$nupkg_path")"
+          if [[ "$nupkg_path" != "release-assets/$nupkg_name" ]]; then cp -- "$nupkg_path" "release-assets/$nupkg_name"; fi
+          tag="${RELEASE_EVENT_TAG:-0.10.0-dev.${RUN_NUMBER}}"
+          # Keep the value data-only: it came from an event payload, so never
+          # interpolate it into generated shell source or an unquoted command.
+          [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$ ]] || { echo 'Release tag contains unsupported characters'; exit 1; }
           completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          started="${{ github.run_started_at }}"
+          started="$(gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name | startswith("deploy")) | .started_at' | sed -n '1p')"
+          test -n "$started" || { echo 'Could not resolve the deploy job start time for release timing notes'; exit 1; }
           duration="$(STARTED="$started" python3 -c 'from datetime import datetime,timezone; import os; s=datetime.fromisoformat(os.environ["STARTED"].replace("Z","+00:00")); n=datetime.now(timezone.utc); print(str(n-s).split(".")[0])')"
           line_table="$(python3 scripts/count_lines.py)"
           notes_file="$(mktemp)"
           {
+            printf '%s\n' '<!-- amulet-auto-release -->'
             printf '%s\n' "Unsigned Squirrel.Windows release. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
             printf '%s\n' "Workflow started: $started"
             printf '%s\n' "Workflow completed: $completed"
@@ -152,13 +175,28 @@ jobs:
             printf '%s\n\n' "$line_table"
             printf '%s\n' "Dim-sum photo: unavailable in this repository's tracked catalog; no image is claimed."
           } > "$notes_file"
+          upload_paths=("release-assets/Setup.exe" "release-assets/RELEASES" "release-assets/$nupkg_name")
+          while IFS= read -r path; do
+            case "$(basename -- "$path")" in
+              Setup.exe|RELEASES|"$nupkg_name") ;;
+              *) upload_paths+=("$path") ;;
+            esac
+          done < <(find release-assets -type f -print)
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" $(find release-assets -type f -print) --repo "$GITHUB_REPOSITORY" --clobber
+            while IFS= read -r existing; do
+              for path in "${upload_paths[@]}"; do
+                if [[ "$existing" == "$(basename -- "$path")" ]]; then
+                  echo "Refusing to replace immutable release asset: $existing"
+                  exit 1
+                fi
+              done
+            done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+            gh release upload "$tag" "${upload_paths[@]}" --repo "$GITHUB_REPOSITORY"
             gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
           else
-            gh release create "$tag" $(find release-assets -type f -print) \
+            gh release create "$tag" "${upload_paths[@]}" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Amulet Map Editor $tag" \
               --notes-file "$notes_file" \
-              --target "$GITHUB_SHA"
+              --target "$RUN_SHA"
           fi
