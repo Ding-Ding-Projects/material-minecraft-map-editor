@@ -52,18 +52,12 @@ jobs:
       run: |
         python -m PyInstaller -y --distpath ./installer/dist installer/Amulet.spec
 
-    - name: Windows - Install NSIS
-      uses: repolevedavaj/install-nsis@v1.2.0
-      with:
-        nsis-version: '3.11'
-
-    - name: Windows - Sign and Create Installer
-      run: |
-        curl -L -o azuresigntool.exe https://github.com/vcsjones/AzureSignTool/releases/download/v7.0.1/AzureSignTool-${{ matrix.cfg.architecture }}.exe
-        find ./installer/dist/amulet -type f \( -name "*.exe" -o -name "*.dll" -o -name "*.pyd" \) -exec ./azuresigntool.exe sign -kvu "${{ secrets.KEY_VAULT_URL }}" -kvc "${{ secrets.KEY_VAULT_CERTIFICATE }}" -kvi "${{ secrets.KEY_VAULT_CLIENT_ID }}" -kvs "${{ secrets.KEY_VAULT_SECRET }}" -kvt "${{ secrets.KEY_VAULT_TENANT }}" -tr http://timestamp.digicert.com -v "{}" \;
-        makensis -DVERSION=${{ github.event.release.tag_name }} -DARCH=${{ matrix.cfg.architecture }} installer/windows.nsi
-        ./azuresigntool.exe sign -kvu "${{ secrets.KEY_VAULT_URL }}" -kvc "${{ secrets.KEY_VAULT_CERTIFICATE }}" -kvi "${{ secrets.KEY_VAULT_CLIENT_ID }}" -kvs "${{ secrets.KEY_VAULT_SECRET }}" -kvt "${{ secrets.KEY_VAULT_TENANT }}" -tr http://timestamp.digicert.com -v "./installer/dist/Amulet-${{ github.event.release.tag_name }}-Windows-${{ matrix.cfg.architecture }}.exe"
-        rm -rf installer/dist/amulet
+    - name: Windows - Create unsigned Squirrel.Windows release
+      shell: pwsh
+      run: >-
+        ./installer/build-squirrel.ps1
+        -Version '${{ github.event.release.tag_name }}'
+        -Architecture '${{ matrix.cfg.architecture }}'
 
     - name: Publish to PyPi
       env:
@@ -76,4 +70,4 @@ jobs:
       uses: actions/upload-artifact@v6
       with:
         name: Amulet-${{ github.event.release.tag_name }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
-        path: ./installer/dist
+        path: ./installer/dist/squirrel
