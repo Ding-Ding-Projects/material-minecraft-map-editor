@@ -28,7 +28,7 @@ class RegexResult:
     valid: bool
     error: Optional[str] = None
     matches: Tuple[str, ...] = ()
-    groups: Tuple[Tuple[str, ...], ...] = ()
+    groups: Tuple[Tuple[Optional[str], ...], ...] = ()
     matched_indices: Tuple[int, ...] = ()
     first_matches: Tuple[str, ...] = ()
     first_spans: Tuple[Tuple[int, int], ...] = ()
@@ -125,6 +125,34 @@ def plain_text_match_indices(
     )
 
 
+def has_top_level_alternation(pattern: str) -> bool:
+    """Return whether ``pattern`` has an unescaped ``|`` outside groups/classes."""
+
+    escaped = False
+    in_class = False
+    depth = 0
+    for character in pattern:
+        if escaped:
+            escaped = False
+            continue
+        if character == "\\":
+            escaped = True
+            continue
+        if in_class:
+            if character == "]":
+                in_class = False
+            continue
+        if character == "[":
+            in_class = True
+        elif character == "(":
+            depth += 1
+        elif character == ")" and depth:
+            depth -= 1
+        elif character == "|" and depth == 0:
+            return True
+    return False
+
+
 def _validate_request(request: RegexEvaluationRequest) -> Optional[RegexResult]:
     if len(request.pattern) > MAX_PATTERN_LENGTH:
         return RegexResult(
@@ -162,8 +190,10 @@ def _evaluate_regex_in_worker(request: RegexEvaluationRequest) -> RegexResult:
                     truncated = True
                     break
                 match_text = match.group(0)
-                match_groups = tuple(group or "" for group in match.groups())
-                item_text_length = len(match_text) + sum(map(len, match_groups))
+                match_groups = tuple(match.groups())
+                item_text_length = len(match_text) + sum(
+                    len(group) for group in match_groups if group is not None
+                )
                 if result_text_length + item_text_length > MAX_RESULT_TEXT_LENGTH:
                     truncated = True
                     break
@@ -262,7 +292,16 @@ def _regex_worker(connection: Connection, request: RegexEvaluationRequest) -> No
         except (BrokenPipeError, EOFError, OSError):
             pass
     finally:
+        _close_connection(connection)
+
+
+def _close_connection(connection: Optional[Connection]) -> None:
+    if connection is None:
+        return
+    try:
         connection.close()
+    except (OSError, RuntimeError, ValueError):
+        return
 
 
 def _new_worker(
@@ -270,20 +309,34 @@ def _new_worker(
 ) -> Tuple[multiprocessing.Process, Connection, Connection]:
     context = multiprocessing.get_context("spawn")
     receiver, sender = context.Pipe(duplex=False)
-    process = context.Process(target=_regex_worker, args=(sender, request))
-    process.daemon = True
+    try:
+        process = context.Process(target=_regex_worker, args=(sender, request))
+        process.daemon = True
+    except BaseException:
+        _close_connection(receiver)
+        _close_connection(sender)
+        raise
     return process, receiver, sender
 
 
 def _stop_worker(process: multiprocessing.Process) -> None:
-    if process.pid is None:
-        return
-    if process.is_alive():
-        process.terminate()
-    process.join(0.5)
-    if process.is_alive():
-        process.kill()
+    """Best-effort termination that never prevents surrounding cleanup."""
+
+    try:
+        if process.pid is None:
+            return
+        if process.is_alive():
+            process.terminate()
         process.join(0.5)
+        if process.is_alive():
+            process.kill()
+            process.join(0.5)
+    except (OSError, RuntimeError, ValueError):
+        return
+
+
+def _worker_failure(message: str) -> RegexResult:
+    return _bound_result_payload(RegexResult(False, message))
 
 
 def evaluate_regex_bounded(
@@ -294,25 +347,39 @@ def evaluate_regex_bounded(
     invalid = _validate_request(request)
     if invalid is not None:
         return _bound_result_payload(invalid)
-    process, receiver, sender = _new_worker(request)
+    process: Optional[multiprocessing.Process] = None
+    receiver: Optional[Connection] = None
+    sender: Optional[Connection] = None
     try:
+        try:
+            process, receiver, sender = _new_worker(request)
+        except (OSError, RuntimeError, ValueError) as exc:
+            return _worker_failure(f"Regex worker could not be created: {exc}")
         process.start()
-        sender.close()
+        _close_connection(sender)
+        sender = None
         if receiver.poll(max(0.05, timeout)):
             try:
                 result = receiver.recv()
-            except EOFError:
-                return RegexResult(False, "Regex worker exited without a result")
-            return result
-        return RegexResult(
-            False,
-            "Regular-expression evaluation timed out",
-            timed_out=True,
+            except (EOFError, OSError) as exc:
+                return _worker_failure(f"Regex worker exited without a result: {exc}")
+            return _bound_result_payload(result)
+        return _bound_result_payload(
+            RegexResult(
+                False,
+                "Regular-expression evaluation timed out",
+                timed_out=True,
+            )
         )
+    except (OSError, RuntimeError, ValueError) as exc:
+        return _worker_failure(f"Regex worker failed: {exc}")
     finally:
-        sender.close()
-        receiver.close()
-        _stop_worker(process)
+        if sender is not None:
+            _close_connection(sender)
+        if receiver is not None:
+            _close_connection(receiver)
+        if process is not None:
+            _stop_worker(process)
 
 
 class RegexEvaluationController:
@@ -324,10 +391,14 @@ class RegexEvaluationController:
         *,
         debounce_seconds: float = DEFAULT_DEBOUNCE_SECONDS,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        failure_message: str = "Regular-expression evaluation failed",
+        timeout_message: str = "Regular-expression evaluation timed out",
     ) -> None:
         self._dispatcher = dispatcher
         self._debounce_seconds = max(0.0, debounce_seconds)
         self._timeout_seconds = max(0.05, timeout_seconds)
+        self._failure_message = failure_message[:1024]
+        self._timeout_message = timeout_message[:1024]
         self._lock = threading.RLock()
         self._generation = 0
         self._closed = False
@@ -434,7 +505,7 @@ class RegexEvaluationController:
         if self._active is None:
             return
         _generation, process, receiver = self._active
-        receiver.close()
+        _close_connection(receiver)
         if process.pid is not None and process.is_alive():
             process.terminate()
         self._active = None
@@ -450,39 +521,53 @@ class RegexEvaluationController:
                 return
             self._running_generations.add(generation)
 
-        process, receiver, sender = _new_worker(request)
+        process: Optional[multiprocessing.Process] = None
+        receiver: Optional[Connection] = None
+        sender: Optional[Connection] = None
         result: Optional[RegexResult] = None
         try:
+            process, receiver, sender = _new_worker(request)
             process.start()
-            sender.close()
+            _close_connection(sender)
+            sender = None
             with self._lock:
                 if self._closed or generation != self._generation:
                     _stop_worker(process)
-                    sender.close()
-                    receiver.close()
+                    _close_connection(sender)
+                    _close_connection(receiver)
                     return
                 self._active = (generation, process, receiver)
             try:
                 if receiver.poll(self._timeout_seconds):
-                    result = receiver.recv()
+                    try:
+                        result = receiver.recv()
+                    except (EOFError, OSError):
+                        result = _worker_failure(self._failure_message)
                 else:
-                    result = RegexResult(
-                        False,
-                        "Regular-expression evaluation timed out",
-                        timed_out=True,
+                    result = _bound_result_payload(
+                        RegexResult(
+                            False,
+                            self._timeout_message,
+                            timed_out=True,
+                        )
                     )
-            except (EOFError, OSError):
-                result = None
-        except (OSError, RuntimeError) as exc:
-            result = RegexResult(False, f"Regex worker could not start: {exc}")
+            except (EOFError, OSError, RuntimeError, ValueError):
+                result = _worker_failure(self._failure_message)
+        except (OSError, RuntimeError, ValueError):
+            result = _worker_failure(self._failure_message)
         finally:
-            sender.close()
-            receiver.close()
-            _stop_worker(process)
+            if sender is not None:
+                _close_connection(sender)
+            if receiver is not None:
+                _close_connection(receiver)
+            if process is not None:
+                _stop_worker(process)
             with self._lock:
                 if self._active is not None and self._active[0] == generation:
                     self._active = None
                 self._running_generations.discard(generation)
+                if self._timer is threading.current_thread():
+                    self._timer = None
 
         with self._lock:
             deliver = (

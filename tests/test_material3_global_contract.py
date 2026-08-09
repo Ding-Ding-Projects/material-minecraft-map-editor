@@ -45,7 +45,8 @@ def test_dialogs_receive_borderless_material_chrome():
     )
     assert "_ensure_material_dialog_chrome" in source
     assert "wx.NO_BORDER" in source
-    assert "MaterialTitleBar(window" in source
+    assert "title_bar = MaterialTitleBar(" in source
+    assert 'getattr(window, "_material_title_text", window.GetTitle())' in source
 
 
 def test_secondary_frames_receive_the_same_material_chrome():
@@ -55,6 +56,15 @@ def test_secondary_frames_receive_the_same_material_chrome():
     assert "_ensure_material_frame_chrome" in source
     assert "wx.Frame.SetSizer(window, outer)" in source
     assert 'hasattr(window, "_title_bar")' in source
+
+
+def test_material_title_bar_sizes_to_localized_multiline_content():
+    source = (ROOT / "amulet_map_editor/api/wx/title_bar.py").read_text(
+        encoding="utf-8"
+    )
+    assert "self._fit_content_height()" in source
+    assert "content_height = max(control.GetBestSize().height" in source
+    assert "max(44, content_height + 8)" in source
 
 
 def test_editable_controls_use_m3_surface_roles():

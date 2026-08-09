@@ -219,6 +219,7 @@ class MaterialDateTimeField(wx.Panel):
             raise ValueError("kind must be date or time")
         super().__init__(parent)
         self.kind = kind
+        self._syncing_picker = False
         self.text = wx.TextCtrl(self)
         self.text.SetName(f"Schedule {kind} typed value")
         self.text.SetHint("YYYY-MM-DD" if kind == "date" else "HH:MM")
@@ -244,15 +245,24 @@ class MaterialDateTimeField(wx.Panel):
     def _text_changed(self, event: wx.Event) -> None:
         event.Skip()
 
-    def _picker_changed(self, _event: wx.Event) -> None:
+    def _picker_changed(self, event: wx.Event) -> None:
+        if self._syncing_picker:
+            event.Skip()
+            return
         value = self.picker.GetValue()
         if self.kind == "date":
-            self.text.ChangeValue(value.FormatISODate())
+            formatted = value.FormatISODate()
         else:
-            self.text.ChangeValue(value.Format("%H:%M"))
+            formatted = value.Format("%H:%M")
+        # SetValue emits EVT_TEXT only after the native value has been read and
+        # the typed route is synchronized. Preferences search and schedule
+        # persistence therefore observe the same new value in one event flow.
+        self.text.SetValue(formatted)
+        event.Skip()
 
     def SetValue(self, value: str) -> None:
         self.text.ChangeValue(str(value or ""))
+        self._syncing_picker = True
         try:
             if self.kind == "date":
                 parsed = __import__("datetime").date.fromisoformat(str(value))
@@ -265,6 +275,8 @@ class MaterialDateTimeField(wx.Panel):
                 self.picker.SetTime(hour, minute, 0)
         except (TypeError, ValueError):
             pass
+        finally:
+            self._syncing_picker = False
 
     def GetValue(self) -> str:
         return self.text.GetValue()

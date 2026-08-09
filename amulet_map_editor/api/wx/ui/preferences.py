@@ -80,7 +80,7 @@ def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
     return _track_responsive_text(parent, control)
 
 
-def _chrome_copy(key: str, mode: str) -> str:
+def _chrome_copy(key: str, mode: str, *, compact: bool = False) -> str:
     """Compose command/changelog chrome from the persisted language resources."""
 
     english = lang.get(f"preferences.en.{key}")
@@ -88,8 +88,16 @@ def _chrome_copy(key: str, mode: str) -> str:
     if mode == "cantonese":
         return cantonese
     if mode == "bilingual":
-        return f"{english} · {cantonese}"
+        return f"{english}{chr(10) if compact else ' · '}{cantonese}"
     return english
+
+
+def _setting_copy(key: str, mode: str, *, description: bool = False) -> str:
+    spec = next(
+        spec for spec in settings_search.PREFERENCES_SETTING_SPECS if spec.key == key
+    )
+    localized = spec.localized(mode)
+    return localized.description if description else localized.label
 
 
 class _SearchResultsAccessible(wx.Accessible):
@@ -145,7 +153,27 @@ class _SearchResultsAccessible(wx.Accessible):
             self._window.SetSelection(childId - 1)
             self._window.SetFocus()
             return wx.ACC_OK
+        if selectFlags & wx.ACC_SEL_REMOVESELECTION:
+            self._window.SetSelection(wx.NOT_FOUND)
+            return wx.ACC_OK
         return wx.ACC_NOT_IMPLEMENTED
+
+    def GetSelections(self):
+        selection = self._window.GetSelection()
+        return wx.ACC_OK, ([] if selection == wx.NOT_FOUND else [selection + 1])
+
+    def GetDefaultAction(self, childId):
+        if 1 <= childId <= len(self._window._rows):
+            return wx.ACC_OK, self._window._default_action_name
+        return wx.ACC_FAIL, ""
+
+    def DoDefaultAction(self, childId):
+        if not 1 <= childId <= len(self._window._rows):
+            return wx.ACC_FAIL
+        self._window.SetSelection(childId - 1)
+        self._window.SetFocus()
+        self._window.ActivateSelection()
+        return wx.ACC_OK
 
 
 class WrappedSearchResults(wx.ScrolledWindow):
@@ -155,10 +183,12 @@ class WrappedSearchResults(wx.ScrolledWindow):
         self,
         parent: wx.Window,
         activate: Callable[[wx.Event | None], None],
+        default_action_name: str,
     ) -> None:
         super().__init__(parent, style=wx.VSCROLL)
         self.SetScrollRate(0, 12)
         self._activate = activate
+        self._default_action_name = default_action_name
         self._selection = wx.NOT_FOUND
         self._rows: List[Tuple[wx.Panel, wx.StaticText]] = []
         self._stack = wx.BoxSizer(wx.VERTICAL)
@@ -171,6 +201,13 @@ class WrappedSearchResults(wx.ScrolledWindow):
     def Set(self, items: Sequence[str]) -> None:  # noqa: N802 - mirrors wx.ListBox
         self.Freeze()
         try:
+            for child_id in range(1, len(self._rows) + 1):
+                wx.Accessible.NotifyEvent(
+                    wx.ACC_EVENT_OBJECT_DESTROY,
+                    self,
+                    wx.OBJID_CLIENT,
+                    child_id,
+                )
             self._stack.Clear(True)
             self._rows = []
             self._selection = wx.NOT_FOUND
@@ -197,6 +234,18 @@ class WrappedSearchResults(wx.ScrolledWindow):
                     )
                 self._rows.append((row, label))
                 self._stack.Add(row, 0, wx.EXPAND | wx.BOTTOM, 2)
+                wx.Accessible.NotifyEvent(
+                    wx.ACC_EVENT_OBJECT_CREATE,
+                    self,
+                    wx.OBJID_CLIENT,
+                    index + 1,
+                )
+            wx.Accessible.NotifyEvent(
+                wx.ACC_EVENT_OBJECT_REORDER,
+                self,
+                wx.OBJID_CLIENT,
+                0,
+            )
             apply_material3(self)
             self._paint_selection()
             self._reflow()
@@ -204,6 +253,7 @@ class WrappedSearchResults(wx.ScrolledWindow):
             self.Thaw()
 
     def SetSelection(self, index: int) -> None:  # noqa: N802 - mirrors wx.ListBox
+        previous = self._selection
         if not 0 <= index < len(self._rows):
             self._selection = wx.NOT_FOUND
         else:
@@ -211,6 +261,13 @@ class WrappedSearchResults(wx.ScrolledWindow):
             if hasattr(self, "ScrollChildIntoView"):
                 self.ScrollChildIntoView(self._rows[index][0])
         self._paint_selection()
+        if previous != wx.NOT_FOUND and previous != self._selection:
+            wx.Accessible.NotifyEvent(
+                wx.ACC_EVENT_OBJECT_SELECTIONREMOVE,
+                self,
+                wx.OBJID_CLIENT,
+                previous + 1,
+            )
         if self._selection != wx.NOT_FOUND:
             wx.Accessible.NotifyEvent(
                 wx.ACC_EVENT_OBJECT_SELECTION,
@@ -221,6 +278,17 @@ class WrappedSearchResults(wx.ScrolledWindow):
 
     def GetSelection(self) -> int:  # noqa: N802 - mirrors wx.ListBox
         return self._selection
+
+    def ActivateSelection(self) -> None:  # noqa: N802 - accessible list action
+        if self._selection == wx.NOT_FOUND:
+            return
+        self._activate(None)
+        wx.Accessible.NotifyEvent(
+            wx.ACC_EVENT_OBJECT_FOCUS,
+            self,
+            wx.OBJID_CLIENT,
+            self._selection + 1,
+        )
 
     def _paint_selection(self) -> None:
         palette = active_material_palette()
@@ -247,7 +315,7 @@ class WrappedSearchResults(wx.ScrolledWindow):
     def _on_double_click(self, event: wx.MouseEvent, index: int) -> None:
         self.SetSelection(index)
         self.SetFocus()
-        self._activate(event)
+        self.ActivateSelection()
 
     def _on_key(self, event: wx.KeyEvent) -> None:
         key = event.GetKeyCode()
@@ -292,17 +360,31 @@ class PreferencesDialog(wx.Dialog):
     """Tabbed settings dialog with language, funny-level, and appearance controls."""
 
     def __init__(self, parent: wx.Window):
+        self._prefs = preferences.load()
+        mode = self._prefs.language_mode
         super().__init__(
             parent,
-            title="Preferences",
+            title=_chrome_copy("window.title", mode),
             size=wx.Size(760, 680),
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
-        self._prefs = preferences.load()
+        # Preserve the complete single-line native title for window discovery,
+        # while giving the narrow M3 title bar a truthful compact bilingual form.
+        self._material_title_text = _chrome_copy("window.title", mode, compact=True)
         self._school = school_mode.load()
-        self._font_search_controller = RegexEvaluationController(wx.CallAfter)
-        self._preset_search_controller = RegexEvaluationController(wx.CallAfter)
-        self._settings_search_controller = RegexEvaluationController(wx.CallAfter)
+        controller_copy = {
+            "failure_message": settings_search.localized_copy("worker.failure", mode),
+            "timeout_message": settings_search.localized_copy("timeout", mode),
+        }
+        self._font_search_controller = RegexEvaluationController(
+            wx.CallAfter, **controller_copy
+        )
+        self._preset_search_controller = RegexEvaluationController(
+            wx.CallAfter, **controller_copy
+        )
+        self._settings_search_controller = RegexEvaluationController(
+            wx.CallAfter, **controller_copy
+        )
         self._font_search_flags = re.IGNORECASE
         self._preset_search_flags = re.IGNORECASE
         self._settings_search_flags = re.IGNORECASE
@@ -329,11 +411,30 @@ class PreferencesDialog(wx.Dialog):
             # language/funny controls that are intentionally not applicable.
             self._tabs.RemovePage(self._tabs.FindPage(self._language_page))
         root.Add(self._tabs, 1, wx.EXPAND | wx.ALL, 12)
-        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
-        reset = wx.Button(self, label="Reset to shipped values")
-        reset.Bind(wx.EVT_BUTTON, self._reset)
+        buttons = wx.StdDialogButtonSizer()
+        self.ok_button = wx.Button(
+            self, wx.ID_OK, _chrome_copy("window.ok", mode, compact=True)
+        )
+        self.cancel_button = wx.Button(
+            self,
+            wx.ID_CANCEL,
+            _chrome_copy("window.cancel", mode, compact=True),
+        )
+        buttons.AddButton(self.ok_button)
+        buttons.AddButton(self.cancel_button)
+        buttons.Realize()
+        self.reset_button = wx.Button(
+            self, label=_chrome_copy("window.reset", mode, compact=True)
+        )
+        self.reset_button.SetName(_chrome_copy("window.reset", mode))
+        self.reset_button.Bind(wx.EVT_BUTTON, self._reset)
         row = wx.BoxSizer(wx.VERTICAL)
-        row.Add(reset, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_LEFT, 12)
+        row.Add(
+            self.reset_button,
+            0,
+            wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_LEFT,
+            12,
+        )
         row.Add(buttons, 0, wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
         root.Add(row, 0, wx.EXPAND)
         self.SetSizer(root)
@@ -442,6 +543,7 @@ class PreferencesDialog(wx.Dialog):
                 page.Layout()
 
     def _build_language_tab(self) -> None:
+        mode = self._prefs.language_mode
         page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
         page.SetScrollRate(0, 12)
         grid = wx.FlexGridSizer(0, 1, 6, 0)
@@ -449,14 +551,19 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "Language mode",
-                "Choose English, playful Hong Kong-style Cantonese, or both.",
+                _setting_copy("language-mode", mode),
+                _setting_copy("language-mode", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
         self.language = wx.Choice(
-            page, choices=["English", "Playful Cantonese", "Bilingual"]
+            page,
+            choices=[
+                _chrome_copy("choice.language.english", mode),
+                _chrome_copy("choice.language.cantonese", mode),
+                _chrome_copy("choice.language.bilingual", mode),
+            ],
         )
         self.language.SetSelection(
             preferences.LANGUAGE_MODES.index(self._prefs.language_mode)
@@ -465,8 +572,8 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "English funny level",
-                "Styles every English message, including warnings; facts stay unchanged.",
+                _setting_copy("funny-english", mode),
+                _setting_copy("funny-english", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
@@ -482,8 +589,8 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "Cantonese funny level",
-                "Styles every Cantonese message, including errors; facts stay unchanged.",
+                _setting_copy("funny-cantonese", mode),
+                _setting_copy("funny-cantonese", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
@@ -499,22 +606,28 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "Dialog emojis",
-                "Show a relevant decorative emoji in dialogs without changing control labels.",
+                _setting_copy("dialog-emojis", mode),
+                _setting_copy("dialog-emojis", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        self.dialog_emojis = wx.CheckBox(page, label="Show emojis")
+        self.dialog_emojis = wx.CheckBox(
+            page,
+            label=_chrome_copy("language.show.emojis", mode, compact=True),
+        )
         self.dialog_emojis.SetValue(self._prefs.show_dialog_emojis)
         grid.Add(self.dialog_emojis, 1, wx.EXPAND)
         page.SetSizer(wx.BoxSizer(wx.VERTICAL))
         page.GetSizer().Add(grid, 0, wx.EXPAND | wx.ALL, 18)
         self._language_page = page
-        self._tabs.AddPage(page, "Language", True)
+        self._tabs.AddPage(
+            page, settings_search.localized_copy("tab.language", mode), True
+        )
         page.FitInside()
 
     def _build_appearance_tab(self) -> None:
+        mode = self._prefs.language_mode
         page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
         page.SetScrollRate(0, 12)
         root = wx.BoxSizer(wx.VERTICAL)
@@ -523,9 +636,8 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "App display name",
-                "Changes the name shown in the title bar and app messages only. "
-                "Package, data-folder, and update identities stay unchanged.",
+                _setting_copy("display-name", mode),
+                _setting_copy("display-name", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
@@ -534,11 +646,16 @@ class PreferencesDialog(wx.Dialog):
         self.display_name = wx.TextCtrl(
             page,
             value=self._prefs.display_name,
-            name="App display name",
+            name=_setting_copy("display-name", mode),
         )
         self.display_name.SetMaxLength(preferences.MAX_DISPLAY_NAME_LENGTH)
-        self.display_name_reset = wx.Button(page, label="Reset name")
-        self.display_name_reset.SetToolTip("Restore the shipped name, Amulet.")
+        self.display_name_reset = wx.Button(
+            page,
+            label=_chrome_copy("appearance.reset.name", mode, compact=True),
+        )
+        self.display_name_reset.SetToolTip(
+            _chrome_copy("appearance.reset.name.help", mode)
+        )
         self.display_name_reset.Bind(wx.EVT_BUTTON, self._reset_display_name_form)
         identity_row.Add(self.display_name, 1, wx.EXPAND | wx.RIGHT, 8)
         identity_row.Add(self.display_name_reset, 0)
@@ -546,8 +663,8 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "School mode",
-                "A shared local presentation lock. It forces English, serious copy, and no dialog emojis while enabled.",
+                _setting_copy("school-enabled", mode),
+                _setting_copy("school-enabled", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
@@ -555,8 +672,11 @@ class PreferencesDialog(wx.Dialog):
         school_row = wx.BoxSizer(wx.VERTICAL)
         self.school_name = wx.TextCtrl(page, value=self._school.mode_name)
         self.school_name.SetMaxLength(school_mode.MAX_MODE_NAME_LENGTH)
-        self.school_name.SetName("School mode name")
-        self.school_enabled = wx.CheckBox(page, label="Enabled")
+        self.school_name.SetName(_setting_copy("school-name", mode))
+        self.school_enabled = wx.CheckBox(
+            page,
+            label=_chrome_copy("appearance.school.enabled", mode, compact=True),
+        )
         self.school_enabled.SetValue(self._school.enabled)
         school_row.Add(self.school_name, 1, wx.EXPAND | wx.RIGHT, 8)
         school_row.Add(self.school_enabled, 0)
@@ -564,7 +684,7 @@ class PreferencesDialog(wx.Dialog):
         if self._school.enabled:
             active = wx.StaticText(
                 page,
-                label="School mode is active: English-only serious presentation is enforced.",
+                label=_chrome_copy("appearance.school.active", mode),
             )
             active.SetName("School mode active status")
             grid.AddSpacer(1)
@@ -572,18 +692,18 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "Unlock credential",
-                "Set a local credential used to leave School mode. Only a salted verifier is stored.",
+                _setting_copy("school-credential", mode),
+                _setting_copy("school-credential", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
         self.school_credential = wx.TextCtrl(
-            page, style=wx.TE_PASSWORD, name="School mode unlock credential"
+            page,
+            style=wx.TE_PASSWORD,
+            name=_setting_copy("school-credential", mode),
         )
-        self.school_credential.SetHint(
-            "4–128 characters; leave blank to keep the current credential"
-        )
+        self.school_credential.SetHint(_chrome_copy("appearance.credential.hint", mode))
         grid.Add(self.school_credential, 1, wx.EXPAND)
         grid.AddSpacer(1)
         self.identity_status = wx.StaticText(page, label="")
@@ -592,30 +712,50 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(self.identity_status, 1, wx.EXPAND)
         grid.Add(
             _label(
-                page, "Theme", "Select light, dark, or follow the operating system."
+                page,
+                _setting_copy("theme", mode),
+                _setting_copy("theme", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        self.theme = wx.Choice(page, choices=["Light", "Dark", "System"])
+        self.theme = wx.Choice(
+            page,
+            choices=[
+                _chrome_copy("choice.theme.light", mode),
+                _chrome_copy("choice.theme.dark", mode),
+                _chrome_copy("choice.theme.system", mode),
+            ],
+        )
         self.theme.SetSelection(preferences.THEMES.index(self._prefs.theme))
         grid.Add(self.theme, 1, wx.EXPAND)
         grid.Add(
             _label(
                 page,
-                "Density",
-                "Controls spacing throughout tabs, panels, and dialogs.",
+                _setting_copy("density", mode),
+                _setting_copy("density", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        self.density = wx.Choice(page, choices=["Compact", "Comfortable", "Spacious"])
+        self.density = wx.Choice(
+            page,
+            choices=[
+                _chrome_copy("choice.density.compact", mode),
+                _chrome_copy("choice.density.comfortable", mode),
+                _chrome_copy("choice.density.spacious", mode),
+            ],
+        )
         self.density.SetSelection(
             ("compact", "comfortable", "spacious").index(self._prefs.density)
         )
         grid.Add(self.density, 1, wx.EXPAND)
         grid.Add(
-            _label(page, "Accent colour", "Material 3 seed colour in #RRGGBB form."),
+            _label(
+                page,
+                _setting_copy("accent", mode),
+                _setting_copy("accent", mode, description=True),
+            ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
@@ -626,8 +766,8 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "Colour translator",
-                "Enter RGB or HSL values to update the same persisted Material 3 accent colour.",
+                _chrome_copy("appearance.colour.translator", mode),
+                _chrome_copy("appearance.colour.translator.help", mode),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
@@ -658,38 +798,47 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "UI font",
-                "Optional installed font family; blank uses the platform default.",
+                _setting_copy("ui-font", mode),
+                _setting_copy("ui-font", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
         self.font = wx.FontPickerCtrl(page)
-        self.font.SetName("UI font picker")
+        self.font.SetName(_setting_copy("ui-font", mode))
         self._set_appearance_font(self._prefs.ui_font)
         self.font.Bind(wx.EVT_FONTPICKER_CHANGED, self._select_appearance_font)
         grid.Add(self.font, 1, wx.EXPAND)
         grid.Add(
             _label(
                 page,
-                "Installed font search",
-                "Search installed family names; selecting one updates the live preview and persisted UI font.",
+                _chrome_copy("appearance.font.search.label", mode),
+                _chrome_copy("appearance.font.search.help", mode),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
         font_search_row = wx.BoxSizer(wx.VERTICAL)
-        self.font_search = wx.TextCtrl(page, name="Installed font search")
-        self.font_search.SetHint("Search installed fonts")
-        self.font_regex = wx.CheckBox(page, label="Regex")
-        self.font_regex.SetName("Installed font regex mode")
-        self.font_regex_button = wx.Button(page, label="Regex…")
-        self.font_regex_button.SetName("Installed font regex builder")
+        self.font_search = wx.TextCtrl(
+            page, name=_chrome_copy("appearance.font.search.label", mode)
+        )
+        self.font_search.SetHint(_chrome_copy("appearance.font.search.hint", mode))
+        self.font_regex = wx.CheckBox(
+            page, label=_chrome_copy("appearance.regex", mode, compact=True)
+        )
+        self.font_regex.SetName(_chrome_copy("appearance.regex", mode))
+        self.font_regex_button = wx.Button(
+            page,
+            label=_chrome_copy("appearance.regex.button", mode, compact=True),
+        )
+        self.font_regex_button.SetName(
+            _chrome_copy("appearance.font.search.label", mode)
+        )
         self.font_regex_button.SetToolTip(
-            "Build a bounded regular-expression font search"
+            _chrome_copy("appearance.font.regex.help", mode)
         )
         self.font_choice = wx.Choice(page, choices=[])
-        self.font_choice.SetName("Installed font choices")
+        self.font_choice.SetName(_chrome_copy("appearance.font.search.label", mode))
         font_search_row.Add(self.font_search, 1, wx.EXPAND | wx.RIGHT, 8)
         font_search_row.Add(self.font_regex, 0, wx.RIGHT, 8)
         font_search_row.Add(self.font_regex_button, 0, wx.RIGHT, 8)
@@ -698,8 +847,8 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(
             _label(
                 page,
-                "External editor",
-                "Choose Visual Studio Code or a compatible Code executable. Exported files open directly; folders open as workspace roots.",
+                _setting_copy("external-editor", mode),
+                _setting_copy("external-editor", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
@@ -708,34 +857,40 @@ class PreferencesDialog(wx.Dialog):
         self.external_editor_path = wx.TextCtrl(
             page,
             value=external_editor.load_selected(),
-            name="External editor executable",
+            name=_setting_copy("external-editor", mode),
         )
         self.external_editor_path.SetHint(
-            "Optional: path to code.cmd, code, or Code.exe"
+            _chrome_copy("appearance.external.hint", mode)
         )
-        self.external_editor_browse = wx.Button(page, label="Browse…")
-        self.external_editor_test = wx.Button(page, label="Check editor")
+        self.external_editor_browse = wx.Button(
+            page,
+            label=_chrome_copy("appearance.external.browse", mode, compact=True),
+        )
+        self.external_editor_test = wx.Button(
+            page,
+            label=_chrome_copy("appearance.external.check", mode, compact=True),
+        )
         editor_row.Add(self.external_editor_path, 1, wx.EXPAND | wx.RIGHT, 8)
         editor_row.Add(self.external_editor_browse, 0, wx.RIGHT, 8)
         editor_row.Add(self.external_editor_test, 0)
         grid.Add(editor_row, 1, wx.EXPAND)
         self.external_editor_status = wx.StaticText(page, label="")
-        self.external_editor_status.SetName("External editor status")
+        self.external_editor_status.SetName(_setting_copy("external-editor", mode))
         _track_responsive_text(page, self.external_editor_status)
         grid.AddSpacer(1)
         grid.Add(self.external_editor_status, 1, wx.EXPAND)
         self.font_preview = wx.StaticText(
-            page, label="The quick brown fox jumps over the lazy dog · 蝦餃"
+            page, label=_chrome_copy("appearance.font.preview", mode)
         )
-        self.font_preview.SetName("Live typography preview")
+        self.font_preview.SetName(_chrome_copy("appearance.font.preview", mode))
         _track_responsive_text(page, self.font_preview)
         grid.AddSpacer(1)
         grid.Add(self.font_preview, 1, wx.EXPAND)
         grid.Add(
             _label(
                 page,
-                "UI scale",
-                "Bounded scale for text and controls, persisted across restarts.",
+                _setting_copy("ui-scale", mode),
+                _setting_copy("ui-scale", mode, description=True),
             ),
             0,
             wx.ALIGN_CENTER_VERTICAL,
@@ -753,8 +908,8 @@ class PreferencesDialog(wx.Dialog):
         root.Add(
             _label(
                 page,
-                "Named appearance presets",
-                "Save, load, import, or export the five appearance values above.",
+                _chrome_copy("appearance.presets.label", mode),
+                _chrome_copy("appearance.presets.help", mode),
             ),
             0,
             wx.BOTTOM,
@@ -762,23 +917,40 @@ class PreferencesDialog(wx.Dialog):
         )
         preset_row = wx.BoxSizer(wx.VERTICAL)
         self.appearance_preset_list = wx.Choice(page, choices=[])
-        self.appearance_preset_list.SetName("Named appearance presets")
+        self.appearance_preset_list.SetName(
+            _chrome_copy("appearance.presets.label", mode)
+        )
         self.appearance_preset_name = wx.TextCtrl(page)
-        self.appearance_preset_name.SetHint("Preset name")
-        self.appearance_preset_name.SetName("New appearance preset name")
+        self.appearance_preset_name.SetHint(
+            _chrome_copy("appearance.presets.name.hint", mode)
+        )
+        self.appearance_preset_name.SetName(
+            _chrome_copy("appearance.presets.name.hint", mode)
+        )
         preset_row.Add(self.appearance_preset_list, 1, wx.EXPAND | wx.RIGHT, 8)
         preset_row.Add(self.appearance_preset_name, 1, wx.EXPAND)
         root.Add(preset_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
         preset_search_row = wx.BoxSizer(wx.VERTICAL)
         self.appearance_preset_search = wx.TextCtrl(page)
-        self.appearance_preset_search.SetHint("Search appearance presets")
-        self.appearance_preset_search.SetName("Appearance preset search")
-        self.appearance_preset_regex = wx.CheckBox(page, label="Regex")
-        self.appearance_preset_regex_button = wx.Button(page, label="Regex…")
-        self.appearance_preset_regex_button.SetName("Appearance preset regex builder")
+        self.appearance_preset_search.SetHint(
+            _chrome_copy("appearance.presets.search.hint", mode)
+        )
+        self.appearance_preset_search.SetName(
+            _chrome_copy("appearance.presets.search.hint", mode)
+        )
+        self.appearance_preset_regex = wx.CheckBox(
+            page, label=_chrome_copy("appearance.regex", mode, compact=True)
+        )
+        self.appearance_preset_regex_button = wx.Button(
+            page,
+            label=_chrome_copy("appearance.regex.button", mode, compact=True),
+        )
+        self.appearance_preset_regex_button.SetName(
+            _chrome_copy("appearance.regex.button", mode)
+        )
         self.appearance_preset_regex_button.SetToolTip(
-            "Build a bounded regular-expression preset search"
+            _chrome_copy("appearance.presets.regex.help", mode)
         )
         preset_search_row.Add(self.appearance_preset_search, 1, wx.EXPAND | wx.RIGHT, 8)
         preset_search_row.Add(self.appearance_preset_regex, 0)
@@ -791,14 +963,35 @@ class PreferencesDialog(wx.Dialog):
         root.Add(preset_search_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
         preset_actions = wx.BoxSizer(wx.VERTICAL)
-        self.appearance_preset_load = wx.Button(page, label="Load selected")
-        self.appearance_preset_save = wx.Button(page, label="Save preset")
-        self.appearance_preset_update = wx.Button(page, label="Update selected")
-        self.appearance_preset_export = wx.Button(page, label="Export selected…")
-        self.appearance_preset_open = wx.Button(page, label="Open in VS Code")
+        self.appearance_preset_load = wx.Button(
+            page,
+            label=_chrome_copy("appearance.presets.load", mode, compact=True),
+        )
+        self.appearance_preset_save = wx.Button(
+            page,
+            label=_chrome_copy("appearance.presets.save", mode, compact=True),
+        )
+        self.appearance_preset_update = wx.Button(
+            page,
+            label=_chrome_copy("appearance.presets.update", mode, compact=True),
+        )
+        self.appearance_preset_export = wx.Button(
+            page,
+            label=_chrome_copy("appearance.presets.export", mode, compact=True),
+        )
+        self.appearance_preset_open = wx.Button(
+            page,
+            label=_chrome_copy("appearance.presets.open", mode, compact=True),
+        )
         self.appearance_preset_open.Enable(False)
-        self.appearance_preset_import = wx.Button(page, label="Import preset…")
-        self.appearance_preset_delete = wx.Button(page, label="Delete selected")
+        self.appearance_preset_import = wx.Button(
+            page,
+            label=_chrome_copy("appearance.presets.import", mode, compact=True),
+        )
+        self.appearance_preset_delete = wx.Button(
+            page,
+            label=_chrome_copy("appearance.presets.delete", mode, compact=True),
+        )
         for control in (
             self.appearance_preset_load,
             self.appearance_preset_save,
@@ -814,20 +1007,34 @@ class PreferencesDialog(wx.Dialog):
         reset_row = wx.BoxSizer(wx.VERTICAL)
         self.appearance_reset_property = wx.Choice(
             page,
-            choices=["Theme", "Density", "Accent colour", "UI font", "UI scale"],
+            choices=[
+                _chrome_copy("appearance.reset.theme", mode),
+                _chrome_copy("appearance.reset.density", mode),
+                _chrome_copy("appearance.reset.accent", mode),
+                _chrome_copy("appearance.reset.font", mode),
+                _chrome_copy("appearance.reset.scale", mode),
+            ],
         )
         self.appearance_reset_property.SetSelection(0)
-        self.appearance_reset_property.SetName("Appearance property to reset")
-        self.appearance_reset_selected = wx.Button(page, label="Reset selected value")
-        self.appearance_reset_all = wx.Button(page, label="Reset appearance")
-        self.appearance_reset_all.SetName("Reset all appearance")
+        self.appearance_reset_property.SetName(
+            _chrome_copy("appearance.reset.selected", mode)
+        )
+        self.appearance_reset_selected = wx.Button(
+            page,
+            label=_chrome_copy("appearance.reset.selected", mode, compact=True),
+        )
+        self.appearance_reset_all = wx.Button(
+            page,
+            label=_chrome_copy("appearance.reset.all", mode, compact=True),
+        )
+        self.appearance_reset_all.SetName(_chrome_copy("appearance.reset.all", mode))
         reset_row.Add(self.appearance_reset_property, 1, wx.EXPAND | wx.RIGHT, 8)
         reset_row.Add(self.appearance_reset_selected, 0, wx.RIGHT, 8)
         reset_row.Add(self.appearance_reset_all, 0)
         root.Add(reset_row, 0, wx.EXPAND | wx.TOP, 4)
 
         self.appearance_status = wx.StaticText(page, label="")
-        self.appearance_status.SetName("Appearance preset status")
+        self.appearance_status.SetName(_chrome_copy("appearance.presets.label", mode))
         _track_responsive_text(page, self.appearance_status)
         root.Add(self.appearance_status, 0, wx.EXPAND | wx.TOP, 10)
 
@@ -880,7 +1087,7 @@ class PreferencesDialog(wx.Dialog):
         page.FitInside()
         self._appearance_page = page
         self._appearance_tab_index = self._tabs.GetPageCount()
-        self._tabs.AddPage(page, "Appearance")
+        self._tabs.AddPage(page, _chrome_copy("tab.appearance", mode))
         self._appearance_library_controls = (
             self.appearance_preset_list,
             self.appearance_preset_name,
@@ -981,7 +1188,7 @@ class PreferencesDialog(wx.Dialog):
             pattern=self.font_search.GetValue(),
             regex_enabled=self.font_regex.GetValue(),
             flags=getattr(self, "_font_search_flags", 0),
-            sample="Installed font family",
+            sample=_chrome_copy("sample.font", self._prefs.language_mode),
             language_mode=self._prefs.language_mode,
         ) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
@@ -997,7 +1204,7 @@ class PreferencesDialog(wx.Dialog):
             pattern=self.appearance_preset_search.GetValue(),
             regex_enabled=self.appearance_preset_regex.GetValue(),
             flags=getattr(self, "_preset_search_flags", 0),
-            sample="Appearance preset name",
+            sample=_chrome_copy("sample.preset", self._prefs.language_mode),
             language_mode=self._prefs.language_mode,
         ) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
@@ -1512,6 +1719,16 @@ class PreferencesDialog(wx.Dialog):
         add_row("starttime", self.schedule_start_time)
         self.schedule_end_time = MaterialDateTimeField(page, "time")
         add_row("endtime", self.schedule_end_time)
+        for field, setting_key in (
+            (self.schedule_start_date, "schedule-start-date"),
+            (self.schedule_end_date, "schedule-end-date"),
+            (self.schedule_start_time, "schedule-start-time"),
+            (self.schedule_end_time, "schedule-end-time"),
+        ):
+            accessible_name = _setting_copy(setting_key, mode)
+            field.SetName(accessible_name)
+            field.text.SetName(accessible_name)
+            field.picker.SetName(accessible_name)
 
         no_override = self._schedule_text("nooverride")
         self.schedule_language = wx.Choice(
@@ -1637,9 +1854,10 @@ class PreferencesDialog(wx.Dialog):
                 error=True,
             )
 
-    def _mark_schedule_dirty(self, _event: wx.Event) -> None:
+    def _mark_schedule_dirty(self, event: wx.Event) -> None:
         if not self._schedule_loading:
             self._schedule_form_dirty = True
+        event.Skip()
 
     def _show_schedule_message(self, message: str, error: bool = False) -> None:
         _set_responsive_label(self.schedule_validation, message)
@@ -1835,12 +2053,13 @@ class PreferencesDialog(wx.Dialog):
         self._refresh_schedule_list()
         self._show_schedule_message(self._schedule_text("removed"))
 
-    def _toggle_every_day(self, _event: wx.Event) -> None:
+    def _toggle_every_day(self, event: wx.Event) -> None:
         every_day = self.schedule_every_day.GetValue()
         for checkbox in self.schedule_weekdays:
             if every_day:
                 checkbox.SetValue(True)
             checkbox.Enable(not every_day)
+        event.Skip()
 
     def _move_schedule_rule(self, offset: int) -> None:
         if self._schedule_form_dirty:
@@ -1917,7 +2136,11 @@ class PreferencesDialog(wx.Dialog):
         self.regex_result.SetName(settings_search.localized_copy("empty", mode))
         _track_responsive_text(page, self.regex_result)
         box.Add(self.regex_result, 0, wx.TOP, 10)
-        self.regex_results = WrappedSearchResults(page, self._activate_settings_search)
+        self.regex_results = WrappedSearchResults(
+            page,
+            self._activate_settings_search,
+            settings_search.localized_copy("open", mode),
+        )
         self.regex_results.SetName(settings_search.localized_copy("results", mode))
         self.regex_results.SetMinSize(wx.Size(1, 180))
         box.Add(self.regex_results, 1, wx.EXPAND | wx.TOP, 10)
@@ -1963,7 +2186,7 @@ class PreferencesDialog(wx.Dialog):
             pattern=self.regex.GetValue(),
             regex_enabled=self.regex_mode.GetValue(),
             flags=self._effective_settings_search_flags(),
-            sample="Theme, density, external editor, schedule, or language",
+            sample=_chrome_copy("sample.settings", self._prefs.language_mode),
             language_mode=self._prefs.language_mode,
         ) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
@@ -2169,13 +2392,10 @@ class PreferencesDialog(wx.Dialog):
         controls.extend(self.schedule_weekdays)
         for control in controls:
             if isinstance(control, MaterialDateTimeField):
-                control.text.Bind(wx.EVT_TEXT, self._settings_search_source_changed)
-                event = (
-                    wx.adv.EVT_DATE_CHANGED
-                    if control.kind == "date"
-                    else wx.adv.EVT_TIME_CHANGED
-                )
-                control.picker.Bind(event, self._settings_search_source_changed)
+                # MaterialDateTimeField emits EVT_TEXT after its picker and
+                # typed values are synchronized; consuming the native picker
+                # event directly can observe the previous value.
+                control.Bind(wx.EVT_TEXT, self._settings_search_source_changed)
             elif isinstance(control, wx.TextCtrl):
                 control.Bind(wx.EVT_TEXT, self._settings_search_source_changed)
             elif isinstance(control, wx.Choice):
@@ -2293,6 +2513,13 @@ class PreferencesDialog(wx.Dialog):
                 external_editor_path=self.external_editor_path.GetValue().strip(),
             )
         )
+        # Settings are user-managed records too. History failure remains
+        # non-blocking, but the snapshot belongs to the save path—not a viewer.
+        local_history.safe_record(
+            "preferences",
+            asdict(saved_preferences),
+            record_type="settings",
+        )
         # Apply the persisted language and appearance choices immediately to
         # the owning frame; reopening the app is not required.
         lang.set_language(
@@ -2328,7 +2555,10 @@ class CommandPaletteDialog(wx.Dialog):
         self.query = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
         self.query.SetHint(_chrome_copy("command_palette_search", self._language_mode))
         self.regex = wx.CheckBox(self, label=_chrome_copy("regex", self._language_mode))
-        self.regex_button = wx.Button(self, label="Regex…")
+        self.regex_button = wx.Button(
+            self,
+            label=_chrome_copy("appearance.regex.button", self._language_mode),
+        )
         self.regex_button.SetName("Command palette regex builder")
         self.regex_button.SetToolTip("Build a bounded regular-expression search")
         row = wx.BoxSizer(wx.HORIZONTAL)
@@ -2336,6 +2566,11 @@ class CommandPaletteDialog(wx.Dialog):
         row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
         row.Add(self.regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         root.Add(row, 0, wx.EXPAND | wx.ALL, 12)
+        self.feedback = wx.StaticText(self, label="")
+        self.feedback.SetName(
+            _chrome_copy("command_palette_search", self._language_mode)
+        )
+        root.Add(self.feedback, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
         self.results = wx.ListBox(self)
         root.Add(self.results, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
         self.SetSizer(root)
@@ -2354,7 +2589,8 @@ class CommandPaletteDialog(wx.Dialog):
             pattern=self.query.GetValue(),
             regex_enabled=self.regex.GetValue(),
             flags=self._search_flags,
-            sample="Command, feature, or setting name",
+            sample=_chrome_copy("sample.command", self._language_mode),
+            language_mode=self._language_mode,
         ) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
                 return
@@ -2364,15 +2600,33 @@ class CommandPaletteDialog(wx.Dialog):
         self._refresh()
 
     def _refresh(self) -> None:
-        builder = RegexBuilder(
-            self.query.GetValue()[:4096],
-            regex_enabled=self.regex.GetValue(),
-            flags=self._search_flags,
-        )
+        query = self.query.GetValue()[:4096]
         try:
-            matches = builder.search([name for name, _ in self._commands])
+            names = [name for name, _ in self._commands]
+            if self.regex.GetValue():
+                matches = RegexBuilder(
+                    query,
+                    regex_enabled=True,
+                    flags=self._search_flags,
+                ).search(names)
+            else:
+                indices = plain_text_match_indices(
+                    names,
+                    query,
+                    ignore_case=bool(self._search_flags & re.IGNORECASE),
+                )
+                matches = [names[index] for index in indices]
+            self.feedback.SetLabel("")
+        except TimeoutError:
+            matches = []
+            self.feedback.SetLabel(
+                _chrome_copy("command_palette_timeout", self._language_mode)
+            )
         except (re.error, ValueError):
             matches = []
+            self.feedback.SetLabel(
+                _chrome_copy("command_palette_invalid", self._language_mode)
+            )
         self.results.Set(matches)
         if matches:
             self.results.SetSelection(0)
@@ -2474,7 +2728,10 @@ class ChangelogDialog(wx.Dialog):
         end_row.Add(self.end_picker, 0, wx.EXPAND)
         filters.Add(end_row, 1, wx.EXPAND)
         self.regex = wx.CheckBox(self, label=_chrome_copy("regex", self._language_mode))
-        self.regex_button = wx.Button(self, label="Regex…")
+        self.regex_button = wx.Button(
+            self,
+            label=_chrome_copy("appearance.regex.button", self._language_mode),
+        )
         self.regex_button.SetName("Changelog search regex builder")
         self.regex_button.SetToolTip("Build a bounded regular-expression search")
         filters.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -2550,7 +2807,8 @@ class ChangelogDialog(wx.Dialog):
             pattern=self.query.GetValue(),
             regex_enabled=self.regex.GetValue(),
             flags=self._search_flags,
-            sample="Version, release note, or commit SHA",
+            sample=_chrome_copy("sample.changelog", self._language_mode),
+            language_mode=self._language_mode,
         ) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
                 return
@@ -2590,12 +2848,24 @@ class ChangelogDialog(wx.Dialog):
             builder = RegexBuilder(
                 query.text, regex_enabled=True, flags=self._search_flags
             )
-            matcher = lambda value: bool(builder.search([value]))
+            values = []
+            for entry in self._catalog.entries:
+                values.append(entry.version)
+                for change in entry.changes:
+                    values.extend((change.summary, change.commit_sha))
+            matched_values = set(builder.search(values))
+            matcher = lambda value: value in matched_values
         return changelog.filter_changelog(self._catalog, query, text_matcher=matcher)
 
     def _refresh(self) -> None:
         try:
             filtered = self._filtered()
+        except TimeoutError:
+            self.feedback.SetLabel(
+                _chrome_copy("changelog_timeout", self._language_mode)
+            )
+            self.results.Set([])
+            return
         except (ValueError, changelog.ChangelogValidationError, re.error) as exc:
             self.feedback.SetLabel(
                 f"{_chrome_copy('changelog_invalid', self._language_mode)}: {exc}"
@@ -2606,14 +2876,6 @@ class ChangelogDialog(wx.Dialog):
             _chrome_copy("changelog_match_count", self._language_mode).format(
                 count=len(filtered.entries)
             )
-        )
-        # Settings are user-managed records too: keep an append-only local
-        # snapshot without allowing a history filesystem/git failure to block
-        # the preference change itself.
-        local_history.safe_record(
-            "preferences",
-            asdict(saved_preferences),
-            record_type="settings",
         )
         rows = [
             f"{entry.version} — {entry.released_on.isoformat()} — {entry.changes[0].summary}"
@@ -2626,8 +2888,15 @@ class ChangelogDialog(wx.Dialog):
     def _export(self, _event: wx.Event) -> None:
         try:
             payload = changelog.export_markdown(self._filtered())
+        except TimeoutError:
+            self.feedback.SetLabel(
+                _chrome_copy("changelog_timeout", self._language_mode)
+            )
+            return
         except (ValueError, changelog.ChangelogValidationError, re.error) as exc:
-            self.feedback.SetLabel(f"Invalid filter: {exc}")
+            self.feedback.SetLabel(
+                f"{_chrome_copy('changelog_invalid', self._language_mode)}: {exc}"
+            )
             return
         value = choose_path(
             self,
@@ -2658,8 +2927,15 @@ class ChangelogDialog(wx.Dialog):
     def _copy(self, _event: wx.Event) -> None:
         try:
             payload = changelog.export_markdown(self._filtered())
+        except TimeoutError:
+            self.feedback.SetLabel(
+                _chrome_copy("changelog_timeout", self._language_mode)
+            )
+            return
         except (ValueError, changelog.ChangelogValidationError, re.error) as exc:
-            self.feedback.SetLabel(f"Invalid filter: {exc}")
+            self.feedback.SetLabel(
+                f"{_chrome_copy('changelog_invalid', self._language_mode)}: {exc}"
+            )
             return
         if wx.TheClipboard.Open():
             try:

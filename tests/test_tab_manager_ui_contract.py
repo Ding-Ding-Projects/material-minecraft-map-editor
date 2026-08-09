@@ -25,6 +25,12 @@ def test_tab_manager_is_borderless_searchable_and_regex_enabled():
     assert "Close tabs not containing text" in SOURCE
     assert "show_material_confirmation" in SOURCE
     assert "Unsaved-work protection still applies" in SOURCE
+    assert "def _matching_tabs" in SOURCE
+    assert "plain_text_match_indices" in SOURCE
+    assert SOURCE.count("except TimeoutError:") >= 2
+    assert 'localized_copy("timeout", self._language_mode)' in SOURCE
+    assert "re.search(" not in SOURCE
+    assert "matcher.search([tab.title])" not in SOURCE
 
 
 def test_tab_manager_is_reachable_from_view_and_palette():

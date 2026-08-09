@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -16,6 +15,9 @@ def test_base_selector_uses_persisted_language_resources_and_m3_hook():
         "apply_material3(self)",
         "base_select.en.namespace",
         "base_select.zh.namespace",
-        "_copy(\"search\", self._language_mode)",
+        '_copy("search", self._language_mode)',
+        "except TimeoutError:",
+        '_copy("timeout", self._language_mode)',
+        "plain_text_match_indices",
     ):
         assert marker in source + resources

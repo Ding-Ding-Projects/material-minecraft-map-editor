@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from amulet_map_editor.api.regex_builder import has_top_level_alternation
+
 SOURCE = Path("amulet_map_editor/api/wx/ui/regex_dialog.py").read_text(encoding="utf-8")
 
 
@@ -23,6 +25,10 @@ def test_regex_dialog_has_guided_full_builder_and_live_capture_feedback():
     assert 'self._copy("builder.copy")' in SOURCE
     assert ".evaluate(" not in SOURCE
     assert ".validate(" not in SOURCE
+    assert "if group is None" in SOURCE
+    assert 'group == ""' in SOURCE
+    assert 'self._copy("builder.unmatched")' in SOURCE
+    assert 'self._copy("builder.empty")' in SOURCE
 
 
 def test_regex_dialog_round_trips_every_supported_flag_and_closes_worker():
@@ -39,6 +45,15 @@ def test_guided_alternation_inserts_a_truthful_two_branch_structure():
     assert "f\"(?:{selected or 'left'}|" in SOURCE
     assert "'alternative' if selected else 'right'" in SOURCE
     assert '"alternation": alternation' in SOURCE
+    assert "has_top_level_alternation(selected)" in SOURCE
+
+
+def test_guided_alternation_scanner_ignores_literal_pipe_spellings():
+    assert has_top_level_alternation("a|b")
+    assert not has_top_level_alternation(r"a\|b")
+    assert not has_top_level_alternation("[|]")
+    assert not has_top_level_alternation("(?:a|b)")
+    assert has_top_level_alternation(r"[|](a\|b)|c")
 
 
 def test_regex_dialog_accepts_call_site_sample_and_is_narrow_responsive():

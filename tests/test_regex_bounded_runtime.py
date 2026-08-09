@@ -1,9 +1,13 @@
 import multiprocessing
+from dataclasses import asdict
+import json
 from pathlib import Path
 import pickle
 import re
 import threading
 import time
+
+import pytest
 
 from amulet_map_editor.api import regex_builder
 from amulet_map_editor.api.regex_builder import (
@@ -29,6 +33,60 @@ def _wait_for_pid(controller: RegexEvaluationController, timeout: float = 2.0):
 
 def _active_child_pids():
     return {process.pid for process in multiprocessing.active_children()}
+
+
+class _FakeConnection:
+    def __init__(self, *, poll_error=False, recv_error=False, result=None):
+        self.poll_error = poll_error
+        self.recv_error = recv_error
+        self.result = result
+        self.closed = 0
+
+    def poll(self, _timeout):
+        if self.poll_error:
+            raise OSError("poll broke")
+        return True
+
+    def recv(self):
+        if self.recv_error:
+            raise EOFError("worker vanished")
+        return self.result
+
+    def close(self):
+        self.closed += 1
+
+
+class _FakeProcess:
+    def __init__(self, *, start_error=False):
+        self.start_error = start_error
+        self.pid = None
+        self.joined = 0
+        self.terminated = 0
+        self.killed = 0
+
+    def start(self):
+        if self.start_error:
+            raise OSError("start broke")
+        self.pid = 8675309
+
+    def is_alive(self):
+        return False
+
+    def join(self, _timeout):
+        self.joined += 1
+
+    def terminate(self):
+        self.terminated += 1
+
+    def kill(self):
+        self.killed += 1
+
+
+def _fake_worker(*, start_error=False, poll_error=False, recv_error=False):
+    process = _FakeProcess(start_error=start_error)
+    receiver = _FakeConnection(poll_error=poll_error, recv_error=recv_error)
+    sender = _FakeConnection()
+    return process, receiver, sender
 
 
 def test_adversarial_regex_times_out_and_worker_is_reaped():
@@ -69,6 +127,15 @@ def test_zero_width_capture_groups_and_payload_are_bounded():
         len(pickle.dumps(duplicated, protocol=pickle.HIGHEST_PROTOCOL))
         <= MAX_RESULT_PAYLOAD_BYTES
     )
+
+
+def test_unmatched_and_matched_empty_capture_groups_stay_distinct():
+    result = RegexBuilder(r"(a)?()", regex_enabled=True).evaluate("")
+    assert result.valid
+    assert result.matches == ("",)
+    assert result.groups == ((None, ""),)
+    exported = json.loads(json.dumps(asdict(result)))
+    assert exported["groups"] == [[None, ""]]
 
 
 def test_supported_flags_survive_the_worker_request_round_trip():
@@ -117,6 +184,145 @@ def test_parent_preflight_rejects_oversize_without_starting_a_worker(monkeypatch
     assert not callback_threads[0][1].valid
     assert controller.wait_for_idle(2.0)
     controller.close()
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected"),
+    (
+        ("construct", "created"),
+        ("start", "failed"),
+        ("poll", "failed"),
+        ("eof", "without"),
+    ),
+)
+def test_synchronous_worker_failures_return_bounded_results_and_cleanup(
+    monkeypatch, failure, expected
+):
+    handles = None
+    if failure == "construct":
+        monkeypatch.setattr(
+            regex_builder,
+            "_new_worker",
+            lambda _request: (_ for _ in ()).throw(OSError("construct broke")),
+        )
+    else:
+        handles = _fake_worker(
+            start_error=failure == "start",
+            poll_error=failure == "poll",
+            recv_error=failure == "eof",
+        )
+        monkeypatch.setattr(regex_builder, "_new_worker", lambda _request: handles)
+
+    result = RegexBuilder("x", regex_enabled=True).validate()
+    assert not result.valid
+    assert expected in (result.error or "")
+    assert len(pickle.dumps(result, protocol=pickle.HIGHEST_PROTOCOL)) <= (
+        MAX_RESULT_PAYLOAD_BYTES
+    )
+    if handles is not None:
+        process, receiver, sender = handles
+        assert receiver.closed
+        assert sender.closed
+        if not process.start_error:
+            assert process.joined
+
+
+def test_worker_construction_failure_closes_both_new_pipe_ends(monkeypatch):
+    receiver = _FakeConnection()
+    sender = _FakeConnection()
+
+    class _Context:
+        @staticmethod
+        def Pipe(*, duplex):
+            assert duplex is False
+            return receiver, sender
+
+        @staticmethod
+        def Process(**_kwargs):
+            raise OSError("process construction broke")
+
+    monkeypatch.setattr(
+        regex_builder.multiprocessing, "get_context", lambda _mode: _Context()
+    )
+    with pytest.raises(OSError):
+        regex_builder._new_worker(RegexBuilder("x", regex_enabled=True).request())
+    assert receiver.closed == 1
+    assert sender.closed == 1
+
+
+@pytest.mark.parametrize("immediate", (True, False))
+@pytest.mark.parametrize("failure", ("construct", "start", "poll", "eof"))
+def test_controller_worker_failures_localize_deliver_cleanup_and_become_idle(
+    monkeypatch, immediate, failure
+):
+    handles = None
+    if failure == "construct":
+        monkeypatch.setattr(
+            regex_builder,
+            "_new_worker",
+            lambda _request: (_ for _ in ()).throw(OSError("construct broke")),
+        )
+    else:
+        handles = _fake_worker(
+            start_error=failure == "start",
+            poll_error=failure == "poll",
+            recv_error=failure == "eof",
+        )
+        monkeypatch.setattr(regex_builder, "_new_worker", lambda _request: handles)
+
+    delivered = []
+    complete = threading.Event()
+    controller = RegexEvaluationController(
+        lambda callback: callback(),
+        debounce_seconds=0.01,
+        failure_message="本地化失敗",
+    )
+    controller.submit(
+        RegexBuilder("x", regex_enabled=True).request(),
+        lambda result: (delivered.append(result), complete.set()),
+        immediate=immediate,
+    )
+    assert complete.wait(2.0)
+    assert controller.wait_for_idle(2.0)
+    assert len(delivered) == 1
+    assert delivered[0].error == "本地化失敗"
+    assert controller.active_worker_pid is None
+    if handles is not None:
+        process, receiver, sender = handles
+        assert receiver.closed
+        assert sender.closed
+        if not process.start_error:
+            assert process.joined
+    controller.close()
+
+
+def test_queued_worker_failure_rechecks_generation_and_closed_state(monkeypatch):
+    monkeypatch.setattr(
+        regex_builder,
+        "_new_worker",
+        lambda _request: (_ for _ in ()).throw(OSError("construct broke")),
+    )
+    queued = []
+    delivered = []
+    controller = RegexEvaluationController(queued.append, debounce_seconds=0)
+    controller.submit(
+        RegexBuilder("first", regex_enabled=True).request(),
+        delivered.append,
+        immediate=True,
+    )
+    assert controller.wait_for_idle(2.0)
+    assert len(queued) == 1
+    controller.submit(
+        RegexBuilder("second", regex_enabled=True).request(),
+        delivered.append,
+        immediate=True,
+    )
+    assert controller.wait_for_idle(2.0)
+    queued.pop(0)()
+    assert delivered == []
+    controller.close()
+    queued.pop(0)()
+    assert delivered == []
 
 
 def test_controller_debounces_supersedes_and_reaps_workers():

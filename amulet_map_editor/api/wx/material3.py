@@ -233,7 +233,10 @@ def _ensure_material_dialog_chrome(window: wx.Window) -> None:
         | wx.NO_BORDER
         | wx.RESIZE_BORDER
     )
-    title_bar = MaterialTitleBar(window, window.GetTitle() or "Amulet")
+    title_bar = MaterialTitleBar(
+        window,
+        getattr(window, "_material_title_text", window.GetTitle()) or "Amulet",
+    )
     # A sizer cannot be owned by the dialog and nested inside its replacement
     # at the same time. wxMSW may access-violate during Layout instead of
     # raising a Python exception, so detach without deleting before reparenting.
@@ -266,7 +269,10 @@ def _ensure_material_frame_chrome(window: wx.Window) -> None:
         | wx.NO_BORDER
         | wx.RESIZE_BORDER
     )
-    title_bar = MaterialTitleBar(window, window.GetTitle() or "Amulet")
+    title_bar = MaterialTitleBar(
+        window,
+        getattr(window, "_material_title_text", window.GetTitle()) or "Amulet",
+    )
     wx.Frame.SetSizer(window, None, False)
     outer = wx.BoxSizer(wx.VERTICAL)
     outer.Add(title_bar, 0, wx.EXPAND)

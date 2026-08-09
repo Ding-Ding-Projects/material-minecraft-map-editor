@@ -10,6 +10,7 @@ from wx.lib.wordwrap import wordwrap
 
 from amulet_map_editor.api import preferences, settings_search
 from amulet_map_editor.api.regex_builder import (
+    has_top_level_alternation,
     RegexBuilder,
     RegexEvaluationController,
     RegexResult,
@@ -52,6 +53,7 @@ class RegexBuilderDialog(wx.Dialog):
             size=wx.Size(620, 640),
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
+        self._material_title_text = self._copy("builder.window.title", compact=True)
         self.pattern = pattern
         self.regex_enabled = regex_enabled
         self.flags = flags
@@ -59,7 +61,9 @@ class RegexBuilderDialog(wx.Dialog):
         self._last_result: Optional[RegexResult] = None
         self._apply_when_valid = False
         self._regex_controller = RegexEvaluationController(
-            lambda callback: wx.CallAfter(callback)
+            lambda callback: wx.CallAfter(callback),
+            failure_message=self._copy("worker.failure"),
+            timeout_message=self._copy("timeout"),
         )
 
         root = wx.BoxSizer(wx.VERTICAL)
@@ -303,7 +307,7 @@ class RegexBuilderDialog(wx.Dialog):
         atom = selected or "expression"
         alternation = (
             f"(?:{selected})"
-            if "|" in selected
+            if has_top_level_alternation(selected)
             else f"(?:{selected or 'left'}|{'alternative' if selected else 'right'})"
         )
         replacements = {
@@ -399,8 +403,18 @@ class RegexBuilderDialog(wx.Dialog):
         lines = []
         for index, match in enumerate(result.matches[:50], 1):
             groups = result.groups[index - 1]
+            rendered_groups = tuple(
+                (
+                    self._copy("builder.unmatched")
+                    if group is None
+                    else (self._copy("builder.empty") if group == "" else group)
+                )
+                for group in groups
+            )
             suffix = (
-                self._copy("builder.groups", joiner="", groups=groups) if groups else ""
+                self._copy("builder.groups", joiner="", groups=rendered_groups)
+                if groups
+                else ""
             )
             lines.append(f"{index}. {match!r}{suffix}")
         if result.truncated or count > 50:

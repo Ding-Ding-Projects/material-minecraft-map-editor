@@ -25,7 +25,7 @@ class ExternalEditorUiContractTestCase(unittest.TestCase):
         build = self.methods["_build_appearance_tab"]
         for required in (
             "external_editor.load_selected",
-            "External editor executable",
+            '_setting_copy("external-editor", mode)',
             "external_editor_browse",
             "external_editor_test",
             "_browse_external_editor",

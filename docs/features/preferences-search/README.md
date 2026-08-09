@@ -22,7 +22,10 @@ Search inventory, result/status copy, and the builder are localized for English,
 playful Cantonese, and bilingual presentation. Results form one selectable
 accessibility list with explicit list/list-item roles and selected state. The
 selected row uses the active Material 3 primary-container roles rather than an
-operating-system highlight colour.
+operating-system highlight colour. Replacing the result set emits the native
+accessible create, destroy, and reorder notifications; moving selection emits
+the matching selection events, and the exposed default action activates the
+same exact setting route as <kbd>Enter</kbd> and double-click.
 
 Plain text with case-insensitive matching is the default. The search field has
 an adjacent **Regex…** button, as do the installed-font and appearance-preset
@@ -33,7 +36,14 @@ groups, alternation, quantifiers, raw editing, ignore-case/multiline/dot-all
 flags, sample text, live matches and capture groups, and clipboard copy.
 Ignore-case, multiline, and dot-all flags round-trip together. Guided
 **Alternation** inserts a truthful `(?:left|right)` structure when there is no
-selection, or wraps selected branches into a usable expression.
+selection, or wraps selected branches into a usable expression. Its scanner
+recognizes only an unescaped top-level `|`, so an escaped literal `\|` or a pipe
+inside `[|]` is not mistaken for an already-complete alternation.
+
+Native date and time picker changes first synchronize the paired typed control,
+then emit its normal text event. Search therefore sees the new value during the
+same UI turn, and schedule persistence reads that synchronized value instead of
+the picker callback's previous text.
 
 ## Configuration and persistence
 
@@ -59,9 +69,17 @@ silently shipping an undiscoverable control.
   process. A superseded request, timeout, closed dialog, or destroyed builder
   terminates and joins that worker; a generation check runs again when the wx
   callback executes so queued stale results cannot touch destroyed controls.
+- Worker construction, start, poll, pipe EOF, and process-lifecycle failures
+  close both pipe ends, terminate and join any process that did start, return the
+  controller to idle, and publish the same bounded localized inline failure as
+  other invalid evaluation states. Immediate and debounced callers share this
+  cleanup path.
 - Pattern, sample, batch, capture count, aggregate returned text, and serialized
   worker-response size all have deterministic bounds. Truncated capture feedback
   says so instead of returning an unbounded pickle payload.
+- Capture reporting preserves the regex engine's distinction between an
+  unmatched group (`None`) and a participating empty group (`''`) through the
+  worker result, localized UI rendering, and export payload.
 - A result whose page is unavailable under the active presentation mode is
   omitted from the index; activating a stale result also fails without changing
   tabs or values.
@@ -94,10 +112,12 @@ python -m pytest -q tests/test_preferences.py tests/test_scheduled_settings_ui_c
 The first group verifies label/description/current-value search, sensitive-value
 exclusion, explicit setting and search-surface inventories, cross-tab teleport
 wiring, narrow-layout structure, terminable worker lifecycle and payload bounds,
-queued-callback invalidation, all three language modes, and the full regex
+construction/start/poll/EOF cleanup, queued-callback invalidation, accessible
+result lifecycle and activation, picker-to-search/persistence synchronization,
+distinct unmatched/empty captures, all three language modes, and the full regex
 builder. The second group guards the existing persistence and feature contracts.
-Runtime evidence uses a real wx build on a named hidden desktop, never the visible
-desktop.
+Runtime evidence uses a real wx build on a named hidden desktop, never the
+visible desktop.
 
 ## Suggested articles
 

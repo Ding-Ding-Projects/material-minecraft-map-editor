@@ -30,7 +30,11 @@ class ChangelogUiContractTestCase(unittest.TestCase):
         self.assertIn('("Changelog…", self._open_changelog)', FRAME)
 
     def test_invalid_filters_are_reported_without_network(self):
-        self.assertIn('self.feedback.SetLabel(f"Invalid filter:', UI)
+        self.assertIn("except TimeoutError:", UI)
+        self.assertIn('"changelog_timeout"', UI)
+        self.assertIn("changelog_invalid", UI)
+        self.assertIn("matched_values = set(builder.search(values))", UI)
+        self.assertNotIn("builder.search([value])", UI)
         self.assertNotIn("requests.", UI)
         self.assertNotIn("urllib.", UI)
 

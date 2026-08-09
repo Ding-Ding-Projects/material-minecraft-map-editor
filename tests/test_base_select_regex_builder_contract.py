@@ -6,7 +6,8 @@ DIALOG = Path("amulet_map_editor/api/wx/ui/regex_dialog.py").read_text(encoding=
 
 def test_base_select_has_adjacent_regex_builder_and_bounded_search():
     assert "RegexBuilderDialog" in BASE
-    assert 'label="Regex…"' in BASE
+    assert 'label=_copy("regex", self._language_mode)' in BASE
+    assert 'SetToolTip(_copy("regex.help", self._language_mode))' in BASE
     assert "RegexBuilder(" in BASE
     assert "search_str[:4096]" in BASE
 

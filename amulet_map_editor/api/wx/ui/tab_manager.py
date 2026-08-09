@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 import wx
 
-from amulet_map_editor.api import local_history
+from amulet_map_editor.api import local_history, preferences, settings_search
 from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
-from amulet_map_editor.api.regex_builder import RegexBuilder
+from amulet_map_editor.api.regex_builder import RegexBuilder, plain_text_match_indices
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
@@ -25,6 +25,7 @@ class TabManagerDialog(wx.Dialog):
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._notebook = notebook
+        self._language_mode = preferences.load().language_mode
         self._workspace = getattr(
             notebook, "_tab_workspace", TabWorkspace("main-window")
         )
@@ -149,24 +150,38 @@ class TabManagerDialog(wx.Dialog):
                 )
         self._workspace.state = self._workspace.state.normalised()
 
-    def _matches(self, title: str) -> bool:
+    def _matching_tabs(self):
         query = self.search.GetValue()[:256]
         if not query:
-            return True
+            return list(self._workspace.state.tabs)
+        tabs = list(self._workspace.state.tabs)
+        titles = [item.title for item in tabs]
         if self.regex.GetValue():
-            import re
-
-            try:
-                return re.search(query, title, self._regex_flags) is not None
-            except re.error:
-                return False
-        return query.casefold() in title.casefold()
+            matched = RegexBuilder(
+                query, regex_enabled=True, flags=self._regex_flags
+            ).search(titles)
+            matched_titles = set(matched)
+            return [item for item in tabs if item.title in matched_titles]
+        indices = plain_text_match_indices(titles, query, ignore_case=True)
+        return [tabs[index] for index in indices]
 
     def _refresh(self, _event=None) -> None:
         self.list.DeleteAllItems()
         state = self._workspace.state
         groups = {item.group_id: item.name for item in state.groups}
-        visible = [item for item in state.tabs if self._matches(item.title)]
+        search_error = ""
+        try:
+            visible = self._matching_tabs()
+        except TimeoutError:
+            visible = []
+            search_error = settings_search.localized_copy(
+                "timeout", self._language_mode
+            )
+        except (re.error, ValueError, TypeError, OverflowError) as exc:
+            visible = []
+            search_error = settings_search.localized_copy(
+                "invalid", self._language_mode, error=exc
+            )
         for item in visible:
             row = self.list.InsertItem(self.list.GetItemCount(), item.title)
             self.list.SetItem(row, 1, groups.get(item.group_id, "No group"))
@@ -178,7 +193,8 @@ class TabManagerDialog(wx.Dialog):
         for column, width in enumerate((300, 220, 100, 100)):
             self.list.SetColumnWidth(column, width)
         self.feedback.SetLabel(
-            f"{len(visible)} of {len(state.tabs)} tabs shown; strip edge is {state.dock.value}."
+            search_error
+            or f"{len(visible)} of {len(state.tabs)} tabs shown; strip edge is {state.dock.value}."
         )
         self._selection_changed()
 
@@ -303,10 +319,23 @@ class TabManagerDialog(wx.Dialog):
                 regex_enabled=self.close_regex.GetValue(),
                 flags=self._close_regex_flags,
             )
+            tabs = list(self._workspace.state.tabs)
+            titles = [tab.title for tab in tabs]
+            if self.close_regex.GetValue():
+                matched_titles = set(matcher.search(titles))
+            else:
+                matched_titles = {
+                    titles[index]
+                    for index in plain_text_match_indices(
+                        titles,
+                        query,
+                        ignore_case=bool(self._close_regex_flags & re.IGNORECASE),
+                    )
+                }
             candidates = []
             excluded_pinned = 0
-            for tab in self._workspace.state.tabs:
-                matched = bool(matcher.search([tab.title]))
+            for tab in tabs:
+                matched = tab.title in matched_titles
                 if inverse:
                     matched = not matched
                 if not matched:
@@ -315,6 +344,11 @@ class TabManagerDialog(wx.Dialog):
                     excluded_pinned += 1
                     continue
                 candidates.append(tab)
+        except TimeoutError:
+            self.feedback.SetLabel(
+                settings_search.localized_copy("timeout", self._language_mode)
+            )
+            return
         except (re.error, ValueError, TypeError, OverflowError) as exc:
             self.feedback.SetLabel(f"Invalid bulk-close query: {exc}")
             return

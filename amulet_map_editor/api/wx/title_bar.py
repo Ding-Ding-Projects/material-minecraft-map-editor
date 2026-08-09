@@ -40,6 +40,7 @@ class MaterialTitleBar(wx.Panel):
             control.Bind(wx.EVT_MOTION, self._drag_move)
             control.Bind(wx.EVT_LEFT_DCLICK, lambda _event: self._toggle_maximize())
         apply_material3(self)
+        self._fit_content_height()
 
     def _button(self, label: str, name: str, handler) -> MaterialWindowButton:
         action = {
@@ -51,6 +52,16 @@ class MaterialTitleBar(wx.Panel):
 
     def set_title(self, title: str) -> None:
         self.brand.SetLabel(title)
+        self._fit_content_height()
+
+    def _fit_content_height(self) -> None:
+        """Keep localized multiline titles and window actions fully visible."""
+
+        self.brand.InvalidateBestSize()
+        controls = (self.brand, self.minimise, self.maximise, self.close)
+        content_height = max(control.GetBestSize().height for control in controls)
+        self.SetMinSize(wx.Size(-1, max(44, content_height + 8)))
+        self.Layout()
 
     def _minimise(self, _event) -> None:
         self._frame.Iconize(True)

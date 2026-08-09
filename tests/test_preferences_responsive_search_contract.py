@@ -142,12 +142,20 @@ def test_settings_results_wrap_full_labels_and_remain_keyboard_operable():
     )
     assert "wx.WXK_UP" in PREFERENCES_SOURCE
     assert "wx.WXK_DOWN" in PREFERENCES_SOURCE
-    assert "self._activate(event)" in PREFERENCES_SOURCE
+    assert "self.ActivateSelection()" in PREFERENCES_SOURCE
+    assert "self._activate(None)" in PREFERENCES_SOURCE
     assert "WrappedSearchResults(" in _preferences_class_source()
     assert "class _SearchResultsAccessible(wx.Accessible)" in PREFERENCES_SOURCE
     assert "wx.ROLE_SYSTEM_LIST" in PREFERENCES_SOURCE
     assert "wx.ROLE_SYSTEM_LISTITEM" in PREFERENCES_SOURCE
     assert "wx.ACC_STATE_SYSTEM_SELECTED" in PREFERENCES_SOURCE
+    assert "def GetSelections(self)" in PREFERENCES_SOURCE
+    assert "def GetDefaultAction(self, childId)" in PREFERENCES_SOURCE
+    assert "def DoDefaultAction(self, childId)" in PREFERENCES_SOURCE
+    assert "wx.ACC_EVENT_OBJECT_CREATE" in PREFERENCES_SOURCE
+    assert "wx.ACC_EVENT_OBJECT_DESTROY" in PREFERENCES_SOURCE
+    assert "wx.ACC_EVENT_OBJECT_REORDER" in PREFERENCES_SOURCE
+    assert "wx.ACC_EVENT_OBJECT_FOCUS" in PREFERENCES_SOURCE
     assert 'palette["primary_container"]' in PREFERENCES_SOURCE
     assert 'palette["on_primary_container"]' in PREFERENCES_SOURCE
     assert "SYS_COLOUR_HIGHLIGHT" not in PREFERENCES_SOURCE
@@ -161,3 +169,6 @@ def test_schedule_date_time_field_stacks_typed_and_picker_routes():
     block = source[start:]
     assert "column = wx.BoxSizer(wx.VERTICAL)" in block
     assert "wx.BoxSizer(wx.HORIZONTAL)" not in block
+    assert "self.text.SetValue(formatted)" in block
+    assert "event.Skip()" in block
+    assert "self._syncing_picker" in block

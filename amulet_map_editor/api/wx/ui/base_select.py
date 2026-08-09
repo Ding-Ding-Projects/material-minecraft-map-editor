@@ -8,7 +8,7 @@ import PyMCTranslate
 from amulet_map_editor.api.image import COLOUR_PICKER
 from amulet_map_editor.api import lang, preferences
 from amulet_map_editor.api.wx.material3 import apply_material3
-from amulet_map_editor.api.regex_builder import RegexBuilder
+from amulet_map_editor.api.regex_builder import RegexBuilder, plain_text_match_indices
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 
 
@@ -20,6 +20,7 @@ def _copy(key: str, mode: str) -> str:
     if mode == "bilingual":
         return f"{english} · {cantonese}"
     return english
+
 
 (
     ItemNamespaceChangeEvent,
@@ -108,8 +109,8 @@ class BaseSelect(wx.Panel):
         self._search = wx.SearchCtrl(self)
         self._search.SetHint(_copy("search", self._language_mode))
         search_sizer.Add(self._search, 1, wx.ALIGN_CENTER_VERTICAL)
-        self._regex_button = wx.Button(self, label="Regex…")
-        self._regex_button.SetToolTip("Build a bounded regular-expression search")
+        self._regex_button = wx.Button(self, label=_copy("regex", self._language_mode))
+        self._regex_button.SetToolTip(_copy("regex.help", self._language_mode))
         search_sizer.Add(self._regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         self._search_regex_enabled = False
         self._search_flags = 0
@@ -123,6 +124,9 @@ class BaseSelect(wx.Panel):
                 lambda evt: wx.PostEvent(self, PickEvent(self.GetId(), widget=self)),
             )
         self._list_box = wx.ListBox(self, style=wx.LB_SINGLE)
+        self._search_feedback = wx.StaticText(self, label="")
+        self._search_feedback.SetName(_copy("search", self._language_mode))
+        sizer.Add(self._search_feedback, 0, wx.EXPAND | wx.BOTTOM, 4)
         sizer.Add(self._list_box, 1, wx.EXPAND)
 
         self._names: List[str] = []
@@ -233,12 +237,25 @@ class BaseSelect(wx.Panel):
 
     def _update_item_name(self, search_str: str) -> bool:
         try:
-            names = RegexBuilder(
-                search_str[:4096],
-                flags=self._search_flags,
-                regex_enabled=self._search_regex_enabled,
-            ).search(self._names)
+            if self._search_regex_enabled:
+                names = RegexBuilder(
+                    search_str[:4096],
+                    flags=self._search_flags,
+                    regex_enabled=True,
+                ).search(self._names)
+            else:
+                indices = plain_text_match_indices(
+                    self._names,
+                    search_str[:4096],
+                    ignore_case=bool(self._search_flags & re.IGNORECASE),
+                )
+                names = [self._names[index] for index in indices]
+            self._search_feedback.SetLabel("")
+        except TimeoutError:
+            self._search_feedback.SetLabel(_copy("timeout", self._language_mode))
+            names = []
         except (re.error, ValueError):
+            self._search_feedback.SetLabel(_copy("invalid", self._language_mode))
             names = []
         if search_str not in names:
             names.insert(0, f'"{search_str}"')
