@@ -38,7 +38,6 @@ class DimSumSurpriseToast(wx.Panel):
         root = wx.BoxSizer(wx.HORIZONTAL)
         copy = wx.BoxSizer(wx.VERTICAL)
         heading = wx.StaticText(self, label=title, name="Dim-sum surprise title")
-        heading.SetFont(heading.GetFont().Bold())
         description = wx.StaticText(
             self,
             label=body,

@@ -284,7 +284,25 @@ def apply_material3(window: wx.Window) -> None:
                 wx.Gauge,
             ),
         ):
-            child.SetFont(_font_for(child, 10))
+            # Semantic headings use the M3 title role; ordinary labels use
+            # body typography.  Naming the control keeps the role explicit
+            # without reintroducing per-dialog font construction.
+            child.SetFont(
+                _font_for(
+                    child,
+                    14 if any(
+                        marker in child.GetName().lower()
+                        for marker in ("title", "heading")
+                    )
+                    else 10,
+                    wx.FONTWEIGHT_MEDIUM
+                    if any(
+                        marker in child.GetName().lower()
+                        for marker in ("title", "heading")
+                    )
+                    else wx.FONTWEIGHT_NORMAL,
+                )
+            )
             if isinstance(child, (wx.CheckBox, wx.RadioButton, wx.Slider)):
                 child.SetMinSize(wx.Size(-1, _control_min_height(child)))
         elif isinstance(child, (wx.ListBox, wx.ListCtrl, wx.TreeCtrl)):
