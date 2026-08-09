@@ -23,3 +23,14 @@ def test_startup_dialogs_still_use_shared_material_helper():
         "amulet_map_editor/api/wx/ui/simple.py",
     ):
         assert "apply_material3" in _source(path)
+
+
+def test_core_m3_dialogs_remove_default_caption_chrome():
+    for path in (
+        "amulet_map_editor/api/wx/ui/preferences.py",
+        "amulet_map_editor/api/wx/ui/documentation.py",
+        "amulet_map_editor/api/wx/ui/notifications.py",
+    ):
+        source = _source(path)
+        assert "wx.NO_BORDER" in source
+        assert "wx.RESIZE_BORDER" in source

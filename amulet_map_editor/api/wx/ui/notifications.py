@@ -27,6 +27,7 @@ class NotificationHistoryDialog(wx.Dialog):
             parent,
             title=_copy("title", self._language_mode),
             size=wx.Size(760, 520),
+            style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._items = []
         root = wx.BoxSizer(wx.VERTICAL)

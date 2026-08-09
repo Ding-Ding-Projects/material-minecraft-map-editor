@@ -59,7 +59,12 @@ class PreferencesDialog(wx.Dialog):
     """Tabbed settings dialog with language, funny-level, and appearance controls."""
 
     def __init__(self, parent: wx.Window):
-        super().__init__(parent, title="Preferences", size=wx.Size(620, 480))
+        super().__init__(
+            parent,
+            title="Preferences",
+            size=wx.Size(620, 480),
+            style=wx.NO_BORDER | wx.RESIZE_BORDER,
+        )
         self._prefs = preferences.load()
         self._school = school_mode.load()
         self._appearance_load_error: Optional[str] = None
@@ -1596,6 +1601,7 @@ class CommandPaletteDialog(wx.Dialog):
             parent,
             title=_chrome_copy("command_palette_title", self._language_mode),
             size=wx.Size(560, 420),
+            style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._commands: List[Tuple[str, Callable[[], None]]] = list(commands)
         self._search_flags = 0
@@ -1695,6 +1701,7 @@ class ChangelogDialog(wx.Dialog):
             parent,
             title=_chrome_copy("changelog_title", self._language_mode),
             size=wx.Size(700, 520),
+            style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._catalog = changelog.load_bundled_catalog()
         root = wx.BoxSizer(wx.VERTICAL)

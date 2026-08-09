@@ -93,6 +93,7 @@ class DocumentationDialog(wx.Dialog):
             parent,
             title=_copy("title", self._language_mode),
             size=wx.Size(900, 620),
+            style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._index = load_bundled_articles()
         self._visible = self._index.articles
@@ -120,7 +121,9 @@ class DocumentationDialog(wx.Dialog):
         body.Add(self.article_view, 1, wx.EXPAND)
         root.Add(body, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
-        close = wx.Button(self, id=wx.ID_CLOSE, label=_copy("close", self._language_mode))
+        close = wx.Button(
+            self, id=wx.ID_CLOSE, label=_copy("close", self._language_mode)
+        )
         close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL))
         root.Add(close, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
         self.SetSizer(root)
@@ -153,8 +156,9 @@ class DocumentationDialog(wx.Dialog):
         try:
             self._visible = (
                 self._index.search(
-                    self.query.GetValue()[:4096], regex=self.regex.GetValue()
-                    , flags=self._search_flags
+                    self.query.GetValue()[:4096],
+                    regex=self.regex.GetValue(),
+                    flags=self._search_flags,
                 )
                 if self.query.GetValue()
                 else tuple(self._index.articles)
