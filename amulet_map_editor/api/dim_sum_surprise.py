@@ -53,6 +53,22 @@ class DimSumSurprisePayload:
     auto_dismiss_seconds: int = 8
 
 
+def notification_copy(payload: DimSumSurprisePayload) -> Tuple[str, str]:
+    """Return factual, presentation-neutral copy for a non-blocking toast.
+
+    The consumer application must not fetch or vendor the image here.  The
+    second line intentionally names the catalog asset path and alt text so a
+    native adapter can expose an honest accessible projection while an
+    application-data/public-release image resolver is unavailable.
+    """
+
+    if payload.status != "ready":
+        raise ValueError("only ready payloads can be projected")
+    title = f"Dim-sum surprise: {payload.title}"
+    body = f"{payload.alt_text} · Public catalog image: {payload.image_asset_path}"
+    return title, body
+
+
 def should_show(draw: float) -> bool:
     """Return whether a fresh random draw falls in the exact ten-percent band."""
 

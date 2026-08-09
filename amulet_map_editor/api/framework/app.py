@@ -100,6 +100,11 @@ class AmuletApp(wx.App):
             )
             update_check.check_for_update(self._amulet_ui, __version__)
 
+        # The first-run/license/warning gates above have completed.  Schedule
+        # the optional draw only after the event loop returns so startup stays
+        # usable and no modal surface is interrupted.
+        wx.CallLater(0, self._amulet_ui.begin_startup_dim_sum_surprise)
+
         return True
 
     def InitLocale(self):

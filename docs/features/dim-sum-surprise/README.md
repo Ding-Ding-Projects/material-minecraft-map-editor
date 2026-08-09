@@ -7,11 +7,14 @@ controller. Each controller represents one application launch and makes at
 most one fresh random draw. Values from `0` up to, but not including, `0.10`
 qualify. An ineligible first-run, update, error, or mid-task launch is a no-op.
 
-A qualifying draw resolves catalog data on a daemon thread and returns a
-focus-safe payload for a future notification adapter. The payload identifies
-itself as non-blocking, forbids focus stealing, supplies an eight-second
-auto-dismiss hint, and localizes the authoritative dish name and meaningful
-image alt text for English, Cantonese, or bilingual presentation.
+A qualifying draw resolves catalog data on a daemon thread and projects a
+focus-safe, non-modal `DimSumSurpriseToast` after the startup license/warning
+gates return to the event loop. The toast forbids focus stealing, supplies an
+eight-second auto-dismiss, and localizes the authoritative dish name and
+meaningful image alt text for English, Cantonese, or bilingual presentation.
+Missing/offline catalog data, School mode, update/error states, and a user who
+has already opened a world remain quiet no-ops. The launch controller is
+one-shot, so one application run can never draw twice.
 
 ## Public source and photo boundary
 
@@ -26,12 +29,11 @@ schema, and selection failures quietly produce no surprise, so offline startup
 remains fully usable.
 
 This consumer repository does not generate, download, vendor, or cache photo
-files. The payload deliberately exposes only the catalog's image asset path.
-A future presentation adapter must verify that path against a published
-`catalog-v1*` release asset from `Ding-Ding-Projects/dim-sum-photos`, then use
-the public asset URL or an application-data cache outside this repository.
-Until that adapter exists, this module is a tested state and source-boundary
-foundation rather than a complete visible startup notification.
+files. The native toast deliberately exposes the catalog's image asset path and
+alt text without pretending an image was fetched. A future image resolver must
+verify that path against a published `catalog-v1*` release asset from
+`Ding-Ding-Projects/dim-sum-photos`, then use the public asset URL or an
+application-data cache outside this repository.
 
 ## Security and failure modes
 
@@ -40,6 +42,10 @@ foundation rather than a complete visible startup notification.
   read before JSON decoding.
 - Untrusted catalog strings and paths have explicit length and shape bounds.
 - The background callback is invoked only after a valid dish is selected.
+- The wx projection is scheduled through `CallAfter` and never runs modally or
+  requests focus.
+- The native projection is suppressed when School mode, an update/error state,
+  or an active world-editing tab makes startup ineligible.
 - Any callback or background resolution failure remains a startup-safe no-op.
 
 ## Verification
