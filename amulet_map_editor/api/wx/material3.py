@@ -130,6 +130,12 @@ def _active_palette() -> dict[str, wx.Colour]:
     return palette
 
 
+def active_material_palette() -> dict[str, wx.Colour]:
+    """Return a copy of the live M3 role palette for custom-drawn controls."""
+
+    return dict(_active_palette())
+
+
 def _font_for(
     window: wx.Window, point_size: int, weight=wx.FONTWEIGHT_NORMAL
 ) -> wx.Font:

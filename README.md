@@ -101,8 +101,9 @@ include:
 - a safe external-editor bridge that discovers Visual Studio Code installations,
   persists a validated executable, and opens exported folders as workspace roots;
 - a responsive native Preferences surface with stacked narrow/high-scale rows,
-  real label/explanation/current-value search across tabs, exact-control focus,
-  and a synchronized full regex builder beside every Preferences search field;
+  localized live label/explanation/current-value search across tabs, accessible
+  selected results, exact composite-control focus, and a synchronized,
+  process-bounded full regex builder beside every Preferences search field;
 - a bounded startup dim-sum surprise foundation that reads authoritative dish
   names from the public catalog without copying or vendoring photos; and
 - an in-progress dependency-free Material 3 site shell with tabs, feature and

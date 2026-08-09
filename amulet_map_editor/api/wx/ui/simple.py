@@ -220,14 +220,17 @@ class MaterialDateTimeField(wx.Panel):
         super().__init__(parent)
         self.kind = kind
         self.text = wx.TextCtrl(self)
+        self.text.SetName(f"Schedule {kind} typed value")
         self.text.SetHint("YYYY-MM-DD" if kind == "date" else "HH:MM")
         if kind == "date":
             self.picker = wx.adv.DatePickerCtrl(
                 self, style=wx.adv.DP_DROPDOWN | wx.adv.DP_SHOWCENTURY
             )
+            self.picker.SetName("Schedule date picker")
             self.picker.Bind(wx.adv.EVT_DATE_CHANGED, self._picker_changed)
         else:
             self.picker = wx.adv.TimePickerCtrl(self)
+            self.picker.SetName("Schedule time picker")
             self.picker.Bind(wx.adv.EVT_TIME_CHANGED, self._picker_changed)
         # Keep typed and native picker routes available without imposing a
         # fixed horizontal width on the narrow/high-scale Preferences page.

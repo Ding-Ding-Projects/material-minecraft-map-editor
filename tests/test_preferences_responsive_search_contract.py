@@ -97,7 +97,7 @@ def test_vertical_preferences_rows_do_not_keep_invalid_vertical_alignment_flags(
 
 def test_search_indexes_live_values_and_teleports_to_exact_control():
     source = _preferences_class_source()
-    assert "settings_search.filter_setting_documents" in source
+    assert "settings_search.documents_from_result" in source
     assert "current_value=self._settings_search_value(spec)" in source
     assert "self._tabs.FindPage(page)" in source
     assert "GetPageIndex" not in source
@@ -106,11 +106,36 @@ def test_search_indexes_live_values_and_teleports_to_exact_control():
     assert "page.ScrollChildIntoView(control)" in source
     assert "wx.CallAfter(control.SetFocus)" in source
     assert "spec.sensitive" in source
+    assert "self._settings_search_focus_control(document, fragment)" in source
+    assert "isinstance(control, MaterialDateTimeField)" in source
+    assert (
+        "return control.text if control.text.IsEnabled() else control.picker" in source
+    )
+    assert "for weekday in self.schedule_weekdays" in source
+    assert "return weekday" in source
+
+
+def test_settings_search_refreshes_values_and_preserves_all_builder_flags():
+    source = _preferences_class_source()
+    assert "self._bind_settings_search_sources()" in source
+    assert "self._settings_search_source_changed" in source
+    assert "self._tabs.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED" in source
+    assert "self._refresh_settings_search(immediate=True)" in source
+    assert "flags=self._effective_settings_search_flags()" in source
+    assert "self._settings_search_flags = dialog.flags" in source
+    assert "self._settings_search_flags & ~re.IGNORECASE" in source
+    assert "RegexEvaluationController" in source
+    assert "self._settings_search_controller.submit(" in source
+    assert "plain_text_match_indices(" in source
+    assert "self._settings_search_controller.cancel()" in source
+    assert "builder.validate()" not in source
 
 
 def test_settings_results_wrap_full_labels_and_remain_keyboard_operable():
     assert "class WrappedSearchResults(wx.ScrolledWindow)" in PREFERENCES_SOURCE
-    assert "label.Wrap(wrap_width)" in PREFERENCES_SOURCE
+    assert "wordwrap(source, wrap_width, dc, breakLongWords=True)" in PREFERENCES_SOURCE
+    assert 'setattr(label, "_preferences_source_label", item)' in PREFERENCES_SOURCE
+    assert "label.SetMinSize(wx.Size(1," in PREFERENCES_SOURCE
     assert (
         "self.SetVirtualSize(wx.Size(max(1, client.width), height))"
         in PREFERENCES_SOURCE
@@ -119,6 +144,13 @@ def test_settings_results_wrap_full_labels_and_remain_keyboard_operable():
     assert "wx.WXK_DOWN" in PREFERENCES_SOURCE
     assert "self._activate(event)" in PREFERENCES_SOURCE
     assert "WrappedSearchResults(" in _preferences_class_source()
+    assert "class _SearchResultsAccessible(wx.Accessible)" in PREFERENCES_SOURCE
+    assert "wx.ROLE_SYSTEM_LIST" in PREFERENCES_SOURCE
+    assert "wx.ROLE_SYSTEM_LISTITEM" in PREFERENCES_SOURCE
+    assert "wx.ACC_STATE_SYSTEM_SELECTED" in PREFERENCES_SOURCE
+    assert 'palette["primary_container"]' in PREFERENCES_SOURCE
+    assert 'palette["on_primary_container"]' in PREFERENCES_SOURCE
+    assert "SYS_COLOUR_HIGHLIGHT" not in PREFERENCES_SOURCE
 
 
 def test_schedule_date_time_field_stacks_typed_and_picker_routes():

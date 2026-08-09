@@ -1,11 +1,36 @@
-"""Bounded, wx-independent search model for the Preferences surface."""
+"""Localized, bounded search model for the native Preferences surface."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterable, Tuple
 
-from amulet_map_editor.api.regex_builder import RegexBuilder
+from amulet_map_editor.api import lang
+from amulet_map_editor.api.regex_builder import (
+    RegexBuilder,
+    RegexResult,
+    evaluate_regex_bounded,
+)
+
+
+def localized_copy(
+    key: str,
+    mode: str,
+    *,
+    bilingual_separator: str = " · ",
+    **values: object,
+) -> str:
+    """Resolve one Preferences search string independently of OS locale."""
+
+    english = lang.get(f"preferences.en.search.{key}")
+    cantonese = lang.get(f"preferences.zh.search.{key}")
+    if mode == "cantonese":
+        text = cantonese
+    elif mode == "bilingual":
+        text = f"{english}{bilingual_separator}{cantonese}"
+    else:
+        text = english
+    return text.format(**values)
 
 
 @dataclass(frozen=True)
@@ -13,8 +38,41 @@ class SettingSearchSpec:
     """One hand-written Preferences setting that must remain discoverable."""
 
     key: str
-    tab: str
+    tab_id: str
     control_name: str
+    sensitive: bool = False
+
+    def localized(self, mode: str) -> "LocalizedSettingSearchSpec":
+        resource = self.key.replace("-", ".")
+        return LocalizedSettingSearchSpec(
+            key=self.key,
+            tab_id=self.tab_id,
+            control_name=self.control_name,
+            tab=localized_copy(f"tab.{self.tab_id}", mode),
+            label=localized_copy(f"setting.{resource}.label", mode),
+            description=localized_copy(f"setting.{resource}.description", mode),
+            sensitive=self.sensitive,
+        )
+
+    @property
+    def tab(self) -> str:
+        return self.localized("english").tab
+
+    @property
+    def label(self) -> str:
+        return self.localized("english").label
+
+    @property
+    def description(self) -> str:
+        return self.localized("english").description
+
+
+@dataclass(frozen=True)
+class LocalizedSettingSearchSpec:
+    key: str
+    tab_id: str
+    control_name: str
+    tab: str
     label: str
     description: str
     sensitive: bool = False
@@ -22,14 +80,20 @@ class SettingSearchSpec:
 
 @dataclass(frozen=True)
 class SettingSearchDocument:
-    """A live setting value projected into the local search index."""
+    """A live setting value projected into the selected language's index."""
 
     spec: SettingSearchSpec
     current_value: str = ""
+    language_mode: str = "english"
+
+    @property
+    def localized_spec(self) -> LocalizedSettingSearchSpec:
+        return self.spec.localized(self.language_mode)
 
     @property
     def searchable_text(self) -> str:
-        parts = (self.spec.label, self.spec.description)
+        localized = self.localized_spec
+        parts = (localized.label, localized.description)
         if self.current_value and not self.spec.sensitive:
             parts += (self.current_value,)
         return "\n".join(parts)
@@ -39,231 +103,71 @@ class SettingSearchDocument:
         suffix = ""
         if self.current_value and not self.spec.sensitive:
             suffix = f" · {self.current_value}"
-        return f"{self.spec.label} — {self.spec.tab}{suffix}"
+        if self.language_mode == "bilingual":
+            english = self.spec.localized("english")
+            cantonese = self.spec.localized("cantonese")
+            english_result = localized_copy(
+                "result",
+                "english",
+                label=english.label,
+                tab=english.tab,
+                value=suffix,
+            )
+            cantonese_result = localized_copy(
+                "result",
+                "cantonese",
+                label=cantonese.label,
+                tab=cantonese.tab,
+                value=suffix,
+            )
+            return f"{english_result} · {cantonese_result}"
+        localized = self.localized_spec
+        return localized_copy(
+            "result",
+            self.language_mode,
+            label=localized.label,
+            tab=localized.tab,
+            value=suffix,
+        )
 
 
 # This list is deliberately hand-written. Adding a persisted setting without
 # adding it here must fail the UI completeness contract instead of silently
 # creating a Preferences control that search cannot discover.
 PREFERENCES_SETTING_SPECS: Tuple[SettingSearchSpec, ...] = (
+    SettingSearchSpec("language-mode", "language", "language"),
+    SettingSearchSpec("funny-english", "language", "funny_en"),
+    SettingSearchSpec("funny-cantonese", "language", "funny_yue"),
+    SettingSearchSpec("dialog-emojis", "language", "dialog_emojis"),
+    SettingSearchSpec("display-name", "appearance", "display_name"),
+    SettingSearchSpec("school-name", "appearance", "school_name"),
+    SettingSearchSpec("school-enabled", "appearance", "school_enabled"),
     SettingSearchSpec(
-        "language-mode",
-        "Language",
-        "language",
-        "Language mode",
-        "Choose English, playful Hong Kong-style Cantonese, or bilingual copy.",
+        "school-credential", "appearance", "school_credential", sensitive=True
     ),
-    SettingSearchSpec(
-        "funny-english",
-        "Language",
-        "funny_en",
-        "English funny level",
-        "Set the English message voice from serious to maximally playful.",
-    ),
-    SettingSearchSpec(
-        "funny-cantonese",
-        "Language",
-        "funny_yue",
-        "Cantonese funny level",
-        "Set the Cantonese message voice from serious to maximally playful.",
-    ),
-    SettingSearchSpec(
-        "dialog-emojis",
-        "Language",
-        "dialog_emojis",
-        "Dialog emojis",
-        "Show decorative emoji in dialogs and message boxes.",
-    ),
-    SettingSearchSpec(
-        "display-name",
-        "Appearance",
-        "display_name",
-        "App display name",
-        "Change the name shown in title bars and app messages.",
-    ),
-    SettingSearchSpec(
-        "school-name",
-        "Appearance",
-        "school_name",
-        "School mode name",
-        "Rename the shared local presentation mode.",
-    ),
-    SettingSearchSpec(
-        "school-enabled",
-        "Appearance",
-        "school_enabled",
-        "School mode enabled",
-        "Force English, serious copy, and no dialog emojis.",
-    ),
-    SettingSearchSpec(
-        "school-credential",
-        "Appearance",
-        "school_credential",
-        "Unlock credential",
-        "Set or enter the local credential used to leave School mode.",
-        sensitive=True,
-    ),
-    SettingSearchSpec(
-        "theme",
-        "Appearance",
-        "theme",
-        "Theme",
-        "Select light, dark, or the operating-system theme.",
-    ),
-    SettingSearchSpec(
-        "density",
-        "Appearance",
-        "density",
-        "Density",
-        "Control spacing throughout tabs, panels, and dialogs.",
-    ),
-    SettingSearchSpec(
-        "accent",
-        "Appearance",
-        "accent",
-        "Accent colour",
-        "Set the Material 3 seed colour using a HEX value.",
-    ),
-    SettingSearchSpec(
-        "ui-font",
-        "Appearance",
-        "font",
-        "UI font",
-        "Choose an installed user-interface font family.",
-    ),
-    SettingSearchSpec(
-        "external-editor",
-        "Appearance",
-        "external_editor_path",
-        "External editor",
-        "Choose Visual Studio Code or a compatible Code executable.",
-    ),
-    SettingSearchSpec(
-        "ui-scale",
-        "Appearance",
-        "scale",
-        "UI scale",
-        "Scale native text and controls from 80 to 200 percent.",
-    ),
-    SettingSearchSpec(
-        "appearance-presets",
-        "Appearance",
-        "appearance_preset_list",
-        "Named appearance presets",
-        "Load, save, import, export, update, or delete appearance presets.",
-    ),
-    SettingSearchSpec(
-        "schedule-enabled",
-        "Schedule",
-        "schedule_enabled",
-        "Schedule enabled",
-        "Enable or disable the selected scheduled-settings rule.",
-    ),
-    SettingSearchSpec(
-        "schedule-label",
-        "Schedule",
-        "schedule_label",
-        "Schedule label",
-        "Name the selected scheduled-settings rule.",
-    ),
-    SettingSearchSpec(
-        "schedule-priority",
-        "Schedule",
-        "schedule_priority",
-        "Schedule priority",
-        "Resolve matching rules using a deterministic priority.",
-    ),
-    SettingSearchSpec(
-        "schedule-source-kind",
-        "Schedule",
-        "schedule_source_kind",
-        "Schedule source",
-        "Use local values, a validated HTTPS API, or Home Assistant.",
-    ),
-    SettingSearchSpec(
-        "schedule-source-url",
-        "Schedule",
-        "schedule_source_url",
-        "Schedule source URL",
-        "Set the bounded HTTPS endpoint for an external rule source.",
-    ),
-    SettingSearchSpec(
-        "schedule-source-entity",
-        "Schedule",
-        "schedule_source_entity",
-        "Home Assistant entity",
-        "Set the Home Assistant boolean entity that activates the rule.",
-    ),
-    SettingSearchSpec(
-        "schedule-source-refresh",
-        "Schedule",
-        "schedule_source_refresh",
-        "Source refresh interval",
-        "Set the bounded external-source refresh interval in seconds.",
-    ),
-    SettingSearchSpec(
-        "schedule-weekdays",
-        "Schedule",
-        "schedule_every_day",
-        "Schedule weekdays",
-        "Apply the rule every day or on selected weekdays.",
-    ),
-    SettingSearchSpec(
-        "schedule-start-date",
-        "Schedule",
-        "schedule_start_date",
-        "Schedule start date",
-        "Set the optional local start date.",
-    ),
-    SettingSearchSpec(
-        "schedule-end-date",
-        "Schedule",
-        "schedule_end_date",
-        "Schedule end date",
-        "Set the optional local end date.",
-    ),
-    SettingSearchSpec(
-        "schedule-start-time",
-        "Schedule",
-        "schedule_start_time",
-        "Schedule start time",
-        "Set the local start time, including cross-midnight windows.",
-    ),
-    SettingSearchSpec(
-        "schedule-end-time",
-        "Schedule",
-        "schedule_end_time",
-        "Schedule end time",
-        "Set the local end time, including cross-midnight windows.",
-    ),
-    SettingSearchSpec(
-        "schedule-language",
-        "Schedule",
-        "schedule_language",
-        "Scheduled language",
-        "Temporarily override the active language mode.",
-    ),
-    SettingSearchSpec(
-        "schedule-theme",
-        "Schedule",
-        "schedule_theme",
-        "Scheduled theme",
-        "Temporarily override the active theme.",
-    ),
-    SettingSearchSpec(
-        "schedule-density",
-        "Schedule",
-        "schedule_density",
-        "Scheduled density",
-        "Temporarily override the active density.",
-    ),
-    SettingSearchSpec(
-        "schedule-accent",
-        "Schedule",
-        "schedule_accent",
-        "Scheduled accent colour",
-        "Temporarily override the Material 3 accent colour.",
-    ),
+    SettingSearchSpec("theme", "appearance", "theme"),
+    SettingSearchSpec("density", "appearance", "density"),
+    SettingSearchSpec("accent", "appearance", "accent"),
+    SettingSearchSpec("ui-font", "appearance", "font"),
+    SettingSearchSpec("external-editor", "appearance", "external_editor_path"),
+    SettingSearchSpec("ui-scale", "appearance", "scale"),
+    SettingSearchSpec("appearance-presets", "appearance", "appearance_preset_list"),
+    SettingSearchSpec("schedule-enabled", "schedule", "schedule_enabled"),
+    SettingSearchSpec("schedule-label", "schedule", "schedule_label"),
+    SettingSearchSpec("schedule-priority", "schedule", "schedule_priority"),
+    SettingSearchSpec("schedule-source-kind", "schedule", "schedule_source_kind"),
+    SettingSearchSpec("schedule-source-url", "schedule", "schedule_source_url"),
+    SettingSearchSpec("schedule-source-entity", "schedule", "schedule_source_entity"),
+    SettingSearchSpec("schedule-source-refresh", "schedule", "schedule_source_refresh"),
+    SettingSearchSpec("schedule-weekdays", "schedule", "schedule_every_day"),
+    SettingSearchSpec("schedule-start-date", "schedule", "schedule_start_date"),
+    SettingSearchSpec("schedule-end-date", "schedule", "schedule_end_date"),
+    SettingSearchSpec("schedule-start-time", "schedule", "schedule_start_time"),
+    SettingSearchSpec("schedule-end-time", "schedule", "schedule_end_time"),
+    SettingSearchSpec("schedule-language", "schedule", "schedule_language"),
+    SettingSearchSpec("schedule-theme", "schedule", "schedule_theme"),
+    SettingSearchSpec("schedule-density", "schedule", "schedule_density"),
+    SettingSearchSpec("schedule-accent", "schedule", "schedule_accent"),
 )
 
 
@@ -287,14 +191,25 @@ PREFERENCES_SEARCH_SURFACES: Tuple[PreferencesSearchSurface, ...] = (
 )
 
 
+def documents_from_result(
+    documents: Tuple[SettingSearchDocument, ...], result: RegexResult
+) -> Tuple[SettingSearchDocument, ...]:
+    """Project safe worker indices back to the immutable source documents."""
+
+    return tuple(documents[index] for index in result.matched_indices)
+
+
 def filter_setting_documents(
     documents: Iterable[SettingSearchDocument], builder: RegexBuilder
 ) -> Tuple[SettingSearchDocument, ...]:
-    """Return matching documents in source order using one bounded pattern."""
+    """Process-bound matching retained for wx-independent callers and tests."""
 
-    compiled = builder.compile()
-    return tuple(
-        document
-        for document in documents
-        if compiled.search(document.searchable_text[:4096]) is not None
+    source = tuple(documents)
+    result = evaluate_regex_bounded(
+        builder.request(tuple(document.searchable_text[:4096] for document in source))
     )
+    if result.timed_out:
+        raise TimeoutError(result.error or "Regular-expression evaluation timed out")
+    if not result.valid:
+        raise ValueError(result.error or "Invalid regular expression")
+    return documents_from_result(source, result)
