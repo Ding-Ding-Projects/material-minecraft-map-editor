@@ -133,8 +133,15 @@ jobs:
           tag="0.10.${GITHUB_RUN_NUMBER}"
           completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           line_table="$(python3 scripts/count_lines.py)"
+          notes_file="$(mktemp)"
+          {
+            printf '%s\n\n' "Unsigned Squirrel.Windows release. Workflow completed: $completed. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
+            printf '%s\n\n' "Line count (CI, scripts/count_lines.py):"
+            printf '%s\n\n' "$line_table"
+            printf '%s\n' "Dim-sum photo: unavailable in this repository's tracked catalog; no image is claimed."
+          } > "$notes_file"
           gh release create "$tag" $(find release-assets -type f -print) \
             --repo "$GITHUB_REPOSITORY" \
             --title "Amulet Map Editor $tag" \
-            --notes "Unsigned Squirrel.Windows release. Workflow completed: $completed. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning.\n\nLine count (CI, scripts/count_lines.py):\n\n$line_table\n\nDim-sum photo: unavailable in this repository's tracked catalog; no image is claimed." \
+            --notes-file "$notes_file" \
             --target "$GITHUB_SHA"
