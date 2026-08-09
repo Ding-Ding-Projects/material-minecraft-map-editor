@@ -1,0 +1,45 @@
+name: Material 3 site
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate dependency-free site source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check docs/site/app.js
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          HTMLParser().feed(Path("docs/site/index.html").read_text(encoding="utf-8"))
+          print("HTML parsed successfully")
+          PY
+
+      - name: Build owner-hosted site image
+        run: docker build --file docs/site/Dockerfile --tag amulet-material3-site:${{ github.sha }} docs/site
+
+      - name: Export site image
+        run: docker save amulet-material3-site:${{ github.sha }} | gzip -9 > amulet-material3-site-${{ github.sha }}.tar.gz
+
+      - name: Upload owner-hosted image
+        uses: actions/upload-artifact@v4
+        with:
+          name: amulet-material3-site-${{ github.sha }}
+          path: amulet-material3-site-${{ github.sha }}.tar.gz
+          if-no-files-found: error
