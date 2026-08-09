@@ -10,11 +10,14 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import re
 from typing import Any, Dict, Tuple
+import unicodedata
 
 from amulet_map_editor.api import config
 
 PREFERENCES_ID = "amulet_preferences"
-PREFERENCES_VERSION = 1
+PREFERENCES_VERSION = 2
+DEFAULT_DISPLAY_NAME = "Amulet"
+MAX_DISPLAY_NAME_LENGTH = 64
 LANGUAGE_MODES: Tuple[str, ...] = ("english", "cantonese", "bilingual")
 THEMES: Tuple[str, ...] = ("light", "dark", "system")
 DENSITIES: Tuple[str, ...] = ("compact", "comfortable", "spacious")
@@ -25,6 +28,7 @@ class Preferences:
     """The persisted, bounded appearance and language settings."""
 
     version: int = PREFERENCES_VERSION
+    display_name: str = DEFAULT_DISPLAY_NAME
     language_mode: str = "english"
     funny_level_english: int = 1
     funny_level_cantonese: int = 1
@@ -37,6 +41,11 @@ class Preferences:
 
     def normalised(self) -> "Preferences":
         """Return a safe value even when an older profile was hand-edited."""
+        self.version = PREFERENCES_VERSION
+        try:
+            self.display_name = validate_display_name(self.display_name)
+        except ValueError:
+            self.display_name = DEFAULT_DISPLAY_NAME
         self.language_mode = (
             self.language_mode if self.language_mode in LANGUAGE_MODES else "english"
         )
@@ -59,6 +68,38 @@ class Preferences:
         ):
             self.accent = "#6750A4"
         return self
+
+
+def validate_display_name(value: Any) -> str:
+    """Return a safe user-facing app name or raise a plain validation error.
+
+    The display label is deliberately independent from package, application-data,
+    and update identities. Leading and trailing whitespace is ignored, while the
+    user's remaining Unicode spelling is preserved exactly.
+    """
+    if not isinstance(value, str):
+        raise ValueError("App display name must be text.")
+    value = value.strip()
+    if not value:
+        raise ValueError("App display name cannot be empty.")
+    if len(value) > MAX_DISPLAY_NAME_LENGTH:
+        raise ValueError(
+            f"App display name must be {MAX_DISPLAY_NAME_LENGTH} characters or fewer."
+        )
+    if any(unicodedata.category(character).startswith("C") for character in value):
+        raise ValueError("App display name cannot contain control characters.")
+    return value
+
+
+def format_window_title(
+    version: str, *, display_name: str | None = None, source: bool = False
+) -> str:
+    """Format the visible frame title without changing application identity."""
+    name = validate_display_name(
+        load().display_name if display_name is None else display_name
+    )
+    title = f"{name} {version}"
+    return title + " (source)" if source else title
 
 
 def load() -> Preferences:
@@ -91,3 +132,8 @@ def update(**changes: Any) -> Preferences:
 def reset() -> Preferences:
     """Restore the documented shipped values."""
     return save(Preferences())
+
+
+def reset_display_name() -> Preferences:
+    """Reset only the visible app label, preserving every other preference."""
+    return update(display_name=DEFAULT_DISPLAY_NAME)

@@ -19,16 +19,36 @@ class PreferencesAndRegexTestCase(unittest.TestCase):
 
     def test_preferences_are_bounded_and_persisted(self):
         prefs = self.preferences.update(
+            display_name="  My Map Studio  ",
             language_mode="bilingual",
             funny_level_english=99,
             funny_level_cantonese=0,
             ui_scale=9,
         )
         self.assertEqual(prefs.language_mode, "bilingual")
+        self.assertEqual(prefs.display_name, "My Map Studio")
         self.assertEqual(prefs.funny_level_english, 5)
         self.assertEqual(prefs.funny_level_cantonese, 1)
         self.assertEqual(prefs.ui_scale, 2.0)
         self.assertEqual(self.preferences.load().language_mode, "bilingual")
+        self.assertEqual(self.preferences.load().display_name, "My Map Studio")
+
+    def test_display_name_is_bounded_and_reset_independently(self):
+        self.assertEqual(
+            self.preferences.format_window_title(
+                "0.10.0", display_name="Map Workshop", source=True
+            ),
+            "Map Workshop 0.10.0 (source)",
+        )
+        for invalid in ("", "   ", "line\nbreak", "x" * 65, None):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    self.preferences.validate_display_name(invalid)
+
+        self.preferences.update(display_name="Cartographer", theme="dark")
+        reset = self.preferences.reset_display_name()
+        self.assertEqual(reset.display_name, self.preferences.DEFAULT_DISPLAY_NAME)
+        self.assertEqual(reset.theme, "dark")
 
     def test_unknown_preference_is_rejected(self):
         with self.assertRaises(KeyError):

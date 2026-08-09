@@ -144,6 +144,33 @@ class PreferencesDialog(wx.Dialog):
         grid.AddGrowableCol(1, 1)
         grid.Add(
             _label(
+                page,
+                "App display name",
+                "Changes the name shown in the title bar and app messages only. "
+                "Package, data-folder, and update identities stay unchanged.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        identity_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.display_name = wx.TextCtrl(
+            page,
+            value=self._prefs.display_name,
+            name="App display name",
+        )
+        self.display_name.SetMaxLength(preferences.MAX_DISPLAY_NAME_LENGTH)
+        self.display_name_reset = wx.Button(page, label="Reset name")
+        self.display_name_reset.SetToolTip("Restore the shipped name, Amulet.")
+        self.display_name_reset.Bind(wx.EVT_BUTTON, self._reset_display_name_form)
+        identity_row.Add(self.display_name, 1, wx.EXPAND | wx.RIGHT, 8)
+        identity_row.Add(self.display_name_reset, 0)
+        grid.Add(identity_row, 1, wx.EXPAND)
+        grid.AddSpacer(1)
+        self.identity_status = wx.StaticText(page, label="")
+        self.identity_status.SetName("App display name validation")
+        grid.Add(self.identity_status, 1, wx.EXPAND)
+        grid.Add(
+            _label(
                 page, "Theme", "Select light, dark, or follow the operating system."
             ),
             0,
@@ -320,6 +347,13 @@ class PreferencesDialog(wx.Dialog):
                 + self._appearance_load_error,
                 error=True,
             )
+
+    def _reset_display_name_form(self, _event: wx.Event) -> None:
+        self.display_name.SetValue(preferences.DEFAULT_DISPLAY_NAME)
+        self.identity_status.SetLabel(
+            "The shipped name is staged. Choose OK to save it."
+        )
+        self.identity_status.SetForegroundColour(wx.Colour(40, 120, 70))
 
     def _show_appearance_message(self, message: str, error: bool = False) -> None:
         self.appearance_status.SetLabel(message)
@@ -982,6 +1016,16 @@ class PreferencesDialog(wx.Dialog):
                 return
         language_mode = preferences.LANGUAGE_MODES[self.language.GetSelection()]
         try:
+            display_name = preferences.validate_display_name(
+                self.display_name.GetValue()
+            )
+        except ValueError as exc:
+            self.identity_status.SetLabel(str(exc))
+            self.identity_status.SetForegroundColour(wx.Colour(180, 40, 40))
+            self._tabs.SetSelection(self._appearance_tab_index)
+            self.display_name.SetFocus()
+            return
+        try:
             appearance = self._appearance_values_from_form()
         except appearance_presets.AppearancePresetValidationError as exc:
             self._show_appearance_message(
@@ -989,8 +1033,9 @@ class PreferencesDialog(wx.Dialog):
             )
             self._tabs.SetSelection(self._appearance_tab_index)
             return
-        preferences.save(
+        saved_preferences = preferences.save(
             preferences.Preferences(
+                display_name=display_name,
                 language_mode=language_mode,
                 funny_level_english=self.funny_en.GetValue(),
                 funny_level_cantonese=self.funny_yue.GetValue(),
@@ -1012,6 +1057,9 @@ class PreferencesDialog(wx.Dialog):
             }[language_mode]
         )
         apply_material3(self.GetParent())
+        parent = self.GetParent()
+        if hasattr(parent, "refresh_display_identity"):
+            parent.refresh_display_identity(saved_preferences.display_name)
         self.EndModal(wx.ID_OK)
 
 

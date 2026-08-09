@@ -16,7 +16,7 @@ from amulet_map_editor import __version__, lang
 from amulet_map_editor.api.framework.pages import WorldPageUI
 from .pages import AmuletMainMenu, BasePageUI
 
-from amulet_map_editor.api import image
+from amulet_map_editor.api import image, preferences
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.preferences import (
     PreferencesDialog,
@@ -51,9 +51,7 @@ class AmuletUI(wx.Frame):
     _level_notebook: AmuletLevelNotebook
 
     def __init__(self, parent):
-        title = f"Amulet {__version__}"
-        if not (getattr(sys, "frozen", False) or os.path.exists("/.flatpak-info")):
-            title += " (source)"
+        title = self._format_display_title()
         wx.Frame.__init__(
             self,
             parent,
@@ -97,6 +95,19 @@ class AmuletUI(wx.Frame):
         wx.CallLater(1000, self._check_for_updates_async)
 
         self.Bind(wx.EVT_CLOSE, self._level_notebook.on_app_close)
+
+    @staticmethod
+    def _is_source_build() -> bool:
+        return not (getattr(sys, "frozen", False) or os.path.exists("/.flatpak-info"))
+
+    def _format_display_title(self, display_name: str | None = None) -> str:
+        return preferences.format_window_title(
+            __version__, display_name=display_name, source=self._is_source_build()
+        )
+
+    def refresh_display_identity(self, display_name: str | None = None) -> None:
+        """Apply the persisted display label without changing stable app IDs."""
+        self.SetTitle(self._format_display_title(display_name))
 
     def open_level(self, path: str):
         """Open a level. You should use the method in the app."""
@@ -270,7 +281,7 @@ class AmuletUI(wx.Frame):
         elif state.status == "not_installed":
             self.SetStatusText("Updates unavailable in this installation")
         else:
-            self.SetStatusText("Amulet is up to date")
+            self.SetStatusText(f"{preferences.load().display_name} is up to date")
 
 
 class AmuletLevelNotebook(flatnotebook.FlatNotebook):
