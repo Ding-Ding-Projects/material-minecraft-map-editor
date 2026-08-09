@@ -19,6 +19,7 @@ from amulet_map_editor.api import (
     appearance_presets,
     appearance_editor,
     changelog,
+    external_editor,
     preferences,
     school_mode,
 )
@@ -324,6 +325,34 @@ class PreferencesDialog(wx.Dialog):
         font_search_row.Add(self.font_search, 1, wx.EXPAND | wx.RIGHT, 8)
         font_search_row.Add(self.font_choice, 1, wx.EXPAND)
         grid.Add(font_search_row, 1, wx.EXPAND)
+        grid.Add(
+            _label(
+                page,
+                "External editor",
+                "Choose Visual Studio Code or a compatible Code executable. Exported files open directly; folders open as workspace roots.",
+            ),
+            0,
+            wx.ALIGN_CENTER_VERTICAL,
+        )
+        editor_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.external_editor_path = wx.TextCtrl(
+            page,
+            value=external_editor.load_selected(),
+            name="External editor executable",
+        )
+        self.external_editor_path.SetHint(
+            "Optional: path to code.cmd, code, or Code.exe"
+        )
+        self.external_editor_browse = wx.Button(page, label="Browse…")
+        self.external_editor_test = wx.Button(page, label="Check editor")
+        editor_row.Add(self.external_editor_path, 1, wx.EXPAND | wx.RIGHT, 8)
+        editor_row.Add(self.external_editor_browse, 0, wx.RIGHT, 8)
+        editor_row.Add(self.external_editor_test, 0)
+        grid.Add(editor_row, 1, wx.EXPAND)
+        self.external_editor_status = wx.StaticText(page, label="")
+        self.external_editor_status.SetName("External editor status")
+        grid.AddSpacer(1)
+        grid.Add(self.external_editor_status, 1, wx.EXPAND)
         self.font_preview = wx.StaticText(
             page, label="The quick brown fox jumps over the lazy dog · 蝦餃"
         )
@@ -449,6 +478,8 @@ class PreferencesDialog(wx.Dialog):
         self.font_search.Bind(wx.EVT_TEXT, self._filter_appearance_fonts)
         self.font_choice.Bind(wx.EVT_CHOICE, self._select_font_choice)
         self.scale.Bind(wx.EVT_SLIDER, self._scale_appearance_preview)
+        self.external_editor_browse.Bind(wx.EVT_BUTTON, self._browse_external_editor)
+        self.external_editor_test.Bind(wx.EVT_BUTTON, self._test_external_editor)
 
         outer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
@@ -489,6 +520,37 @@ class PreferencesDialog(wx.Dialog):
             "The shipped name is staged. Choose OK to save it."
         )
         self.identity_status.SetForegroundColour(wx.Colour(40, 120, 70))
+
+    def _browse_external_editor(self, _event: wx.Event) -> None:
+        """Stage a user-selected Code executable without launching it."""
+        with wx.FileDialog(
+            self,
+            "Choose external editor executable",
+            wildcard="Code executables (*.exe;*.cmd;code)|*.exe;*.cmd;code|All files (*.*)|*.*",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            value = dialog.GetPath()
+        result = external_editor.validate_editor_path(value)
+        if not result.ok:
+            self.external_editor_status.SetLabel(result.message)
+            self.external_editor_status.SetForegroundColour(wx.Colour(180, 40, 40))
+            return
+        self.external_editor_path.SetValue(str(Path(value).resolve()))
+        self.external_editor_status.SetLabel(
+            "Editor path staged. Choose OK to save it."
+        )
+        self.external_editor_status.SetForegroundColour(wx.Colour(40, 120, 70))
+
+    def _test_external_editor(self, _event: wx.Event) -> None:
+        result = external_editor.validate_editor_path(
+            self.external_editor_path.GetValue()
+        )
+        self.external_editor_status.SetLabel(result.message)
+        self.external_editor_status.SetForegroundColour(
+            wx.Colour(40, 120, 70) if result.ok else wx.Colour(180, 40, 40)
+        )
 
     def _show_appearance_message(self, message: str, error: bool = False) -> None:
         self.appearance_status.SetLabel(message)
@@ -1289,6 +1351,18 @@ class PreferencesDialog(wx.Dialog):
             )
             self._tabs.SetSelection(self._appearance_tab_index)
             return
+        editor_value = self.external_editor_path.GetValue().strip()
+        if editor_value:
+            editor_result = external_editor.select_editor(editor_value)
+            if not editor_result.ok:
+                self.external_editor_status.SetLabel(editor_result.message)
+                self.external_editor_status.SetForegroundColour(wx.Colour(180, 40, 40))
+                self._tabs.SetSelection(self._appearance_tab_index)
+                self.external_editor_path.SetFocus()
+                return
+            editor_value = external_editor.load_selected()
+        else:
+            external_editor.clear_selected()
         saved_preferences = preferences.save(
             preferences.Preferences(
                 display_name=display_name,
@@ -1301,6 +1375,7 @@ class PreferencesDialog(wx.Dialog):
                 accent=appearance.accent,
                 ui_font=appearance.ui_font,
                 ui_scale=appearance.ui_scale,
+                external_editor_path=self.external_editor_path.GetValue().strip(),
             )
         )
         # Apply the persisted language and appearance choices immediately to
