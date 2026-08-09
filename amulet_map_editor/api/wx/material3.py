@@ -10,7 +10,8 @@ roll out across existing pages incrementally.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from functools import wraps
+from typing import Callable, Iterable, TypeVar
 
 import wx
 from amulet_map_editor.api import preferences, school_mode
@@ -41,6 +42,24 @@ class Material3Tokens:
 
 
 TOKENS = Material3Tokens()
+_WindowFunc = TypeVar("_WindowFunc", bound=Callable[..., None])
+
+
+def _ignore_destroyed_window(function: _WindowFunc) -> _WindowFunc:
+    """Ignore wx event callbacks racing with a window being destroyed."""
+
+    @wraps(function)
+    def guarded(window: wx.Window, *args, **kwargs):
+        try:
+            if window.IsBeingDeleted():
+                return None
+            return function(window, *args, **kwargs)
+        except RuntimeError as error:
+            if "wrapped C/C++ object" in str(error) and "deleted" in str(error):
+                return None
+            raise
+
+    return guarded  # type: ignore[return-value]
 
 
 def _blend_colour(first: wx.Colour, second: wx.Colour, second_weight: float) -> wx.Colour:
@@ -71,6 +90,7 @@ def _active_palette() -> dict[str, wx.Colour]:
             "surface": wx.Colour(20, 18, 24),
             "surface_container": wx.Colour(33, 31, 38),
             "on_surface": wx.Colour(230, 225, 229),
+            "on_surface_variant": wx.Colour(202, 196, 208),
             "primary_container": wx.Colour(74, 63, 99),
             "on_primary_container": wx.Colour(234, 221, 255),
         }
@@ -79,6 +99,7 @@ def _active_palette() -> dict[str, wx.Colour]:
             "surface": wx.Colour(250, 251, 255),
             "surface_container": wx.Colour(239, 241, 248),
             "on_surface": wx.Colour(27, 28, 32),
+            "on_surface_variant": wx.Colour(68, 71, 78),
             "primary_container": wx.Colour(214, 227, 255),
             "on_primary_container": wx.Colour(40, 71, 117),
         }
@@ -198,6 +219,7 @@ def _ensure_material_frame_chrome(window: wx.Window) -> None:
     window.Layout()
 
 
+@_ignore_destroyed_window
 def apply_material3(window: wx.Window) -> None:
     """Apply M3 roles to a window tree.
 

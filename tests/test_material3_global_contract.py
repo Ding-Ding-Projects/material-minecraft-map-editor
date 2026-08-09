@@ -73,6 +73,14 @@ def test_flat_notebook_tab_roles_are_explicitly_m3_themed():
         assert setter in source
 
 
+def test_flat_notebook_palette_declares_both_surface_text_roles():
+    source = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"on_surface_variant": wx.Colour' in source
+    assert "_ignore_destroyed_window" in source
+
+
 def test_informational_workflows_use_nonblocking_notifications():
     bridge = (ROOT / "amulet_map_editor/api/wx/nonblocking.py").read_text(
         encoding="utf-8"
