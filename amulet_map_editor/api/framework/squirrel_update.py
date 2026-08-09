@@ -1,0 +1,127 @@
+"""Small, wx-independent bridge for Squirrel.Windows updates.
+
+Squirrel owns downloading and applying release packages.  This module only
+discovers ``Update.exe``, validates an HTTPS feed, and reports a non-blocking
+state that a UI can turn into a ready-to-restart notification.  No signing
+tool or signing credential is ever invoked.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from dataclasses import dataclass
+from pathlib import Path
+import subprocess
+import sys
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse
+
+
+DEFAULT_FEED_URL = (
+    "https://github.com/Amulet-Team/Amulet-Map-Editor/releases/latest/download/"
+)
+
+
+@dataclass(frozen=True)
+class SquirrelUpdateState:
+    status: str
+    version: Optional[str] = None
+    feed_url: Optional[str] = None
+    unsigned_warning: bool = True
+    detail: Optional[str] = None
+
+
+def validate_feed_url(feed_url: str) -> str:
+    """Return *feed_url* when it is an HTTPS URL, otherwise raise ValueError."""
+
+    parsed = urlparse(feed_url)
+    if parsed.scheme.lower() != "https" or not parsed.netloc:
+        raise ValueError("Squirrel update feeds must use HTTPS")
+    if parsed.username or parsed.password:
+        raise ValueError("Squirrel update feeds cannot embed credentials")
+    return feed_url
+
+
+def find_update_exe(start: Optional[Path] = None) -> Optional[Path]:
+    """Find the Squirrel updater beside a frozen executable or in its parents."""
+
+    override = os.environ.get("AMULET_SQUIRREL_UPDATE_EXE")
+    if override:
+        path = Path(override)
+        return path if path.is_file() else None
+    current = (start or Path(sys.executable)).resolve()
+    if current.is_file():
+        current = current.parent
+    for directory in (current, *current.parents):
+        for name in ("Update.exe", "update.exe"):
+            path = directory / name
+            if path.is_file():
+                return path
+    return None
+
+
+def _run_update(update_exe: Path, argument: str, timeout: float) -> Dict[str, Any]:
+    result = subprocess.run(
+        [str(update_exe), argument],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    if result.returncode:
+        raise RuntimeError("Squirrel Update.exe failed")
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Squirrel Update.exe returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError("Squirrel Update.exe returned an invalid payload")
+    return payload
+
+
+def check_for_update(
+    feed_url: Optional[str] = None,
+    current_version: Optional[str] = None,
+    update_exe: Optional[Path] = None,
+    timeout: float = 10.0,
+) -> SquirrelUpdateState:
+    """Check the Squirrel feed and return a state suitable for a notification."""
+
+    feed = validate_feed_url(feed_url or os.environ.get("AMULET_UPDATE_FEED_URL", DEFAULT_FEED_URL))
+    updater = update_exe or find_update_exe()
+    if updater is None:
+        return SquirrelUpdateState("not_installed", feed_url=feed, detail="Squirrel install not detected")
+    try:
+        payload = _run_update(updater, "--checkForUpdate=" + feed, timeout)
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        return SquirrelUpdateState("failed", feed_url=feed, detail=str(exc))
+    future = payload.get("futureReleaseEntry")
+    if not isinstance(future, dict):
+        return SquirrelUpdateState("up_to_date", feed_url=feed)
+    version = future.get("version") or future.get("Version")
+    if current_version and str(version) == str(current_version):
+        return SquirrelUpdateState("up_to_date", feed_url=feed)
+    return SquirrelUpdateState("available", version=str(version) if version else None, feed_url=feed)
+
+
+def stage_update(
+    feed_url: str,
+    update_exe: Optional[Path] = None,
+    timeout: float = 120.0,
+) -> SquirrelUpdateState:
+    """Download/apply the selected update; restart remains an explicit UI action."""
+
+    feed = validate_feed_url(feed_url)
+    updater = update_exe or find_update_exe()
+    if updater is None:
+        return SquirrelUpdateState("not_installed", feed_url=feed, detail="Squirrel install not detected")
+    try:
+        _run_update(updater, "--update=" + feed, timeout)
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        return SquirrelUpdateState("failed", feed_url=feed, detail=str(exc))
+    return SquirrelUpdateState(
+        "ready_to_restart",
+        feed_url=feed,
+        detail="Unsigned update staged; restart only after user confirmation",
+    )

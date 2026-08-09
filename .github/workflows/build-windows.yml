@@ -61,33 +61,37 @@ jobs:
     - name: Resolve build version
       shell: pwsh
       run: |
-        $version = '${{ github.event.release.tag_name }}'
-        if ([string]::IsNullOrWhiteSpace($version)) { $version = '${{ github.ref_name }}' }
-        if ([string]::IsNullOrWhiteSpace($version)) { $version = 'dev-${{ github.sha }}'.Substring(0, 16) }
+        $raw = '${{ github.event.release.tag_name }}'
+        if ([string]::IsNullOrWhiteSpace($raw)) { $raw = '0.0.0-dev.${{ github.run_number }}' }
+        if ($raw -match '^v?(\d+\.\d+\.\d+)([abrc].*)?$') {
+          $version = $Matches[1]
+          if ($Matches[2]) { $version += '-' + $Matches[2] }
+        } else { $version = '0.0.0-dev.${{ github.run_number }}' }
         "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-    - name: Windows - Install NSIS
-      uses: repolevedavaj/install-nsis@v1.2.0
-      with:
-        nsis-version: '3.11'
-
-    - name: Windows - Create unsigned NSIS installer
-      run: |
-        makensis -DVERSION=${BUILD_VERSION} -DARCH=${{ matrix.cfg.architecture }} installer/windows.nsi
-        rm -rf installer/dist/amulet
+    - name: Windows - Create unsigned Squirrel.Windows release
+      shell: pwsh
+      run: >-
+        ./installer/build-squirrel.ps1
+        -Version "$env:BUILD_VERSION"
+        -Architecture '${{ matrix.cfg.architecture }}'
 
     - name: Verify unsigned installer contract
       shell: pwsh
       run: |
-        $installer = Join-Path $PWD "installer/dist/Amulet-$env:BUILD_VERSION-Windows-${{ matrix.cfg.architecture }}.exe"
-        if (-not (Test-Path -LiteralPath $installer)) {
-          throw "Expected NSIS installer was not produced: $installer"
+        $releaseDir = Join-Path $PWD "installer/dist/squirrel/Amulet-$env:BUILD_VERSION-Windows-${{ matrix.cfg.architecture }}"
+        $required = @('Setup.exe', 'RELEASES', "Amulet-$env:BUILD_VERSION-full.nupkg")
+        foreach ($name in $required) {
+          $path = Join-Path $releaseDir $name
+          if (-not (Test-Path -LiteralPath $path)) { throw "Expected Squirrel artifact was not produced: $path" }
         }
-        $signature = Get-AuthenticodeSignature -LiteralPath $installer
-        if ($signature.Status -ne 'NotSigned') {
-          throw "Installer must remain unsigned; observed Authenticode status '$($signature.Status)'."
+        $releaseIndex = Get-Content (Join-Path $releaseDir 'RELEASES') -Raw
+        if ($releaseIndex -notmatch [regex]::Escape("Amulet-$env:BUILD_VERSION-full.nupkg")) { throw 'RELEASES does not reference the full package' }
+        Get-ChildItem $releaseDir -File -Include '*.exe', '*.dll' | ForEach-Object {
+          $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName
+          if ($signature.Status -ne 'NotSigned') { throw "Unsigned policy violated for $($_.Name): $($signature.Status)" }
         }
-        Write-Host "Unsigned installer verified: $installer"
+        Write-Host "Unsigned Squirrel.Windows artifacts verified: $releaseDir"
 
     - name: Publish to PyPi
       if: github.event_name == 'release'
@@ -101,4 +105,4 @@ jobs:
       uses: actions/upload-artifact@v6
       with:
         name: Amulet-${{ env.BUILD_VERSION }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
-        path: ./installer/dist
+        path: ./installer/dist/squirrel
