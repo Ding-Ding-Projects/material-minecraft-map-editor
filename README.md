@@ -69,7 +69,8 @@ include:
 - persisted light, dark, and system themes; compact, comfortable, and spacious
   density; accent color; UI font; and 80–200% UI scaling;
 - a wx-independent, versioned named appearance-preset foundation with strict
-  JSON export/import, per-property reset, and appearance-only global reset;
+  JSON export/import plus native Appearance-tab load, save, import, export, and
+  staged per-property or appearance-only global reset controls;
 - a tabbed native Preferences dialog with searchable settings, a bounded Python
   `re` builder, and a `Ctrl+Shift+F` command palette;
 - a native scheduled-settings editor and versioned local rule engine for

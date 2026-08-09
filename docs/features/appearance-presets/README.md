@@ -17,6 +17,28 @@ values are the documented shipped values from `AppearanceValues`; the broader
 This is a persistence and validation foundation. It does not claim that every
 wx element already consumes every appearance value or has a live editor.
 
+## Native Preferences integration
+
+The native **Preferences → Appearance** tab exposes the preset library beside
+the existing theme, density, accent, font, and scale controls. A user can:
+
+- select a stored preset and load it into the dialog;
+- name and save the current five appearance values as a new preset, or use the
+  separately labelled update action to replace the explicitly selected preset;
+- export the selected preset to UTF-8 JSON or import a bounded JSON file through
+  native save/open dialogs;
+- reset one selected appearance property or all five appearance properties.
+
+Load and reset actions stage values in the dialog. They reach the active
+preferences only after **OK**, so **Cancel** retains the previously persisted
+appearance. Validation and file failures appear as persistent inline status
+text rather than informational modal dialogs. If stored preset data is readable
+but invalid or from an unsupported version, library controls are disabled and
+the data is left unchanged.
+
+These controls integrate the five global appearance values only. They do not
+claim that every individual wx element has its own live appearance editor.
+
 ## Storage and configuration
 
 The active appearance remains in the existing `amulet_preferences` record and
@@ -57,8 +79,8 @@ Import size is bounded to 32 KiB. The importer requires exact keys and does not
 instantiate arbitrary classes. Font names and preset names reject control
 characters. Stored documents fail closed before the load-modify-write operation;
 cross-process writers still require coordination from a future persistence
-layer. The model performs no file, network, or wx operations; file-picker and
-user-notification behaviour belongs to a future UI integration.
+layer. The domain model performs no file, network, or wx operations; native
+file-picker and inline-status behaviour stays in the Preferences UI boundary.
 
 ## Verification
 
@@ -72,6 +94,9 @@ The focused suite covers persistence and application through the existing
 preferences API, deterministic export/import, duplicate handling, malformed
 and future schemas without overwrite, bounded values, legacy accents, corrupt
 stored entries, and both reset paths preserving non-appearance preferences.
+`tests.test_appearance_presets_ui_contract` parses the native Preferences source
+without importing wx and guards the visible controls, domain calls, bounded
+file flows, invalid-storage lockout, staged resets, and save-time validation.
 
 ## Suggested articles
 
