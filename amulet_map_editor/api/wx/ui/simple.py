@@ -229,10 +229,12 @@ class MaterialDateTimeField(wx.Panel):
         else:
             self.picker = wx.adv.TimePickerCtrl(self)
             self.picker.Bind(wx.adv.EVT_TIME_CHANGED, self._picker_changed)
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        row.Add(self.text, 1, wx.EXPAND | wx.RIGHT, 6)
-        row.Add(self.picker, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.SetSizer(row)
+        # Keep typed and native picker routes available without imposing a
+        # fixed horizontal width on the narrow/high-scale Preferences page.
+        column = wx.BoxSizer(wx.VERTICAL)
+        column.Add(self.text, 0, wx.EXPAND | wx.BOTTOM, 6)
+        column.Add(self.picker, 0, wx.ALIGN_LEFT)
+        self.SetSizer(column)
         self.text.Bind(wx.EVT_TEXT, self._text_changed)
         apply_material3(self)
 

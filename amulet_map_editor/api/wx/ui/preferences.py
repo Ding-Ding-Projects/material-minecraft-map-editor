@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date
 from dataclasses import asdict
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Sequence, Tuple
 import re
 import uuid
 
@@ -26,6 +26,7 @@ from amulet_map_editor.api import (
     local_history,
     preferences,
     scheduled_sources,
+    settings_search,
     school_mode,
 )
 from amulet_map_editor.api import lang
@@ -38,10 +39,28 @@ from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 from amulet_map_editor.api.wx.ui.simple import MaterialDateTimeField
 
 
+def _track_responsive_text(parent: wx.Window, control: wx.StaticText) -> wx.StaticText:
+    controls = list(getattr(parent, "_preferences_responsive_text", ()))
+    controls.append(control)
+    setattr(parent, "_preferences_responsive_text", controls)
+    return control
+
+
+def _walk_children(parent: wx.Window) -> Iterable[wx.Window]:
+    """Yield native descendants so width-constrained inputs can shrink safely."""
+
+    pending = list(parent.GetChildren())
+    while pending:
+        child = pending.pop(0)
+        yield child
+        pending.extend(child.GetChildren())
+
+
 def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
     control = wx.StaticText(parent, label=text)
+    control.SetName(text)
     control.SetToolTip(help_text)
-    return control
+    return _track_responsive_text(parent, control)
 
 
 def _chrome_copy(key: str, mode: str) -> str:
@@ -56,6 +75,128 @@ def _chrome_copy(key: str, mode: str) -> str:
     return english
 
 
+class WrappedSearchResults(wx.ScrolledWindow):
+    """Keyboard-operable settings results whose full text wraps at narrow widths."""
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        activate: Callable[[wx.Event | None], None],
+    ) -> None:
+        super().__init__(parent, style=wx.VSCROLL)
+        self.SetScrollRate(0, 12)
+        self._activate = activate
+        self._selection = wx.NOT_FOUND
+        self._rows: List[Tuple[wx.Panel, wx.StaticText]] = []
+        self._stack = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(self._stack)
+        self.Bind(wx.EVT_SIZE, self._on_size)
+        self.Bind(wx.EVT_KEY_DOWN, self._on_key)
+
+    def Set(self, items: Sequence[str]) -> None:  # noqa: N802 - mirrors wx.ListBox
+        self.Freeze()
+        try:
+            self._stack.Clear(True)
+            self._rows = []
+            self._selection = wx.NOT_FOUND
+            for index, item in enumerate(items):
+                row = wx.Panel(self)
+                row.SetName(item)
+                row.SetMinSize(wx.Size(1, -1))
+                label = wx.StaticText(row, label=item)
+                label.SetName(item)
+                row_sizer = wx.BoxSizer(wx.VERTICAL)
+                row_sizer.Add(label, 1, wx.EXPAND | wx.ALL, 8)
+                row.SetSizer(row_sizer)
+                for target in (row, label):
+                    target.Bind(
+                        wx.EVT_LEFT_DOWN,
+                        lambda event, selected=index: self._on_click(event, selected),
+                    )
+                    target.Bind(
+                        wx.EVT_LEFT_DCLICK,
+                        lambda event, selected=index: self._on_double_click(
+                            event, selected
+                        ),
+                    )
+                self._rows.append((row, label))
+                self._stack.Add(row, 0, wx.EXPAND | wx.BOTTOM, 2)
+            apply_material3(self)
+            self._reflow()
+        finally:
+            self.Thaw()
+
+    def SetSelection(self, index: int) -> None:  # noqa: N802 - mirrors wx.ListBox
+        if not 0 <= index < len(self._rows):
+            self._selection = wx.NOT_FOUND
+        else:
+            self._selection = index
+            if hasattr(self, "ScrollChildIntoView"):
+                self.ScrollChildIntoView(self._rows[index][0])
+        self._paint_selection()
+
+    def GetSelection(self) -> int:  # noqa: N802 - mirrors wx.ListBox
+        return self._selection
+
+    def _paint_selection(self) -> None:
+        normal_background = self.GetBackgroundColour()
+        normal_text = self.GetForegroundColour()
+        selected_background = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
+        selected_text = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT)
+        for index, (row, label) in enumerate(self._rows):
+            selected = index == self._selection
+            row.SetBackgroundColour(
+                selected_background if selected else normal_background
+            )
+            label.SetBackgroundColour(
+                selected_background if selected else normal_background
+            )
+            label.SetForegroundColour(selected_text if selected else normal_text)
+            row.Refresh()
+
+    def _on_click(self, event: wx.MouseEvent, index: int) -> None:
+        self.SetSelection(index)
+        self.SetFocus()
+        event.Skip()
+
+    def _on_double_click(self, event: wx.MouseEvent, index: int) -> None:
+        self.SetSelection(index)
+        self.SetFocus()
+        self._activate(event)
+
+    def _on_key(self, event: wx.KeyEvent) -> None:
+        key = event.GetKeyCode()
+        if key in (wx.WXK_UP, wx.WXK_DOWN, wx.WXK_HOME, wx.WXK_END):
+            last = len(self._rows) - 1
+            if last < 0:
+                return
+            if key == wx.WXK_HOME:
+                target = 0
+            elif key == wx.WXK_END:
+                target = last
+            elif key == wx.WXK_UP:
+                target = max(0, (self._selection if self._selection >= 0 else 1) - 1)
+            else:
+                target = min(last, self._selection + 1)
+            self.SetSelection(target)
+            return
+        event.Skip()
+
+    def _on_size(self, event: wx.SizeEvent) -> None:
+        self._reflow()
+        event.Skip()
+
+    def _reflow(self) -> None:
+        client = self.GetClientSize()
+        wrap_width = max(100, client.width - 20)
+        for row, label in self._rows:
+            label.Wrap(wrap_width)
+            row.Layout()
+        height = max(client.height, self._stack.CalcMin().height)
+        self.SetVirtualSize(wx.Size(max(1, client.width), height))
+        self.Layout()
+
+
 class PreferencesDialog(wx.Dialog):
     """Tabbed settings dialog with language, funny-level, and appearance controls."""
 
@@ -63,7 +204,7 @@ class PreferencesDialog(wx.Dialog):
         super().__init__(
             parent,
             title="Preferences",
-            size=wx.Size(620, 480),
+            size=wx.Size(760, 680),
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._prefs = preferences.load()
@@ -89,27 +230,80 @@ class PreferencesDialog(wx.Dialog):
         if self._school.enabled:
             # School mode keeps its own control discoverable, but removes the
             # language/funny controls that are intentionally not applicable.
-            self._tabs.RemovePage(self._tabs.GetPageIndex(self._language_page))
+            self._tabs.RemovePage(self._tabs.FindPage(self._language_page))
         root.Add(self._tabs, 1, wx.EXPAND | wx.ALL, 12)
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
         reset = wx.Button(self, label="Reset to shipped values")
         reset.Bind(wx.EVT_BUTTON, self._reset)
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        row.Add(reset, 0, wx.LEFT | wx.BOTTOM, 12)
-        row.AddStretchSpacer()
-        row.Add(buttons, 0, wx.RIGHT | wx.BOTTOM, 12)
+        row = wx.BoxSizer(wx.VERTICAL)
+        row.Add(reset, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_LEFT, 12)
+        row.Add(buttons, 0, wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 12)
         root.Add(row, 0, wx.EXPAND)
         self.SetSizer(root)
+        self.SetMinSize(wx.Size(360, 440))
         self.Bind(wx.EVT_BUTTON, self._save, id=wx.ID_OK)
+        self.Bind(wx.EVT_SIZE, self._on_preferences_size)
         # Dialogs can be opened after the frame's one-time shell styling pass.
         # Apply the same M3 roles locally so settings surfaces do not fall back
         # to the native palette when opened from the menu or command palette.
-        apply_material3(self)
+        # Defer native dialog-chrome replacement until wx has finished creating
+        # the window. Applying it inside the constructor can make MSW lay out a
+        # half-created HWND and terminate the process on isolated desktops.
+        wx.CallAfter(apply_material3, self)
+        wx.CallAfter(self._update_responsive_layout)
+
+    def _on_preferences_size(self, event: wx.SizeEvent) -> None:
+        self._update_responsive_layout()
+        event.Skip()
+
+    def _update_responsive_layout(self) -> None:
+        """Reflow labels and refresh virtual sizes without horizontal scrolling."""
+
+        for page in (
+            getattr(self, "_language_page", None),
+            getattr(self, "_appearance_page", None),
+            getattr(self, "_schedule_page", None),
+            getattr(self, "_search_page", None),
+        ):
+            if page is None:
+                continue
+            # Leave room for the page inset and wx's native text metrics, which
+            # can round a wrapped line a few pixels wider at high DPI.
+            wrap_width = max(220, page.GetClientSize().width - 48)
+            for control in _walk_children(page):
+                if isinstance(
+                    control,
+                    (
+                        wx.TextCtrl,
+                        wx.Choice,
+                        wx.ListBox,
+                        wx.Slider,
+                        wx.SpinCtrl,
+                        wx.FontPickerCtrl,
+                        wx.ColourPickerCtrl,
+                        wx.adv.DatePickerCtrl,
+                        wx.adv.TimePickerCtrl,
+                    ),
+                ):
+                    control.SetMinSize(wx.Size(1, control.GetMinSize().height))
+            for control in getattr(page, "_preferences_responsive_text", ()):
+                if control:
+                    control.Wrap(wrap_width)
+            page.Layout()
+            if isinstance(page, wx.ScrolledWindow):
+                page.FitInside()
+                virtual = page.GetVirtualSize()
+                page.SetVirtualSize(
+                    wx.Size(max(1, page.GetClientSize().width), virtual.height)
+                )
+                page.Layout()
+        self.Layout()
 
     def _build_language_tab(self) -> None:
-        page = wx.Panel(self._tabs)
-        grid = wx.FlexGridSizer(0, 2, 12, 16)
-        grid.AddGrowableCol(1, 1)
+        page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
+        page.SetScrollRate(0, 12)
+        grid = wx.FlexGridSizer(0, 1, 6, 0)
+        grid.AddGrowableCol(0, 1)
         grid.Add(
             _label(
                 page,
@@ -169,22 +363,21 @@ class PreferencesDialog(wx.Dialog):
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        self.dialog_emojis = wx.CheckBox(
-            page, label="Show emojis in dialogs and message boxes"
-        )
+        self.dialog_emojis = wx.CheckBox(page, label="Show emojis")
         self.dialog_emojis.SetValue(self._prefs.show_dialog_emojis)
         grid.Add(self.dialog_emojis, 1, wx.EXPAND)
         page.SetSizer(wx.BoxSizer(wx.VERTICAL))
         page.GetSizer().Add(grid, 0, wx.EXPAND | wx.ALL, 18)
         self._language_page = page
         self._tabs.AddPage(page, "Language", True)
+        page.FitInside()
 
     def _build_appearance_tab(self) -> None:
         page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
         page.SetScrollRate(0, 12)
         root = wx.BoxSizer(wx.VERTICAL)
-        grid = wx.FlexGridSizer(0, 2, 12, 16)
-        grid.AddGrowableCol(1, 1)
+        grid = wx.FlexGridSizer(0, 1, 6, 0)
+        grid.AddGrowableCol(0, 1)
         grid.Add(
             _label(
                 page,
@@ -195,7 +388,7 @@ class PreferencesDialog(wx.Dialog):
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        identity_row = wx.BoxSizer(wx.HORIZONTAL)
+        identity_row = wx.BoxSizer(wx.VERTICAL)
         self.display_name = wx.TextCtrl(
             page,
             value=self._prefs.display_name,
@@ -217,14 +410,14 @@ class PreferencesDialog(wx.Dialog):
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        school_row = wx.BoxSizer(wx.HORIZONTAL)
+        school_row = wx.BoxSizer(wx.VERTICAL)
         self.school_name = wx.TextCtrl(page, value=self._school.mode_name)
         self.school_name.SetMaxLength(school_mode.MAX_MODE_NAME_LENGTH)
         self.school_name.SetName("School mode name")
         self.school_enabled = wx.CheckBox(page, label="Enabled")
         self.school_enabled.SetValue(self._school.enabled)
         school_row.Add(self.school_name, 1, wx.EXPAND | wx.RIGHT, 8)
-        school_row.Add(self.school_enabled, 0, wx.ALIGN_CENTER_VERTICAL)
+        school_row.Add(self.school_enabled, 0)
         grid.Add(school_row, 1, wx.EXPAND)
         if self._school.enabled:
             active = wx.StaticText(
@@ -253,6 +446,7 @@ class PreferencesDialog(wx.Dialog):
         grid.AddSpacer(1)
         self.identity_status = wx.StaticText(page, label="")
         self.identity_status.SetName("App display name validation")
+        _track_responsive_text(page, self.identity_status)
         grid.Add(self.identity_status, 1, wx.EXPAND)
         grid.Add(
             _label(
@@ -296,7 +490,7 @@ class PreferencesDialog(wx.Dialog):
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        colour_row = wx.BoxSizer(wx.HORIZONTAL)
+        colour_row = wx.BoxSizer(wx.VERTICAL)
         self.accent_rgb = wx.TextCtrl(
             page, style=wx.TE_PROCESS_ENTER, name="Accent colour RGB"
         )
@@ -312,13 +506,12 @@ class PreferencesDialog(wx.Dialog):
         self.accent_swatch.SetName("Accent colour preview")
         self.accent_contrast = wx.StaticText(page, label="")
         self.accent_contrast.SetName("Accent colour contrast readout")
+        _track_responsive_text(page, self.accent_contrast)
         colour_row.Add(self.accent_rgb, 1, wx.EXPAND | wx.RIGHT, 6)
         colour_row.Add(self.accent_hsl, 1, wx.EXPAND | wx.RIGHT, 6)
-        colour_row.Add(
-            self.accent_colour_picker, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6
-        )
+        colour_row.Add(self.accent_colour_picker, 0, wx.RIGHT, 6)
         colour_row.Add(self.accent_swatch, 0, wx.EXPAND | wx.RIGHT, 6)
-        colour_row.Add(self.accent_contrast, 0, wx.ALIGN_CENTER_VERTICAL)
+        colour_row.Add(self.accent_contrast, 0)
         grid.Add(colour_row, 1, wx.EXPAND)
         grid.Add(
             _label(
@@ -343,7 +536,7 @@ class PreferencesDialog(wx.Dialog):
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        font_search_row = wx.BoxSizer(wx.HORIZONTAL)
+        font_search_row = wx.BoxSizer(wx.VERTICAL)
         self.font_search = wx.TextCtrl(page, name="Installed font search")
         self.font_search.SetHint("Search installed fonts")
         self.font_regex = wx.CheckBox(page, label="Regex")
@@ -356,10 +549,8 @@ class PreferencesDialog(wx.Dialog):
         self.font_choice = wx.Choice(page, choices=[])
         self.font_choice.SetName("Installed font choices")
         font_search_row.Add(self.font_search, 1, wx.EXPAND | wx.RIGHT, 8)
-        font_search_row.Add(self.font_regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        font_search_row.Add(
-            self.font_regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8
-        )
+        font_search_row.Add(self.font_regex, 0, wx.RIGHT, 8)
+        font_search_row.Add(self.font_regex_button, 0, wx.RIGHT, 8)
         font_search_row.Add(self.font_choice, 1, wx.EXPAND)
         grid.Add(font_search_row, 1, wx.EXPAND)
         grid.Add(
@@ -371,7 +562,7 @@ class PreferencesDialog(wx.Dialog):
             0,
             wx.ALIGN_CENTER_VERTICAL,
         )
-        editor_row = wx.BoxSizer(wx.HORIZONTAL)
+        editor_row = wx.BoxSizer(wx.VERTICAL)
         self.external_editor_path = wx.TextCtrl(
             page,
             value=external_editor.load_selected(),
@@ -388,12 +579,14 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(editor_row, 1, wx.EXPAND)
         self.external_editor_status = wx.StaticText(page, label="")
         self.external_editor_status.SetName("External editor status")
+        _track_responsive_text(page, self.external_editor_status)
         grid.AddSpacer(1)
         grid.Add(self.external_editor_status, 1, wx.EXPAND)
         self.font_preview = wx.StaticText(
             page, label="The quick brown fox jumps over the lazy dog · 蝦餃"
         )
         self.font_preview.SetName("Live typography preview")
+        _track_responsive_text(page, self.font_preview)
         grid.AddSpacer(1)
         grid.Add(self.font_preview, 1, wx.EXPAND)
         grid.Add(
@@ -425,7 +618,7 @@ class PreferencesDialog(wx.Dialog):
             wx.BOTTOM,
             6,
         )
-        preset_row = wx.BoxSizer(wx.HORIZONTAL)
+        preset_row = wx.BoxSizer(wx.VERTICAL)
         self.appearance_preset_list = wx.Choice(page, choices=[])
         self.appearance_preset_list.SetName("Named appearance presets")
         self.appearance_preset_name = wx.TextCtrl(page)
@@ -435,7 +628,7 @@ class PreferencesDialog(wx.Dialog):
         preset_row.Add(self.appearance_preset_name, 1, wx.EXPAND)
         root.Add(preset_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
-        preset_search_row = wx.BoxSizer(wx.HORIZONTAL)
+        preset_search_row = wx.BoxSizer(wx.VERTICAL)
         self.appearance_preset_search = wx.TextCtrl(page)
         self.appearance_preset_search.SetHint("Search appearance presets")
         self.appearance_preset_search.SetName("Appearance preset search")
@@ -446,21 +639,21 @@ class PreferencesDialog(wx.Dialog):
             "Build a bounded regular-expression preset search"
         )
         preset_search_row.Add(self.appearance_preset_search, 1, wx.EXPAND | wx.RIGHT, 8)
-        preset_search_row.Add(self.appearance_preset_regex, 0, wx.ALIGN_CENTER_VERTICAL)
+        preset_search_row.Add(self.appearance_preset_regex, 0)
         preset_search_row.Add(
             self.appearance_preset_regex_button,
             0,
-            wx.LEFT | wx.ALIGN_CENTER_VERTICAL,
+            wx.LEFT,
             6,
         )
         root.Add(preset_search_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
-        preset_actions = wx.WrapSizer(wx.HORIZONTAL)
+        preset_actions = wx.BoxSizer(wx.VERTICAL)
         self.appearance_preset_load = wx.Button(page, label="Load selected")
         self.appearance_preset_save = wx.Button(page, label="Save preset")
         self.appearance_preset_update = wx.Button(page, label="Update selected")
         self.appearance_preset_export = wx.Button(page, label="Export selected…")
-        self.appearance_preset_open = wx.Button(page, label="Open export in VS Code")
+        self.appearance_preset_open = wx.Button(page, label="Open in VS Code")
         self.appearance_preset_open.Enable(False)
         self.appearance_preset_import = wx.Button(page, label="Import preset…")
         self.appearance_preset_delete = wx.Button(page, label="Delete selected")
@@ -476,7 +669,7 @@ class PreferencesDialog(wx.Dialog):
             preset_actions.Add(control, 0, wx.RIGHT | wx.BOTTOM, 8)
         root.Add(preset_actions, 0, wx.EXPAND)
 
-        reset_row = wx.WrapSizer(wx.HORIZONTAL)
+        reset_row = wx.BoxSizer(wx.VERTICAL)
         self.appearance_reset_property = wx.Choice(
             page,
             choices=["Theme", "Density", "Accent colour", "UI font", "UI scale"],
@@ -492,7 +685,7 @@ class PreferencesDialog(wx.Dialog):
 
         self.appearance_status = wx.StaticText(page, label="")
         self.appearance_status.SetName("Appearance preset status")
-        self.appearance_status.Wrap(540)
+        _track_responsive_text(page, self.appearance_status)
         root.Add(self.appearance_status, 0, wx.EXPAND | wx.TOP, 10)
 
         self.appearance_preset_list.Bind(wx.EVT_CHOICE, self._select_appearance_preset)
@@ -542,6 +735,7 @@ class PreferencesDialog(wx.Dialog):
         outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
         page.SetSizer(outer)
         page.FitInside()
+        self._appearance_page = page
         self._appearance_tab_index = self._tabs.GetPageCount()
         self._tabs.AddPage(page, "Appearance")
         self._appearance_library_controls = (
@@ -613,7 +807,7 @@ class PreferencesDialog(wx.Dialog):
         self.appearance_status.SetForegroundColour(
             wx.Colour(180, 40, 40) if error else wx.Colour(40, 120, 70)
         )
-        self.appearance_status.Wrap(540)
+        self._update_responsive_layout()
 
     def _set_appearance_font(self, font_name: str) -> None:
         font = (
@@ -991,13 +1185,13 @@ class PreferencesDialog(wx.Dialog):
         root = wx.BoxSizer(wx.VERTICAL)
 
         explanation = wx.StaticText(page, label=self._schedule_text("explanation"))
-        explanation.Wrap(540)
+        _track_responsive_text(page, explanation)
         root.Add(explanation, 0, wx.EXPAND | wx.BOTTOM, 10)
 
         self.schedule_list = wx.ListBox(page)
         self.schedule_list.SetMinSize(wx.Size(-1, 88))
         root.Add(self.schedule_list, 0, wx.EXPAND | wx.BOTTOM, 8)
-        actions = wx.BoxSizer(wx.HORIZONTAL)
+        actions = wx.BoxSizer(wx.VERTICAL)
         self.schedule_new = wx.Button(page, label=self._schedule_text("add"))
         self.schedule_remove = wx.Button(page, label=self._schedule_text("remove"))
         self.schedule_up = wx.Button(page, label=self._schedule_text("moveup"))
@@ -1008,8 +1202,8 @@ class PreferencesDialog(wx.Dialog):
         actions.Add(self.schedule_down, 0)
         root.Add(actions, 0, wx.BOTTOM, 12)
 
-        grid = wx.FlexGridSizer(0, 2, 8, 12)
-        grid.AddGrowableCol(1, 1)
+        grid = wx.FlexGridSizer(0, 1, 5, 0)
+        grid.AddGrowableCol(0, 1)
 
         def add_row(key: str, control: wx.Window) -> None:
             grid.Add(
@@ -1055,7 +1249,7 @@ class PreferencesDialog(wx.Dialog):
         add_row("sourcerefresh", self.schedule_source_refresh)
 
         weekday_panel = wx.Panel(page)
-        weekday_sizer = wx.WrapSizer(wx.HORIZONTAL)
+        weekday_sizer = wx.BoxSizer(wx.VERTICAL)
         self.schedule_every_day = wx.CheckBox(
             weekday_panel, label=self._schedule_text("everyday")
         )
@@ -1126,7 +1320,7 @@ class PreferencesDialog(wx.Dialog):
         self.schedule_apply = wx.Button(page, label=self._schedule_text("apply"))
         root.Add(self.schedule_apply, 0, wx.BOTTOM, 8)
         self.schedule_validation = wx.StaticText(page, label="")
-        self.schedule_validation.Wrap(540)
+        _track_responsive_text(page, self.schedule_validation)
         root.Add(self.schedule_validation, 0, wx.EXPAND)
 
         self._schedule_controls = [
@@ -1198,6 +1392,7 @@ class PreferencesDialog(wx.Dialog):
         outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
         page.SetSizer(outer)
         page.FitInside()
+        self._schedule_page = page
         self._schedule_tab_index = self._tabs.GetPageCount()
         self._tabs.AddPage(page, self._schedule_text("tab"))
         self._refresh_schedule_list()
@@ -1219,7 +1414,7 @@ class PreferencesDialog(wx.Dialog):
         self.schedule_validation.SetForegroundColour(
             wx.Colour(180, 40, 40) if error else wx.Colour(40, 120, 70)
         )
-        self.schedule_validation.Wrap(540)
+        self._update_responsive_layout()
 
     def _refresh_schedule_list(self) -> None:
         labels = [
@@ -1435,38 +1630,74 @@ class PreferencesDialog(wx.Dialog):
         self._show_schedule_message(self._schedule_text("moved"))
 
     def _build_search_tab(self) -> None:
-        page = wx.Panel(self._tabs)
+        page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
+        page.SetScrollRate(0, 12)
         box = wx.BoxSizer(wx.VERTICAL)
         box.Add(
             _label(
                 page,
-                "Regex builder",
-                "Plain text is safest by default; enable regex only when you need groups or quantifiers.",
+                "Search settings",
+                "Search every Preferences tab by setting label, explanation, or current non-sensitive value, then open the exact control.",
             ),
             0,
             wx.BOTTOM,
             8,
         )
-        row = wx.BoxSizer(wx.HORIZONTAL)
+        row = wx.BoxSizer(wx.VERTICAL)
         self.regex = wx.TextCtrl(page)
-        self.regex.SetHint("Search settings, tabs, or commands")
+        self.regex.SetName("Preferences settings search")
+        self.regex.SetHint("Search labels, explanations, and current values")
         self.regex_mode = wx.CheckBox(page, label="Regex")
+        self.regex_mode.SetName("Preferences settings regex mode")
         self.regex_flags = wx.CheckBox(page, label="Ignore case")
+        self.regex_flags.SetName("Preferences settings ignore case")
+        self.regex_flags.SetValue(True)
         self.regex_button = wx.Button(page, label="Regex…")
         self.regex_button.SetName("Preferences search regex builder")
         self.regex_button.SetToolTip("Build a bounded regular-expression search")
         row.Add(self.regex, 1, wx.EXPAND | wx.RIGHT, 8)
-        row.Add(self.regex_mode, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        row.Add(self.regex_flags, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        row.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL)
+        row.Add(self.regex_mode, 0, wx.RIGHT, 8)
+        row.Add(self.regex_flags, 0, wx.RIGHT, 8)
+        row.Add(self.regex_button, 0)
         box.Add(row, 0, wx.EXPAND)
-        self.regex_result = wx.StaticText(page, label="Type to validate a pattern.")
+        self.regex_result = wx.StaticText(
+            page,
+            label="Type to search setting labels, explanations, and current values.",
+        )
+        self.regex_result.SetName("Preferences search status")
+        _track_responsive_text(page, self.regex_result)
         box.Add(self.regex_result, 0, wx.TOP, 10)
+        self.regex_results = WrappedSearchResults(page, self._activate_settings_search)
+        self.regex_results.SetName("Preferences search results")
+        self.regex_results.SetMinSize(wx.Size(1, 180))
+        box.Add(self.regex_results, 1, wx.EXPAND | wx.TOP, 10)
+        self.regex_open = wx.Button(page, label="Open setting")
+        self.regex_open.SetName("Open selected Preferences setting")
+        box.Add(self.regex_open, 0, wx.TOP | wx.ALIGN_LEFT, 10)
+
+        self._settings_search_controls = {
+            spec.key: getattr(self, spec.control_name)
+            for spec in settings_search.PREFERENCES_SETTING_SPECS
+        }
+        self._settings_search_pages = {
+            "Language": self._language_page,
+            "Appearance": self._appearance_page,
+            "Schedule": self._schedule_page,
+        }
+        self._settings_search_matches: Tuple[
+            settings_search.SettingSearchDocument, ...
+        ] = ()
         self.regex.Bind(wx.EVT_TEXT, self._validate_regex)
         self.regex_mode.Bind(wx.EVT_CHECKBOX, self._validate_regex)
         self.regex_flags.Bind(wx.EVT_CHECKBOX, self._validate_regex)
         self.regex_button.Bind(wx.EVT_BUTTON, self._open_search_regex_builder)
-        page.SetSizer(box)
+        self.regex_results.Bind(wx.EVT_KEY_DOWN, self._on_settings_result_key)
+        self.regex_open.Bind(wx.EVT_BUTTON, self._activate_settings_search)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(box, 1, wx.EXPAND | wx.ALL, 18)
+        page.SetSizer(outer)
+        page.FitInside()
+        self._search_page = page
         self._tabs.AddPage(page, "Search")
 
     def _open_search_regex_builder(self, _event: wx.Event) -> None:
@@ -1475,26 +1706,129 @@ class PreferencesDialog(wx.Dialog):
             pattern=self.regex.GetValue(),
             regex_enabled=self.regex_mode.GetValue(),
             flags=0x02 if self.regex_flags.GetValue() else 0,
-            sample="settings, tabs, or commands",
+            sample="Theme, density, external editor, schedule, or language",
         ) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
                 return
             self.regex.ChangeValue(dialog.pattern)
             self.regex_mode.SetValue(dialog.regex_enabled)
             self.regex_flags.SetValue(bool(dialog.flags & 0x02))
-        self._validate_regex(None)
+        self._refresh_settings_search()
+
+    def _settings_search_value(self, spec: settings_search.SettingSearchSpec) -> str:
+        if spec.sensitive:
+            return ""
+        if spec.key == "schedule-weekdays":
+            if self.schedule_every_day.GetValue():
+                return "Every day"
+            weekdays = [
+                control.GetLabel()
+                for control in self.schedule_weekdays
+                if control.GetValue()
+            ]
+            return ", ".join(weekdays)
+        control = self._settings_search_controls[spec.key]
+        if isinstance(control, (wx.Choice, wx.ListBox)):
+            value = control.GetStringSelection()
+        elif isinstance(control, wx.FontPickerCtrl):
+            value = control.GetSelectedFont().GetFaceName()
+        elif hasattr(control, "GetValue"):
+            value = control.GetValue()
+        else:
+            value = ""
+        if isinstance(value, bool):
+            return "On" if value else "Off"
+        if spec.key == "ui-scale" and value != "":
+            return f"{value}%"
+        return str(value).strip()[:160]
+
+    def _settings_search_documents(
+        self,
+    ) -> Tuple[settings_search.SettingSearchDocument, ...]:
+        documents = []
+        for spec in settings_search.PREFERENCES_SETTING_SPECS:
+            page = self._settings_search_pages[spec.tab]
+            if self._tabs.FindPage(page) == wx.NOT_FOUND:
+                continue
+            documents.append(
+                settings_search.SettingSearchDocument(
+                    spec,
+                    current_value=self._settings_search_value(spec),
+                )
+            )
+        return tuple(documents)
+
+    def _refresh_settings_search(self) -> None:
+        query = self.regex.GetValue()[:4096]
+        if not query:
+            self._settings_search_matches = ()
+            self.regex_results.Set([])
+            self.regex_result.SetLabel(
+                "Type to search setting labels, explanations, and current values."
+            )
+            self.regex_result.SetForegroundColour(wx.Colour(70, 70, 70))
+            self._update_responsive_layout()
+            return
+        flags = re.IGNORECASE if self.regex_flags.GetValue() else 0
+        builder = RegexBuilder(query, flags, self.regex_mode.GetValue())
+        validation = builder.validate()
+        if not validation.valid:
+            self._settings_search_matches = ()
+            self.regex_results.Set([])
+            self.regex_result.SetLabel(f"Invalid pattern: {validation.error}")
+            self.regex_result.SetForegroundColour(wx.Colour(180, 40, 40))
+            self._update_responsive_layout()
+            return
+        self._settings_search_matches = settings_search.filter_setting_documents(
+            self._settings_search_documents(), builder
+        )
+        self.regex_results.Set(
+            [document.result_label for document in self._settings_search_matches]
+        )
+        if self._settings_search_matches:
+            self.regex_results.SetSelection(0)
+        count = len(self._settings_search_matches)
+        self.regex_result.SetLabel(f"{count} matching setting(s).")
+        self.regex_result.SetForegroundColour(wx.Colour(40, 120, 70))
+        self._update_responsive_layout()
+
+    def _activate_settings_search(self, _event: wx.Event | None = None) -> None:
+        index = self.regex_results.GetSelection()
+        if index == wx.NOT_FOUND or index >= len(self._settings_search_matches):
+            self.regex_result.SetLabel("Select a setting to open it.")
+            self._update_responsive_layout()
+            return
+        document = self._settings_search_matches[index]
+        control = self._settings_search_controls[document.spec.key]
+        page = self._settings_search_pages[document.spec.tab]
+        page_index = self._tabs.FindPage(page)
+        if page_index == wx.NOT_FOUND:
+            self.regex_result.SetLabel(
+                "That setting is not available while the current presentation mode is active."
+            )
+            self._update_responsive_layout()
+            return
+        self._tabs.SetSelection(page_index)
+        self._update_responsive_layout()
+        if isinstance(page, wx.ScrolledWindow) and hasattr(page, "ScrollChildIntoView"):
+            page.ScrollChildIntoView(control)
+        wx.CallAfter(control.SetFocus)
+        self.regex_result.SetLabel(
+            f"Opened {document.spec.label} on the {document.spec.tab} tab."
+        )
+        self._update_responsive_layout()
+
+    def _on_settings_result_key(self, event: wx.KeyEvent) -> None:
+        if event.GetKeyCode() in (
+            wx.WXK_RETURN,
+            getattr(wx, "WXK_NUMPAD_ENTER", -1),
+        ):
+            self._activate_settings_search()
+            return
+        event.Skip()
 
     def _validate_regex(self, _event: wx.Event) -> None:
-        flags = 0x02 if self.regex_flags.GetValue() else 0
-        result = RegexBuilder(
-            self.regex.GetValue(), flags, self.regex_mode.GetValue()
-        ).validate()
-        self.regex_result.SetLabel(
-            "Valid pattern" if result.valid else f"Invalid pattern: {result.error}"
-        )
-        self.regex_result.SetForegroundColour(
-            wx.Colour(40, 120, 70) if result.valid else wx.Colour(180, 40, 40)
-        )
+        self._refresh_settings_search()
 
     def _reset(self, _event: wx.Event) -> None:
         self._prefs = preferences.reset()

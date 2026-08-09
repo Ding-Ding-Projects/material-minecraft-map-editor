@@ -15,6 +15,7 @@ and verification evidence.
 - [Material application shell](material-shell/README.md)
 - [Notification centre](notification-centre/README.md)
 - [Offline documentation](offline-documentation/README.md)
+- [Responsive Preferences search](preferences-search/README.md)
 - [Release code name](release-code-name/README.md)
 - [Release delivery contract](release-delivery/README.md)
 - [Scheduled settings](scheduled-settings/README.md)

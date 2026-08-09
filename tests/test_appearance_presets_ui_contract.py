@@ -41,7 +41,10 @@ class AppearancePresetsUiContractTestCase(unittest.TestCase):
             "appearance_status",
             "SetName",
             "SetScrollRate",
-            "wx.WrapSizer",
+            "preset_row = wx.BoxSizer(wx.VERTICAL)",
+            "preset_search_row = wx.BoxSizer(wx.VERTICAL)",
+            "preset_actions = wx.BoxSizer(wx.VERTICAL)",
+            "reset_row = wx.BoxSizer(wx.VERTICAL)",
         ):
             self.assertIn(required, build)
         for method in (
