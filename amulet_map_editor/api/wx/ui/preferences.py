@@ -263,11 +263,13 @@ class PreferencesDialog(wx.Dialog):
         )
         # Apply the persisted language and appearance choices immediately to
         # the owning frame; reopening the app is not required.
-        lang.set_language({
-            "english": "en",
-            "cantonese": "zh_TW",
-            "bilingual": "en",
-        }[language_mode])
+        lang.set_language(
+            {
+                "english": "en",
+                "cantonese": "zh_TW",
+                "bilingual": "en",
+            }[language_mode]
+        )
         apply_material3(self.GetParent())
         self.EndModal(wx.ID_OK)
 
