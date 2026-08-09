@@ -35,6 +35,7 @@ from amulet_map_editor.api.wx.ui.preferences import (
 from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from amulet_map_editor.api.wx.ui.notifications import NotificationHistoryDialog
 from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
+from amulet_map_editor.api.wx.nonblocking import notify
 from .squirrel_update import (
     check_for_update,
     find_update_exe,
@@ -535,7 +536,12 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
                 world = WorldPageUI(self, path)
             except LoaderNoneMatched as e:
                 log.error(f"Could not find a loader for this world.\n{e}")
-                wx.MessageBox(f"{lang.get('select_world.no_loader_found')}\n{e}")
+                notify(
+                    self,
+                    "World loader unavailable",
+                    f"{lang.get('select_world.no_loader_found')}\n{e}",
+                    severity="error",
+                )
             except Exception as e:
                 log.error(lang.get("select_world.loading_world_failed"), exc_info=True)
                 with TracebackDialog(
@@ -603,7 +609,12 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
         for path, page in list(self._open_worlds.items()):
             self.close_level(path)
         if self.GetPageCount() > 1:
-            wx.MessageBox(lang.get("app.world_still_used"))
+            notify(
+                self,
+                "World still open",
+                lang.get("app.world_still_used"),
+                severity="warning",
+            )
         else:
             evt.Skip()
 

@@ -10,6 +10,7 @@ from amulet.api.level import BaseLevel
 from amulet_map_editor import lang
 from amulet_map_editor.api.wx.ui.simple import SimplePanel, SimpleScrollablePanel
 from amulet_map_editor.api.wx.ui.select_world import WorldSelectDialog, WorldUI
+from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.datatypes import MenuData
 from amulet_map_editor.api.framework.programs import BaseProgram
 from amulet_map_editor import close_level
@@ -120,7 +121,12 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
 
     def _output_world_callback(self, path):
         if path == self.world.level_path:
-            wx.MessageBox(lang.get("program_convert.input_output_must_different"))
+            notify(
+                self,
+                "Conversion unavailable",
+                lang.get("program_convert.input_output_must_different"),
+                severity="warning",
+            )
             return
         try:
             out_world_format = load_format(path)
@@ -142,7 +148,12 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
 
     def _convert_event(self, evt):
         if self.out_world_path is None:
-            wx.MessageBox(lang.get("program_convert.select_before_converting"))
+            notify(
+                self,
+                "Conversion needs a destination",
+                lang.get("program_convert.select_before_converting"),
+                severity="warning",
+            )
             return
         self.convert_button.Disable()
         self._thread = Thread(target=self._convert_method)
@@ -166,7 +177,16 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
         self._update_loading_bar(0, 100)
         self._thread = None
         self.convert_button.Enable()
-        wx.MessageBox(message)
+        notify(
+            self,
+            "Conversion finished"
+            if "Error during conversion" not in message
+            else "Conversion failed",
+            message,
+            severity="success"
+            if "Error during conversion" not in message
+            else "error",
+        )
 
     def can_close(self):
         if self._thread is not None:

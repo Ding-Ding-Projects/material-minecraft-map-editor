@@ -58,3 +58,17 @@ def test_flat_notebook_tab_roles_are_explicitly_m3_themed():
         "SetNonActiveTabTextColour",
     ):
         assert setter in source
+
+
+def test_informational_workflows_use_nonblocking_notifications():
+    bridge = (ROOT / "amulet_map_editor/api/wx/nonblocking.py").read_text(
+        encoding="utf-8"
+    )
+    assert "notifications.add" in bridge
+    for relative in (
+        "amulet_map_editor/api/framework/amulet_ui.py",
+        "amulet_map_editor/programs/convert/convert.py",
+    ):
+        source = (ROOT / relative).read_text(encoding="utf-8")
+        assert "from amulet_map_editor.api.wx.nonblocking import notify" in source
+        assert "wx.MessageBox" not in source
