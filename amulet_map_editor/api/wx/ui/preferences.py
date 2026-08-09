@@ -29,6 +29,7 @@ from amulet_map_editor.api import scheduled_settings as schedules
 from amulet_map_editor.api.regex_builder import RegexBuilder
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.nonblocking import notify
+from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 
 
 def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
@@ -530,15 +531,13 @@ class PreferencesDialog(wx.Dialog):
 
     def _browse_external_editor(self, _event: wx.Event) -> None:
         """Stage a user-selected Code executable without launching it."""
-        with wx.FileDialog(
+        value = choose_path(
             self,
             "Choose external editor executable",
             wildcard="Code executables (*.exe;*.cmd;code)|*.exe;*.cmd;code|All files (*.*)|*.*",
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
-        ) as dialog:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            value = dialog.GetPath()
+        )
+        if not value:
+            return
         result = external_editor.validate_editor_path(value)
         if not result.ok:
             self.external_editor_status.SetLabel(result.message)
@@ -804,16 +803,16 @@ class PreferencesDialog(wx.Dialog):
             self._show_appearance_message("Select a preset to export.", error=True)
             return
         safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", preset.name).strip("-.")
-        with wx.FileDialog(
+        value = choose_path(
             self,
             "Export appearance preset",
-            defaultFile=(safe_name or "appearance-preset") + ".json",
+            default_path=(safe_name or "appearance-preset") + ".json",
             wildcard="JSON files (*.json)|*.json",
-            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
-        ) as dialog:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            path = Path(dialog.GetPath())
+            save=True,
+        )
+        if not value:
+            return
+        path = Path(value)
         try:
             path.write_text(
                 appearance_presets.export_preset(preset),
@@ -835,15 +834,14 @@ class PreferencesDialog(wx.Dialog):
         self._show_appearance_message(action.message, error=not action.ok)
 
     def _import_appearance_preset(self, _event: wx.Event) -> None:
-        with wx.FileDialog(
+        value = choose_path(
             self,
             "Import appearance preset",
             wildcard="JSON files (*.json)|*.json",
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
-        ) as dialog:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            path = Path(dialog.GetPath())
+        )
+        if not value:
+            return
+        path = Path(value)
         try:
             with path.open("rb") as stream:
                 payload = stream.read(appearance_presets.MAX_IMPORT_BYTES + 1)
@@ -1570,16 +1568,16 @@ class ChangelogDialog(wx.Dialog):
         except (ValueError, changelog.ChangelogValidationError, re.error) as exc:
             self.feedback.SetLabel(f"Invalid filter: {exc}")
             return
-        with wx.FileDialog(
+        value = choose_path(
             self,
             "Export filtered changelog",
-            defaultFile="changelog.md",
+            default_path="changelog.md",
             wildcard="Markdown files (*.md)|*.md",
-            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
-        ) as dialog:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            path = Path(dialog.GetPath())
+            save=True,
+        )
+        if not value:
+            return
+        path = Path(value)
         try:
             path.write_text(payload, encoding="utf-8", newline="\n")
         except OSError as exc:

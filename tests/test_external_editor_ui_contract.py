@@ -33,7 +33,8 @@ class ExternalEditorUiContractTestCase(unittest.TestCase):
         ):
             self.assertIn(required, build)
         browse = self.methods["_browse_external_editor"]
-        self.assertIn("wx.FD_OPEN | wx.FD_FILE_MUST_EXIST", browse)
+        self.assertIn("choose_path", browse)
+        self.assertIn("Code executables", browse)
         self.assertIn("external_editor.validate_editor_path", browse)
         save = self.methods["_save"]
         self.assertIn("external_editor_path=self.external_editor_path.GetValue()", save)

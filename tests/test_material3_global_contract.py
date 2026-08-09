@@ -110,3 +110,16 @@ def test_operation_error_message_dialog_is_nonblocking():
     )
     assert "Operation failed" in source
     assert "with wx.MessageDialog(self, msg, style=wx.OK)" not in source
+
+
+def test_preferences_use_the_m3_owned_path_picker():
+    source = (ROOT / "amulet_map_editor/api/wx/ui/preferences.py").read_text(
+        encoding="utf-8"
+    )
+    picker = (ROOT / "amulet_map_editor/api/wx/ui/path_dialog.py").read_text(
+        encoding="utf-8"
+    )
+    assert "from amulet_map_editor.api.wx.ui.path_dialog import choose_path" in source
+    assert source.count("choose_path(") >= 4
+    assert "class MaterialPathDialog" in picker
+    assert "Browse path" in picker

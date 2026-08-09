@@ -90,14 +90,13 @@ class AppearancePresetsUiContractTestCase(unittest.TestCase):
 
     def test_import_export_are_bounded_native_file_flows(self):
         exported = self.method_source("_export_appearance_preset")
-        self.assertIn("wx.FileDialog", exported)
-        self.assertIn("wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT", exported)
+        self.assertIn("choose_path", exported)
+        self.assertIn("save=True", exported)
         self.assertIn("appearance_presets.export_preset", exported)
         self.assertIn('encoding="utf-8"', exported)
 
         imported = self.method_source("_import_appearance_preset")
-        self.assertIn("wx.FileDialog", imported)
-        self.assertIn("wx.FD_OPEN | wx.FD_FILE_MUST_EXIST", imported)
+        self.assertIn("choose_path", imported)
         self.assertIn("appearance_presets.MAX_IMPORT_BYTES", imported)
         self.assertIn(".read(appearance_presets.MAX_IMPORT_BYTES + 1)", imported)
         self.assertIn("appearance_presets.import_preset", imported)
