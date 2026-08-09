@@ -19,6 +19,10 @@
 
 </div>
 
+## One-click Windows builds
+
+From a fresh Windows checkout, `build.bat /s` bootstraps the declared Python toolchain and installs the editable package without prompts. `build-installer.bat /s` runs that bootstrap, builds `installer/Amulet.spec`, and invokes the same unsigned Squirrel.Windows packaging path used by CI. Omit `/s` for phase output and the final pause. Neither script signs, publishes, tags, or creates a release.
+
 ![Four genuine Amulet 0.10.47 editing views showing selections, paste transforms, block operations, and chunk selection](resource/img/cover.jpg)
 
 Amulet opens Minecraft worlds outside the game so that you can inspect terrain,
