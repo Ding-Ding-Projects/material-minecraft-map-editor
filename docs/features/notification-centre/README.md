@@ -13,6 +13,10 @@ the app did.
   validates the pattern and reports invalid input before changing anything.
 - Bulk dismiss reports the number changed and leaves already-dismissed records
   untouched.
+- The native history list supports multi-selection, localized **Select all**
+  and **Invert selection** actions, plus `Ctrl+A`, `Ctrl+I`, and `Enter`
+  keyboard paths. Dismissal still applies only to selected records or the
+  explicitly chosen visible set.
 - JSON and Markdown exports preserve the active selection and state.
 - The desktop shell projects each new record into a non-modal Material 3 toast
   stack. Informational and success toasts dismiss after six seconds; warnings

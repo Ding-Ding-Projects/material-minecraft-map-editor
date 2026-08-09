@@ -43,7 +43,7 @@ class NotificationHistoryDialog(wx.Dialog):
         search_row.Add(self.regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         root.Add(search_row, 0, wx.EXPAND | wx.ALL, 12)
 
-        self.list = wx.ListCtrl(self, style=wx.LC_REPORT)
+        self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_MULTIPLE_SEL)
         self.list.SetName("Notification history list")
         for index, label in enumerate(
             (
@@ -64,6 +64,12 @@ class NotificationHistoryDialog(wx.Dialog):
         self.dismiss_all = wx.Button(
             self, label=_copy("dismiss_visible", self._language_mode)
         )
+        self.select_all = wx.Button(
+            self, label=_copy("select_all", self._language_mode)
+        )
+        self.invert_selection = wx.Button(
+            self, label=_copy("invert_selection", self._language_mode)
+        )
         self.export = wx.Button(self, label=_copy("export", self._language_mode))
         self.open_export = wx.Button(
             self, label=_copy("open_export", self._language_mode)
@@ -73,6 +79,8 @@ class NotificationHistoryDialog(wx.Dialog):
             self, id=wx.ID_CLOSE, label=_copy("close", self._language_mode)
         )
         for button in (
+            self.select_all,
+            self.invert_selection,
             self.dismiss,
             self.dismiss_all,
             self.export,
@@ -89,6 +97,9 @@ class NotificationHistoryDialog(wx.Dialog):
         self.search.Bind(wx.EVT_TEXT, self._refresh)
         self.regex.Bind(wx.EVT_CHECKBOX, self._refresh)
         self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
+        self.select_all.Bind(wx.EVT_BUTTON, self._select_all)
+        self.invert_selection.Bind(wx.EVT_BUTTON, self._invert_selection)
+        self.list.Bind(wx.EVT_KEY_DOWN, self._list_key_down)
         self.dismiss.Bind(wx.EVT_BUTTON, self._dismiss_selected)
         self.dismiss_all.Bind(wx.EVT_BUTTON, self._dismiss_visible)
         self.export.Bind(wx.EVT_BUTTON, self._export)
@@ -145,9 +156,7 @@ class NotificationHistoryDialog(wx.Dialog):
 
     def _dismiss_selected(self, _event) -> None:
         selected = []
-        index = self.list.GetNextItem(
-            -1, wx.LIST_NEXT_ALL, wx.LIST_STATE_SELECTED
-        )
+        index = self.list.GetNextItem(-1, wx.LIST_NEXT_ALL, wx.LIST_STATE_SELECTED)
         while index != -1:
             if 0 <= index < len(self._items):
                 selected.append(self._items[index].notification_id)
@@ -157,6 +166,28 @@ class NotificationHistoryDialog(wx.Dialog):
         if selected:
             notifications.bulk_dismiss(selected)
             self._refresh()
+
+    def _select_all(self, _event) -> None:
+        for index in range(self.list.GetItemCount()):
+            self.list.Select(index)
+
+    def _invert_selection(self, _event) -> None:
+        for index in range(self.list.GetItemCount()):
+            self.list.Select(index, not self.list.IsSelected(index))
+
+    def _list_key_down(self, event: wx.KeyEvent) -> None:
+        """Keep notification bulk dismissal reachable without a pointer."""
+
+        if event.ControlDown() and event.GetKeyCode() == ord("A"):
+            self._select_all(event)
+            return
+        if event.ControlDown() and event.GetKeyCode() == ord("I"):
+            self._invert_selection(event)
+            return
+        if event.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._dismiss_selected(event)
+            return
+        event.Skip()
 
     def _dismiss_visible(self, _event) -> None:
         notifications.bulk_dismiss(item.notification_id for item in self._items)

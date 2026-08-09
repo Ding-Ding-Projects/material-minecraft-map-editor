@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -13,7 +12,7 @@ def test_notification_history_uses_persisted_language_resources():
     resources = (ROOT / "amulet_map_editor/lang/en.lang").read_text(encoding="utf-8")
     for marker in (
         "preferences.load().language_mode",
-        "_copy(\"title\", self._language_mode)",
+        '_copy("title", self._language_mode)',
         "notifications.en.title",
         "notifications.zh.title",
         "notifications.en.exported_to",
@@ -28,3 +27,7 @@ def test_notification_history_supports_multi_select_bulk_dismissal():
     assert "wx.LC_REPORT | wx.LC_SINGLE_SEL" not in source
     assert "wx.LIST_STATE_SELECTED" in source
     assert "notifications.bulk_dismiss(selected)" in source
+    assert "wx.LC_MULTIPLE_SEL" in source
+    assert '_copy("select_all"' in source
+    assert '_copy("invert_selection"' in source
+    assert "_list_key_down" in source
