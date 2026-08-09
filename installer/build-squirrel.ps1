@@ -17,7 +17,9 @@ param(
     [string] $NuGetVersion = 'v6.14.0',
     [ValidatePattern('^[0-9a-fA-F]{64}$')]
     [string] $NuGetSha256 = '92dbed160ddee0f64b901e907439e021211b428e57c089ecc12fc38dcc4bd9a5',
-    [string] $SquirrelVersion = '2.0.1'
+    [string] $SquirrelVersion = '2.0.1',
+    [ValidateRange(30, 600)]
+    [int] $SquirrelTimeoutSeconds = 180
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +37,30 @@ function Invoke-Native([string] $FilePath, [string[]] $ArgumentList) {
     & $FilePath @ArgumentList
     if ($LASTEXITCODE -ne 0) {
         throw "Native command failed ($LASTEXITCODE): $FilePath $($ArgumentList -join ' ')"
+    }
+}
+
+function Invoke-SquirrelWithTimeout([string] $FilePath, [string[]] $ArgumentList, [int] $TimeoutSeconds) {
+    $info = [Diagnostics.ProcessStartInfo]::new()
+    $info.FileName = $FilePath
+    $info.UseShellExecute = $false
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $info.CreateNoWindow = $true
+    foreach ($argument in $ArgumentList) { [void]$info.ArgumentList.Add($argument) }
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $info
+    [void]$process.Start()
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        try { $process.Kill($true) } catch { }
+        throw "Squirrel releasify exceeded the $TimeoutSeconds second timeout and was terminated."
+    }
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    if ($stdout) { Write-Host $stdout.TrimEnd() }
+    if ($stderr) { Write-Warning $stderr.TrimEnd() }
+    if ($process.ExitCode -ne 0) {
+        throw "Squirrel releasify failed ($($process.ExitCode)): $FilePath $($ArgumentList -join ' ')"
     }
 }
 
@@ -121,7 +147,7 @@ try {
         if (-not (Get-ChildItem $out -Recurse -File -Filter '*-full.nupkg' -ErrorAction SilentlyContinue)) {
             $releasifyArgs += '--no-delta'
         }
-        Invoke-Native $squirrel $releasifyArgs
+        Invoke-SquirrelWithTimeout $squirrel $releasifyArgs $SquirrelTimeoutSeconds
     }
     finally { Set-Location $oldLocation }
 
