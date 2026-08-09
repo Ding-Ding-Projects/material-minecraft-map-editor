@@ -2,17 +2,36 @@
 
 ## Scope
 
-Amulet has a wx-independent, local schedule contract for four existing user
-preferences: language mode, theme, density, and accent colour. This foundation
-defines persistence, validation, matching, and precedence. It does **not** add a
-schedule editor to the wx interface or claim that resolved values are applied
-at runtime yet.
+Amulet has a local schedule contract for four existing user preferences:
+language mode, theme, density, and accent colour. The native wx Preferences
+dialog includes a **Schedule** tab for loading, adding, editing, removing, and
+reordering these rules. The persistence, validation, matching, and precedence
+module remains wx-independent. Resolved values are not applied at runtime yet.
 
-The implementation is in
-`amulet_map_editor/api/scheduled_settings.py`. It uses the application's existing
-local config store and does not perform network access. API-backed rules, Home
-Assistant, credential storage, background refresh, and remote-value application
-are deliberately outside this bounded foundation.
+The contract is in `amulet_map_editor/api/scheduled_settings.py`, and the native
+editor is in `amulet_map_editor/api/wx/ui/preferences.py`. It uses the
+application's existing local config store and does not perform network access.
+API-backed rules, Home Assistant, credential storage, background refresh, and
+remote-value application are deliberately outside this bounded foundation.
+
+## Native editor
+
+The Schedule tab presents the stored rules as a list and keeps the rule editor
+on the same tab. Each rule exposes an enabled state, label, integer priority,
+every-day or Monday-through-Sunday choices, optional ISO start/end dates,
+24-hour start/end times, and optional language, theme, density, and accent
+overrides. **Add rule** starts a blank rule, **Apply rule** validates it into the
+in-memory list, and **Remove selected** removes the selected rule. Move controls
+change stored order so equal-priority precedence is visible and editable. The
+Preferences dialog's **OK** action validates any edited rule and saves the
+complete list through the schedule module.
+
+Switching to another list row never silently discards an edited form: the tab
+asks the user to apply it first. Validation remains inline on the tab and is
+localized through the existing language resources. If a readable stored
+schedule has invalid or unsupported data, the editor is disabled, the exact
+validation failure is shown, and the file is left unchanged rather than being
+replaced with an empty schedule.
 
 ## Versioned storage
 
@@ -53,14 +72,14 @@ order for diagnostics and future UI explanations.
 
 Rule construction, deserialization, and saving validate every bounded field.
 Invalid documents raise `ScheduleValidationError`; unsupported schema versions
-raise `UnsupportedScheduleVersion`. Callers should surface those failures as a
-non-blocking localized error when the future wx integration is added, while
-continuing to use the base preferences.
+raise `UnsupportedScheduleVersion`. The wx editor surfaces these failures as
+localized inline status while keeping unrelated base preferences usable.
 
 Schedules contain no tokens, URLs, credentials, or remote response bodies. The
 foundation neither imports wx nor starts timers, threads, network requests, or
-Home Assistant polling. Those capabilities require separate runtime design,
-secure credential storage, cancellation, and UI verification before shipping.
+Home Assistant polling. The wx tab only edits the local document. External
+sources and runtime application require separate design, secure credential
+storage, cancellation, and UI verification before shipping.
 
 ## Verification
 
@@ -74,6 +93,11 @@ The suite covers local persistence, schema versioning, deterministic precedence,
 partial overrides, disabled rules, all-day and cross-midnight windows, date and
 weekday boundaries, invalid input, unknown fields, duplicate identifiers, and
 future-version rejection.
+
+The wx-free structural contract test also confirms that the Preferences dialog
+creates the Schedule tab, exposes weekday/date/time/override controls, and
+routes loading and saving through the schedule module without adding network or
+Home Assistant behavior.
 
 ## Suggested articles
 
