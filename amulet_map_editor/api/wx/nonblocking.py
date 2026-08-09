@@ -24,3 +24,8 @@ def notify(parent: Any, title: str, body: str, *, severity: str = "info") -> Non
     except AttributeError:
         # Non-wx callers still get durable notification history.
         pass
+    try:
+        top.show_notification(title, safe_body, severity=severity)
+    except AttributeError:
+        # Non-shell wx owners retain the durable history/status fallback.
+        pass

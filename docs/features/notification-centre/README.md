@@ -14,6 +14,10 @@ the app did.
 - Bulk dismiss reports the number changed and leaves already-dismissed records
   untouched.
 - JSON and Markdown exports preserve the active selection and state.
+- The desktop shell projects each new record into a non-modal Material 3 toast
+  stack. Informational and success toasts dismiss after six seconds; warnings
+  and errors remain until the user chooses **Dismiss**. Toasts never request
+  focus or block the active editor.
 
 ## Failure and security boundaries
 
@@ -24,6 +28,5 @@ application configuration and are not sent to a network service.
 ## Verification
 
 `tests/test_notifications.py` covers add/search, regex validation, bulk
-dismiss, bounded input, and both export formats. The wx toast/notification
-centre surface remains a follow-up adapter; this module is the shared storage
-and bulk-action contract.
+dismiss, bounded input, and both export formats. The native toast bridge is
+covered by `tests/test_notification_toast_contract.py`.

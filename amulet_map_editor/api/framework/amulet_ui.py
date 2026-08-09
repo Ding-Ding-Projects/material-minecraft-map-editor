@@ -38,6 +38,7 @@ from amulet_map_editor.api.wx.ui.notifications import NotificationHistoryDialog
 from amulet_map_editor.api.wx.ui.local_history import LocalHistoryDialog
 from amulet_map_editor.api.wx.ui.tab_manager import TabManagerDialog
 from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
+from amulet_map_editor.api.wx.ui.notification_toast import NotificationToast
 from amulet_map_editor.api.wx.nonblocking import notify
 from .squirrel_update import (
     check_for_update,
@@ -143,6 +144,7 @@ class AmuletUI(wx.Frame):
             on_state=self._apply_scheduled_runtime_state
         )
         self._scheduled_timer = wx.CallLater(1000, self._refresh_scheduled_runtime)
+        self._notification_toasts: list[NotificationToast] = []
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
         self._update_banner_later.Bind(wx.EVT_BUTTON, self._hide_update_banner)
         self.CreateStatusBar()
@@ -152,6 +154,23 @@ class AmuletUI(wx.Frame):
         )
 
         self.Bind(wx.EVT_CLOSE, self._on_app_close)
+
+    def show_notification(self, title: str, body: str, *, severity: str = "info") -> None:
+        """Show a stacked, non-modal M3 toast without moving focus."""
+        if self.IsBeingDeleted():
+            return
+        toast = NotificationToast(self._shell, title, body, severity, self._dismiss_notification)
+        self._notification_toasts.append(toast)
+        self._shell_sizer.Insert(1, toast, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        self._shell.Layout()
+
+    def _dismiss_notification(self, toast: NotificationToast) -> None:
+        if toast not in self._notification_toasts:
+            return
+        self._notification_toasts.remove(toast)
+        self._shell_sizer.Detach(toast)
+        toast.Destroy()
+        self._shell.Layout()
 
     def _refresh_scheduled_runtime(self) -> None:
         if self.IsBeingDeleted():
@@ -217,6 +236,8 @@ class AmuletUI(wx.Frame):
             return
         if self._dim_sum_toast is not None:
             self._dim_sum_toast.dismiss()
+        for toast in list(self._notification_toasts):
+            toast.dismiss()
         self._dim_sum_toast = DimSumSurpriseToast(
             self._shell,
             payload,
