@@ -11,8 +11,9 @@ module remains wx-independent. Resolved values are not applied at runtime yet.
 The contract is in `amulet_map_editor/api/scheduled_settings.py`, and the native
 editor is in `amulet_map_editor/api/wx/ui/preferences.py`. It uses the
 application's existing local config store and does not perform network access.
-API-backed rules, Home Assistant, credential storage, background refresh, and
-remote-value application are deliberately outside this bounded foundation.
+The separate `amulet_map_editor.api.scheduled_sources` module now provides a
+validated source contract for a future refresh bridge: local, HTTPS API, and
+Home Assistant boolean sources without storing tokens or remote values.
 
 ## Native editor
 
@@ -81,10 +82,13 @@ raise `UnsupportedScheduleVersion`. The wx editor surfaces these failures as
 localized inline status while keeping unrelated base preferences usable.
 
 Schedules contain no tokens, URLs, credentials, or remote response bodies. The
-foundation neither imports wx nor starts timers, threads, network requests, or
-Home Assistant polling. The wx tab only edits the local document. External
-sources and runtime application require separate design, secure credential
-storage, cancellation, and UI verification before shipping.
+wx tab only edits the local document. The source layer rejects credentials,
+queries, fragments, redirects, public HTTP, unknown fields, unsupported
+versions, oversized payloads, and malformed entity IDs; it returns a
+non-blocking failure result with a three-second bound and expects callers to
+obtain Home Assistant tokens from the operating-system credential vault.
+Runtime refresh application, cancellation generations, and UI status remain
+explicit follow-up work.
 
 ## Verification
 
@@ -103,6 +107,9 @@ The wx-free structural contract test also confirms that the Preferences dialog
 creates the Schedule tab, exposes weekday/date/time/override controls, and
 routes loading and saving through the schedule module without adding network or
 Home Assistant behavior.
+
+`tests/test_scheduled_sources.py` covers URL policy, versioned allowlisted
+payloads, Home Assistant on/off behavior, and malformed-response fallback.
 
 ## Suggested articles
 
