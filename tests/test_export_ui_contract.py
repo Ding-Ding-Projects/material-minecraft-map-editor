@@ -22,4 +22,4 @@ def test_native_export_surfaces_offer_the_shared_editor_action():
     changelog_start = preferences_source.index("class ChangelogDialog")
     changelog_source = preferences_source[changelog_start:]
     assert "export_actions.open_exported_path" in changelog_source
-    assert 'label="Open export in VS Code"' in changelog_source
+    assert '_chrome_copy("open_export", self._language_mode)' in changelog_source
