@@ -73,6 +73,9 @@ include:
   staged per-property or appearance-only global reset controls;
 - a tabbed native Preferences dialog with searchable settings, a bounded Python
   `re` builder, and a `Ctrl+Shift+F` command palette;
+- a shared, renamed School-mode presentation lock with salted local unlock
+  verification, English-only forced presentation, and recoverable prior
+  language/funny-level choices;
 - a native scheduled-settings editor and versioned local rule engine for
   language, theme, density, and accent overrides, including priorities,
   weekdays, date ranges, time windows, and deterministic precedence;
