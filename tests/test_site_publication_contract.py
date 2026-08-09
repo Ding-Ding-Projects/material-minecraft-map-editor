@@ -68,6 +68,7 @@ class SitePublicationContractTests(unittest.TestCase):
 
     def test_accessibility_and_each_search_has_a_regex_builder(self):
         html = (SITE / "index.html").read_text(encoding="utf-8")
+        app = (SITE / "app.js").read_text(encoding="utf-8")
         self.assertIn('<html lang="en">', html)
         self.assertIn('role="tablist"', html)
         self.assertIn('aria-orientation="horizontal"', html)
@@ -79,6 +80,8 @@ class SitePublicationContractTests(unittest.TestCase):
         self.assertIn('id="settings-grid"', html)
         self.assertIn('id="release-download"', html)
         self.assertNotIn('releases/download/0.10.55/Setup.exe', html)
+        self.assertIn('function verifiedManifest(manifest)', app)
+        self.assertIn("['Setup.exe','RELEASES','full.nupkg']", app)
         self.assertEqual(html.count('class="setting-provenance"'), 7)
         self.assertEqual(html.count('class="setting-help"'), 7)
         self.assertIn('id="reset-site-settings"', html)
