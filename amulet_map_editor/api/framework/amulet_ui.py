@@ -6,6 +6,7 @@ import traceback
 import logging
 import sys
 import os
+import threading
 
 from amulet.api.errors import LoaderNoneMatched
 from amulet_map_editor.api.wx.ui.select_world import open_level_from_dialog
@@ -20,6 +21,7 @@ from amulet_map_editor.api.wx.ui.preferences import (
     PreferencesDialog,
     CommandPaletteDialog,
 )
+from .squirrel_update import check_for_update, SquirrelUpdateState
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +83,10 @@ class AmuletUI(wx.Frame):
         )
         self.Bind(wx.EVT_MENU, self._open_command_palette, id=self._palette_id)
 
+        self._update_thread = None
+        self.CreateStatusBar()
+        wx.CallLater(1000, self._check_for_updates_async)
+
         self.Bind(wx.EVT_CLOSE, self._level_notebook.on_app_close)
 
     def open_level(self, path: str):
@@ -112,6 +118,7 @@ class AmuletUI(wx.Frame):
             {
                 "Preferences…": self._open_preferences,
                 "Command palette\tCtrl+Shift+F": self._open_command_palette,
+                "Check for updates": self._check_for_updates_async,
             }
         )
         menu_dict = self._level_notebook.extend_menu(menu_dict)
@@ -172,6 +179,33 @@ class AmuletUI(wx.Frame):
         dialog.CentreOnParent()
         dialog.ShowModal()
         dialog.Destroy()
+
+    def _check_for_updates_async(self, _event=None) -> None:
+        """Check without blocking startup or the active editing surface."""
+        if self._update_thread is not None and self._update_thread.is_alive():
+            return
+        self.SetStatusText("Checking for updates…")
+        self._update_thread = threading.Thread(
+            target=self._update_worker, name="amulet-update-check", daemon=True
+        )
+        self._update_thread.start()
+
+    def _update_worker(self) -> None:
+        state = check_for_update()
+        wx.CallAfter(self._show_update_state, state)
+
+    def _show_update_state(self, state: SquirrelUpdateState) -> None:
+        """Render a persistent, non-modal status message for update state."""
+        if state.status == "available":
+            self.SetStatusText(
+                f"Update available: {state.version or 'new version'} (unsigned) — choose Check for updates"
+            )
+        elif state.status == "failed":
+            self.SetStatusText(f"Update check failed: {state.detail or 'offline'}")
+        elif state.status == "not_installed":
+            self.SetStatusText("Updates unavailable in this installation")
+        else:
+            self.SetStatusText("Amulet is up to date")
 
 
 class AmuletLevelNotebook(flatnotebook.FlatNotebook):
