@@ -68,6 +68,10 @@ class PreferencesDialog(wx.Dialog):
         root.Add(row, 0, wx.EXPAND)
         self.SetSizer(root)
         self.Bind(wx.EVT_BUTTON, self._save, id=wx.ID_OK)
+        # Dialogs can be opened after the frame's one-time shell styling pass.
+        # Apply the same M3 roles locally so settings surfaces do not fall back
+        # to the native palette when opened from the menu or command palette.
+        apply_material3(self)
 
     def _build_language_tab(self) -> None:
         page = wx.Panel(self._tabs)
