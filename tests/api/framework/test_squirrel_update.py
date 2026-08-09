@@ -21,20 +21,18 @@ validate_feed_url = squirrel_update.validate_feed_url
 
 
 def test_feed_requires_https_and_no_credentials():
-    assert validate_feed_url("https://updates.example.test/releases/").startswith(
-        "https://"
-    )
+    feed = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/latest/download/"
+    assert validate_feed_url(feed).startswith("https://")
     with pytest.raises(ValueError):
         validate_feed_url("http://updates.example.test/releases/")
     with pytest.raises(ValueError):
-        validate_feed_url("https://user:pass@updates.example.test/releases/")
+        validate_feed_url("https://user:pass@github.com/releases/")
 
 
 def test_update_detection_is_explicit(tmp_path, monkeypatch):
     updater = tmp_path / "Update.exe"
     updater.write_bytes(b"fixture")
-    monkeypatch.setenv("AMULET_SQUIRREL_UPDATE_EXE", str(updater))
-    assert find_update_exe(Path(sys.executable)) == updater
+    assert find_update_exe(updater.parent) == updater
 
 
 def test_check_reports_available_without_wx(tmp_path, monkeypatch):
@@ -46,18 +44,18 @@ def test_check_reports_available_without_wx(tmp_path, monkeypatch):
         "_run_update",
         lambda *_args, **_kwargs: {"futureReleaseEntry": {"version": "1.2.3"}},
     )
-    state = check_for_update(
-        "https://updates.example.test/releases/", update_exe=updater
-    )
-    assert state == SquirrelUpdateState(
-        "available", version="1.2.3", feed_url="https://updates.example.test/releases/"
-    )
+    feed = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/latest/download/"
+    state = check_for_update(feed, update_exe=updater)
+    assert state == SquirrelUpdateState("available", version="1.2.3", feed_url=feed)
 
 
 def test_stage_update_is_ready_and_unsigned(tmp_path, monkeypatch):
     updater = tmp_path / "Update.exe"
     updater.write_bytes(b"fixture")
     monkeypatch.setattr(squirrel_update, "_run_update", lambda *_args, **_kwargs: {})
-    state = stage_update("https://updates.example.test/releases/", update_exe=updater)
+    state = stage_update(
+        "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/latest/download/",
+        update_exe=updater,
+    )
     assert state.status == "ready_to_restart"
     assert state.unsigned_warning is True

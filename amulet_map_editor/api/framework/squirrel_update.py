@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 DEFAULT_FEED_URL = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/latest/download/"
+ALLOWED_FEED_HOSTS = {"github.com", "raw.githubusercontent.com"}
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,8 @@ def validate_feed_url(feed_url: str) -> str:
     parsed = urlparse(feed_url)
     if parsed.scheme.lower() != "https" or not parsed.netloc:
         raise ValueError("Squirrel update feeds must use HTTPS")
+    if parsed.hostname not in ALLOWED_FEED_HOSTS:
+        raise ValueError("Squirrel update feeds must use an allowlisted host")
     if parsed.username or parsed.password:
         raise ValueError("Squirrel update feeds cannot embed credentials")
     return feed_url
@@ -43,10 +46,6 @@ def validate_feed_url(feed_url: str) -> str:
 def find_update_exe(start: Optional[Path] = None) -> Optional[Path]:
     """Find the Squirrel updater beside a frozen executable or in its parents."""
 
-    override = os.environ.get("AMULET_SQUIRREL_UPDATE_EXE")
-    if override:
-        path = Path(override)
-        return path if path.is_file() else None
     current = (start or Path(sys.executable)).resolve()
     if current.is_file():
         current = current.parent
@@ -85,9 +84,10 @@ def check_for_update(
 ) -> SquirrelUpdateState:
     """Check the Squirrel feed and return a state suitable for a notification."""
 
-    feed = validate_feed_url(
-        feed_url or os.environ.get("AMULET_UPDATE_FEED_URL", DEFAULT_FEED_URL)
-    )
+    try:
+        feed = validate_feed_url(feed_url or DEFAULT_FEED_URL)
+    except ValueError as exc:
+        return SquirrelUpdateState("failed", detail=str(exc))
     updater = update_exe or find_update_exe()
     if updater is None:
         return SquirrelUpdateState(
@@ -115,7 +115,10 @@ def stage_update(
 ) -> SquirrelUpdateState:
     """Download/apply the selected update; restart remains an explicit UI action."""
 
-    feed = validate_feed_url(feed_url)
+    try:
+        feed = validate_feed_url(feed_url)
+    except ValueError as exc:
+        return SquirrelUpdateState("failed", detail=str(exc))
     updater = update_exe or find_update_exe()
     if updater is None:
         return SquirrelUpdateState(
@@ -123,6 +126,9 @@ def stage_update(
         )
     try:
         _run_update(updater, "--update=" + feed, timeout)
+        verification = _run_update(updater, "--checkForUpdate=" + feed, timeout)
+        if verification.get("futureReleaseEntry"):
+            raise RuntimeError("Squirrel did not finish staging the selected update")
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         return SquirrelUpdateState("failed", feed_url=feed, detail=str(exc))
     return SquirrelUpdateState(

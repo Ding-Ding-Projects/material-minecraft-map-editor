@@ -8,7 +8,7 @@ on:
     types: [published]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   deploy:
@@ -106,3 +106,31 @@ jobs:
       with:
         name: Amulet-${{ env.BUILD_VERSION }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
         path: ./installer/dist/squirrel
+
+  publish:
+    name: Publish unsigned Squirrel release
+    if: github.event_name != 'release'
+    needs: deploy
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download x64 Squirrel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Amulet-0.0.0-dev.${{ github.run_number }}-Windows-x64
+          path: release-assets
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -f release-assets/Setup.exe
+          test -f release-assets/RELEASES
+          test -n "$(find release-assets -type f -name '*.nupkg' -print -quit)"
+          tag="0.0.0-dev.${GITHUB_RUN_NUMBER}"
+          completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh release create "$tag" $(find release-assets -type f -print) \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Amulet Map Editor $tag" \
+            --notes "Unsigned Squirrel.Windows release. Workflow completed: $completed. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning." \
+            --target "$GITHUB_SHA"

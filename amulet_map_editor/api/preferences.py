@@ -8,6 +8,7 @@ surfaces without each surface inventing its own language or appearance state.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import re
 from typing import Any, Dict, Tuple
 
 from amulet_map_editor.api import config
@@ -44,10 +45,21 @@ class Preferences:
             if self.density in ("compact", "comfortable", "spacious")
             else "comfortable"
         )
-        self.funny_level_english = min(5, max(1, int(self.funny_level_english)))
-        self.funny_level_cantonese = min(5, max(1, int(self.funny_level_cantonese)))
-        self.ui_scale = min(2.0, max(0.8, float(self.ui_scale)))
-        if not isinstance(self.accent, str) or not self.accent.startswith("#"):
+        try:
+            self.funny_level_english = min(5, max(1, int(self.funny_level_english)))
+        except (TypeError, ValueError):
+            self.funny_level_english = 1
+        try:
+            self.funny_level_cantonese = min(5, max(1, int(self.funny_level_cantonese)))
+        except (TypeError, ValueError):
+            self.funny_level_cantonese = 1
+        try:
+            self.ui_scale = min(2.0, max(0.8, float(self.ui_scale)))
+        except (TypeError, ValueError):
+            self.ui_scale = 1.0
+        if not isinstance(self.accent, str) or not re.fullmatch(
+            r"#[0-9a-fA-F]{6,8}", self.accent
+        ):
             self.accent = "#6750A4"
         return self
 
