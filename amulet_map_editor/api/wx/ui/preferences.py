@@ -1365,17 +1365,37 @@ class PreferencesDialog(wx.Dialog):
         self.regex.SetHint("Search settings, tabs, or commands")
         self.regex_mode = wx.CheckBox(page, label="Regex")
         self.regex_flags = wx.CheckBox(page, label="Ignore case")
+        self.regex_button = wx.Button(page, label="Regex…")
+        self.regex_button.SetName("Preferences search regex builder")
+        self.regex_button.SetToolTip("Build a bounded regular-expression search")
         row.Add(self.regex, 1, wx.EXPAND | wx.RIGHT, 8)
         row.Add(self.regex_mode, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        row.Add(self.regex_flags, 0, wx.ALIGN_CENTER_VERTICAL)
+        row.Add(self.regex_flags, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        row.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL)
         box.Add(row, 0, wx.EXPAND)
         self.regex_result = wx.StaticText(page, label="Type to validate a pattern.")
         box.Add(self.regex_result, 0, wx.TOP, 10)
         self.regex.Bind(wx.EVT_TEXT, self._validate_regex)
         self.regex_mode.Bind(wx.EVT_CHECKBOX, self._validate_regex)
         self.regex_flags.Bind(wx.EVT_CHECKBOX, self._validate_regex)
+        self.regex_button.Bind(wx.EVT_BUTTON, self._open_search_regex_builder)
         page.SetSizer(box)
         self._tabs.AddPage(page, "Search")
+
+    def _open_search_regex_builder(self, _event: wx.Event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.regex.GetValue(),
+            regex_enabled=self.regex_mode.GetValue(),
+            flags=0x02 if self.regex_flags.GetValue() else 0,
+            sample="settings, tabs, or commands",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.regex.ChangeValue(dialog.pattern)
+            self.regex_mode.SetValue(dialog.regex_enabled)
+            self.regex_flags.SetValue(bool(dialog.flags & 0x02))
+        self._validate_regex(None)
 
     def _validate_regex(self, _event: wx.Event) -> None:
         flags = 0x02 if self.regex_flags.GetValue() else 0
