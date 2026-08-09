@@ -44,3 +44,17 @@ def test_editable_controls_use_m3_surface_roles():
     )
     assert 'child.SetBackgroundColour(palette["surface_container"])' in source
     assert 'child.SetForegroundColour(palette["on_surface"])' in source
+
+
+def test_flat_notebook_tab_roles_are_explicitly_m3_themed():
+    source = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(
+        encoding="utf-8"
+    )
+    for setter in (
+        "SetTabAreaColour",
+        "SetActiveTabColour",
+        "SetNonActiveTabColour",
+        "SetActiveTabTextColour",
+        "SetNonActiveTabTextColour",
+    ):
+        assert setter in source

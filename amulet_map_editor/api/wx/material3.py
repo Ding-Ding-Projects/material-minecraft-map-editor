@@ -155,6 +155,20 @@ def apply_material3(window: wx.Window) -> None:
 
     palette = _active_palette()
 
+    # wx.lib.agw.flatnotebook is a custom control rather than wx.Notebook;
+    # apply its public tab-role setters explicitly so the world strip does not
+    # retain the platform's legacy blue/grey palette.
+    if hasattr(window, "SetTabAreaColour"):
+        window.SetTabAreaColour(palette["surface_container"])
+    if hasattr(window, "SetActiveTabColour"):
+        window.SetActiveTabColour(palette["primary_container"])
+    if hasattr(window, "SetNonActiveTabColour"):
+        window.SetNonActiveTabColour(palette["surface"])
+    if hasattr(window, "SetActiveTabTextColour"):
+        window.SetActiveTabTextColour(palette["on_primary_container"])
+    if hasattr(window, "SetNonActiveTabTextColour"):
+        window.SetNonActiveTabTextColour(palette["on_surface_variant"])
+
     window.SetBackgroundColour(palette["surface"])
     window.SetForegroundColour(palette["on_surface"])
     if isinstance(window, wx.TopLevelWindow):
