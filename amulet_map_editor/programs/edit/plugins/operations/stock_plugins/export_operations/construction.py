@@ -10,6 +10,7 @@ from amulet.api.data_types import Dimension, OperationReturnType
 from amulet.level.formats.construction import ConstructionFormatWrapper
 
 from amulet_map_editor.api.wx.ui.version_select import VersionSelect
+from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.programs.edit.api.operations import (
     SimpleOperationPanel,
     OperationError,
@@ -64,18 +65,16 @@ class ExportConstruction(SimpleOperationPanel):
         except:
             fname = ""
             fdir = ""
-        with wx.FileDialog(
+        selected = choose_path(
             self,
             "Select Save Location",
-            defaultDir=fdir,
-            defaultFile=fname,
+            default_path=os.path.join(fdir, fname) if fname else fdir,
             wildcard="Construction file (*.construction)|*.construction",
-            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
-        ) as file_dialog:
-            log.debug(f"Showing save dialog at {file_dialog.GetRect()}")
-            if file_dialog.ShowModal() == wx.ID_CANCEL:
-                return False
-            self._path = file_dialog.GetPath()
+            save=True,
+        )
+        if selected is None:
+            return False
+        self._path = selected
         return True
 
     def _operation(
