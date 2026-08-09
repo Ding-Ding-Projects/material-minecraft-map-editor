@@ -586,9 +586,13 @@ class WorldSelectDialog(wx.Dialog):
             title=lang.get("select_world.title"),
             pos=wx.Point(50, 50),
             size=wx.Size(*[int(s * 0.95) for s in parent.GetSize()]),
-            style=wx.CAPTION | wx.CLOSE_BOX | wx.MAXIMIZE_BOX
-            # | wx.MAXIMIZE
-            | wx.SYSTEM_MENU | wx.TAB_TRAVERSAL | wx.CLIP_CHILDREN | wx.RESIZE_BORDER,
+            # The shared M3 helper supplies the title bar and window controls;
+            # keeping the native caption here would flash legacy chrome first.
+            style=wx.NO_BORDER
+            | wx.CLOSE_BOX
+            | wx.TAB_TRAVERSAL
+            | wx.CLIP_CHILDREN
+            | wx.RESIZE_BORDER,
         )
         self.Bind(wx.EVT_CLOSE, self._hide_event)
 
