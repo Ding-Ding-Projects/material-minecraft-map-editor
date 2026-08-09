@@ -3,8 +3,20 @@ import wx
 from wx.lib import newevent
 import PyMCTranslate
 from typing import Tuple, Optional, Type, Any
+from amulet_map_editor.api import lang, preferences
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 from amulet.api.data_types import VersionNumberTuple, PlatformType
+
+
+def _copy(key: str, mode: str) -> str:
+    english = lang.get(f"version_select.en.{key}")
+    cantonese = lang.get(f"version_select.zh.{key}")
+    if mode == "cantonese":
+        return cantonese
+    if mode == "bilingual":
+        return f"{english} · {cantonese}"
+    return english
 
 (
     PlatformChangeEvent,
@@ -40,6 +52,7 @@ class PlatformSelect(wx.Panel):
         **kwargs
     ):
         super().__init__(parent, style=wx.BORDER_SIMPLE)
+        self._language_mode = preferences.load().language_mode
         self._sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self._sizer)
 
@@ -48,7 +61,7 @@ class PlatformSelect(wx.Panel):
         self._allow_vanilla = allow_vanilla
         self._allowed_platforms = allowed_platforms
         self._platform_choice: SimpleChoice = self._add_ui_element(
-            "Platform:", SimpleChoice
+            _copy("platform", self._language_mode), SimpleChoice
         )
         self._populate_platform()
         self._set_platform(platform)
@@ -58,6 +71,7 @@ class PlatformSelect(wx.Panel):
                 self, PlatformChangeEvent(self.GetId(), platform=self.platform)
             ),
         )
+        apply_material3(self)
 
     def _add_ui_element(
         self, label: str, obj: Type[wx.Control], shown=True, **kwargs
@@ -121,7 +135,7 @@ class VersionSelect(PlatformSelect):
         self.Bind(EVT_PLATFORM_CHANGE, self._on_platform_change)
 
         self._version_choice: Optional[SimpleChoiceAny] = self._add_ui_element(
-            "Version:", SimpleChoiceAny, reverse=True
+            _copy("version", self._language_mode), SimpleChoiceAny, reverse=True
         )
         self._populate_version()
         self._set_version_number(version_number)
@@ -137,7 +151,9 @@ class VersionSelect(PlatformSelect):
 
         self.Bind(EVT_VERSION_NUMBER_CHANGE, self._on_version_number_change)
         self._blockstate_choice: Optional[SimpleChoice] = self._add_ui_element(
-            "Format:", SimpleChoice, shown=show_force_blockstate
+            _copy("format", self._language_mode),
+            SimpleChoice,
+            shown=show_force_blockstate,
         )
         self._blockstate_choice.SetItems(["native", "blockstate"])
         self._blockstate_choice.SetSelection(0)
@@ -146,6 +162,7 @@ class VersionSelect(PlatformSelect):
         self._blockstate_choice.Bind(
             wx.EVT_CHOICE, lambda evt: self._post_version_change()
         )
+        apply_material3(self)
 
     def _post_version_change(self):
         wx.PostEvent(
