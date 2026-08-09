@@ -118,6 +118,7 @@ jobs:
         with:
           name: Amulet-0.10.${{ github.run_number }}-Windows-x64
           path: release-assets
+          merge-multiple: true
 
       - name: Publish release assets
         env:
