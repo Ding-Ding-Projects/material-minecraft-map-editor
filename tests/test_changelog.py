@@ -1,6 +1,7 @@
 import json
 import re
 import subprocess
+import sys
 import unittest
 from datetime import date
 
@@ -196,9 +197,8 @@ class ChangelogTestCase(unittest.TestCase):
 
     def test_core_import_and_catalog_loading_do_not_require_wx(self):
         completed = subprocess.run(
-            [
-                "py",
-                "-3",
+                [
+                    sys.executable,
                 "-c",
                 "import sys; sys.modules['wx'] = None; "
                 "from amulet_map_editor.api.changelog import load_bundled_catalog; "
