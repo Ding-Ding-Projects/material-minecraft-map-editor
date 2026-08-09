@@ -6,6 +6,7 @@ import traceback
 import logging
 import sys
 import os
+import subprocess
 import threading
 
 from amulet.api.errors import LoaderNoneMatched
@@ -22,7 +23,12 @@ from amulet_map_editor.api.wx.ui.preferences import (
     CommandPaletteDialog,
     ChangelogDialog,
 )
-from .squirrel_update import check_for_update, SquirrelUpdateState
+from .squirrel_update import (
+    check_for_update,
+    find_update_exe,
+    stage_update,
+    SquirrelUpdateState,
+)
 
 log = logging.getLogger(__name__)
 
@@ -85,6 +91,8 @@ class AmuletUI(wx.Frame):
         self.Bind(wx.EVT_MENU, self._open_command_palette, id=self._palette_id)
 
         self._update_thread = None
+        self._update_stage_thread = None
+        self._update_state = SquirrelUpdateState("unknown")
         self.CreateStatusBar()
         wx.CallLater(1000, self._check_for_updates_async)
 
@@ -121,6 +129,8 @@ class AmuletUI(wx.Frame):
                 "Changelog…": self._open_changelog,
                 "Command palette\tCtrl+Shift+F": self._open_command_palette,
                 "Check for updates": self._check_for_updates_async,
+                "Stage available update": self._stage_update_async,
+                "Restart to install update": self._restart_to_install_update,
             }
         )
         menu_dict = self._level_notebook.extend_menu(menu_dict)
@@ -182,6 +192,8 @@ class AmuletUI(wx.Frame):
             ("Preferences…", self._open_preferences),
             ("Changelog…", self._open_changelog),
             ("Check for updates", self._check_for_updates_async),
+            ("Stage available update", self._stage_update_async),
+            ("Restart to install update", self._restart_to_install_update),
         ]
         if hasattr(page, "path"):
             commands.append(("Close current tab", lambda: self.close_level(page.path)))
@@ -204,12 +216,55 @@ class AmuletUI(wx.Frame):
         state = check_for_update()
         wx.CallAfter(self._show_update_state, state)
 
+    def _stage_update_async(self, _event=None) -> None:
+        """Stage a discovered update without interrupting active editing."""
+        if self._update_state.status != "available":
+            self.SetStatusText("No update is ready to stage; check for updates first")
+            return
+        if self._update_stage_thread is not None and self._update_stage_thread.is_alive():
+            return
+        self.SetStatusText("Downloading update in the background…")
+        feed_url = self._update_state.feed_url
+        self._update_stage_thread = threading.Thread(
+            target=self._stage_update_worker,
+            args=(feed_url,),
+            name="amulet-update-stage",
+            daemon=True,
+        )
+        self._update_stage_thread.start()
+
+    def _stage_update_worker(self, feed_url: str | None) -> None:
+        if not feed_url:
+            state = SquirrelUpdateState("failed", detail="Update feed is missing")
+        else:
+            state = stage_update(feed_url)
+        wx.CallAfter(self._show_update_state, state)
+
+    def _restart_to_install_update(self, _event=None) -> None:
+        """Restart only after Squirrel has reported a ready staged update."""
+        if self._update_state.status != "ready_to_restart":
+            self.SetStatusText("Stage an update before restarting")
+            return
+        updater = find_update_exe()
+        if updater is None:
+            self.SetStatusText("Update restart unavailable in this installation")
+            return
+        try:
+            subprocess.Popen([str(updater), "--restart"], close_fds=True)
+        except OSError as exc:
+            self.SetStatusText(f"Could not restart for update: {exc}")
+            return
+        self.Close()
+
     def _show_update_state(self, state: SquirrelUpdateState) -> None:
         """Render a persistent, non-modal status message for update state."""
+        self._update_state = state
         if state.status == "available":
             self.SetStatusText(
-                f"Update available: {state.version or 'new version'} (unsigned) — choose Check for updates"
+                f"Update available: {state.version or 'new version'} (unsigned) — choose Stage available update"
             )
+        elif state.status == "ready_to_restart":
+            self.SetStatusText("Update ready (unsigned) — choose Restart to install update")
         elif state.status == "failed":
             self.SetStatusText(f"Update check failed: {state.detail or 'offline'}")
         elif state.status == "not_installed":
