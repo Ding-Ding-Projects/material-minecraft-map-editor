@@ -43,7 +43,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install twine pyinstaller~=6.18 build
+        pip install twine pyinstaller~=6.18 build pytest
 
     - name: Build Wheels
       shell: pwsh
