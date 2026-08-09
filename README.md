@@ -11,6 +11,19 @@ being modernized around a shared Material Design 3 foundation.
 - **Development:** install the dependencies from `setup.cfg`, then run the
   project's existing test and packaging commands.
 
+## Screenshots
+
+These are genuine screenshots already shipped with the project. They document
+the current desktop baseline while the Material Design 3 migration proceeds;
+the new Material 3 landing page is available at
+[`docs/site/index.html`](docs/site/index.html).
+
+| Surface | Screenshot |
+| --- | --- |
+| Main menu | ![Amulet main menu](resource/img/main_menu.jpg) |
+| World selection | ![Amulet world selection](resource/img/world_select.jpg) |
+| Expanded world selection | ![Amulet expanded world selection](resource/img/world_select_expand.jpg) |
+
 <details><summary>Shared instructions mirror</summary>
 
 This repository carries a sanitized mirror of the shared agent agreement:

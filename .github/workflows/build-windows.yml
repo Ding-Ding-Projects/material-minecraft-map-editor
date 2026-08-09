@@ -2,7 +2,7 @@ name: Build Windows
 
 on:
   push:
-    branches: ['0.10']
+    branches: ['**']
   workflow_dispatch:
   release:
     types: [published]
@@ -118,6 +118,7 @@ jobs:
         with:
           name: Amulet-0.10.${{ github.run_number }}-Windows-x64
           path: release-assets
+          merge-multiple: true
 
       - name: Publish release assets
         env:
