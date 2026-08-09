@@ -8,7 +8,7 @@ on:
     types: [published]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   deploy:
@@ -47,19 +47,26 @@ jobs:
       run: |
         python -m pip install dist/amulet_map_editor-*.whl --upgrade
 
+    - name: Run release-gating tests
+      run: |
+        python scripts/generate_changelog.py
+        python -m unittest discover -v -s tests
+
     - name: PyInstaller build
       run: |
         python -m PyInstaller -y --distpath ./installer/dist installer/Amulet.spec
 
     - name: Resolve build version
       shell: pwsh
+      env:
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
       run: |
-        $raw = '${{ github.event.release.tag_name }}'
-        if ([string]::IsNullOrWhiteSpace($raw)) { $raw = '0.10.${{ github.run_number }}' }
+        $raw = $env:RELEASE_TAG
+        if ([string]::IsNullOrWhiteSpace($raw)) { $raw = '0.10.0-dev.${{ github.run_number }}' }
         if ($raw -match '^v?(\d+\.\d+\.\d+)(?:[-.]?([abrc]\d*(?:[.-].*)?))?$') {
           $version = $Matches[1]
           if ($Matches[2]) { $version += '-' + $Matches[2] }
-        } else { $version = '0.10.${{ github.run_number }}' }
+        } else { $version = '0.10.0-dev.${{ github.run_number }}' }
         "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Windows - Create unsigned Squirrel.Windows release
@@ -102,16 +109,17 @@ jobs:
 
   publish:
     name: Publish unsigned Squirrel release
-    if: github.event_name != 'release'
     needs: deploy
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: Checkout release commit
         uses: actions/checkout@v4
       - name: Download x64 Squirrel artifacts
         uses: actions/download-artifact@v4
         with:
-          name: Amulet-0.10.${{ github.run_number }}-Windows-x64
+          name: Amulet-${{ github.event.release.tag_name || format('0.10.0-dev.{0}', github.run_number) }}-Windows-x64
           path: release-assets
           merge-multiple: true
 
@@ -129,18 +137,28 @@ jobs:
           cp "$setup_path" release-assets/Setup.exe
           cp "$releases_path" release-assets/RELEASES
           cp "$nupkg_path" release-assets/$(basename "$nupkg_path")
-          tag="0.10.${GITHUB_RUN_NUMBER}"
+          tag="${{ github.event.release.tag_name || format('0.10.0-dev.{0}', github.run_number) }}"
           completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          started="${{ github.run_started_at }}"
+          duration="$(STARTED="$started" python3 -c 'from datetime import datetime,timezone; import os; s=datetime.fromisoformat(os.environ["STARTED"].replace("Z","+00:00")); n=datetime.now(timezone.utc); print(str(n-s).split(".")[0])')"
           line_table="$(python3 scripts/count_lines.py)"
           notes_file="$(mktemp)"
           {
-            printf '%s\n\n' "Unsigned Squirrel.Windows release. Workflow completed: $completed. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
+            printf '%s\n' "Unsigned Squirrel.Windows release. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
+            printf '%s\n' "Workflow started: $started"
+            printf '%s\n' "Workflow completed: $completed"
+            printf '%s\n\n' "Workflow duration: $duration"
             printf '%s\n\n' "Line count (CI, scripts/count_lines.py):"
             printf '%s\n\n' "$line_table"
             printf '%s\n' "Dim-sum photo: unavailable in this repository's tracked catalog; no image is claimed."
           } > "$notes_file"
-          gh release create "$tag" $(find release-assets -type f -print) \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Amulet Map Editor $tag" \
-            --notes-file "$notes_file" \
-            --target "$GITHUB_SHA"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" $(find release-assets -type f -print) --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
+          else
+            gh release create "$tag" $(find release-assets -type f -print) \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Amulet Map Editor $tag" \
+              --notes-file "$notes_file" \
+              --target "$GITHUB_SHA"
+          fi
