@@ -38,7 +38,7 @@ class NotificationHistoryDialog(wx.Dialog):
         search_row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
         root.Add(search_row, 0, wx.EXPAND | wx.ALL, 12)
 
-        self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        self.list = wx.ListCtrl(self, style=wx.LC_REPORT)
         self.list.SetName("Notification history list")
         for index, label in enumerate(
             (
@@ -120,9 +120,18 @@ class NotificationHistoryDialog(wx.Dialog):
         self.dismiss_all.Enable(bool(self._items))
 
     def _dismiss_selected(self, _event) -> None:
-        index = self.list.GetFirstSelected()
-        if index != -1:
-            notifications.bulk_dismiss((self._items[index].notification_id,))
+        selected = []
+        index = self.list.GetNextItem(
+            -1, wx.LIST_NEXT_ALL, wx.LIST_STATE_SELECTED
+        )
+        while index != -1:
+            if 0 <= index < len(self._items):
+                selected.append(self._items[index].notification_id)
+            index = self.list.GetNextItem(
+                index, wx.LIST_NEXT_ALL, wx.LIST_STATE_SELECTED
+            )
+        if selected:
+            notifications.bulk_dismiss(selected)
             self._refresh()
 
     def _dismiss_visible(self, _event) -> None:
