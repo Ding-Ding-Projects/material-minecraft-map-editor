@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Amulet Map Editor — an open-source Minecraft world editor.">
+  <title>Amulet Map Editor · World editing, made clear</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top-app-bar">
+    <a class="brand" href="#home" aria-label="Amulet Map Editor home"><span class="brand-mark" aria-hidden="true">✦</span><span>Amulet</span></a>
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <button class="nav-tab is-active" data-tab="home">Home</button>
+      <button class="nav-tab" data-tab="features">Features</button>
+      <button class="nav-tab" data-tab="guides">Guides</button>
+      <button class="nav-tab" data-tab="community">Community</button>
+    </nav>
+    <a class="button button-tonal" href="https://github.com/Amulet-Team/Amulet-Map-Editor" target="_blank" rel="noreferrer">View source ↗</a>
+  </header>
+
+  <main>
+    <section id="home" class="page-section is-visible" data-page="home">
+      <div class="hero">
+        <div class="eyebrow">OPEN-SOURCE MINECRAFT WORLD EDITOR</div>
+        <h1>Shape worlds.<br><span class="accent">Keep the wonder.</span></h1>
+        <p class="hero-copy">Amulet brings a focused, cross-platform workspace to Minecraft world editing. Inspect, transform, and export your worlds with tools that stay out of the way.</p>
+        <div class="hero-actions"><a class="button button-filled" href="https://github.com/Amulet-Team/Amulet-Map-Editor/releases" target="_blank" rel="noreferrer">Download releases ↗</a><button class="button button-text" data-tab-link="features">Explore features →</button></div>
+        <div class="trust-row"><span>✓ Windows</span><span>✓ macOS</span><span>✓ Linux</span><span>✓ Docker</span></div>
+      </div>
+      <div class="feature-band"><div><span class="icon" aria-hidden="true">▦</span><h2>One workspace, many worlds</h2><p>Open a world, inspect its regions, and make a precise edit without losing your bearings.</p></div><div><span class="icon" aria-hidden="true">⌁</span><h2>Built for real formats</h2><p>Use the project's format-aware APIs and exporters to work with Java and Bedrock data.</p></div><div><span class="icon" aria-hidden="true">↺</span><h2>Open by default</h2><p>Source, issue tracker, and build recipes are available for every contributor.</p></div></div>
+      <section class="release-card" aria-labelledby="release-title"><div><div class="eyebrow">CURRENT PROJECT STATUS</div><h2 id="release-title">Find the right build for your platform</h2><p>Releases and installers are published from the repository's verified workflows. Check the release notes for platform requirements and known limitations.</p></div><a class="button button-tonal" href="https://github.com/Amulet-Team/Amulet-Map-Editor/releases" target="_blank" rel="noreferrer">See releases ↗</a></section>
+    </section>
+
+    <section id="features" class="page-section" data-page="features" hidden>
+      <div class="section-heading"><div><div class="eyebrow">CAPABILITY MAP</div><h1>Everything in one clear view.</h1><p>Search this inventory to jump to the workflow you need.</p></div><label class="search-field"><span aria-hidden="true">⌕</span><input id="feature-search" type="search" placeholder="Search features" autocomplete="off"><kbd>/</kbd></label></div>
+      <div class="card-grid" id="feature-grid">
+        <article class="feature-card" data-search="world editing java bedrock"><span class="icon" aria-hidden="true">▣</span><h2>World editing</h2><p>Load and edit Minecraft Java and Bedrock worlds through the desktop editor.</p><a href="#guides" data-tab-link="guides">Read the workflow →</a></article>
+        <article class="feature-card" data-search="chunk region selection"><span class="icon" aria-hidden="true">⌗</span><h2>Regions & chunks</h2><p>Navigate region data and target a precise area before applying a change.</p><a href="https://github.com/Amulet-Team/Amulet-Map-Editor/tree/main/amulet_map_editor" target="_blank" rel="noreferrer">Inspect the API ↗</a></article>
+        <article class="feature-card" data-search="api format converter python"><span class="icon" aria-hidden="true">⌘</span><h2>Python API</h2><p>Build repeatable tools with the package's documented APIs and format modules.</p><a href="https://github.com/Amulet-Team/Amulet-Map-Editor" target="_blank" rel="noreferrer">Browse source ↗</a></article>
+        <article class="feature-card" data-search="docker self host build"><span class="icon" aria-hidden="true">◫</span><h2>Portable builds</h2><p>Use the repository's Windows, macOS, Debian, Flatpak, and Docker workflows.</p><a href="https://github.com/Amulet-Team/Amulet-Map-Editor/actions" target="_blank" rel="noreferrer">See workflows ↗</a></article>
+        <article class="feature-card" data-search="open source contribution"><span class="icon" aria-hidden="true">✚</span><h2>Open contribution</h2><p>Issues, pull requests, and build instructions make the project approachable.</p><a href="https://github.com/Amulet-Team/Amulet-Map-Editor/issues" target="_blank" rel="noreferrer">Join the conversation ↗</a></article>
+        <article class="feature-card" data-search="testing quality unit tests"><span class="icon" aria-hidden="true">✓</span><h2>Quality gates</h2><p>Style checks and unit-test workflows provide a visible baseline for changes.</p><a href="https://github.com/Amulet-Team/Amulet-Map-Editor/actions" target="_blank" rel="noreferrer">Check CI ↗</a></article>
+      </div><p id="feature-empty" class="empty-state" hidden>No features match that search. Try a shorter phrase.</p>
+    </section>
+
+    <section id="guides" class="page-section" data-page="guides" hidden>
+      <div class="section-heading"><div><div class="eyebrow">GET STARTED</div><h1>From download to first edit.</h1><p>Three small steps keep your first session predictable.</p></div></div>
+      <ol class="steps"><li><span>01</span><div><h2>Choose a verified release</h2><p>Start from the repository's Releases page and select the installer for your operating system. Read the release notes before opening a world.</p></div></li><li><span>02</span><div><h2>Open a copy of your world</h2><p>Keep a backup, then open the copy in Amulet. The editor's page-based workspace keeps world selection and editing tools close at hand.</p></div></li><li><span>03</span><div><h2>Make one change, then export</h2><p>Target the smallest useful area, inspect the result, and save or export from the workflow that owns the change.</p></div></li></ol>
+      <div class="callout"><strong>Need a deeper reference?</strong><span>Use the source tree and issue tracker for format-specific behaviour, troubleshooting, and contributor discussion.</span><a href="https://github.com/Amulet-Team/Amulet-Map-Editor/wiki" target="_blank" rel="noreferrer">Open the wiki ↗</a></div>
+    </section>
+
+    <section id="community" class="page-section" data-page="community" hidden>
+      <div class="section-heading"><div><div class="eyebrow">OPEN PROJECT</div><h1>Bring a question, a fix, or a map.</h1><p>The best project documentation is paired with a real conversation.</p></div></div>
+      <div class="community-grid"><a class="community-card" href="https://github.com/Amulet-Team/Amulet-Map-Editor/discussions" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">☷</span><h2>Discussions</h2><p>Compare workflows and ask for help from the community.</p><span>Open discussions ↗</span></a><a class="community-card" href="https://github.com/Amulet-Team/Amulet-Map-Editor/issues" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">!</span><h2>Issues</h2><p>Report reproducible bugs and propose improvements.</p><span>Browse issues ↗</span></a><a class="community-card" href="https://github.com/Amulet-Team/Amulet-Map-Editor/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">✎</span><h2>Contributing</h2><p>Read the project guidance before opening a pull request.</p><span>Read the guide ↗</span></a></div>
+    </section>
+  </main>
+  <footer><span>Amulet Map Editor</span><span>Open source · Built for curious map makers</span><a href="https://github.com/Amulet-Team/Amulet-Map-Editor" target="_blank" rel="noreferrer">GitHub ↗</a></footer>
+  <script src="app.js"></script>
+</body>
+</html>
