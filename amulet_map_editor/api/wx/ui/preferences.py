@@ -30,6 +30,7 @@ from amulet_map_editor.api.regex_builder import RegexBuilder
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
+from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 
 
 def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
@@ -1448,6 +1449,7 @@ class CommandPaletteDialog(wx.Dialog):
             size=wx.Size(560, 420),
         )
         self._commands: List[Tuple[str, Callable[[], None]]] = list(commands)
+        self._search_flags = 0
         root = wx.BoxSizer(wx.VERTICAL)
         self.query = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
         self.query.SetHint(
@@ -1456,9 +1458,13 @@ class CommandPaletteDialog(wx.Dialog):
         self.regex = wx.CheckBox(
             self, label=_chrome_copy("regex", self._language_mode)
         )
+        self.regex_button = wx.Button(self, label="Regex…")
+        self.regex_button.SetName("Command palette regex builder")
+        self.regex_button.SetToolTip("Build a bounded regular-expression search")
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self.query, 1, wx.EXPAND | wx.RIGHT, 8)
         row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
+        row.Add(self.regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         root.Add(row, 0, wx.EXPAND | wx.ALL, 12)
         self.results = wx.ListBox(self)
         root.Add(self.results, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
@@ -1466,12 +1472,30 @@ class CommandPaletteDialog(wx.Dialog):
         self._refresh()
         self.query.Bind(wx.EVT_TEXT, lambda evt: self._refresh())
         self.regex.Bind(wx.EVT_CHECKBOX, lambda evt: self._refresh())
+        self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self.query.Bind(wx.EVT_TEXT_ENTER, self._run)
         self.results.Bind(wx.EVT_LISTBOX_DCLICK, self._run)
 
+    def _open_regex_builder(self, _event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.query.GetValue(),
+            regex_enabled=self.regex.GetValue(),
+            flags=self._search_flags,
+            sample="Command, feature, or setting name",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.query.ChangeValue(dialog.pattern)
+            self.regex.SetValue(dialog.regex_enabled)
+            self._search_flags = dialog.flags
+        self._refresh()
+
     def _refresh(self) -> None:
         builder = RegexBuilder(
-            self.query.GetValue(), regex_enabled=self.regex.GetValue()
+            self.query.GetValue()[:4096],
+            regex_enabled=self.regex.GetValue(),
+            flags=self._search_flags,
         )
         try:
             matches = builder.search([name for name, _ in self._commands])
@@ -1542,7 +1566,11 @@ class ChangelogDialog(wx.Dialog):
         self.regex = wx.CheckBox(
             self, label=_chrome_copy("regex", self._language_mode)
         )
+        self.regex_button = wx.Button(self, label="Regex…")
+        self.regex_button.SetName("Changelog search regex builder")
+        self.regex_button.SetToolTip("Build a bounded regular-expression search")
         filters.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
+        filters.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL)
         self.feedback = wx.StaticText(self, label="")
         self.feedback.Wrap(560)
         filters.Add(self.feedback, 1, wx.EXPAND)
@@ -1591,10 +1619,27 @@ class ChangelogDialog(wx.Dialog):
         actions.Add(close)
         root.Add(actions, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
         self.SetSizer(root)
+        self._search_flags = 0
         for control in (self.query, self.start_date, self.end_date):
             control.Bind(wx.EVT_TEXT, lambda _event: self._refresh())
         self.regex.Bind(wx.EVT_CHECKBOX, lambda _event: self._refresh())
+        self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self.action.Bind(wx.EVT_CHOICE, lambda _event: self._refresh())
+        self._refresh()
+
+    def _open_regex_builder(self, _event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.query.GetValue(),
+            regex_enabled=self.regex.GetValue(),
+            flags=self._search_flags,
+            sample="Version, release note, or commit SHA",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.query.ChangeValue(dialog.pattern)
+            self.regex.SetValue(dialog.regex_enabled)
+            self._search_flags = dialog.flags
         self._refresh()
 
     def _parse_date(self, control: wx.TextCtrl) -> Optional[date]:
@@ -1614,7 +1659,9 @@ class ChangelogDialog(wx.Dialog):
         )
         matcher = None
         if self.regex.GetValue():
-            builder = RegexBuilder(query.text, regex_enabled=True)
+            builder = RegexBuilder(
+                query.text, regex_enabled=True, flags=self._search_flags
+            )
             matcher = lambda value: bool(builder.search([value]))
         return changelog.filter_changelog(self._catalog, query, text_matcher=matcher)
 
