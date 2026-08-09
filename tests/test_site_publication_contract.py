@@ -82,8 +82,13 @@ class SitePublicationContractTests(unittest.TestCase):
         self.assertNotIn('releases/download/0.10.55/Setup.exe', html)
         self.assertIn('function verifiedManifest(manifest)', app)
         self.assertIn("['Setup.exe','RELEASES','full.nupkg']", app)
-        self.assertEqual(html.count('class="setting-provenance"'), 7)
-        self.assertEqual(html.count('class="setting-help"'), 7)
+        self.assertEqual(html.count('class="setting-provenance"'), 9)
+        self.assertEqual(html.count('class="setting-help"'), 9)
+        self.assertIn('id="site-accent-hex"', html)
+        self.assertIn('id="accent-contrast"', html)
+        self.assertIn('id="site-font"', html)
+        self.assertIn('id="site-scale"', html)
+        self.assertIn('function contrastRatio', app)
         self.assertIn('id="reset-site-settings"', html)
 
 

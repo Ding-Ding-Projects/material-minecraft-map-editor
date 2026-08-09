@@ -15,3 +15,4 @@ dialog{border:0;border-radius:28px;padding:0;background:transparent;color:var(--
 .palette-result{border-color:var(--outline-variant)}
 dialog::backdrop{background:var(--scrim)}
 .dark .top-app-bar,.dark .search-field,.dark .feature-card,.dark .community-card,.dark .setting-card{background:var(--surface-bright)}
+:root{--site-font:system-ui;--ui-scale:1;font-family:var(--site-font),ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:calc(100% * var(--ui-scale))}
