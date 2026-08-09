@@ -11,7 +11,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](setup.cfg)
 [![Material Design 3 migration](https://img.shields.io/badge/UI-Material%20Design%203%20migration-6750A4)](ROADMAP.md)
 
-[Download verified Windows build 0.10.55](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Setup.exe)
+[Download verified Windows build 0.10.0-dev.414](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Setup.exe)
 · [All releases](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases)
 · [Project site source](docs/site/index.html)
 · [Documentation](amulet_map_editor/readme.md)
@@ -19,13 +19,20 @@
 
 </div>
 
+**Contents:** [one-click builds](#one-click-windows-builds) ·
+[capabilities](#what-amulet-can-do) ·
+[real screenshots](#real-application-screenshots) ·
+[Windows install and updates](#install-and-update-on-windows) ·
+[development](#development-and-contribution) ·
+[verification](#verification-status)
+
 ## One-click Windows builds
 
 From a fresh Windows checkout, `build.bat /s` checks for the Python launcher and, when it is absent, installs user-scoped Python 3.11 through canonical `winget` when available or the official python.org installer when `winget` is missing. It then bootstraps the declared dependencies and installs the editable package without prompts. `build-installer.bat /s` runs that bootstrap, builds `installer/Amulet.spec`, and invokes the same unsigned Squirrel.Windows packaging path used by CI. Omit `/s` for phase output and the final launch choice. Neither script signs, publishes, tags, or creates a release; both report an exact failure if the canonical bootstrap route itself is unavailable.
 
 The one-click paths were exercised locally on Windows from this checkout: `build.bat /s` exited 0 after resolving the declared runtime dependencies, and `build-installer.bat /s` produced `Setup.exe`, `RELEASES`, and `Amulet-0.10.0-dev-local-full.nupkg` under `installer/dist/squirrel/Amulet-0.10.0-dev-local-Windows-x64`. The installer output is unsigned by design; the script prints SHA-256 digests for all three artifacts. This is local packaging evidence, not a replacement for the immutable CI release record.
 
-![Four genuine Amulet 0.10.47 editing views showing selections, paste transforms, block operations, and chunk selection](resource/img/cover.jpg)
+![Amulet Material application shell at commit b3cbec1c with a frameless title bar, command bar, and centered start card](resource/img/main-frame-material-shell-b3cbec1c-20260809.png)
 
 Amulet opens Minecraft worlds outside the game so that you can inspect terrain,
 select precise regions, move builds between worlds, run block and biome
@@ -39,7 +46,7 @@ and Bedrock Edition 1.7 and newer.
 
 ## Start here
 
-- **Install:** use the verified [unsigned Windows 0.10.55 `Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Setup.exe), [RELEASES feed](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/RELEASES), or [full Squirrel package](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Amulet-0.10.55-full.nupkg). These immutable assets target `39b5dbd54da957c27e019cddb806beb0d789753c`.
+- **Install:** use the verified [unsigned Windows 0.10.0-dev.414 `Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Setup.exe), [RELEASES feed](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/RELEASES), or [full Squirrel package](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Amulet-0.10.0-dev414-full.nupkg). These immutable assets target `f95695f7cbadecd3272370a1fa694e9b601ab124`.
 - **Learn:** follow the [open-world guide](amulet_map_editor/readme.md), [3D editor guide](amulet_map_editor/programs/edit/readme.md), and [conversion guide](amulet_map_editor/programs/convert/readme.md).
 - **Explore the site:** open the dependency-free [Material 3 site source](docs/site/index.html), or visit the [official Amulet website](https://www.amuletmc.com/). This repository does not currently claim a live deployment of its own site source.
 - **Track the modernization:** see the factual [roadmap](ROADMAP.md) and [handoff](HANDOFF.md).
@@ -95,21 +102,23 @@ include:
   persists a validated executable, and opens exported folders as workspace roots;
 - a bounded startup dim-sum surprise foundation that reads authoritative dish
   names from the public catalog without copying or vendoring photos; and
-- a dependency-free Material 3 documentation site with tabs, feature and
+- an in-progress dependency-free Material 3 site shell with tabs, feature and
   settings search, an attached bounded regex builder with flags, sample text,
   and capture feedback, persisted appearance controls, responsive layouts,
-  focus states, and reduced-motion support; its owner-hosted Docker image is
-  validated by `.github/workflows/site.yml`.
+  focus states, and reduced-motion support. Its workflow validates static and
+  Docker bundles, but local feature articles, complete settings parity, and a
+  verified owner-hosted deployment remain unfinished.
 
 These are source and automated-test claims. The gallery includes genuine
-historical captures and a current wxPython runtime baseline from the cheap
-hidden-desktop capture route. The current baseline proves that the surfaces
-render and can be photographed off-screen; it does not claim that the native
-wx chrome is already full Material 3 Expressive.
+historical captures, earlier wxPython dialog baselines, and the exact-commit
+Material shell captured through the hidden-desktop route. The newest shell
+capture proves the frame renders off-screen; it does not claim every editor
+tool and dialog has completed its M3 component migration.
 
 Relevant source and contracts:
 
 - [`amulet_map_editor/api/wx/material3.py`](amulet_map_editor/api/wx/material3.py)
+- [`docs/features/material-shell/README.md`](docs/features/material-shell/README.md)
 - [`amulet_map_editor/api/wx/ui/preferences.py`](amulet_map_editor/api/wx/ui/preferences.py)
 - [`amulet_map_editor/api/regex_builder.py`](amulet_map_editor/api/regex_builder.py)
 - [`docs/features/external-editor/README.md`](docs/features/external-editor/README.md)
@@ -125,6 +134,20 @@ Every image in this section is a tracked screenshot of the real wxPython app.
 They intentionally retain the version visible in the captured window. Most are
 legacy workflow references rather than current visual-baseline proof; no mockup
 or generated image is presented as runtime evidence.
+
+### Current Material shell (2026-08-09)
+
+![Amulet Material application shell at exact commit b3cbec1c with compact caption controls, an app-owned command bar, and a single action card](resource/img/main-frame-material-shell-b3cbec1c-20260809.png)
+
+Captured from exact commit `b3cbec1c4b1035dd0c2ebdc9a545266f49c257ef`
+on an isolated hidden Windows desktop with wxPython 4.2.5. The 2250×1395
+capture shows the real source frame after startup: no acknowledgement or
+purchase prompt, no duplicate one-page tab rail, one logo, and M3 action
+hierarchy. It remains a source build, so its status bar truthfully says that
+installed-update handling is unavailable.
+
+<details>
+<summary><strong>Open six historical pre-Material workflow screenshots</strong></summary>
 
 <table>
   <tr>
@@ -159,18 +182,22 @@ or generated image is presented as runtime evidence.
   </tr>
 </table>
 
-### Current runtime baseline (2026-08-09)
+</details>
+
+### Earlier runtime baselines (2026-08-09)
 
 These captures are from the real source dialogs at commit `d62ae152`, rendered
-on a hidden desktop with wxPython 4.2.5. They are baseline evidence, not
-mockups and not a claim that the M3 migration is visually complete.
+on a hidden desktop with wxPython 4.2.5. They preserve the earlier migration
+boundary; the exact current shell is shown above.
 
 <table>
   <tr>
-    <td width="25%"><img src="resource/img/preferences-runtime-baseline-20260809.png" alt="Current Amulet Preferences Language tab captured from the real wxPython app"><br><strong>Current Preferences · Language tab.</strong></td>
-    <td width="25%"><img src="resource/img/preferences-appearance-runtime-baseline-20260809.png" alt="Current Amulet Preferences Appearance tab captured from the real wxPython app"><br><strong>Current Preferences · Appearance tab.</strong></td>
-    <td width="25%"><img src="resource/img/notification-history-runtime-baseline-20260809.png" alt="Current Amulet notification history with real notification rows"><br><strong>Current notification history.</strong></td>
-    <td width="25%"><img src="resource/img/main-frame-runtime-baseline-20260809.png" alt="Current Amulet main frame with custom borderless Material title bar captured from the real wxPython app"><br><strong>Current main frame · custom title bar.</strong></td>
+    <td width="50%"><img src="resource/img/preferences-runtime-baseline-20260809.png" alt="Earlier Amulet Preferences Language tab captured from the real wxPython app"><br><strong>Earlier Preferences · Language tab.</strong> Genuine native baseline; not current shell proof.</td>
+    <td width="50%"><img src="resource/img/preferences-appearance-runtime-baseline-20260809.png" alt="Earlier Amulet Preferences Appearance tab captured from the real wxPython app"><br><strong>Earlier Preferences · Appearance tab.</strong> Genuine native baseline; lower controls require scrolling.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="resource/img/notification-history-runtime-baseline-20260809.png" alt="Earlier Amulet notification history with real notification rows"><br><strong>Earlier notification history.</strong> Genuine rows; the pictured columns predate later sizing work.</td>
+    <td width="50%"><img src="resource/img/main-frame-runtime-baseline-20260809.png" alt="Earlier Amulet main frame with the first custom borderless title bar"><br><strong>Earlier main-frame baseline.</strong> Superseded by the exact-commit shell capture above.</td>
   </tr>
 </table>
 
@@ -202,6 +229,7 @@ title inside the capture identifies the runtime as `0.10.47`.
 | `preferences-appearance-runtime-baseline-20260809.png` | 930×720 | Captured 2026-08-09 from commit `d62ae152` on a hidden desktop | Real current Appearance tab; lower preset controls require scrolling. |
 | `notification-history-runtime-baseline-20260809.png` | 1140×780 | Captured 2026-08-09 from commit `d62ae152` on a hidden desktop | Real current notification history with populated rows; column sizing is being corrected. |
 | `main-frame-runtime-baseline-20260809.png` | 1500×930 | Captured 2026-08-09 from commit `d7bd3875` on a hidden desktop | Real current AmuletUI with custom borderless title bar and window controls; M3 migration remains in progress. |
+| `main-frame-material-shell-b3cbec1c-20260809.png` | 2250×1395 | Captured 2026-08-09 from exact commit `b3cbec1c4b1035dd0c2ebdc9a545266f49c257ef` on an isolated hidden desktop | Real owner-drawn Material shell with quiet startup; remaining editor surfaces are still migrating. |
 
 The repository does not currently contain an automated desktop screenshot
 harness. These captures are therefore documentation artifacts, not a
@@ -214,8 +242,8 @@ verified from builds and tests rather than inferred from these images.
 
 ### Recommended install
 
-1. Download the verified [`0.10.55 Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Setup.exe), or choose a newer version from [all releases](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases) after checking its exact assets.
-2. Read the matching [`0.10.55` release notes and asset list](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.55).
+1. Download the verified [`0.10.0-dev.414 Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Setup.exe), or choose a newer version from [all releases](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases) after checking its exact assets.
+2. Read the matching [`0.10.0-dev.414` release notes and asset list](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.0-dev.414).
 3. Close Minecraft, back up the world you intend to edit, and run the installer.
 4. Open the copied world in Amulet and make a small, reviewable change first.
 
@@ -229,24 +257,24 @@ verified from builds and tests rather than inferred from these images.
 
 The Windows workflow packages the PyInstaller application into:
 
-- [`Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Setup.exe) — verified 0.10.55 interactive bootstrap installer;
-- [`RELEASES`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/RELEASES) — verified 0.10.55 Squirrel release index; and
-- [`Amulet-0.10.55-full.nupkg`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Amulet-0.10.55-full.nupkg) — verified application payload used by install and update flows.
+- [`Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Setup.exe) — verified 0.10.0-dev.414 interactive bootstrap installer;
+- [`RELEASES`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/RELEASES) — verified 0.10.0-dev.414 Squirrel release index; and
+- [`Amulet-0.10.0-dev414-full.nupkg`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Amulet-0.10.0-dev414-full.nupkg) — verified application payload used by install and update flows.
 
 The release inspected while this README was written was
-[`0.10.55`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.55),
-published on 2026-08-09 with all three required assets. Later versions should
+[`0.10.0-dev.414`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.0-dev.414),
+published on 2026-08-09 from `f95695f7cbadecd3272370a1fa694e9b601ab124`
+with all three required assets. Later versions should
 be evaluated from their own immutable release page rather than assumed to have
 the same asset set.
 
 <details>
 <summary><strong>Other platforms and source installs</strong></summary>
 
-The source tree retains workflows and packaging recipes for Debian, Flatpak,
-Docker, macOS, and Windows. Their presence is not proof that every current
-release has an installable asset for every platform. Check the exact release
-before downloading and treat a missing asset as unavailable rather than
-substituting a package from an unrelated build.
+The active delivery path is Windows-only and publishes unsigned
+Squirrel.Windows assets. Source code may still be useful on other platforms,
+but this repository does not currently present non-Windows installers as
+supported release deliverables.
 
 For a development install, use Python 3.11 or newer and follow the steps below.
 wxPython, OpenGL, native build dependencies, and the Amulet format stack must be
@@ -350,13 +378,13 @@ fails if an executable or DLL is signed. Read
 
 | Evidence | Current status at this README revision |
 | --- | --- |
-| Tracked desktop captures | Eleven genuine images inspected: seven historical workflow captures plus four 2026 runtime baselines from real wxPython dialogs and the main frame. |
+| Tracked desktop captures | Twelve genuine images inspected: seven historical workflow captures, four earlier wxPython runtime baselines, and one exact-commit Material shell capture. |
 | Preference and regex behavior | Covered by repository unit tests, including bounded persistence, plain/regex matching, invalid patterns, and capture groups. |
 | Scheduled-settings behavior | Covered by model and UI-contract tests for persistence, validation, precedence, weekday/date/time boundaries, reordering, and bilingual UI strings. |
 | Squirrel update bridge | Covered by wx-independent tests for HTTPS validation, discovery, available state, staging state, and unsigned warning. |
-| Windows release | The inspected `0.10.55` release is non-draft and contains `Setup.exe`, `RELEASES`, and `Amulet-0.10.55-full.nupkg`. |
-| Current Material 3 desktop pixels | Baseline only: four current wx runtime captures are tracked, but they document the migration boundary and do not claim full M3 completion. |
-| Live project-site deployment | Not claimed: `docs/site/` is source-complete, but the repository has no verified Pages configuration or homepage URL for this site. |
+| Windows release | The inspected `0.10.0-dev.414` release is non-draft and contains `Setup.exe`, `RELEASES`, and `Amulet-0.10.0-dev414-full.nupkg`. |
+| Current Material 3 desktop pixels | The main shell is captured from exact commit `b3cbec1c`; earlier dialog captures remain migration baselines and do not claim full M3 completion. |
+| Live project-site deployment | Not claimed: `docs/site/` remains an incomplete landing shell, and the repository has no verified owner-hosted URL or homepage value for it. |
 
 ## Project links
 
