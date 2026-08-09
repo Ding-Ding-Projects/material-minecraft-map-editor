@@ -100,6 +100,26 @@ class DimSumSurpriseTestCase(unittest.TestCase):
         self.assertIn(dish.alt_english, bilingual.alt_text)
         self.assertIn(dish.alt_cantonese, bilingual.alt_text)
 
+    def test_native_projection_copy_is_factual_and_non_networked(self):
+        payload = surprise.build_payload(self.metadata(), "bilingual")
+        title, body = surprise.notification_copy(payload)
+        self.assertIn("Classic Har Gow · 蝦餃", title)
+        self.assertIn(self.metadata().alt_english, body)
+        self.assertIn(self.metadata().alt_cantonese, body)
+        self.assertIn(self.metadata().image_asset_path, body)
+        self.assertNotIn("http", body)
+
+    def test_projection_rejects_non_ready_payloads(self):
+        payload = surprise.DimSumSurprisePayload(
+            status="offline",
+            dish_id="hk-dish-0001",
+            title="Classic Har Gow",
+            alt_text="alt",
+            image_asset_path="images/dish.png",
+        )
+        with self.assertRaises(ValueError):
+            surprise.notification_copy(payload)
+
     def test_catalog_fetch_is_bounded_and_extracts_only_display_metadata(self):
         raw = json.dumps(
             {"schemaVersion": "1.0.0", "dishes": [dish_document()]}

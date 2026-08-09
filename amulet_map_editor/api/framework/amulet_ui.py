@@ -16,7 +16,14 @@ from amulet_map_editor import __version__, lang
 from amulet_map_editor.api.framework.pages import WorldPageUI
 from .pages import AmuletMainMenu, BasePageUI
 
-from amulet_map_editor.api import image, notifications, preferences, tts_narrator
+from amulet_map_editor.api import (
+    dim_sum_surprise,
+    image,
+    notifications,
+    preferences,
+    school_mode,
+    tts_narrator,
+)
 from . import update_copy
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
@@ -27,6 +34,7 @@ from amulet_map_editor.api.wx.ui.preferences import (
 )
 from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from amulet_map_editor.api.wx.ui.notifications import NotificationHistoryDialog
+from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
 from .squirrel_update import (
     check_for_update,
     find_update_exe,
@@ -121,6 +129,10 @@ class AmuletUI(wx.Frame):
         # The narrator is opt-in and defaults to a no-op backend, so wiring the
         # event boundary never makes startup depend on an installed voice.
         self._narrator = tts_narrator.Narrator()
+        # One controller represents exactly one application launch.  It owns
+        # the ten-percent draw and resolves catalog metadata off the UI thread.
+        self._dim_sum_controller = dim_sum_surprise.StartupDimSumSurprise()
+        self._dim_sum_toast = None
         self._last_update_notification_key = None
         self._update_timer = None
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
@@ -132,6 +144,69 @@ class AmuletUI(wx.Frame):
         )
 
         self.Bind(wx.EVT_CLOSE, self._on_app_close)
+
+    def begin_startup_dim_sum_surprise(self) -> None:
+        """Start the optional delight after startup gates have completed.
+
+        The controller returns immediately and the callback re-enters wx only
+        through ``CallAfter``.  If the user has opened a world or School mode
+        is enabled before catalog resolution finishes, this remains a quiet
+        no-op rather than interrupting their work.
+        """
+
+        prefs = school_mode.presentation_preferences(preferences.load())
+        if school_mode.load().enabled:
+            return
+
+        def on_ready(payload: dim_sum_surprise.DimSumSurprisePayload) -> None:
+            wx.CallAfter(self._show_startup_dim_sum_surprise, payload)
+
+        self._dim_sum_controller.begin(
+            prefs.language_mode,
+            on_ready,
+            eligible=self._level_notebook.GetCurrentPage()
+            is self._level_notebook._main_menu,
+        )
+
+    def _show_startup_dim_sum_surprise(
+        self, payload: dim_sum_surprise.DimSumSurprisePayload
+    ) -> None:
+        """Project a ready payload as a non-modal, auto-dismissing panel."""
+
+        if self.IsBeingDeleted() or school_mode.load().enabled:
+            return
+        if self._level_notebook.GetCurrentPage() is not self._level_notebook._main_menu:
+            return
+        if self._update_state.status in {"available", "ready_to_restart", "failed"}:
+            return
+        if self._dim_sum_toast is not None:
+            self._dim_sum_toast.dismiss()
+        self._dim_sum_toast = DimSumSurpriseToast(
+            self._shell,
+            payload,
+            on_dismiss=self._dismiss_dim_sum_toast,
+        )
+        self._shell_sizer.Insert(
+            1,
+            self._dim_sum_toast,
+            0,
+            wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM,
+            8,
+        )
+        self._shell.Layout()
+        # Keep the surprise in notification history as well; this is useful
+        # when the user misses the eight-second non-blocking surface.
+        title, body = dim_sum_surprise.notification_copy(payload)
+        notifications.add("info", title, body)
+
+    def _dismiss_dim_sum_toast(self, toast: DimSumSurpriseToast) -> None:
+        if self._dim_sum_toast is not toast:
+            return
+        self._shell_sizer.Detach(toast)
+        self._dim_sum_toast = None
+        toast.Hide()
+        toast.Destroy()
+        self._shell.Layout()
 
     @staticmethod
     def _is_source_build() -> bool:
@@ -346,6 +421,8 @@ class AmuletUI(wx.Frame):
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
         self._narrator.close()
+        if self._dim_sum_toast is not None:
+            self._dim_sum_toast.dismiss()
         self._level_notebook.on_app_close(event)
 
     def _update_primary_action(self, _event=None) -> None:
