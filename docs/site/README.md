@@ -47,6 +47,11 @@ updates the navigation, principal actions, release heading, reset/close actions,
 document language, and the settings explanation; bilingual mode keeps both
 labels visible while retaining the factual English copy.
 
+All cards, search fields, and dark-mode surfaces resolve through the shared
+Material 3 `surface-card` role; theme changes therefore do not leave legacy
+white or near-black panels behind. The accent editor keeps its continuous hue
+control, HEX/RGB/HSL translators, and live contrast readout.
+
 ## Content boundary
 
 The feature inventory links to the repository's source, Releases, Actions, wiki, issues, discussions, and contributing guide. It documents the current Windows-only delivery inventory: the appearance editor, browser-style tabs, safe updater, offline documentation, local history, external editor, optional narrator, Squirrel packaging, and command palette. Update the inventory when a feature or supported platform changes.
