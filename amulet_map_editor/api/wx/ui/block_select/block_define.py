@@ -47,6 +47,7 @@ class BlockDefine(BaseDefine):
             force_blockstate=force_blockstate,
             **kwargs,
         )
+        self._block_entity: Optional[BlockEntity] = None
 
         right_sizer = wx.BoxSizer(wx.VERTICAL)
         if orientation == wx.HORIZONTAL:
@@ -136,12 +137,11 @@ class BlockDefine(BaseDefine):
 
     @property
     def block_entity(self) -> Optional[BlockEntity]:
-        return None  # TODO
+        return self._block_entity
 
     @block_entity.setter
     def block_entity(self, block_entity: Optional[BlockEntity]):
-        if block_entity is not None:
-            pass  # TODO
+        self._block_entity = block_entity
 
     @property
     def universal_block(self) -> Tuple[Block, Optional[BlockEntity]]:
