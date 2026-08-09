@@ -134,10 +134,37 @@ def apply_material3(window: wx.Window) -> None:
             continue
         child.SetForegroundColour(palette["on_surface"])
         # Keep canvases renderer-owned while styling ordinary surfaces.
-        if isinstance(child, (wx.Panel, wx.ScrolledWindow, wx.Notebook)):
+        if isinstance(
+            child,
+            (
+                wx.Panel,
+                wx.ScrolledWindow,
+                wx.Notebook,
+                wx.ListBox,
+                wx.ListCtrl,
+                wx.TreeCtrl,
+            ),
+        ):
             child.SetBackgroundColour(palette["surface"])
-        if isinstance(child, wx.StaticText):
+        if isinstance(
+            child,
+            (
+                wx.StaticText,
+                wx.CheckBox,
+                wx.RadioButton,
+                wx.StaticBox,
+                wx.Slider,
+                wx.Gauge,
+            ),
+        ):
             child.SetFont(_font_for(child, 10))
+            if isinstance(child, (wx.CheckBox, wx.RadioButton, wx.Slider)):
+                child.SetMinSize(wx.Size(-1, _control_min_height(child)))
+        elif isinstance(child, (wx.ListBox, wx.ListCtrl, wx.TreeCtrl)):
+            child.SetFont(_font_for(child, 10))
+            child.SetMinSize(wx.Size(-1, max(child.GetBestSize().height, 120)))
+        elif isinstance(child, wx.Notebook):
+            child.SetFont(_font_for(child, 10, wx.FONTWEIGHT_MEDIUM))
         elif isinstance(child, (wx.Button, wx.ToggleButton)):
             child.SetFont(_font_for(child, 10, wx.FONTWEIGHT_MEDIUM))
             child.SetBackgroundColour(palette["primary_container"])

@@ -19,3 +19,11 @@ def test_material3_consumes_persisted_appearance_tokens():
     assert "prefs.ui_scale" in source
     assert "prefs.ui_font" in source
     assert "prefs.density" in source
+
+
+def test_material3_covers_common_collection_and_selection_controls():
+    source = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(
+        encoding="utf-8"
+    )
+    for control in ("wx.ListBox", "wx.ListCtrl", "wx.TreeCtrl", "wx.Notebook", "wx.CheckBox", "wx.Gauge"):
+        assert control in source
