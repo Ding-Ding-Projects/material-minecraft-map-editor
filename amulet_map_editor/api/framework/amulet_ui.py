@@ -25,6 +25,7 @@ from amulet_map_editor.api.wx.ui.preferences import (
     CommandPaletteDialog,
     ChangelogDialog,
 )
+from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from amulet_map_editor.api.wx.ui.notifications import NotificationHistoryDialog
 from .squirrel_update import (
     check_for_update,
@@ -173,6 +174,7 @@ class AmuletUI(wx.Frame):
                 "Preferences…": self._open_preferences,
                 "Notification history…": self._open_notification_history,
                 "Changelog…": self._open_changelog,
+                "Documentation…": self._open_documentation,
                 "Command palette\tCtrl+Shift+F": self._open_command_palette,
                 "Check for updates": self._check_for_updates_async,
                 "Stage available update": self._stage_update_async,
@@ -231,6 +233,12 @@ class AmuletUI(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def _open_documentation(self, _event=None) -> None:
+        dialog = DocumentationDialog(self)
+        dialog.CentreOnParent()
+        dialog.ShowModal()
+        dialog.Destroy()
+
     def _open_notification_history(self, _event=None) -> None:
         dialog = NotificationHistoryDialog(self)
         dialog.CentreOnParent()
@@ -244,6 +252,7 @@ class AmuletUI(wx.Frame):
             ("Preferences…", self._open_preferences),
             ("Notification history…", self._open_notification_history),
             ("Changelog…", self._open_changelog),
+            ("Documentation…", self._open_documentation),
             ("Check for updates", self._check_for_updates_async),
             ("Stage available update", self._stage_update_async),
             ("Restart to install update", self._restart_to_install_update),
