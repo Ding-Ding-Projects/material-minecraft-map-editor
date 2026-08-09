@@ -1,8 +1,14 @@
 name: Build Windows
 
 on:
+  push:
+    branches: [main]
+  workflow_dispatch:
   release:
     types: [published]
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -52,6 +58,14 @@ jobs:
       run: |
         python -m PyInstaller -y --distpath ./installer/dist installer/Amulet.spec
 
+    - name: Resolve build version
+      shell: pwsh
+      run: |
+        $version = '${{ github.event.release.tag_name }}'
+        if ([string]::IsNullOrWhiteSpace($version)) { $version = '${{ github.ref_name }}' }
+        if ([string]::IsNullOrWhiteSpace($version)) { $version = 'dev-${{ github.sha }}'.Substring(0, 16) }
+        "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
     - name: Windows - Install NSIS
       uses: repolevedavaj/install-nsis@v1.2.0
       with:
@@ -59,13 +73,13 @@ jobs:
 
     - name: Windows - Create unsigned NSIS installer
       run: |
-        makensis -DVERSION=${{ github.event.release.tag_name }} -DARCH=${{ matrix.cfg.architecture }} installer/windows.nsi
+        makensis -DVERSION=${BUILD_VERSION} -DARCH=${{ matrix.cfg.architecture }} installer/windows.nsi
         rm -rf installer/dist/amulet
 
     - name: Verify unsigned installer contract
       shell: pwsh
       run: |
-        $installer = Join-Path $PWD "installer/dist/Amulet-${{ github.event.release.tag_name }}-Windows-${{ matrix.cfg.architecture }}.exe"
+        $installer = Join-Path $PWD "installer/dist/Amulet-$env:BUILD_VERSION-Windows-${{ matrix.cfg.architecture }}.exe"
         if (-not (Test-Path -LiteralPath $installer)) {
           throw "Expected NSIS installer was not produced: $installer"
         }
@@ -76,6 +90,7 @@ jobs:
         Write-Host "Unsigned installer verified: $installer"
 
     - name: Publish to PyPi
+      if: github.event_name == 'release'
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.AMULET_MAP_EDITOR_PYPI_PASSWORD }}
@@ -85,5 +100,5 @@ jobs:
     - name: Upload Release Asset
       uses: actions/upload-artifact@v6
       with:
-        name: Amulet-${{ github.event.release.tag_name }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
+        name: Amulet-${{ env.BUILD_VERSION }}-${{ runner.os }}-${{ matrix.cfg.architecture }}
         path: ./installer/dist
