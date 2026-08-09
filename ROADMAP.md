@@ -8,15 +8,17 @@
 - ✅ Versioned named appearance presets, validated JSON interchange, and
   native Appearance-tab load/save/import/export and staged reset controls.
 - ✅ Versioned scheduled-settings foundation with local precedence and boundary tests.
-- ⏳ Complete full per-element appearance editing, tab groups, schedules, and
-  the remaining global-memory surfaces.
+- 🏃 Complete full per-element appearance editing and tab groups; scheduled
+  settings now have native date/time pickers and local history has a native
+  browser, while the remaining global-memory surfaces still need migration.
 
 ## Windows delivery
 
 - ✅ Unsigned PyInstaller + Squirrel.Windows contract with Setup.exe, RELEASES,
   full nupkg, and Authenticode `NotSigned` checks.
 - ✅ Bounded startup/manual update check with an unsigned status-bar state.
-- ⏳ Hosted release publication and end-to-end restart/update proof.
+- ✅ Hosted release publication produces unsigned Setup.exe, RELEASES, and the
+  full nupkg; ⏳ end-to-end restart/update proof remains.
 
 ## Documentation
 
