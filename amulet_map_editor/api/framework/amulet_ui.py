@@ -23,6 +23,7 @@ from amulet_map_editor.api.wx.ui.preferences import (
     CommandPaletteDialog,
     ChangelogDialog,
 )
+from amulet_map_editor.api.wx.ui.notifications import NotificationHistoryDialog
 from .squirrel_update import (
     check_for_update,
     find_update_exe,
@@ -137,6 +138,7 @@ class AmuletUI(wx.Frame):
         menu_dict.setdefault("View", {}).setdefault("application", {}).update(
             {
                 "Preferences…": self._open_preferences,
+                "Notification history…": self._open_notification_history,
                 "Changelog…": self._open_changelog,
                 "Command palette\tCtrl+Shift+F": self._open_command_palette,
                 "Check for updates": self._check_for_updates_async,
@@ -196,11 +198,18 @@ class AmuletUI(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def _open_notification_history(self, _event=None) -> None:
+        dialog = NotificationHistoryDialog(self)
+        dialog.CentreOnParent()
+        dialog.ShowModal()
+        dialog.Destroy()
+
     def _open_command_palette(self, _event=None) -> None:
         page = self._level_notebook.GetCurrentPage()
         commands = [
             ("Open world", lambda: open_level_from_dialog(self)),
             ("Preferences…", self._open_preferences),
+            ("Notification history…", self._open_notification_history),
             ("Changelog…", self._open_changelog),
             ("Check for updates", self._check_for_updates_async),
             ("Stage available update", self._stage_update_async),
