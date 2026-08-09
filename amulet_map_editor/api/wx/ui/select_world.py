@@ -517,7 +517,6 @@ class RecentWorldUI(wx.Panel):
             wx.DefaultSize,
             0,
         )
-        text.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL))
         self._sizer.Add(
             text,
             0,
@@ -559,7 +558,6 @@ class WorldSelectAndRecentUI(wx.Panel):
             self,
             label=lang.get("select_world.open_world_warning"),
         )
-        warning_text.SetFont(wx.Font(20, wx.DEFAULT, wx.NORMAL, wx.NORMAL))
         sizer.Add(warning_text, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
         # bar
 
