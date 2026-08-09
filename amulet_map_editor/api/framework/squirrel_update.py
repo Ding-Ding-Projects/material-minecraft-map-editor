@@ -17,7 +17,6 @@ import sys
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
-
 DEFAULT_FEED_URL = (
     "https://github.com/Amulet-Team/Amulet-Map-Editor/releases/latest/download/"
 )
@@ -88,10 +87,14 @@ def check_for_update(
 ) -> SquirrelUpdateState:
     """Check the Squirrel feed and return a state suitable for a notification."""
 
-    feed = validate_feed_url(feed_url or os.environ.get("AMULET_UPDATE_FEED_URL", DEFAULT_FEED_URL))
+    feed = validate_feed_url(
+        feed_url or os.environ.get("AMULET_UPDATE_FEED_URL", DEFAULT_FEED_URL)
+    )
     updater = update_exe or find_update_exe()
     if updater is None:
-        return SquirrelUpdateState("not_installed", feed_url=feed, detail="Squirrel install not detected")
+        return SquirrelUpdateState(
+            "not_installed", feed_url=feed, detail="Squirrel install not detected"
+        )
     try:
         payload = _run_update(updater, "--checkForUpdate=" + feed, timeout)
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
@@ -102,7 +105,9 @@ def check_for_update(
     version = future.get("version") or future.get("Version")
     if current_version and str(version) == str(current_version):
         return SquirrelUpdateState("up_to_date", feed_url=feed)
-    return SquirrelUpdateState("available", version=str(version) if version else None, feed_url=feed)
+    return SquirrelUpdateState(
+        "available", version=str(version) if version else None, feed_url=feed
+    )
 
 
 def stage_update(
@@ -115,7 +120,9 @@ def stage_update(
     feed = validate_feed_url(feed_url)
     updater = update_exe or find_update_exe()
     if updater is None:
-        return SquirrelUpdateState("not_installed", feed_url=feed, detail="Squirrel install not detected")
+        return SquirrelUpdateState(
+            "not_installed", feed_url=feed, detail="Squirrel install not detected"
+        )
     try:
         _run_update(updater, "--update=" + feed, timeout)
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
