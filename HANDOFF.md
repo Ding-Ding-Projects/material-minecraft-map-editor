@@ -2,6 +2,7 @@
 
 The default `0.10` jer contains the shared Material 3 wxPython foundation,
 persisted preferences and regex builder, non-blocking Squirrel update checks,
+the versioned scheduled-settings foundation,
 an unsigned Squirrel.Windows packaging workflow, the owned Material 3 site
 source, and README screenshot evidence. Local syntax and diff checks pass.
 Hosted Windows CI and release publication are still running; wxPython runtime

@@ -5,6 +5,7 @@
 - ✅ Shared wxPython colour, typography, spacing, shape, and control-size tokens.
 - 🏃 Roll the tokens through remaining dialogs and editor pages.
 - ✅ Persisted language, funny-level, appearance, and regex-builder foundation.
+- ✅ Versioned scheduled-settings foundation with local precedence and boundary tests.
 - ⏳ Complete full per-element appearance editing, tab groups, schedules, and
   the remaining global-memory surfaces.
 
