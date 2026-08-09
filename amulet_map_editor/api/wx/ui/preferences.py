@@ -344,12 +344,16 @@ class PreferencesDialog(wx.Dialog):
         self.font_regex.SetName("Installed font regex mode")
         self.font_regex_button = wx.Button(page, label="Regex…")
         self.font_regex_button.SetName("Installed font regex builder")
-        self.font_regex_button.SetToolTip("Build a bounded regular-expression font search")
+        self.font_regex_button.SetToolTip(
+            "Build a bounded regular-expression font search"
+        )
         self.font_choice = wx.Choice(page, choices=[])
         self.font_choice.SetName("Installed font choices")
         font_search_row.Add(self.font_search, 1, wx.EXPAND | wx.RIGHT, 8)
         font_search_row.Add(self.font_regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        font_search_row.Add(self.font_regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        font_search_row.Add(
+            self.font_regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8
+        )
         font_search_row.Add(self.font_choice, 1, wx.EXPAND)
         grid.Add(font_search_row, 1, wx.EXPAND)
         grid.Add(
@@ -432,10 +436,17 @@ class PreferencesDialog(wx.Dialog):
         self.appearance_preset_regex = wx.CheckBox(page, label="Regex")
         self.appearance_preset_regex_button = wx.Button(page, label="Regex…")
         self.appearance_preset_regex_button.SetName("Appearance preset regex builder")
-        self.appearance_preset_regex_button.SetToolTip("Build a bounded regular-expression preset search")
+        self.appearance_preset_regex_button.SetToolTip(
+            "Build a bounded regular-expression preset search"
+        )
         preset_search_row.Add(self.appearance_preset_search, 1, wx.EXPAND | wx.RIGHT, 8)
         preset_search_row.Add(self.appearance_preset_regex, 0, wx.ALIGN_CENTER_VERTICAL)
-        preset_search_row.Add(self.appearance_preset_regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
+        preset_search_row.Add(
+            self.appearance_preset_regex_button,
+            0,
+            wx.LEFT | wx.ALIGN_CENTER_VERTICAL,
+            6,
+        )
         root.Add(preset_search_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
         preset_actions = wx.WrapSizer(wx.HORIZONTAL)
@@ -662,7 +673,9 @@ class PreferencesDialog(wx.Dialog):
 
     def _filter_appearance_fonts(self, _event: wx.Event | None = None) -> None:
         source_names = getattr(self, "_appearance_font_names", ())
-        query = self.font_search.GetValue().strip() if hasattr(self, "font_search") else ""
+        query = (
+            self.font_search.GetValue().strip() if hasattr(self, "font_search") else ""
+        )
         if query and getattr(self, "font_regex", None) is not None:
             builder = RegexBuilder(
                 query[:4096],
@@ -676,7 +689,9 @@ class PreferencesDialog(wx.Dialog):
                 self.font_search.SetToolTip(f"Invalid font search: {exc}")
             else:
                 self.font_search.SetToolTip(
-                    "Regex font search" if self.font_regex.GetValue() else "Plain-text font search"
+                    "Regex font search"
+                    if self.font_regex.GetValue()
+                    else "Plain-text font search"
                 )
         else:
             names = appearance_editor.filter_font_names(source_names, query)
@@ -1222,7 +1237,9 @@ class PreferencesDialog(wx.Dialog):
             )
             self.schedule_source_url.SetValue(str(source.get("url", "")))
             self.schedule_source_entity.SetValue(str(source.get("entity_id", "")))
-            self.schedule_source_refresh.SetValue(int(source.get("refresh_seconds", 300)))
+            self.schedule_source_refresh.SetValue(
+                int(source.get("refresh_seconds", 300))
+            )
             self._update_schedule_source_controls()
             active_weekdays = schedules.ALL_WEEKDAYS if rule is None else rule.weekdays
             every_day = active_weekdays == schedules.ALL_WEEKDAYS
@@ -1304,7 +1321,9 @@ class PreferencesDialog(wx.Dialog):
             ),
             accent=self.schedule_accent.GetValue().strip() or None,
         )
-        source_kind = ("local", "api", "home_assistant")[self.schedule_source_kind.GetSelection()]
+        source_kind = ("local", "api", "home_assistant")[
+            self.schedule_source_kind.GetSelection()
+        ]
         source = scheduled_sources.ScheduleSource(
             kind=source_kind,
             url=self.schedule_source_url.GetValue().strip(),
@@ -1582,12 +1601,8 @@ class CommandPaletteDialog(wx.Dialog):
         self._search_flags = 0
         root = wx.BoxSizer(wx.VERTICAL)
         self.query = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
-        self.query.SetHint(
-            _chrome_copy("command_palette_search", self._language_mode)
-        )
-        self.regex = wx.CheckBox(
-            self, label=_chrome_copy("regex", self._language_mode)
-        )
+        self.query.SetHint(_chrome_copy("command_palette_search", self._language_mode))
+        self.regex = wx.CheckBox(self, label=_chrome_copy("regex", self._language_mode))
         self.regex_button = wx.Button(self, label="Regex…")
         self.regex_button.SetName("Command palette regex builder")
         self.regex_button.SetToolTip("Build a bounded regular-expression search")
@@ -1606,6 +1621,7 @@ class CommandPaletteDialog(wx.Dialog):
         self.query.Bind(wx.EVT_TEXT_ENTER, self._run)
         self.results.Bind(wx.EVT_LISTBOX_DCLICK, self._run)
         self.results.Bind(wx.EVT_KEY_DOWN, self._on_result_key)
+        apply_material3(self)
 
     def _open_regex_builder(self, _event) -> None:
         with RegexBuilderDialog(
@@ -1693,9 +1709,7 @@ class ChangelogDialog(wx.Dialog):
             wx.ALIGN_CENTER_VERTICAL,
         )
         self.query = wx.TextCtrl(self)
-        self.query.SetHint(
-            _chrome_copy("changelog_search_hint", self._language_mode)
-        )
+        self.query.SetHint(_chrome_copy("changelog_search_hint", self._language_mode))
         filters.Add(self.query, 1, wx.EXPAND)
         filters.Add(
             wx.StaticText(
@@ -1719,9 +1733,7 @@ class ChangelogDialog(wx.Dialog):
         self.end_date = wx.TextCtrl(self)
         self.end_date.SetHint("YYYY-MM-DD")
         filters.Add(self.end_date, 1, wx.EXPAND)
-        self.regex = wx.CheckBox(
-            self, label=_chrome_copy("regex", self._language_mode)
-        )
+        self.regex = wx.CheckBox(self, label=_chrome_copy("regex", self._language_mode))
         self.regex_button = wx.Button(self, label="Regex…")
         self.regex_button.SetName("Changelog search regex builder")
         self.regex_button.SetToolTip("Build a bounded regular-expression search")
@@ -1782,6 +1794,7 @@ class ChangelogDialog(wx.Dialog):
         self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self.action.Bind(wx.EVT_CHOICE, lambda _event: self._refresh())
         self._refresh()
+        apply_material3(self)
 
     def _open_regex_builder(self, _event) -> None:
         with RegexBuilderDialog(
