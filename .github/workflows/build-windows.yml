@@ -62,11 +62,11 @@ jobs:
       shell: pwsh
       run: |
         $raw = '${{ github.event.release.tag_name }}'
-        if ([string]::IsNullOrWhiteSpace($raw)) { $raw = '0.0.0-dev.${{ github.run_number }}' }
+        if ([string]::IsNullOrWhiteSpace($raw)) { $raw = '0.10.0.${{ github.run_number }}' }
         if ($raw -match '^v?(\d+\.\d+\.\d+)([abrc].*)?$') {
           $version = $Matches[1]
           if ($Matches[2]) { $version += '-' + $Matches[2] }
-        } else { $version = '0.0.0-dev.${{ github.run_number }}' }
+        } else { $version = '0.10.0.${{ github.run_number }}' }
         "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Windows - Create unsigned Squirrel.Windows release
@@ -116,7 +116,7 @@ jobs:
       - name: Download x64 Squirrel artifacts
         uses: actions/download-artifact@v4
         with:
-          name: Amulet-0.0.0-dev.${{ github.run_number }}-Windows-x64
+          name: Amulet-0.10.0.${{ github.run_number }}-Windows-x64
           path: release-assets
 
       - name: Publish release assets
@@ -127,7 +127,7 @@ jobs:
           test -f release-assets/Setup.exe
           test -f release-assets/RELEASES
           test -n "$(find release-assets -type f -name '*.nupkg' -print -quit)"
-          tag="0.0.0-dev.${GITHUB_RUN_NUMBER}"
+          tag="0.10.0.${GITHUB_RUN_NUMBER}"
           completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           gh release create "$tag" $(find release-assets -type f -print) \
             --repo "$GITHUB_REPOSITORY" \
