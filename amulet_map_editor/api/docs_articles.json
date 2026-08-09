@@ -109,6 +109,18 @@
         "../local-history/README.md",
         "../scheduled-settings/README.md"
       ]
+    },
+    {
+      "slug": "tts-narrator",
+      "title": "Optional TTS narrator",
+      "markdown": "# Optional TTS narrator\n\nThe wx-independent `amulet_map_editor.api.tts_narrator` module provides an\nopt-in spoken event queue. It is deliberately a small integration boundary:\nthe application can announce an update, save, or error without making the\nevent flow depend on a speech package, a network connection, or a visible\ndialog.\n\n## Behaviour\n\n- Narration is **off by default** and is persisted in the profile under\n  `amulet_tts_narrator`.\n- The language choice is `english`, `cantonese`, or `both`. In `both` mode the\n  English utterance finishes before the Cantonese utterance begins.\n- Events are serialized through one worker. A newer event replaces an older\n  queued event in the same category, preventing a burst of stale announcements.\n- A short debounce groups rapid updates. A bounded per-category cooldown keeps\n  repeated progress messages infrequent while retaining the newest event.\n- English and Cantonese funny levels style the surrounding voice only. The\n  event text and all factual details remain supplied by the caller.\n\n## Configuration\n\n`load_settings()`, `save_settings()`, and `update_settings()` validate the\nversioned settings record. Cooldowns are bounded to 0–3600 seconds and debounce\nto 0–10 seconds. The narrator language and settings are independent from the\napp's package identity and from its update feed.\n\nApplications inject a `SpeechBackend` with a synchronous `speak(text,\nlanguage)` method. `default_backend()` intentionally returns\n`NullSpeechBackend`: this checkout does not claim that a Cantonese voice is\navailable, does not install optional speech dependencies, and never speaks\nunless the user has enabled narration.\n\n## Failure and security boundaries\n\nBackend exceptions are logged and do not interrupt the originating operation.\nThe queue stores only bounded event text in memory and settings in the existing\nlocal profile store; it stores no voice credentials, audio, telemetry, or\nnetwork response. `close()` clears pending events and joins the worker for safe\napplication shutdown. Screen-reader coordination and platform voice selection\nbelong to the future native adapter; the no-op backend is the honest fallback\nuntil those capabilities are available.\n\n## Verification\n\nRun the wx-independent suite:\n\n```powershell\npython -m unittest -v tests.test_tts_narrator\n```\n\nThe tests cover off-by-default persistence and bounds, same-category\ndebounce/replacement, serialized bilingual order, cooldown retention of the\nlatest event, funny-level styling, and the unavailable-backend no-op path.\n\n### Suggested articles\n\n- [Notification centre](../notification-centre/README.md) — review and export\n  the non-blocking event that may also be narrated.\n- [Scheduled settings](../scheduled-settings/README.md) — the shared local\n  preference scheduling contract.\n- [School mode](../school-mode/README.md) — why narration is suppressed when\n  the user-facing presentation lock is enabled.\n",
+      "source_path": "docs/features/tts-narrator/README.md",
+      "sha256": "34d1d5aa54308700348f8ed1b562ac3f759b4d38f2b1cf94370e50d1e178c251",
+      "links": [
+        "../notification-centre/README.md",
+        "../scheduled-settings/README.md",
+        "../school-mode/README.md"
+      ]
     }
   ]
 }
