@@ -6,7 +6,6 @@ import logging
 import os
 
 from amulet_map_editor.api import config
-from amulet_map_editor import __version__
 from .warning_dialog import WarningDialog
 from amulet_map_editor.api.wx.material3 import apply_material3
 
@@ -16,14 +15,6 @@ logging.getLogger("OpenGL.GL.shaders").setLevel(logging.INFO)
 logging.getLogger("PIL.PngImagePlugin").setLevel(logging.INFO)
 
 log = logging.getLogger(__name__)
-
-# Uses a conditional so if this breaks a build, we can just delete the file and it will skip the check
-try:
-    from amulet_map_editor.api.framework import update_check
-except ImportError:
-    update_check = None
-    log.warning("Could not import update checker")
-
 
 def centre_on_main_screen(window: wx.TopLevelWindow) -> None:
     # The normal CentreOnParent method makes the window no larger than its parent which is often undesired.
@@ -74,22 +65,6 @@ class AmuletApp(wx.App):
             if warning_dialog.do_not_show_again:
                 meta_config["do_not_show_warning_dialog"] = True
                 config.put("amulet_meta", meta_config)
-
-        if update_check:
-
-            def _show_update_dialog(evt) -> None:
-                update_dialog = update_check.UpdateDialog(
-                    self._amulet_ui, __version__, evt.GetVersion()
-                )
-                centre_on_main_screen(update_dialog)
-                log.debug(f"Showing update dialog at {update_dialog.GetRect()}")
-                update_dialog.ShowModal()
-
-            self._amulet_ui.Bind(
-                update_check.EVT_UPDATE_CHECK,
-                _show_update_dialog,
-            )
-            update_check.check_for_update(self._amulet_ui, __version__)
 
         # The first-run/license/warning gates above have completed.  Schedule
         # the optional draw only after the event loop returns so startup stays
