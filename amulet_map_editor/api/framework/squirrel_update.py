@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 DEFAULT_FEED_URL = (
-    "https://github.com/Amulet-Team/Amulet-Map-Editor/releases/latest/download/"
+    "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/latest/download/"
 )
 
 
