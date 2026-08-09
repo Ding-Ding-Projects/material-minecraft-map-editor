@@ -33,7 +33,7 @@ and Bedrock Edition 1.7 and newer.
 
 ## Start here
 
-- **Install:** use the verified [unsigned Windows 0.10.40 `Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.40/Setup.exe), or inspect newer builds and their exact assets on the [Releases page](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases).
+- **Install:** use the verified [unsigned Windows 0.10.55 `Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Setup.exe), [RELEASES feed](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/RELEASES), or [full Squirrel package](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.55/Amulet-0.10.55-full.nupkg). These immutable assets target `39b5dbd54da957c27e019cddb806beb0d789753c`.
 - **Learn:** follow the [open-world guide](amulet_map_editor/readme.md), [3D editor guide](amulet_map_editor/programs/edit/readme.md), and [conversion guide](amulet_map_editor/programs/convert/readme.md).
 - **Explore the site:** open the dependency-free [Material 3 site source](docs/site/index.html), or visit the [official Amulet website](https://www.amuletmc.com/). This repository does not currently claim a live deployment of its own site source.
 - **Track the modernization:** see the factual [roadmap](ROADMAP.md) and [handoff](HANDOFF.md).
