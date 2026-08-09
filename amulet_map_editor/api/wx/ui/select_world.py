@@ -17,6 +17,7 @@ from amulet_map_editor.api.wx.ui import simple
 from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.nonblocking import notify
+from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.framework import app
 
 if TYPE_CHECKING:
@@ -426,9 +427,6 @@ class WorldSelectUI(wx.Panel):
         self.header_open_world = wx.Button(
             self, label=lang.get("select_world.open_world_button")
         )
-        font = self.header_open_world.GetFont()
-        font.SetPointSize(16)
-        self.header_open_world.SetFont(font)
         self.header_open_world.Bind(wx.EVT_BUTTON, self._open_world)
         header_sizer.Add(self.header_open_world)
 
@@ -437,9 +435,6 @@ class WorldSelectUI(wx.Panel):
         self.header_open_mcworld = wx.Button(
             self, label=lang.get("select_world.open_mcworld_button")
         )
-        font = self.header_open_mcworld.GetFont()
-        font.SetPointSize(16)
-        self.header_open_mcworld.SetFont(font)
         self.header_open_mcworld.Bind(wx.EVT_BUTTON, self._open_mcworld)
         header_sizer.Add(self.header_open_mcworld)
 
@@ -447,6 +442,7 @@ class WorldSelectUI(wx.Panel):
 
         content = ScrollableWorldsUI(self, open_world_callback)
         sizer.Add(content, 1, wx.EXPAND)
+        apply_material3(self)
 
     def _open_world(self, evt):
         path = choose_path(
@@ -600,6 +596,7 @@ class WorldSelectDialog(wx.Dialog):
 
         self._open_world_callback = open_world_callback
         self.world_select = WorldSelectAndRecentUI(self, self._run_callback)
+        apply_material3(self)
 
     def _run_callback(self, path):
         self._close()
