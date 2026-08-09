@@ -4,6 +4,7 @@ import logging
 import wx
 
 from amulet_map_editor.api import lang
+from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.simple import (
     SimpleDialog,
     SimpleScrollablePanel,
@@ -314,7 +315,9 @@ class KeyCatcher(wx.Dialog):
             title=lang.get("key_config.press_label").format(
                 action=lang.get(f"action.{action.lower()}")
             ),
-            style=wx.DEFAULT_DIALOG_STYLE | wx.WANTS_CHARS,
+            # The shared M3 helper supplies the title bar; keep only the
+            # keyboard-capture flag from the native style.
+            style=wx.NO_BORDER | wx.WANTS_CHARS,
         )
 
         self._key = ((), "NONE")
@@ -334,6 +337,7 @@ class KeyCatcher(wx.Dialog):
         sizer.Add(panel, 1, wx.EXPAND)
         self.SetSizer(sizer)
         self.Layout()
+        apply_material3(self)
 
     def _on_key(self, evt):
         key = serialise_key_event(evt)
