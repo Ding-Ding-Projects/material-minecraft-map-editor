@@ -93,10 +93,11 @@ include:
   focus states, and reduced-motion support; its owner-hosted Docker image is
   validated by `.github/workflows/site.yml`.
 
-These are source and automated-test claims. The screenshots below are genuine
-historical captures of the desktop application, not fabricated previews of the
-new design. A current wxPython runtime capture is still required before the
-modernized desktop appearance can be presented as visually verified.
+These are source and automated-test claims. The gallery includes genuine
+historical captures and a current wxPython runtime baseline from the cheap
+hidden-desktop capture route. The current baseline proves that the surfaces
+render and can be photographed off-screen; it does not claim that the native
+wx chrome is already full Material 3 Expressive.
 
 Relevant source and contracts:
 
@@ -149,6 +150,20 @@ or generated image is presented as runtime evidence.
   </tr>
 </table>
 
+### Current runtime baseline (2026-08-09)
+
+These captures are from the real source dialogs at commit `d62ae152`, rendered
+on a hidden desktop with wxPython 4.2.5. They are baseline evidence, not
+mockups and not a claim that the M3 migration is visually complete.
+
+<table>
+  <tr>
+    <td width="33%"><img src="resource/img/preferences-runtime-baseline-20260809.png" alt="Current Amulet Preferences Language tab captured from the real wxPython app"><br><strong>Current Preferences · Language tab.</strong></td>
+    <td width="33%"><img src="resource/img/preferences-appearance-runtime-baseline-20260809.png" alt="Current Amulet Preferences Appearance tab captured from the real wxPython app"><br><strong>Current Preferences · Appearance tab.</strong></td>
+    <td width="33%"><img src="resource/img/notification-history-runtime-baseline-20260809.png" alt="Current Amulet notification history with real notification rows"><br><strong>Current notification history.</strong></td>
+  </tr>
+</table>
+
 <details>
 <summary><strong>Open the full 0.10.47 editing montage</strong></summary>
 
@@ -173,6 +188,9 @@ title inside the capture identifies the runtime as `0.10.47`.
 | `world_select_expand.jpg` | 1920×1026 | Added with the 2020 documentation images | Real legacy expanded world browser. |
 | `about.jpg` | 550×435 | Added with the 2020 application guide | Real 0.6.1 open-world workspace. |
 | `convert.jpg` | 814×490 | Added with the 2020 program guide | Real 0.6.1 conversion surface. |
+| `preferences-runtime-baseline-20260809.png` | 930×720 | Captured 2026-08-09 from commit `d62ae152` on a hidden desktop | Real current Preferences Language tab; native wx chrome remains a pre-M3 baseline. |
+| `preferences-appearance-runtime-baseline-20260809.png` | 930×720 | Captured 2026-08-09 from commit `d62ae152` on a hidden desktop | Real current Appearance tab; lower preset controls require scrolling. |
+| `notification-history-runtime-baseline-20260809.png` | 1140×780 | Captured 2026-08-09 from commit `d62ae152` on a hidden desktop | Real current notification history with populated rows; column sizing is being corrected. |
 
 The repository does not currently contain an automated desktop screenshot
 harness. These captures are therefore documentation artifacts, not a
