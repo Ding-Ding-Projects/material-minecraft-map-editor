@@ -36,6 +36,7 @@ from amulet.api.level import BaseLevel
 from amulet_map_editor import CONFIG
 from amulet_map_editor import close_level
 from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.programs.edit.api.ui.goto import show_goto
 from amulet_map_editor.programs.edit.api.ui.tool_manager import ToolManagerSizer
 from amulet_map_editor.programs.edit.api.operations.errors import (
@@ -374,7 +375,12 @@ class EditCanvas(BaseEditCanvas):
         if structure_cache:
             self.paste(*structure_cache.get_structure())
         else:
-            wx.MessageBox("A structure needs to be copied before one can be pasted.")
+            notify(
+                self,
+                "Paste unavailable",
+                "A structure needs to be copied before one can be pasted.",
+                severity="warning",
+            )
 
     def delete(self):
         self.run_operation(

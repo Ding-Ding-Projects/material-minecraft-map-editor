@@ -28,6 +28,7 @@ from amulet_map_editor.api import lang
 from amulet_map_editor.api import scheduled_settings as schedules
 from amulet_map_editor.api.regex_builder import RegexBuilder
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.nonblocking import notify
 
 
 def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
@@ -1346,7 +1347,7 @@ class PreferencesDialog(wx.Dialog):
                         "Enter the current unlock credential to leave School mode."
                     )
         except ValueError as exc:
-            wx.MessageBox(str(exc), "Preferences", wx.OK | wx.ICON_WARNING, self)
+            notify(self, "Preferences not saved", str(exc), severity="warning")
             return
         try:
             display_name = preferences.validate_display_name(

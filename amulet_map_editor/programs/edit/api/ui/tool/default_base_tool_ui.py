@@ -12,6 +12,7 @@ import amulet
 from amulet.api.errors import LoaderNoneMatched
 
 from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.opengl.camera import Projection
 from .base_tool_ui import BaseToolUI
 from amulet_map_editor.programs.edit.api.behaviour import CameraBehaviour
@@ -76,7 +77,7 @@ class DefaultBaseToolUI(BaseToolUI):
                     level = amulet.load_level(pathname)
                 except LoaderNoneMatched:
                     msg = f"Could not find a matching loader for {pathname}."
-                    wx.MessageBox(msg)
+                    notify(self.canvas, "Dropped file unavailable", msg, severity="error")
                     log.error(msg)
                 except Exception as e:
                     log.error(f"Could not open {pathname}.", exc_info=True)

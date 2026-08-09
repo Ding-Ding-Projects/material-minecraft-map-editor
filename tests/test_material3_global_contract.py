@@ -90,3 +90,15 @@ def test_editing_and_world_selection_info_flows_are_nonblocking():
         source = (ROOT / relative).read_text(encoding="utf-8")
         assert "nonblocking import notify" in source
         assert "wx.MessageBox" not in source
+
+
+def test_remaining_informational_paths_use_the_notification_bridge():
+    for relative in (
+        "amulet_map_editor/programs/edit/api/canvas/edit_canvas.py",
+        "amulet_map_editor/programs/edit/api/ui/tool/default_base_tool_ui.py",
+        "amulet_map_editor/api/wx/ui/nbt_editor.py",
+        "amulet_map_editor/api/wx/ui/preferences.py",
+    ):
+        source = (ROOT / relative).read_text(encoding="utf-8")
+        assert "nonblocking import notify" in source
+        assert "wx.MessageBox" not in source

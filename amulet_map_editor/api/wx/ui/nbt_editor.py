@@ -10,6 +10,7 @@ from amulet_map_editor.api.wx.ui import simple
 import amulet_nbt as nbt
 
 from amulet_map_editor.api import image
+from amulet_map_editor.api.wx.nonblocking import notify
 
 nbt_resources = image.nbt
 
@@ -179,7 +180,12 @@ class NBTEditor(simple.SimplePanel):
             selected_tag = self.tree.GetFocusedItem()
 
             if selected_tag == self.tree.GetRootItem():
-                wx.MessageBox("Root nodes cannot be deleted currently", "Info", wx.OK)
+                notify(
+                    self,
+                    "Delete unavailable",
+                    "Root nodes cannot be deleted currently",
+                    severity="warning",
+                )
                 return
 
             name, _ = self.tree.GetItemData(selected_tag)
