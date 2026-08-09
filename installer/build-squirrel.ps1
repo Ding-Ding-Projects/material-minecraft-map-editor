@@ -93,9 +93,16 @@ try {
         # Squirrel 2.x resolves its bundled 7z helper relative to the current
         # process directory, so invoke it from the package's tools directory.
         Set-Location (Join-Path $squirrelRoot 'tools')
-        Invoke-Native $squirrel @(
+        $releasifyArgs = @(
             "--releasify=$nupkg", "--releaseDir=$releaseDir", '--no-msi'
         )
+        # A first release has no prior full package from which a delta can be
+        # calculated. Skipping that impossible delta keeps Setup.exe and
+        # RELEASES deterministic; later runs retain delta generation.
+        if (-not (Get-ChildItem $out -Recurse -File -Filter '*-full.nupkg' -ErrorAction SilentlyContinue)) {
+            $releasifyArgs += '--no-delta'
+        }
+        Invoke-Native $squirrel $releasifyArgs
     }
     finally { Set-Location $oldLocation }
 
