@@ -38,6 +38,21 @@ def test_resolver_fails_when_no_published_unused_image_exists():
         raise AssertionError("resolver should fail closed")
 
 
+def test_resolver_skips_names_used_by_consumer_releases():
+    catalog = {
+        "dishes": [
+            {"name": {"en": "Classic Har Gow", "zhHant": "蝦餃"}, "image": {"path": "images/har.png"}},
+            {"name": {"en": "Fresh Bao", "zhHant": "新鮮包"}, "image": {"path": "images/fresh.png"}},
+        ]
+    }
+    public_releases = [{"tag_name": "catalog-v1", "body": "", "assets": [{"name": "har.png"}, {"name": "fresh.png"}]}]
+    consumer_releases = [{"tag_name": "0.10.0-dev.302", "body": "Dim-sum code name: Classic Har Gow · 蝦餃", "assets": []}]
+    assert MODULE.resolve(catalog, public_releases, used_releases=public_releases + consumer_releases) == (
+        "Fresh Bao", "新鮮包",
+        "https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/catalog-v1/fresh.png",
+    )
+
+
 def test_workflow_parses_resolver_output_without_eval():
     workflow = (ROOT / ".github/workflows/build-windows.yml").read_text(encoding="utf-8")
     assert 'eval "$(python3 scripts/resolve_dim_sum_code_name.py)"' not in workflow

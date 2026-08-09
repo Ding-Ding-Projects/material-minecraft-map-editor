@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 
 CATALOG_URL = "https://raw.githubusercontent.com/Ding-Ding-Projects/dim-sum-photos/main/catalog/index.json"
 RELEASES_URL = "https://api.github.com/repos/Ding-Ding-Projects/dim-sum-photos/releases?per_page=100"
+PROJECT_RELEASES_URL = "https://api.github.com/repos/{repo}/releases?per_page=100"
 ASSET_URL = "https://github.com/Ding-Ding-Projects/dim-sum-photos/releases/download/{tag}/{name}"
 CODE_NAME_RE = re.compile(r"Dim-sum code name:\s*(.+?)\s*·\s*(.+)", re.I)
 
@@ -24,13 +25,21 @@ def _get_json(url: str):
         return json.load(response)
 
 
-def resolve(catalog: dict, releases: list[dict]) -> tuple[str, str, str]:
+def resolve(
+    catalog: dict,
+    releases: list[dict],
+    *,
+    used_releases: list[dict] | None = None,
+) -> tuple[str, str, str]:
     used: set[tuple[str, str]] = set()
     published: dict[str, str] = {}
-    for release in releases:
+    for release in used_releases if used_releases is not None else releases:
         body = release.get("body") or ""
         for match in CODE_NAME_RE.finditer(body):
             used.add((match.group(1).strip(), match.group(2).strip()))
+    # Only the public dim-sum repository may authorize a photo asset.  Project
+    # releases contribute used code names but never become a photo authority.
+    for release in releases:
         for asset in release.get("assets", []):
             name = asset.get("name", "")
             if name.lower().endswith((".png", ".jpg", ".jpeg")):
@@ -51,7 +60,18 @@ def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     try:
-        en, zh, url = resolve(_get_json(CATALOG_URL), _get_json(RELEASES_URL))
+        public_releases = _get_json(RELEASES_URL)
+        used_releases = list(public_releases)
+        repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+        if repository:
+            used_releases.extend(
+                _get_json(PROJECT_RELEASES_URL.format(repo=repository))
+            )
+        en, zh, url = resolve(
+            _get_json(CATALOG_URL),
+            public_releases,
+            used_releases=used_releases,
+        )
     except Exception as exc:  # noqa: BLE001 - CI must report the real boundary
         print(f"dim-sum code-name resolution failed: {exc}", file=sys.stderr)
         return 1
