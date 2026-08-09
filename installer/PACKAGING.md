@@ -23,3 +23,17 @@ unsigned-artifact warning.
 
 Code signing is intentionally disabled. Users may see an unknown-publisher or
 SmartScreen warning when installing the unsigned artifact.
+
+## Other release lanes
+
+The macOS release lane follows the same unsigned policy. It builds a DMG but
+does not import a certificate, call `codesign`, call `xcrun notarytool`, or
+staple a ticket. This keeps a missing Apple credential from turning into a
+false-green packaging step or a hard failure; the workflow log states that the
+DMG is unsigned.
+
+Wayland pointer locking is an optional Linux runtime enhancement. The base
+package does not require `wayland-lock-pointer`, and `pip install
+amulet-map-editor[wayland]` may be used on a compatible Wayland host. Debian CI
+does not install that optional extra because its desktop build has a safe
+pointer fallback when the extension is unavailable.

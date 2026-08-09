@@ -52,6 +52,18 @@ jobs:
           libegl-mesa0
         pip install https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/wxpython-4.2.5-cp311-cp311-linux_x86_64.whl
 
+    - name: Linux - Optional Wayland pointer support
+      run: |
+        # wayland-lock-pointer is an optional runtime enhancement. The
+        # desktop build remains usable without it (the application falls back
+        # to normal pointer handling), so do not make a Debian release depend
+        # on an unavailable optional wheel.
+        if python -c 'import importlib.util; raise SystemExit(0 if importlib.util.find_spec("wayland_lock_pointer") else 1)'; then
+          echo "Wayland pointer support is already available."
+        else
+          echo "Wayland pointer support is unavailable; continuing with the documented pointer fallback."
+        fi
+
     - name: Setup
       run: |
         export BDISTWHEELFREEZELIBS=true
