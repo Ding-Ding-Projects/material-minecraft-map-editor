@@ -17,7 +17,6 @@ jobs:
       matrix:
         cfg:
           - { os: windows-2025, python-version: '3.11', architecture: x64 }
-          - { os: windows-11-arm, python-version: '3.11', architecture: arm64 }
 
     runs-on: ${{ matrix.cfg.os }}
     defaults:
@@ -33,12 +32,6 @@ jobs:
       with:
         python-version: ${{ matrix.cfg.python-version }}
         architecture: ${{ matrix.cfg.architecture }}
-
-    - name: Setup MSVC
-      if: matrix.cfg.os == 'windows-11-arm'
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: arm64
 
     - name: Install dependencies
       run: |
@@ -63,7 +56,7 @@ jobs:
       run: |
         $raw = '${{ github.event.release.tag_name }}'
         if ([string]::IsNullOrWhiteSpace($raw)) { $raw = '0.10.${{ github.run_number }}' }
-        if ($raw -match '^v?(\d+\.\d+\.\d+)([abrc].*)?$') {
+        if ($raw -match '^v?(\d+\.\d+\.\d+)(?:[-.]?([abrc]\d*(?:[.-].*)?))?$') {
           $version = $Matches[1]
           if ($Matches[2]) { $version += '-' + $Matches[2] }
         } else { $version = '0.10.${{ github.run_number }}' }
