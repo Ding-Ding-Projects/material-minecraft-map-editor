@@ -44,8 +44,16 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         fetch = fetch[
             : fetch.index("- name: Windows - Create unsigned Squirrel.Windows release")
         ]
-        self.assertIn("--pattern 'RELEASES'", fetch)
-        self.assertIn("--releases $releaseIndexes[0].FullName", fetch)
+        self.assertIn("scripts/select_squirrel_delta_candidates.py", fetch)
+        self.assertIn("--channel $env:CURRENT_CHANNEL --limit 8", fetch)
+        self.assertIn("--pattern $asset.name", fetch)
+        self.assertIn("'--releases', $releaseIndex.FullName", fetch)
+        self.assertIn("'--expected-source', $candidateTag", fetch)
+        self.assertIn("assets.Count -gt 32", fetch)
+        self.assertIn("134217728", fetch)
+        self.assertIn("262144", fetch)
+        self.assertIn("package-sha256", fetch)
+        self.assertIn("releases-sha256", fetch)
         self.assertIn("PREVIOUS_PACKAGE=", fetch)
         self.assertIn("PREVIOUS_RELEASES=", fetch)
 
@@ -57,15 +65,34 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         build = build[: build.index("- name: Verify unsigned installer contract")]
         self.assertIn('-PreviousPackagePath "$env:PREVIOUS_PACKAGE"', build)
         self.assertIn('-PreviousReleasesPath "$env:PREVIOUS_RELEASES"', build)
+        self.assertIn(
+            '-PreviousPackageSha256 "$env:PREVIOUS_PACKAGE_SHA256"', build
+        )
+        self.assertIn(
+            '-PreviousReleasesSha256 "$env:PREVIOUS_RELEASES_SHA256"', build
+        )
+        self.assertIn('-PreviousSourceTag "$env:PREVIOUS_SOURCE_TAG"', build)
+        self.assertIn('-PreviousChannel "$env:PREVIOUS_CHANNEL"', build)
 
-    def test_selected_delta_base_requires_current_delta_and_publish_safe_index(self):
+    def test_selected_delta_base_requires_delta_but_feed_remains_full_only(self):
         verify = WORKFLOW[
             WORKFLOW.index("- name: Verify unsigned installer contract") :
         ]
         verify = verify[: verify.index("- name: Publish to PyPi")]
         self.assertIn('"Amulet-$env:BUILD_VERSION-delta.nupkg"', verify)
         self.assertIn("Compare-Object", verify)
-        self.assertIn("publishable current release", verify)
+        self.assertIn("must advertise only the current full package", verify)
+        self.assertNotIn("$expectedReleaseNames +=", verify)
+
+    def test_version_resolution_carries_an_explicit_release_channel(self):
+        resolve = WORKFLOW[
+            WORKFLOW.index("- name: Resolve build version") : WORKFLOW.index(
+                "- name: Fetch previous Squirrel feed for delta"
+            )
+        ]
+        self.assertIn("--json", resolve)
+        self.assertIn("BUILD_CHANNEL=", resolve)
+        self.assertIn("BUILD_SOURCE_TAG=", resolve)
 
     def test_release_notes_explain_line_scope_and_surviving_attribution(self):
         self.assertIn("repository-grand-total", WORKFLOW)

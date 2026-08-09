@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "f95695f7cbadecd3272370a1fa694e9b601ab124",
+  "source_revision": "f814d597bbeb0cf4eadbf74031720511efc95129",
   "entries": [
+    {
+      "version": "0.10.0-dev.422",
+      "released_on": "2026-08-09",
+      "commit_sha": "0954cdb9939836634034d00f9853a1727e8558aa",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Document the exact Material shell capture",
+          "commit_sha": "0954cdb9939836634034d00f9853a1727e8558aa"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.419",
+      "released_on": "2026-08-09",
+      "commit_sha": "b3cbec1c4b1035dd0c2ebdc9a545266f49c257ef",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Repair release evidence and delta seeding / 修好發佈證據同 delta 接力",
+          "commit_sha": "b3cbec1c4b1035dd0c2ebdc9a545266f49c257ef"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.418",
+      "released_on": "2026-08-09",
+      "commit_sha": "b6302c58d54a06fd50ef3b83a5f09eac09b1f84d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Replace startup shell with Material components",
+          "commit_sha": "b6302c58d54a06fd50ef3b83a5f09eac09b1f84d"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.414",
       "released_on": "2026-08-09",

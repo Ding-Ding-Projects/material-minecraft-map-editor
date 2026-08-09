@@ -26,8 +26,9 @@
   full nupkg. Publication timing is measured through GitHub's confirmed publish
   timestamp, push builds validate a prior index/package pair before seeding
   delta generation, and release notes report reproducible line attribution.
-  A selected pair now makes a current delta and a current-only feed mandatory;
-  ⏳ hosted delta publication and end-to-end restart/update proof remain.
+  A selected pair now makes a verified current delta asset mandatory while the
+  client feed remains full-only; ⏳ hosted delta publication and a three-version
+  installed-client update proof remain before advertising delta delivery.
 
 ## Documentation
 

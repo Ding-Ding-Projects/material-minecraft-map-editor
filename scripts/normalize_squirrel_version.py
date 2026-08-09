@@ -10,17 +10,69 @@ CI dev-build shape into the equivalent single token.
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict, dataclass
+import json
 import re
-
 
 _STABLE = re.compile(r"^(?P<core>\d+\.\d+\.\d+)$")
 _DEV_BUILD = re.compile(
     r"^(?P<core>\d+\.\d+\.\d+)-dev[.-]?(?P<run>\d+)$",
     re.IGNORECASE,
 )
-_SINGLE_PRERELEASE = re.compile(
-    r"^(?P<core>\d+\.\d+\.\d+)-(?P<label>[0-9A-Za-z-]+)$"
-)
+_SINGLE_PRERELEASE = re.compile(r"^(?P<core>\d+\.\d+\.\d+)-(?P<label>[0-9A-Za-z-]+)$")
+
+
+@dataclass(frozen=True)
+class SquirrelVersionResolution:
+    version: str
+    channel: str
+    source: str
+
+
+def _resolve_candidate(value: str) -> SquirrelVersionResolution | None:
+    stable = _STABLE.fullmatch(value)
+    if stable:
+        core = stable.group("core")
+        return SquirrelVersionResolution(core, "stable", core)
+
+    dev = _DEV_BUILD.fullmatch(value)
+    if dev:
+        core = dev.group("core")
+        run = dev.group("run")
+        return SquirrelVersionResolution(
+            f"{core}-dev{run}",
+            "automated",
+            f"{core}-dev.{run}",
+        )
+
+    prerelease = _SINGLE_PRERELEASE.fullmatch(value)
+    if prerelease:
+        core = prerelease.group("core")
+        label = prerelease.group("label")
+        family = re.match(r"[A-Za-z-]+", label)
+        channel = "preview-" + (family.group(0).lower() if family else "other")
+        return SquirrelVersionResolution(
+            f"{core}-{label}",
+            channel,
+            f"{core}-{label}",
+        )
+    return None
+
+
+def resolve_squirrel_version(
+    raw: str | None, fallback: str
+) -> SquirrelVersionResolution:
+    """Resolve package version, explicit channel, and canonical source tag."""
+
+    candidate = (raw or "").strip().lstrip("vV")
+    fallback_candidate = fallback.strip().lstrip("vV")
+    resolution = _resolve_candidate(candidate) if candidate else None
+    if resolution is not None:
+        return resolution
+    fallback_resolution = _resolve_candidate(fallback_candidate)
+    if fallback_resolution is not None:
+        return fallback_resolution
+    raise ValueError("fallback must be a Squirrel-compatible major.minor.patch version")
 
 
 def normalize_squirrel_version(raw: str | None, fallback: str) -> str:
@@ -31,40 +83,21 @@ def normalize_squirrel_version(raw: str | None, fallback: str) -> str:
     guessing at a release version.
     """
 
-    candidate = (raw or "").strip().lstrip("vV")
-    fallback_candidate = fallback.strip().lstrip("vV")
-
-    stable = _STABLE.fullmatch(candidate)
-    if stable:
-        return stable.group("core")
-
-    dev = _DEV_BUILD.fullmatch(candidate)
-    if dev:
-        return f"{dev.group('core')}-dev{dev.group('run')}"
-
-    prerelease = _SINGLE_PRERELEASE.fullmatch(candidate)
-    if prerelease:
-        return f"{prerelease.group('core')}-{prerelease.group('label')}"
-
-    fallback_stable = _STABLE.fullmatch(fallback_candidate)
-    if fallback_stable:
-        return fallback_stable.group("core")
-    fallback_dev = _DEV_BUILD.fullmatch(fallback_candidate)
-    if fallback_dev:
-        return f"{fallback_dev.group('core')}-dev{fallback_dev.group('run')}"
-    fallback_prerelease = _SINGLE_PRERELEASE.fullmatch(fallback_candidate)
-    if fallback_prerelease:
-        return f"{fallback_prerelease.group('core')}-{fallback_prerelease.group('label')}"
-
-    raise ValueError("fallback must be a Squirrel-compatible major.minor.patch version")
+    return resolve_squirrel_version(raw, fallback).version
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw", default="", help="release tag or source version")
     parser.add_argument("--fallback", required=True, help="deterministic CI fallback")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="emit version, explicit channel, and canonical source as JSON",
+    )
     args = parser.parse_args()
-    print(normalize_squirrel_version(args.raw, args.fallback))
+    resolution = resolve_squirrel_version(args.raw, args.fallback)
+    print(json.dumps(asdict(resolution)) if args.json else resolution.version)
 
 
 if __name__ == "__main__":

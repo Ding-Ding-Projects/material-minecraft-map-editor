@@ -24,9 +24,12 @@ owner-controlled host are actually verified.
 The Windows workflow now downloads a prior `RELEASES` index and full package as
 one matched pair on pushes and release events. It checks filename, SHA-1, byte
 size, NuGet identity, metadata version, and strict version ordering before
-Squirrel receives a single-row staging feed. A selected pair makes the current
-delta mandatory, while the published index is reduced to verified current full
-and delta entries so it cannot advertise stale inputs. Automatic-release
+Squirrel receives a single-row staging feed. Candidate selection is bounded,
+semantic, and channel-specific; downloaded size and GitHub SHA-256 metadata are
+validated when available. A selected pair makes the current delta mandatory
+and uploads it, while the published index intentionally advertises only the
+verified current full package until a three-version installed-client proof
+supports delta delivery. Automatic-release
 completion still comes from GitHub's post-publication `publishedAt` value.
 These delta changes are local source, fixture, and contract-test claims until
 the integrated SHA completes its hosted release run.

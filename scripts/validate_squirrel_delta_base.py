@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import hashlib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from xml.etree import ElementTree
 import zipfile
@@ -26,6 +26,18 @@ _RELEASE_ENTRY = re.compile(
     r"(?:\s+#\s+(?P<staging>\d{1,3})%)?$"
 )
 _MAX_RELEASES_BYTES = 256 * 1024
+_MAX_PACKAGE_BYTES = 128 * 1024 * 1024
+_MAX_ARCHIVE_MEMBERS = 20_000
+_MAX_ARCHIVE_MEMBER_BYTES = 512 * 1024 * 1024
+_MAX_EXTRACTED_BYTES = 1024 * 1024 * 1024
+_SHA256 = re.compile(r"^(?:sha256:)?(?P<digest>[0-9a-fA-F]{64})$")
+_AUTOMATED_SOURCE = re.compile(
+    r"^v?(?P<core>(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+))"
+    r"-dev[.-]?(?P<run>\d+)$",
+    re.IGNORECASE,
+)
+_STABLE_SOURCE = re.compile(r"^v?(?P<version>\d+\.\d+\.\d+)$")
+_AUTOMATED_PATCH_BASE = 100_000
 
 
 @dataclass(frozen=True)
@@ -143,6 +155,59 @@ def _sha1(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def validate_sha256(path: Path, expected: str | None, label: str) -> None:
+    """Validate an optional GitHub asset digest when the API supplied one."""
+
+    if not expected:
+        return
+    match = _SHA256.fullmatch(expected.strip())
+    if not match:
+        raise ValueError(f"{label} SHA-256 digest metadata is malformed")
+    actual = _sha256(path)
+    if actual != match.group("digest").lower():
+        raise ValueError(
+            f"{label} SHA-256 mismatch: {match.group('digest').lower()} != {actual}"
+        )
+
+
+def validate_source_match(
+    package_version: str, expected_source: str, channel: str
+) -> None:
+    """Bind the downloaded package version to its immutable release tag."""
+
+    if channel == "stable":
+        match = _STABLE_SOURCE.fullmatch(expected_source.strip())
+        allowed = {match.group("version")} if match else set()
+    elif channel == "automated":
+        match = _AUTOMATED_SOURCE.fullmatch(expected_source.strip())
+        if match:
+            run = int(match.group("run"))
+            allowed = {
+                f"{match.group('core')}-dev{run}",
+                (
+                    f"{match.group('major')}.{match.group('minor')}."
+                    f"{_AUTOMATED_PATCH_BASE + run}"
+                ),
+            }
+        else:
+            allowed = set()
+    else:
+        raise ValueError(f"unsupported Squirrel release channel: {channel}")
+    if not allowed or package_version not in allowed:
+        raise ValueError(
+            "delta base package version does not match release source "
+            f"{expected_source!r} on channel {channel}"
+        )
+
+
 def validate_release_pair(releases: Path, package: Path) -> ReleaseEntry:
     """Require one RELEASES entry that exactly describes the local package."""
 
@@ -191,8 +256,47 @@ def validate_delta_base(package: Path, current_version: str) -> str:
             f"delta base {filename_version} is not strictly older than {current_version}"
         )
 
+    package_size = package.stat().st_size
+    if package_size <= 0:
+        raise ValueError("delta base package is empty")
+    if package_size > _MAX_PACKAGE_BYTES:
+        raise ValueError(f"delta base package exceeds {_MAX_PACKAGE_BYTES} bytes")
+
     try:
         with zipfile.ZipFile(package) as archive:
+            members = archive.infolist()
+            if len(members) > _MAX_ARCHIVE_MEMBERS:
+                raise ValueError(
+                    f"delta base archive exceeds {_MAX_ARCHIVE_MEMBERS} members"
+                )
+            extracted_size = 0
+            for member in members:
+                member_path = PurePosixPath(member.filename)
+                if (
+                    not member.filename
+                    or "\\" in member.filename
+                    or member_path.is_absolute()
+                    or ".." in member_path.parts
+                    or re.match(r"^[A-Za-z]:", member.filename)
+                ):
+                    raise ValueError(
+                        f"delta base archive has an unsafe member path: {member.filename}"
+                    )
+                if member.file_size > _MAX_ARCHIVE_MEMBER_BYTES:
+                    raise ValueError(
+                        "delta base archive member exceeds "
+                        f"{_MAX_ARCHIVE_MEMBER_BYTES} bytes: {member.filename}"
+                    )
+                mode = (member.external_attr >> 16) & 0o170000
+                if mode == 0o120000:
+                    raise ValueError(
+                        f"delta base archive contains a symbolic link: {member.filename}"
+                    )
+                extracted_size += member.file_size
+                if extracted_size > _MAX_EXTRACTED_BYTES:
+                    raise ValueError(
+                        f"delta base archive exceeds {_MAX_EXTRACTED_BYTES} extracted bytes"
+                    )
             corrupt = archive.testzip()
             if corrupt:
                 raise ValueError(f"delta base contains a corrupt member: {corrupt}")
@@ -226,6 +330,18 @@ def main() -> None:
     parser.add_argument("--current", required=True, help="normalized current version")
     parser.add_argument("--package", required=True, type=Path)
     parser.add_argument("--releases", required=True, type=Path)
+    parser.add_argument("--expected-source", required=True)
+    parser.add_argument("--channel", choices=("automated", "stable"), required=True)
+    parser.add_argument(
+        "--package-sha256",
+        default="",
+        help="optional sha256:<hex> digest from GitHub asset metadata",
+    )
+    parser.add_argument(
+        "--releases-sha256",
+        default="",
+        help="optional sha256:<hex> digest from GitHub asset metadata",
+    )
     parser.add_argument(
         "--output-releases",
         type=Path,
@@ -234,6 +350,9 @@ def main() -> None:
     args = parser.parse_args()
     try:
         version = validate_delta_base(args.package, args.current)
+        validate_source_match(version, args.expected_source, args.channel)
+        validate_sha256(args.package, args.package_sha256, "delta base package")
+        validate_sha256(args.releases, args.releases_sha256, "delta base RELEASES")
         entry = validate_release_pair(args.releases, args.package)
         if args.output_releases:
             write_single_release_index(entry, args.output_releases)

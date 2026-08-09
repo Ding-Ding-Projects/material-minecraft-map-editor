@@ -12,6 +12,10 @@ param(
     [string] $OutputDirectory = (Join-Path $PSScriptRoot 'dist\squirrel'),
     [string] $PreviousPackagePath = '',
     [string] $PreviousReleasesPath = '',
+    [string] $PreviousPackageSha256 = '',
+    [string] $PreviousReleasesSha256 = '',
+    [string] $PreviousSourceTag = '',
+    [string] $PreviousChannel = '',
     # Keep the bootstrap executable immutable: the NuGet "latest" alias is a
     # moving target and would let a packaging run silently change toolchains.
     [ValidatePattern('^v\d+\.\d+\.\d+$')]
@@ -115,9 +119,15 @@ try {
     if ($hasPreviousPackage -ne $hasPreviousReleases) {
         throw 'PreviousPackagePath and PreviousReleasesPath must be supplied together.'
     }
+    if ($hasPreviousPackage -and
+        ([string]::IsNullOrWhiteSpace($PreviousSourceTag) -or
+         $PreviousChannel -notin @('automated', 'stable'))) {
+        throw 'PreviousSourceTag and a supported PreviousChannel are required with a previous feed pair.'
+    }
     $previousPackageName = $null
     $validatedPreviousPackage = $null
     $validatedPreviousIndex = $null
+    $downloadedPreviousIndex = $null
     if ($hasPreviousPackage) {
         $previous = Get-Item -LiteralPath $PreviousPackagePath -ErrorAction Stop
         if ($previous.Extension -ne '.nupkg' -or $previous.Name -notmatch '-full\.nupkg$') {
@@ -129,16 +139,29 @@ try {
         }
         $previousPackageName = $previous.Name
         $validatedPreviousPackage = Join-Path $scratch $previousPackageName
+        $previousInputRoot = Join-Path $scratch 'previous-input'
+        New-Item -ItemType Directory -Force $previousInputRoot | Out-Null
+        $downloadedPreviousIndex = Join-Path $previousInputRoot 'RELEASES'
         $validatedPreviousIndex = Join-Path $scratch 'previous-RELEASES'
         Copy-Item -LiteralPath $previous.FullName -Destination $validatedPreviousPackage -Force
+        Copy-Item -LiteralPath $previousIndex.FullName -Destination $downloadedPreviousIndex -Force
         $deltaValidator = Join-Path $PSScriptRoot '..\scripts\validate_squirrel_delta_base.py'
-        Invoke-Native 'python' @(
+        $validatorArgs = @(
             $deltaValidator,
             '--current', $Version,
             '--package', $validatedPreviousPackage,
-            '--releases', $previousIndex.FullName,
+            '--releases', $downloadedPreviousIndex,
+            '--expected-source', $PreviousSourceTag,
+            '--channel', $PreviousChannel,
             '--output-releases', $validatedPreviousIndex
         )
+        if (-not [string]::IsNullOrWhiteSpace($PreviousPackageSha256)) {
+            $validatorArgs += @('--package-sha256', $PreviousPackageSha256)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($PreviousReleasesSha256)) {
+            $validatorArgs += @('--releases-sha256', $PreviousReleasesSha256)
+        }
+        Invoke-Native 'python' $validatorArgs
     }
     $nugetUri = "https://dist.nuget.org/win-x86-commandline/$NuGetVersion/nuget.exe"
     Invoke-Native 'curl.exe' @(
@@ -272,16 +295,17 @@ try {
         }
     }
 
-    # Squirrel carries prior rows into its generated feed. Those inputs are
-    # useful for delta construction but are not assets in this release. Emit a
-    # publish-safe index containing only current files that have been verified
-    # against the generated hashes and byte sizes.
+    # Squirrel carries prior rows into its generated feed. Validate the current
+    # full and delta outputs against that generated index, then publish only the
+    # current full package in the client feed. The delta remains a release asset
+    # for controlled compatibility testing, but clients must not select it until
+    # a three-version install/update proof has passed.
     $currentPackageNames = @()
     if ($previousPackageName) {
         $currentPackageNames += "Amulet-$Version-delta.nupkg"
     }
     $currentPackageNames += "Amulet-$Version-full.nupkg"
-    $publishableEntries = @()
+    $validatedEntries = @{}
     foreach ($packageName in $currentPackageNames) {
         $matches = @($entries | Where-Object { $_.Filename -ceq $packageName })
         if ($matches.Count -ne 1) {
@@ -295,8 +319,10 @@ try {
         if ($matches[0].Size -ne $artifact.Length) {
             throw "RELEASES size mismatch for $packageName"
         }
-        $publishableEntries += "$actualSha1 $packageName $($artifact.Length)"
+        $validatedEntries[$packageName] = "$actualSha1 $packageName $($artifact.Length)"
     }
+    $fullPackageName = "Amulet-$Version-full.nupkg"
+    $publishableEntries = @($validatedEntries[$fullPackageName])
     [IO.File]::WriteAllText(
         $releaseIndexPath,
         ($publishableEntries -join "`n"),
@@ -306,8 +332,8 @@ try {
     if ($releaseIndex -notmatch [regex]::Escape("Amulet-$Version-full.nupkg")) {
         throw 'RELEASES does not reference the full package'
     }
-    if ($previousPackageName -and $releaseIndex -notmatch [regex]::Escape("Amulet-$Version-delta.nupkg")) {
-        throw 'RELEASES does not reference the required delta package'
+    if ($releaseIndex -match '-delta\.nupkg') {
+        throw 'RELEASES must remain full-only until the delta update path has three-version client proof'
     }
     if ($previousPackageName -and $releaseIndex -match [regex]::Escape($previousPackageName)) {
         throw 'RELEASES still advertises the unpublished previous full package'

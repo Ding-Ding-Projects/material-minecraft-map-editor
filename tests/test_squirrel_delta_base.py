@@ -4,14 +4,18 @@ import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 import zipfile
 
+from scripts import validate_squirrel_delta_base as delta_validation
 from scripts.validate_squirrel_delta_base import (
     is_strictly_older,
     parse_release_index,
     parse_version,
     validate_delta_base,
     validate_release_pair,
+    validate_sha256,
+    validate_source_match,
     write_single_release_index,
 )
 
@@ -159,6 +163,59 @@ class SquirrelDeltaBaseTests(unittest.TestCase):
             package = Path(directory) / "Amulet-0.10.0-dev414-full.nupkg"
             package.write_bytes(b"not a zip archive")
             with self.assertRaisesRegex(ValueError, "not a valid NuGet package"):
+                validate_delta_base(package, "0.10.0-dev415")
+
+    def test_github_asset_sha256_is_optional_but_exact_when_present(self):
+        with TemporaryDirectory() as directory:
+            package = self._package(Path(directory), "0.10.0-dev414")
+            digest = hashlib.sha256(package.read_bytes()).hexdigest()
+
+            validate_sha256(package, None, "delta base package")
+            validate_sha256(package, f"sha256:{digest}", "delta base package")
+            with self.assertRaisesRegex(ValueError, "metadata is malformed"):
+                validate_sha256(package, "sha256:not-a-digest", "delta base package")
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                validate_sha256(
+                    package,
+                    "sha256:" + ("0" * 64),
+                    "delta base package",
+                )
+
+    def test_release_source_must_match_legacy_or_monotonic_package_version(self):
+        validate_source_match("0.10.0-dev426", "0.10.0-dev.426", "automated")
+        validate_source_match("0.10.100426", "0.10.0-dev.426", "automated")
+        validate_source_match("0.10.76", "0.10.76", "stable")
+        with self.assertRaisesRegex(ValueError, "does not match release source"):
+            validate_source_match("0.10.0-dev424", "0.10.0-dev.426", "automated")
+
+    def test_package_download_size_is_bounded(self):
+        with TemporaryDirectory() as directory:
+            package = self._package(Path(directory), "0.10.0-dev414")
+            with patch.object(
+                delta_validation,
+                "_MAX_PACKAGE_BYTES",
+                package.stat().st_size - 1,
+            ):
+                with self.assertRaisesRegex(ValueError, "package exceeds"):
+                    validate_delta_base(package, "0.10.0-dev415")
+
+    def test_archive_extracted_size_is_bounded(self):
+        with TemporaryDirectory() as directory:
+            package = self._package(Path(directory), "0.10.0-dev414")
+            with patch.object(delta_validation, "_MAX_EXTRACTED_BYTES", 1):
+                with self.assertRaisesRegex(ValueError, "extracted bytes"):
+                    validate_delta_base(package, "0.10.0-dev415")
+
+    def test_archive_member_paths_cannot_escape_staging(self):
+        with TemporaryDirectory() as directory:
+            package = Path(directory) / "Amulet-0.10.0-dev414-full.nupkg"
+            with zipfile.ZipFile(package, "w") as archive:
+                archive.writestr(
+                    "Amulet.nuspec",
+                    NUSPEC.format(package_id="Amulet", version="0.10.0-dev414"),
+                )
+                archive.writestr("../outside.txt", "fixture")
+            with self.assertRaisesRegex(ValueError, "unsafe member path"):
                 validate_delta_base(package, "0.10.0-dev415")
 
 

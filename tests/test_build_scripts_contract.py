@@ -34,9 +34,16 @@ def test_root_build_scripts_are_touchless_and_use_supported_paths():
         in squirrel
     )
     assert "--output-releases" in squirrel
+    assert "--package-sha256" in squirrel and "--releases-sha256" in squirrel
+    assert "--expected-source" in squirrel and "--channel" in squirrel
     assert '"Amulet-$Version-delta.nupkg"' in squirrel
     assert "publishableEntries" in squirrel
     assert "unpublished previous full package" in squirrel
+    assert "$publishableEntries = @($validatedEntries[$fullPackageName])" in squirrel
+    assert "RELEASES must remain full-only" in squirrel
+    smoke = (ROOT / "scripts/smoke_squirrel_delta.ps1").read_text(encoding="utf-8")
+    assert "Amulet-0.10.100427-delta.nupkg" in smoke
+    assert "Expected one full-only RELEASES row" in smoke
     for prohibited in ("signtool", "azuresigntool", "codesign"):
         assert prohibited not in installer.lower()
     bootstrap = (ROOT / "scripts/bootstrap-python.ps1").read_text(encoding="utf-8")

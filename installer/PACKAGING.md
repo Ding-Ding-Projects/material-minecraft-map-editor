@@ -12,22 +12,39 @@ consistently for the package, `RELEASES`, `Setup.exe` directory, and uploaded
 asset names.
 Each architecture produces `Setup.exe`, `RELEASES`, and a full `.nupkg`; delta
 packages are emitted when a prior feed is safely available. Push and manual
-release runs download the prior `RELEASES` and full package together. The pair
+release runs choose the nearest semantically older release within the explicit
+`automated` or `stable` channel, then download its `RELEASES` and full package
+together. The pair
 is accepted only when the index has exactly one matching filename whose SHA-1
 and byte size match the local package, and the NuGet archive has the `Amulet`
 identity, a filename-matched metadata version, and a version strictly older
-than the candidate. `build-squirrel.ps1` receives both paths, revalidates the
-pair, and stages a one-row prior index before releasify. Supplying only half of
-the pair fails closed.
+than the candidate. GitHub asset sizes are checked before and after download,
+and SHA-256 digests are verified when GitHub supplies them.
+`build-squirrel.ps1` receives both paths and digest metadata, revalidates the
+copied pair, and stages a one-row prior index before releasify. Supplying only
+half of the pair fails closed.
 
 After releasify, a selected prior pair makes the current delta mandatory. The
 script verifies the current full and delta hashes and sizes against Squirrel's
-generated entries, removes the prior package input, and rewrites `RELEASES` to
-contain only the current downloadable full and delta assets. An absent,
-corrupt, mismatched, or newer pair is skipped without weakening the first-
-release full-package contract; a selected pair that produces no delta blocks
-packaging. CI also checks every generated executable and DLL with
+generated entries, removes the prior package input, uploads the generated
+delta beside the full package, and rewrites `RELEASES` to contain only the
+current full package. The delta is intentionally not advertised to installed
+clients until a three-version update proof passes. A release without a feed
+pair may be skipped without weakening the first-release full-package contract;
+a selected pair with inconsistent metadata or content, or one that produces no
+delta, blocks packaging. CI also checks every generated executable and DLL with
 `Get-AuthenticodeSignature`, which must report `NotSigned`.
+
+Candidate discovery reads at most 100 releases and eight semantically ordered
+candidates. Each release is limited to 32 assets; `RELEASES` is limited to
+256 KiB and the full package to 128 MiB. Archive validation also limits member
+count, individual and total extracted sizes, and rejects traversal paths and
+symbolic links before Squirrel sees the package.
+
+Run `scripts/smoke_squirrel_delta.ps1` for the disposable two-version fixture.
+It requires a generated delta package and exactly one full-package row in the
+second release's client-facing `RELEASES`, then removes its bounded temporary
+directory.
 
 New automatic releases are assembled as drafts, then published once. The
 workflow reads GitHub's resulting `publishedAt` value before calculating the
