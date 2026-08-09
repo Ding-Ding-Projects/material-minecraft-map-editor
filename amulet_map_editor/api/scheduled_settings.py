@@ -130,6 +130,7 @@ class ScheduleRule:
     end_date: Optional[str] = None
     start_time: str = "00:00"
     end_time: str = "00:00"
+    source: Optional[Mapping[str, Any]] = None
     _start_date_value: Optional[date] = field(init=False, repr=False, compare=False)
     _end_date_value: Optional[date] = field(init=False, repr=False, compare=False)
     _start_time_value: time = field(init=False, repr=False, compare=False)
@@ -173,6 +174,24 @@ class ScheduleRule:
         object.__setattr__(
             self, "_end_time_value", _parse_time(self.end_time, "end_time")
         )
+        # Validate the optional external-source contract lazily to avoid a
+        # module cycle: scheduled_sources validates ScheduledValues from this
+        # module, while this rule only needs its public source shape.
+        from amulet_map_editor.api.scheduled_sources import ScheduleSource
+
+        raw_source = self.source or {"kind": "local", "url": "", "entity_id": "", "refresh_seconds": 300}
+        if not isinstance(raw_source, Mapping):
+            raise ScheduleValidationError("source must be an object")
+        try:
+            source = ScheduleSource(
+                kind=raw_source.get("kind", "local"),
+                url=raw_source.get("url", ""),
+                entity_id=raw_source.get("entity_id", ""),
+                refresh_seconds=raw_source.get("refresh_seconds", 300),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ScheduleValidationError(str(exc)) from exc
+        object.__setattr__(self, "source", source.as_dict())
 
     def matches(self, moment: datetime) -> bool:
         """Return whether *moment*, interpreted in caller-supplied local time, matches."""
@@ -221,6 +240,7 @@ class ScheduleRule:
             "end_date": self.end_date,
             "start_time": self.start_time,
             "end_time": self.end_time,
+            "source": dict(self.source or {}),
             "values": self.values.as_dict(),
         }
 
@@ -238,6 +258,7 @@ class ScheduleRule:
             "end_date",
             "start_time",
             "end_time",
+            "source",
             "values",
         }
         unknown = set(raw) - expected
@@ -262,6 +283,7 @@ class ScheduleRule:
             end_date=raw.get("end_date"),
             start_time=raw.get("start_time", "00:00"),
             end_time=raw.get("end_time", "00:00"),
+            source=raw.get("source"),
         )
 
 

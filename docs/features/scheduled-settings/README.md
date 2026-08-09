@@ -39,7 +39,8 @@ replaced with an empty schedule.
 The local document has schema version `1` and a bounded maximum of 256 rules.
 Each rule has a unique stable identifier, a non-empty label, an enabled state,
 an integer priority from `-10000` through `10000`, weekdays, optional date
-bounds, a local start/end time, and at least one scheduled value.
+bounds, a local start/end time, at least one scheduled value, and a versioned
+source object. Existing profiles migrate to the explicit `local` source.
 
 Readable documents with unknown fields, invalid values, or an unsupported
 version fail validation. This prevents a typo or newer schema from being

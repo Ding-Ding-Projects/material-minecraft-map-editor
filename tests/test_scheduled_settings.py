@@ -56,6 +56,19 @@ class ScheduledSettingsTestCase(unittest.TestCase):
         self.assertEqual(loaded, document)
         self.assertEqual(loaded.as_dict()["version"], 1)
 
+    def test_rule_round_trips_an_external_source_contract(self):
+        rule = self.rule(
+            source={
+                "kind": "home_assistant",
+                "url": "https://ha.example.test",
+                "entity_id": "input_boolean.night",
+                "refresh_seconds": 600,
+            }
+        )
+        restored = self.schedules.ScheduleRule.from_dict(rule.as_dict())
+        self.assertEqual(restored.source["kind"], "home_assistant")
+        self.assertEqual(restored.source["refresh_seconds"], 600)
+
     def test_higher_priority_and_later_order_win_per_setting(self):
         document = self.schedules.ScheduleDocument(
             rules=(
