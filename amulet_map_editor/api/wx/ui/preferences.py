@@ -53,6 +53,10 @@ class PreferencesDialog(wx.Dialog):
         self._build_appearance_tab()
         self._build_schedule_tab()
         self._build_search_tab()
+        if self._school.enabled:
+            # School mode keeps its own control discoverable, but removes the
+            # language/funny controls that are intentionally not applicable.
+            self._tabs.RemovePage(self._tabs.GetPageIndex(self._language_page))
         root.Add(self._tabs, 1, wx.EXPAND | wx.ALL, 12)
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
         reset = wx.Button(self, label="Reset to shipped values")
@@ -135,6 +139,7 @@ class PreferencesDialog(wx.Dialog):
         grid.Add(self.dialog_emojis, 1, wx.EXPAND)
         page.SetSizer(wx.BoxSizer(wx.VERTICAL))
         page.GetSizer().Add(grid, 0, wx.EXPAND | wx.ALL, 18)
+        self._language_page = page
         self._tabs.AddPage(page, "Language", True)
 
     def _build_appearance_tab(self) -> None:
@@ -184,6 +189,14 @@ class PreferencesDialog(wx.Dialog):
         school_row.Add(self.school_name, 1, wx.EXPAND | wx.RIGHT, 8)
         school_row.Add(self.school_enabled, 0, wx.ALIGN_CENTER_VERTICAL)
         grid.Add(school_row, 1, wx.EXPAND)
+        if self._school.enabled:
+            active = wx.StaticText(
+                page,
+                label="School mode is active: English-only serious presentation is enforced.",
+            )
+            active.SetName("School mode active status")
+            grid.AddSpacer(1)
+            grid.Add(active, 1, wx.EXPAND)
         grid.Add(
             _label(
                 page,
