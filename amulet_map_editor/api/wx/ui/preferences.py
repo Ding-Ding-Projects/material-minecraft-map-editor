@@ -38,6 +38,18 @@ def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
     return control
 
 
+def _chrome_copy(key: str, mode: str) -> str:
+    """Compose command/changelog chrome from the persisted language resources."""
+
+    english = lang.get(f"preferences.en.{key}")
+    cantonese = lang.get(f"preferences.zh.{key}")
+    if mode == "cantonese":
+        return cantonese
+    if mode == "bilingual":
+        return f"{english} · {cantonese}"
+    return english
+
+
 class PreferencesDialog(wx.Dialog):
     """Tabbed settings dialog with language, funny-level, and appearance controls."""
 
@@ -1429,12 +1441,21 @@ class CommandPaletteDialog(wx.Dialog):
     def __init__(
         self, parent: wx.Window, commands: Iterable[Tuple[str, Callable[[], None]]]
     ):
-        super().__init__(parent, title="Command palette", size=wx.Size(560, 420))
+        self._language_mode = preferences.load().language_mode
+        super().__init__(
+            parent,
+            title=_chrome_copy("command_palette_title", self._language_mode),
+            size=wx.Size(560, 420),
+        )
         self._commands: List[Tuple[str, Callable[[], None]]] = list(commands)
         root = wx.BoxSizer(wx.VERTICAL)
         self.query = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
-        self.query.SetHint("Search commands and destinations")
-        self.regex = wx.CheckBox(self, label="Regex")
+        self.query.SetHint(
+            _chrome_copy("command_palette_search", self._language_mode)
+        )
+        self.regex = wx.CheckBox(
+            self, label=_chrome_copy("regex", self._language_mode)
+        )
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self.query, 1, wx.EXPAND | wx.RIGHT, 8)
         row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)

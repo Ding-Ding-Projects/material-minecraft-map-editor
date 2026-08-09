@@ -46,6 +46,24 @@ class DocumentationUiContractTestCase(unittest.TestCase):
         ):
             self.assertIn(marker, UI if "documentation." not in marker else UI + (ROOT / "amulet_map_editor/lang/en.lang").read_text(encoding="utf-8"))
 
+    def test_command_palette_chrome_uses_the_same_language_mode_contract(self):
+        preferences_ui = (ROOT / "amulet_map_editor/api/wx/ui/preferences.py").read_text(
+            encoding="utf-8"
+        )
+        for marker in (
+            "preferences.load().language_mode",
+            "_chrome_copy(\"command_palette_title\", self._language_mode)",
+            "preferences.en.command_palette_title",
+            "preferences.zh.command_palette_title",
+        ):
+            self.assertIn(
+                marker,
+                preferences_ui
+                + (ROOT / "amulet_map_editor/lang/en.lang").read_text(
+                    encoding="utf-8"
+                ),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
