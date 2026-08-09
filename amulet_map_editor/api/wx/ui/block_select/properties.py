@@ -11,6 +11,18 @@ from amulet.api.block import PropertyDataTypes, PropertyType
 WildcardSNBTType = Union[SNBTType, str]
 
 from amulet_map_editor.api.image import ADD_ICON, SUBTRACT_ICON
+from amulet_map_editor.api import lang, preferences
+from amulet_map_editor.api.wx.material3 import apply_material3
+
+
+def _copy(key: str, mode: str) -> str:
+    english = lang.get(f"properties.en.{key}")
+    cantonese = lang.get(f"properties.zh.{key}")
+    if mode == "cantonese":
+        return cantonese
+    if mode == "bilingual":
+        return f"{english} · {cantonese}"
+    return english
 
 (
     PropertiesChangeEvent,
@@ -32,6 +44,7 @@ class PropertySelect(wx.Panel):
         wildcard_mode=False,
     ):
         super().__init__(parent, style=wx.BORDER_SIMPLE)
+        self._language_mode = preferences.load().language_mode
         self._parent = weakref.ref(parent)
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)
@@ -56,6 +69,7 @@ class PropertySelect(wx.Panel):
             (platform, version_number, force_blockstate, namespace, block_name)
         )
         self.set_properties(properties)
+        apply_material3(self)
 
     @property
     def parent(self) -> wx.Window:
@@ -170,16 +184,23 @@ class SimplePropertySelect(wx.Panel):
         wildcard_mode,
     ):
         super().__init__(parent)
+        self._language_mode = preferences.load().language_mode
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)
         self._translation_manager = translation_manager
 
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(header_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 5)
-        label = wx.StaticText(self, label="Property Name", style=wx.ALIGN_CENTER)
+        label = wx.StaticText(
+            self,
+            label=_copy("name", self._language_mode),
+            style=wx.ALIGN_CENTER,
+        )
         header_sizer.Add(label, 1)
         label = wx.StaticText(
-            self, label="Property Value (SNBT)", style=wx.ALIGN_CENTER
+            self,
+            label=_copy("value", self._language_mode),
+            style=wx.ALIGN_CENTER,
         )
         header_sizer.Add(label, 1, wx.LEFT, 5)
         self._property_sizer = wx.GridSizer(2, 5, 5)
@@ -188,6 +209,7 @@ class SimplePropertySelect(wx.Panel):
         self._properties: Dict[str, wx.Choice] = {}
         self._specification: dict = {}
         self._wildcard_mode = wildcard_mode
+        apply_material3(self)
 
     def set_specification(self, specification: dict):
         self._specification = specification
@@ -245,6 +267,7 @@ class ManualPropertySelect(wx.Panel):
         self, parent: wx.Window, translation_manager: PyMCTranslate.TranslationManager
     ):
         super().__init__(parent)
+        self._language_mode = preferences.load().language_mode
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)
         self._translation_manager = translation_manager
@@ -255,10 +278,16 @@ class ManualPropertySelect(wx.Panel):
         )
         header_sizer.Add(add_button)
         sizer.Add(header_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 5)
-        label = wx.StaticText(self, label="Property Name", style=wx.ALIGN_CENTER)
+        label = wx.StaticText(
+            self,
+            label=_copy("name", self._language_mode),
+            style=wx.ALIGN_CENTER,
+        )
         header_sizer.Add(label, 1, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 5)
         label = wx.StaticText(
-            self, label="Property Value (SNBT)", style=wx.ALIGN_CENTER
+            self,
+            label=_copy("value", self._language_mode),
+            style=wx.ALIGN_CENTER,
         )
         header_sizer.Add(label, 1, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 5)
         header_sizer.AddStretchSpacer(1)
@@ -272,6 +301,7 @@ class ManualPropertySelect(wx.Panel):
 
         self._property_index = 0
         self._properties: Dict[int, Tuple[wx.TextCtrl, wx.TextCtrl]] = {}
+        apply_material3(self)
 
     def _post_property_change(self):
         wx.PostEvent(
@@ -315,14 +345,18 @@ class ManualPropertySelect(wx.Panel):
         try:
             nbt = amulet_nbt.from_snbt(snbt)
         except:
-            snbt_text.SetLabel("Invalid SNBT")
+            snbt_text.SetLabel(_copy("invalid", self._language_mode))
             snbt_text.SetBackgroundColour((255, 200, 200))
         else:
             if isinstance(nbt, PropertyDataTypes):
                 snbt_text.SetLabel(nbt.to_snbt())
                 snbt_text.SetBackgroundColour(wx.NullColour)
             else:
-                snbt_text.SetLabel(f"{nbt.__class__.__name__} not valid")
+                snbt_text.SetLabel(
+                    _copy("not_valid", self._language_mode).format(
+                        type_name=nbt.__class__.__name__
+                    )
+                )
                 snbt_text.SetBackgroundColour((255, 200, 200))
         self.Layout()
 
