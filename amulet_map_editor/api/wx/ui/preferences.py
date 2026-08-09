@@ -7,6 +7,7 @@ typography are sourced from one persisted :mod:`api.preferences` record.
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional, Tuple
 import re
@@ -14,7 +15,7 @@ import uuid
 
 import wx
 
-from amulet_map_editor.api import appearance_presets, preferences
+from amulet_map_editor.api import appearance_presets, changelog, preferences
 from amulet_map_editor.api import lang
 from amulet_map_editor.api import scheduled_settings as schedules
 from amulet_map_editor.api.regex_builder import RegexBuilder
@@ -1018,3 +1019,103 @@ class CommandPaletteDialog(wx.Dialog):
                 self.EndModal(wx.ID_OK)
                 callback()
                 return
+
+
+class ChangelogDialog(wx.Dialog):
+    """Offline changelog browser with composable text and date filters."""
+
+    def __init__(self, parent: wx.Window):
+        super().__init__(parent, title="Changelog", size=wx.Size(700, 520))
+        self._catalog = changelog.load_bundled_catalog()
+        root = wx.BoxSizer(wx.VERTICAL)
+        filters = wx.FlexGridSizer(0, 2, 8, 10)
+        filters.AddGrowableCol(1, 1)
+        filters.Add(wx.StaticText(self, label="Search releases and changes"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.query = wx.TextCtrl(self)
+        self.query.SetHint("Plain text search; use Regex for an explicit pattern")
+        filters.Add(self.query, 1, wx.EXPAND)
+        filters.Add(wx.StaticText(self, label="Start date (ISO)"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.start_date = wx.TextCtrl(self)
+        self.start_date.SetHint("YYYY-MM-DD")
+        filters.Add(self.start_date, 1, wx.EXPAND)
+        filters.Add(wx.StaticText(self, label="End date (ISO)"), 0, wx.ALIGN_CENTER_VERTICAL)
+        self.end_date = wx.TextCtrl(self)
+        self.end_date.SetHint("YYYY-MM-DD")
+        filters.Add(self.end_date, 1, wx.EXPAND)
+        self.regex = wx.CheckBox(self, label="Regex")
+        filters.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.feedback = wx.StaticText(self, label="")
+        self.feedback.Wrap(560)
+        filters.Add(self.feedback, 1, wx.EXPAND)
+        root.Add(filters, 0, wx.EXPAND | wx.ALL, 12)
+        self.results = wx.ListBox(self)
+        self.results.SetMinSize(wx.Size(-1, 260))
+        root.Add(self.results, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
+        actions = wx.BoxSizer(wx.HORIZONTAL)
+        export = wx.Button(self, label="Export filtered Markdown")
+        export.Bind(wx.EVT_BUTTON, self._export)
+        actions.Add(export, 0, wx.RIGHT, 8)
+        close = wx.Button(self, id=wx.ID_CLOSE, label="Close")
+        close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL))
+        actions.Add(close)
+        root.Add(actions, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
+        self.SetSizer(root)
+        for control in (self.query, self.start_date, self.end_date):
+            control.Bind(wx.EVT_TEXT, lambda _event: self._refresh())
+        self.regex.Bind(wx.EVT_CHECKBOX, lambda _event: self._refresh())
+        self._refresh()
+
+    def _parse_date(self, control: wx.TextCtrl) -> Optional[date]:
+        value = control.GetValue().strip()
+        return date.fromisoformat(value) if value else None
+
+    def _filtered(self) -> changelog.ChangelogCatalog:
+        query = changelog.ChangelogQuery(
+            start_date=self._parse_date(self.start_date),
+            end_date=self._parse_date(self.end_date),
+            text=self.query.GetValue()[:4096],
+        )
+        matcher = None
+        if self.regex.GetValue():
+            builder = RegexBuilder(query.text, regex_enabled=True)
+            matcher = lambda value: bool(builder.search([value]))
+        return changelog.filter_changelog(self._catalog, query, text_matcher=matcher)
+
+    def _refresh(self) -> None:
+        try:
+            filtered = self._filtered()
+        except (ValueError, changelog.ChangelogValidationError, re.error) as exc:
+            self.feedback.SetLabel(f"Invalid filter: {exc}")
+            self.results.Set([])
+            return
+        self.feedback.SetLabel(f"{len(filtered.entries)} release entries match")
+        rows = [
+            f"{entry.version} — {entry.released_on.isoformat()} — {entry.changes[0].summary}"
+            for entry in filtered.entries
+        ]
+        self.results.Set(rows)
+        if rows:
+            self.results.SetSelection(0)
+
+    def _export(self, _event: wx.Event) -> None:
+        try:
+            payload = changelog.export_markdown(self._filtered())
+        except (ValueError, changelog.ChangelogValidationError, re.error) as exc:
+            self.feedback.SetLabel(f"Invalid filter: {exc}")
+            return
+        with wx.FileDialog(
+            self,
+            "Export filtered changelog",
+            defaultFile="changelog.md",
+            wildcard="Markdown files (*.md)|*.md",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            path = Path(dialog.GetPath())
+        try:
+            path.write_text(payload, encoding="utf-8", newline="\n")
+        except OSError as exc:
+            self.feedback.SetLabel(f"Could not export changelog: {exc}")
+            return
+        self.feedback.SetLabel(f"Exported filtered changelog to {path}")

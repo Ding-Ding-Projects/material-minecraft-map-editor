@@ -20,6 +20,7 @@ from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.preferences import (
     PreferencesDialog,
     CommandPaletteDialog,
+    ChangelogDialog,
 )
 from .squirrel_update import check_for_update, SquirrelUpdateState
 
@@ -117,6 +118,7 @@ class AmuletUI(wx.Frame):
         menu_dict.setdefault("View", {}).setdefault("application", {}).update(
             {
                 "Preferences…": self._open_preferences,
+                "Changelog…": self._open_changelog,
                 "Command palette\tCtrl+Shift+F": self._open_command_palette,
                 "Check for updates": self._check_for_updates_async,
             }
@@ -167,11 +169,19 @@ class AmuletUI(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def _open_changelog(self, _event=None) -> None:
+        dialog = ChangelogDialog(self)
+        dialog.CentreOnParent()
+        dialog.ShowModal()
+        dialog.Destroy()
+
     def _open_command_palette(self, _event=None) -> None:
         page = self._level_notebook.GetCurrentPage()
         commands = [
             ("Open world", lambda: open_level_from_dialog(self)),
             ("Preferences…", self._open_preferences),
+            ("Changelog…", self._open_changelog),
+            ("Check for updates", self._check_for_updates_async),
         ]
         if hasattr(page, "path"):
             commands.append(("Close current tab", lambda: self.close_level(page.path)))
