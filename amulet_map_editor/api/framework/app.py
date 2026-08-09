@@ -119,6 +119,11 @@ class AmuletApp(wx.App):
         window = event.GetWindow()
         if window is not None and not getattr(window, "_material3_opt_out", False):
             wx.CallAfter(apply_material3, window)
+            # Dialog/frame constructors frequently install their sizer after
+            # EVT_WINDOW_CREATE. Retry once after layout construction so the
+            # shared title bar and role tokens cannot miss a lazily-built
+            # surface while remaining idempotent.
+            wx.CallLater(100, apply_material3, window)
         event.Skip()
 
     def InitLocale(self):
