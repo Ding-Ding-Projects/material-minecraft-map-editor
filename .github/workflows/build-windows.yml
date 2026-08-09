@@ -83,7 +83,6 @@ jobs:
         "build_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     - name: Fetch previous full package for delta
-      if: github.event_name == 'release'
       shell: pwsh
       env:
         GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
@@ -92,31 +91,43 @@ jobs:
       run: |
         $destination = Join-Path $PWD 'installer\dist\squirrel\previous'
         New-Item -ItemType Directory -Force $destination | Out-Null
-        $candidate = $null
+        $candidates = @()
         try {
-          $releases = gh release list --repo $env:GITHUB_REPOSITORY --limit 50 --json tagName,isDraft,isPrerelease,publishedAt | ConvertFrom-Json
-          $candidate = $releases |
+          $releaseJson = & gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName,isDraft,isPrerelease,publishedAt
+          if ($LASTEXITCODE -ne 0) { throw "gh release list failed with exit code $LASTEXITCODE" }
+          $releases = $releaseJson | ConvertFrom-Json
+          $candidates = @($releases |
             Where-Object { -not $_.isDraft -and $_.tagName -ne $env:CURRENT_RELEASE_TAG } |
-            Sort-Object publishedAt -Descending |
-            Select-Object -First 1
+            Sort-Object publishedAt -Descending)
         } catch {
           Write-Warning "Could not enumerate prior releases; delta generation will be skipped: $($_.Exception.Message)"
         }
-        if ($candidate) {
+        $selected = $null
+        :releaseSearch foreach ($candidate in $candidates) {
+          $candidateDirectory = Join-Path $destination ([guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Force $candidateDirectory | Out-Null
           try {
-            gh release download $candidate.tagName --repo $env:GITHUB_REPOSITORY --pattern '*-full.nupkg' --dir $destination --clobber
-            $package = Get-ChildItem $destination -File -Filter '*-full.nupkg' | Select-Object -First 1
-            if ($package) {
-              "PREVIOUS_PACKAGE=$($package.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-              Write-Host "Previous full package selected for delta: $($package.Name)"
-            } else {
-              Write-Warning "Release $($candidate.tagName) had no full package; delta generation will be skipped."
-              "PREVIOUS_PACKAGE=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            & gh release download $candidate.tagName --repo $env:GITHUB_REPOSITORY --pattern 'Amulet-*-full.nupkg' --dir $candidateDirectory --clobber
+            if ($LASTEXITCODE -ne 0) { throw "gh release download failed with exit code $LASTEXITCODE" }
+            $packages = @(Get-ChildItem $candidateDirectory -File -Filter 'Amulet-*-full.nupkg')
+            if (-not $packages) {
+              Write-Warning "Release $($candidate.tagName) had no full package; this candidate was skipped."
+            }
+            foreach ($package in $packages) {
+              $validation = & python scripts/validate_squirrel_delta_base.py --current $env:CURRENT_VERSION --package $package.FullName 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                $selected = $package
+                Write-Host "Previous full package selected for delta: $($package.Name) ($validation)"
+                break releaseSearch
+              }
+              Write-Warning "Skipping unsafe delta base from $($candidate.tagName): $validation"
             }
           } catch {
-            Write-Warning "Could not download a prior full package; delta generation will be skipped: $($_.Exception.Message)"
-            "PREVIOUS_PACKAGE=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Warning "Could not inspect release $($candidate.tagName) for a delta base: $($_.Exception.Message)"
           }
+        }
+        if ($selected) {
+          "PREVIOUS_PACKAGE=$($selected.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         } else {
           Write-Host 'No prior release available; this is a full-only first release.'
           "PREVIOUS_PACKAGE=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -182,6 +193,10 @@ jobs:
     steps:
       - name: Checkout release commit
         uses: actions/checkout@v4
+        with:
+          # Surviving-line attribution needs the historical commits and blobs
+          # that own the checked-out lines; a depth-one clone cannot prove it.
+          fetch-depth: 0
       - name: Download x64 Squirrel artifacts
         uses: actions/download-artifact@v4
         with:
@@ -212,10 +227,8 @@ jobs:
           # Both event data and the fallback stay in environment variables;
           # the helper validates them before the value reaches the release API.
           tag="$(python3 scripts/normalize_release_tag.py)"
-          completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           started="$(gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name | startswith("deploy")) | .started_at' | sed -n '1p')"
           test -n "$started" || { echo 'Could not resolve the deploy job start time for release timing notes'; exit 1; }
-          duration="$(STARTED="$started" python3 -c 'from datetime import datetime,timezone; import os; s=datetime.fromisoformat(os.environ["STARTED"].replace("Z","+00:00")); n=datetime.now(timezone.utc); elapsed=max(0,int((n-s).total_seconds())); print(f"{elapsed//3600:02d}:{(elapsed%3600)//60:02d}:{elapsed%60:02d}")')"
           line_table="$(python3 scripts/count_lines.py)"
           while IFS='=' read -r key value; do
             case "$key" in
@@ -226,17 +239,26 @@ jobs:
           test -n "${DIM_SUM_CODE_NAME:-}" || { echo 'Dim-sum code name was not resolved'; exit 1; }
           test -n "${DIM_SUM_PHOTO_URL:-}" || { echo 'Dim-sum public photo URL was not resolved'; exit 1; }
           notes_file="$(mktemp)"
-          {
-            printf '%s\n' '<!-- amulet-auto-release -->'
-            printf '%s\n' "Unsigned Squirrel.Windows release. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
-            printf '%s\n' "Workflow started: $started"
-            printf '%s\n' "Workflow completed: $completed"
-            printf '%s\n\n' "Workflow duration: $duration"
-            printf '%s\n\n' "Line count (CI, scripts/count_lines.py):"
-            printf '%s\n\n' "$line_table"
-            printf '%s\n' "Dim-sum code name: $DIM_SUM_CODE_NAME"
-            printf '%s\n' "Dim-sum public photo: $DIM_SUM_PHOTO_URL"
-          } > "$notes_file"
+          trap 'rm -f "$notes_file"' EXIT
+          write_notes() {
+            local completed="$1"
+            local duration="$2"
+            {
+              printf '%s\n' '<!-- amulet-auto-release -->'
+              printf '%s\n' "Unsigned Squirrel.Windows release. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
+              printf '%s\n' "Workflow started: $started"
+              printf '%s\n' "Workflow completed: $completed"
+              printf '%s\n\n' "Workflow duration: $duration"
+              printf '%s\n' "Line count and surviving attribution (CI, scripts/count_lines.py):"
+              printf '%s\n' '```csv'
+              printf '%s\n' "$line_table"
+              printf '%s\n\n' '```'
+              printf '%s\n' "Generated text and deliberately excluded text are separate rows; repository-grand-total is every tracked line-oriented text file counted. Binary assets are not line-counted."
+              printf '%s\n' "Agent attribution uses surviving git-blame lines whose commit author or Co-Authored-By trailer identifies an automation agent; person and unattributed lines are reported separately."
+              printf '%s\n' "Dim-sum code name: $DIM_SUM_CODE_NAME"
+              printf '%s\n' "Dim-sum public photo: $DIM_SUM_PHOTO_URL"
+            } > "$notes_file"
+          }
           upload_paths=("release-assets/Setup.exe" "release-assets/RELEASES" "release-assets/$nupkg_name")
           while IFS= read -r path; do
             case "$(basename -- "$path")" in
@@ -254,11 +276,31 @@ jobs:
               done
             done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
             gh release upload "$tag" "${upload_paths[@]}" --repo "$GITHUB_REPOSITORY"
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
+            # A manually published release already exists.  Its workflow
+            # completion is the point at which this run finishes attaching
+            # the verified assets, not a timestamp sampled before the upload.
+            completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           else
+            # Keep the marker in draft notes so the published event generated
+            # below cannot start a duplicate packaging run.  Timing stays
+            # explicitly pending until GitHub confirms actual publication.
+            write_notes 'publication-pending' 'publication-pending'
             gh release create "$tag" "${upload_paths[@]}" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Amulet Map Editor $tag" \
               --notes-file "$notes_file" \
-              --target "$RUN_SHA"
+              --target "$RUN_SHA" \
+              --draft
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
+            completed="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq '.publishedAt')"
+            test -n "$completed" || { echo 'GitHub did not report a publication completion timestamp'; exit 1; }
           fi
+          duration="$(python3 scripts/release_timing.py --started "$started" --completed "$completed")"
+          write_notes "$completed" "$duration"
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
+
+          is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+          test "$is_draft" = 'false' || { echo 'Release remained a draft after publication'; exit 1; }
+          final_body="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')"
+          grep -Fqx "Workflow completed: $completed" <<< "$final_body"
+          grep -Fqx "Workflow duration: $duration" <<< "$final_body"

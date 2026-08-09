@@ -16,6 +16,16 @@ explicit follow-ups. The site is
 source-complete but has no claimed public URL until an owner-controlled host is
 actually configured.
 
+## Release contract repair
+
+The Windows workflow now searches safe prior full packages on pushes as well as
+release events, validates delta bases before Squirrel receives them, and derives
+automatic-release completion from GitHub's post-publication `publishedAt`
+value. `scripts/count_lines.py` reports explicit generated and excluded rows,
+project and repository totals, and internally checked surviving agent/person/
+unattributed attribution. These are local source and contract-test claims until
+the integration SHA completes its hosted release run.
+
 ## Offline documentation browser
 
 The offline-docs integration commit adds a deterministic bundle generated from every

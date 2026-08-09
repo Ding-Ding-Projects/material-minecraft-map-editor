@@ -21,7 +21,10 @@
   full nupkg, and Authenticode `NotSigned` checks.
 - ✅ Bounded startup/manual update check with an unsigned status-bar state.
 - ✅ Hosted release publication produces unsigned Setup.exe, RELEASES, and the
-  full nupkg; ⏳ end-to-end restart/update proof remains.
+  full nupkg. Publication timing is measured through GitHub's confirmed publish
+  timestamp, push builds safely seed delta generation when an older full
+  package exists, and release notes report reproducible line attribution;
+  ⏳ end-to-end restart/update proof remains.
 
 ## Documentation
 

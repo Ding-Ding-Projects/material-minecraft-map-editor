@@ -15,6 +15,7 @@ and verification evidence.
 - [Notification centre](notification-centre/README.md)
 - [Offline documentation](offline-documentation/README.md)
 - [Release code name](release-code-name/README.md)
+- [Release delivery contract](release-delivery/README.md)
 - [Scheduled settings](scheduled-settings/README.md)
 - [School mode](school-mode/README.md)
 - [Tab groups](tab-groups/README.md)
