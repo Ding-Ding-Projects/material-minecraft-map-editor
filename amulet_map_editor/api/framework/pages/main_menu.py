@@ -7,6 +7,7 @@ import wx.lib.inspection
 
 from amulet_map_editor.api import image, lang
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from .base_page import BasePageUI
 from amulet_map_editor.api.wx.ui.select_world import open_level_from_dialog
 from ._legal import LicenceDialog
@@ -106,11 +107,11 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         self._discord_button.SetToolTip(lang.get("app.browser_open_tooltip"))
         self._licence_button.SetToolTip(lang.get("main_menu.licence_tooltip"))
 
-    @staticmethod
-    def _documentation(_):
-        webbrowser.open(
-            "https://github.com/Amulet-Team/Amulet-Map-Editor/blob/master/amulet_map_editor/readme.md"
-        )
+    def _documentation(self, _event):
+        # Keep the user manual available offline and inside the app's own M3 UI.
+        with DocumentationDialog(self) as dialog:
+            dialog.CentreOnParent()
+            dialog.ShowModal()
 
     @staticmethod
     def _bugs(_):

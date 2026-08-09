@@ -118,6 +118,15 @@ def test_main_menu_has_no_unsolicited_sponsor_promotion_and_styles_legal_surface
     assert "apply_material3(self)" in legal
 
 
+def test_main_menu_user_manual_uses_the_bundled_offline_documentation_browser():
+    source = (ROOT / "amulet_map_editor/api/framework/pages/main_menu.py").read_text(
+        encoding="utf-8"
+    )
+    assert "from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog" in source
+    assert "with DocumentationDialog(self) as dialog:" in source
+    assert "github.com/Amulet-Team/Amulet-Map-Editor/blob/master/amulet_map_editor/readme.md" not in source
+
+
 def test_nonblocking_bridge_normalises_multiline_exception_text():
     bridge = (ROOT / "amulet_map_editor/api/wx/nonblocking.py").read_text(
         encoding="utf-8"
