@@ -5,7 +5,7 @@ import wx
 import wx.adv
 import wx.lib.inspection
 
-from amulet_map_editor.api import image, lang
+from amulet_map_editor.api import image, lang, preferences
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from .base_page import BasePageUI
@@ -97,7 +97,7 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         self._load_strings()
 
     def _load_strings(self):
-        self._amulet_name.SetLabel(lang.get("meta.amulet"))
+        self._amulet_name.SetLabel(preferences.load().display_name)
         self._open_world_button.SetLabel(lang.get("main_menu.open_world"))
         self._user_manual_button.SetLabel(lang.get("main_menu.user_manual"))
         self._user_manual_button.SetToolTip(lang.get("app.browser_open_tooltip"))
