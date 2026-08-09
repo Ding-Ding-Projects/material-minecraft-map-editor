@@ -24,9 +24,9 @@ class TracebackDialog(wx.Dialog):
         **kwargs,
     ):
         self._language_mode = preferences.load().language_mode
-        kwargs["style"] = (
-            kwargs.get("style", 0) | wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
-        )
+        # The shared M3 helper owns the title bar; do not paint a native
+        # caption before the error surface is styled.
+        kwargs["style"] = kwargs.get("style", 0) | wx.NO_BORDER | wx.RESIZE_BORDER
         wx.Dialog.__init__(self, parent, **kwargs)
         self.SetTitle(title)
 
