@@ -158,9 +158,10 @@ mockups and not a claim that the M3 migration is visually complete.
 
 <table>
   <tr>
-    <td width="33%"><img src="resource/img/preferences-runtime-baseline-20260809.png" alt="Current Amulet Preferences Language tab captured from the real wxPython app"><br><strong>Current Preferences · Language tab.</strong></td>
-    <td width="33%"><img src="resource/img/preferences-appearance-runtime-baseline-20260809.png" alt="Current Amulet Preferences Appearance tab captured from the real wxPython app"><br><strong>Current Preferences · Appearance tab.</strong></td>
-    <td width="33%"><img src="resource/img/notification-history-runtime-baseline-20260809.png" alt="Current Amulet notification history with real notification rows"><br><strong>Current notification history.</strong></td>
+    <td width="25%"><img src="resource/img/preferences-runtime-baseline-20260809.png" alt="Current Amulet Preferences Language tab captured from the real wxPython app"><br><strong>Current Preferences · Language tab.</strong></td>
+    <td width="25%"><img src="resource/img/preferences-appearance-runtime-baseline-20260809.png" alt="Current Amulet Preferences Appearance tab captured from the real wxPython app"><br><strong>Current Preferences · Appearance tab.</strong></td>
+    <td width="25%"><img src="resource/img/notification-history-runtime-baseline-20260809.png" alt="Current Amulet notification history with real notification rows"><br><strong>Current notification history.</strong></td>
+    <td width="25%"><img src="resource/img/main-frame-runtime-baseline-20260809.png" alt="Current Amulet main frame with custom borderless Material title bar captured from the real wxPython app"><br><strong>Current main frame · custom title bar.</strong></td>
   </tr>
 </table>
 
@@ -191,6 +192,7 @@ title inside the capture identifies the runtime as `0.10.47`.
 | `preferences-runtime-baseline-20260809.png` | 930×720 | Captured 2026-08-09 from commit `d62ae152` on a hidden desktop | Real current Preferences Language tab; native wx chrome remains a pre-M3 baseline. |
 | `preferences-appearance-runtime-baseline-20260809.png` | 930×720 | Captured 2026-08-09 from commit `d62ae152` on a hidden desktop | Real current Appearance tab; lower preset controls require scrolling. |
 | `notification-history-runtime-baseline-20260809.png` | 1140×780 | Captured 2026-08-09 from commit `d62ae152` on a hidden desktop | Real current notification history with populated rows; column sizing is being corrected. |
+| `main-frame-runtime-baseline-20260809.png` | 1500×930 | Captured 2026-08-09 from commit `d7bd3875` on a hidden desktop | Real current AmuletUI with custom borderless title bar and window controls; M3 migration remains in progress. |
 
 The repository does not currently contain an automated desktop screenshot
 harness. These captures are therefore documentation artifacts, not a
