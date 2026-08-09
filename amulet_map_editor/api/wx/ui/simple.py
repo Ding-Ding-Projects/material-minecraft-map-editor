@@ -71,6 +71,7 @@ class SimpleChoice(wx.Choice):
         default: Optional[str] = None,
     ):
         super().__init__(parent, choices=choices)
+        apply_material3(self)
         if choices:
             if default is not None and default in choices:
                 self.SetSelection(choices.index(default))
@@ -89,6 +90,7 @@ class SimpleChoiceAny(wx.Choice):
 
     def __init__(self, parent: wx.Window, sort=True, reverse=False):
         super().__init__(parent)
+        apply_material3(self)
         self._values: List[Any] = []  # the data hidden behind the string
         self._keys: List[str] = []  # the strings shown to the user
         self._sorted = sort
@@ -180,3 +182,4 @@ class SimpleDialog(wx.Dialog):
         self.bottom_sizer.AddStretchSpacer()
         button_sizer = self.CreateButtonSizer(wx.OK | wx.CANCEL)
         self.bottom_sizer.Add(button_sizer, flag=wx.ALL, border=5)
+        apply_material3(self)
