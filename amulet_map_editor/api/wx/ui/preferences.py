@@ -1047,6 +1047,11 @@ class ChangelogDialog(wx.Dialog):
         self.feedback = wx.StaticText(self, label="")
         self.feedback.Wrap(560)
         filters.Add(self.feedback, 1, wx.EXPAND)
+        filters.Add(wx.StaticText(self, label="Action"), 0, wx.ALIGN_CENTER_VERTICAL)
+        action_values = ["All actions", *(name for name, _count in changelog.available_actions(self._catalog.entries))]
+        self.action = wx.Choice(self, choices=action_values)
+        self.action.SetSelection(0)
+        filters.Add(self.action, 1, wx.EXPAND)
         root.Add(filters, 0, wx.EXPAND | wx.ALL, 12)
         self.results = wx.ListBox(self)
         self.results.SetMinSize(wx.Size(-1, 260))
@@ -1055,6 +1060,9 @@ class ChangelogDialog(wx.Dialog):
         export = wx.Button(self, label="Export filtered Markdown")
         export.Bind(wx.EVT_BUTTON, self._export)
         actions.Add(export, 0, wx.RIGHT, 8)
+        copy = wx.Button(self, label="Copy filtered Markdown")
+        copy.Bind(wx.EVT_BUTTON, self._copy)
+        actions.Add(copy, 0, wx.RIGHT, 8)
         close = wx.Button(self, id=wx.ID_CLOSE, label="Close")
         close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL))
         actions.Add(close)
@@ -1063,6 +1071,7 @@ class ChangelogDialog(wx.Dialog):
         for control in (self.query, self.start_date, self.end_date):
             control.Bind(wx.EVT_TEXT, lambda _event: self._refresh())
         self.regex.Bind(wx.EVT_CHECKBOX, lambda _event: self._refresh())
+        self.action.Bind(wx.EVT_CHOICE, lambda _event: self._refresh())
         self._refresh()
 
     def _parse_date(self, control: wx.TextCtrl) -> Optional[date]:
@@ -1073,6 +1082,7 @@ class ChangelogDialog(wx.Dialog):
         query = changelog.ChangelogQuery(
             start_date=self._parse_date(self.start_date),
             end_date=self._parse_date(self.end_date),
+            actions=(() if self.action.GetSelection() <= 0 else (self.action.GetStringSelection(),)),
             text=self.query.GetValue()[:4096],
         )
         matcher = None
@@ -1119,3 +1129,18 @@ class ChangelogDialog(wx.Dialog):
             self.feedback.SetLabel(f"Could not export changelog: {exc}")
             return
         self.feedback.SetLabel(f"Exported filtered changelog to {path}")
+
+    def _copy(self, _event: wx.Event) -> None:
+        try:
+            payload = changelog.export_markdown(self._filtered())
+        except (ValueError, changelog.ChangelogValidationError, re.error) as exc:
+            self.feedback.SetLabel(f"Invalid filter: {exc}")
+            return
+        if wx.TheClipboard.Open():
+            try:
+                wx.TheClipboard.SetData(wx.TextDataObject(payload))
+            finally:
+                wx.TheClipboard.Close()
+            self.feedback.SetLabel("Copied filtered changelog to the clipboard")
+        else:
+            self.feedback.SetLabel("Could not open the clipboard")
