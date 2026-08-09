@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import wx
 
+from amulet_map_editor.api import notification_copy
 from amulet_map_editor.api.wx.material3 import apply_material3
 
 
 class NotificationToast(wx.Panel):
     """A bounded toast that never steals focus or blocks the active surface."""
 
-    def __init__(self, parent: wx.Window, title: str, body: str, severity: str, on_dismiss):
+    def __init__(
+        self, parent: wx.Window, title: str, body: str, severity: str, on_dismiss
+    ):
         super().__init__(parent, style=wx.NO_BORDER)
         self._on_dismiss = on_dismiss
         root = wx.BoxSizer(wx.HORIZONTAL)
@@ -23,7 +26,10 @@ class NotificationToast(wx.Panel):
         copy.Add(heading, 0, wx.BOTTOM, 2)
         copy.Add(message, 0, wx.EXPAND)
         root.Add(copy, 1, wx.EXPAND | wx.ALL, 12)
-        close = wx.Button(self, label="Dismiss")
+        close = wx.Button(
+            self,
+            label=notification_copy.notification_text("action.dismiss", styled=False),
+        )
         close.SetName("Dismiss notification toast")
         close.Bind(wx.EVT_BUTTON, lambda _event: self.dismiss())
         root.Add(close, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)

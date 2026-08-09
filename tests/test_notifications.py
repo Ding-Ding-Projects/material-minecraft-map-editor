@@ -70,6 +70,61 @@ class NotificationHistoryTestCase(unittest.TestCase):
         self.assertIn("bad value\\x00", item.details)
         self.assertIn("Traceback line one\nTraceback line two\\x1b", item.details)
 
+    def test_notification_copy_honors_language_and_each_funny_level(self):
+        from amulet_map_editor.api import (
+            notification_copy,
+            preferences,
+            school_mode,
+        )
+
+        english = []
+        cantonese = []
+        for level in range(1, 6):
+            preferences.update(language_mode="english", funny_level_english=level)
+            english.append(notification_copy.notification_text("details.available"))
+            preferences.update(language_mode="cantonese", funny_level_cantonese=level)
+            cantonese.append(notification_copy.notification_text("details.available"))
+        self.assertEqual(len(set(english)), 5)
+        self.assertEqual(len(set(cantonese)), 5)
+        self.assertIn("Notification history", english[0])
+        self.assertIn("通知紀錄", cantonese[0])
+
+        preferences.update(
+            language_mode="bilingual",
+            funny_level_english=1,
+            funny_level_cantonese=1,
+        )
+        bilingual = notification_copy.notification_text("details.technical")
+        self.assertIn("Full technical details", bilingual)
+        self.assertIn("完整技術詳情", bilingual)
+
+        preferences.update(
+            language_mode="bilingual",
+            funny_level_english=5,
+            funny_level_cantonese=5,
+        )
+        school_mode.set_unlock_credential("1234")
+        school_mode.enable()
+        projected = notification_copy.notification_text("details.available")
+        self.assertEqual(
+            projected,
+            "Full details are available in Notification history. "
+            "The editor remains available.",
+        )
+        self.assertTrue(school_mode.unlock("1234"))
+
+    def test_oversized_exception_details_are_truncated_without_throwing(self):
+        from amulet_map_editor.api.wx.nonblocking import notify_exception
+
+        item = notify_exception(
+            object(),
+            "Large failure",
+            "The operation failed",
+            "trace line\n" * self.notifications.MAX_DETAILS_LENGTH,
+        )
+        self.assertLessEqual(len(item.details), self.notifications.MAX_DETAILS_LENGTH)
+        self.assertIn("were truncated", item.details)
+
 
 if __name__ == "__main__":
     unittest.main()

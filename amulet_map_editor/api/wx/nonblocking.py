@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from amulet_map_editor.api import notifications
+from amulet_map_editor.api import notification_copy, notifications
 
 
 def _escape_unsupported_controls(value: str, *, multiline: bool) -> str:
@@ -19,6 +19,17 @@ def _escape_unsupported_controls(value: str, *, multiline: bool) -> str:
     )
 
 
+def _bound_details(value: str) -> str:
+    """Bound technical details without turning the reporter into a new error."""
+
+    value = _escape_unsupported_controls(str(value), multiline=True)
+    if len(value) <= notifications.MAX_DETAILS_LENGTH:
+        return value
+    marker = "\n\n[" + notification_copy.notification_text("details.truncated") + "]"
+    available = max(0, notifications.MAX_DETAILS_LENGTH - len(marker))
+    return value[:available].rstrip() + marker
+
+
 def notify(
     parent: Any,
     title: str,
@@ -29,10 +40,12 @@ def notify(
 ) -> notifications.Notification:
     """Record an informational result without halting the active workflow."""
 
-    full_body = str(body).strip() or "No additional message was provided."
-    # Toast rows stay single-line and bounded. When the source is longer, keep
-    # it intact in the reviewable details field rather than silently dropping
-    # the remainder.
+    full_body = str(body).strip() or notification_copy.notification_text(
+        "fallback.empty"
+    )
+    # Toast rows stay single-line and bounded. When the source is longer, move
+    # it into the reviewable details field; the details bound adds an explicit
+    # marker rather than silently dropping an oversized remainder.
     safe_body = (
         full_body.replace("\r\n", " · ")
         .replace("\n", " · ")
@@ -42,9 +55,15 @@ def notify(
     safe_body = _escape_unsupported_controls(safe_body, multiline=False)
     details = _escape_unsupported_controls(str(details), multiline=True)
     if len(safe_body) > notifications.MAX_TEXT_LENGTH:
-        details = details or full_body
-        suffix = "… Full details are available in Notification history."
-        safe_body = safe_body[: notifications.MAX_TEXT_LENGTH - len(suffix)] + suffix
+        message_details = (
+            f"{notification_copy.notification_text('label.message', styled=False)}:\n"
+            f"{full_body}"
+        )
+        details = f"{details}\n\n{message_details}" if details else message_details
+        suffix = "… " + notification_copy.notification_text("details.available")
+        available = max(0, notifications.MAX_TEXT_LENGTH - len(suffix))
+        safe_body = safe_body[:available].rstrip() + suffix
+    details = _bound_details(details)
     item = notifications.add(severity, title, safe_body, details=details)
     top = parent
     try:
@@ -67,17 +86,23 @@ def notify(
 def notify_exception(
     parent: Any, title: str, error: str, traceback_text: str
 ) -> notifications.Notification:
-    """Publish a non-blocking error while retaining its complete traceback."""
+    """Publish a non-blocking error while retaining bounded traceback text."""
 
-    error = str(error).strip() or "The operation failed without an error message."
+    error = str(error).strip() or notification_copy.notification_text(
+        "fallback.operation"
+    )
     traceback_text = str(traceback_text).strip()
-    details = f"Error:\n{error}"
+    error_label = notification_copy.notification_text("label.error", styled=False)
+    traceback_label = notification_copy.notification_text(
+        "label.traceback", styled=False
+    )
+    details = f"{error_label}:\n{error}"
     if traceback_text:
-        details += f"\n\nTraceback:\n{traceback_text}"
+        details += f"\n\n{traceback_label}:\n{traceback_text}"
     return notify(
         parent,
         title,
-        f"{error} Full technical details are available in Notification history.",
+        f"{error} {notification_copy.notification_text('details.technical')}",
         severity="error",
         details=details,
     )

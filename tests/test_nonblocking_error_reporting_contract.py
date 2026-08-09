@@ -60,8 +60,9 @@ def test_exception_bridge_preserves_traceback_and_routes_to_history():
     )
     for marker in (
         "def notify_exception(",
-        'details += f"\\n\\nTraceback:\\n{traceback_text}"',
-        "Full technical details are available in Notification history.",
+        "notification_copy.notification_text('details.technical')",
+        'notification_copy.notification_text("details.truncated")',
+        "def _bound_details(",
     ):
         assert marker in bridge
     for marker in ("MAX_DETAILS_LENGTH", "details=_details", "item.details"):

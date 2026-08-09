@@ -2,7 +2,7 @@
 
 Operational failures no longer open a traceback dialog over the editor. The
 application records an error notification, keeps the active surface usable,
-and preserves the complete exception message and traceback in Notification
+and preserves bounded exception details and traceback text in Notification
 history.
 
 ## Behaviour
@@ -10,8 +10,13 @@ history.
 - Error and warning toasts never request focus. They remain visible until the
   user dismisses them.
 - The toast contains a bounded summary. Selecting its record in Notification
-  history shows the complete multiline technical details and provides a
-  **Copy details** action.
+  history shows the retained multiline technical details and provides a
+  **Copy details** action. Details above the 262,144-character local-history
+  limit are truncated with an explicit marker instead of making the error
+  reporter fail; the independent application log may retain the remainder.
+- Infrastructure copy follows the persisted English, Cantonese, or bilingual
+  presentation and both per-language tone levels. The underlying exception
+  text remains unchanged, and School mode projects serious English copy.
 - Notification Markdown and JSON exports include the technical details, so
   evidence does not disappear when a toast is dismissed.
 - Read-only documentation, changelog, and third-party-license references open
@@ -38,9 +43,9 @@ record for process-level crashes that occur before the shell exists.
 
 Technical details stay in the local application configuration and exports the
 user explicitly creates. They are never uploaded automatically. Control
-characters other than tabs and line breaks are rejected, and the details size
+characters other than tabs and line breaks are escaped, and the details size
 is bounded to prevent one failure from creating an unbounded configuration
-record.
+record or causing the reporter itself to fail.
 
 ## Verification
 
