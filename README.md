@@ -85,6 +85,8 @@ include:
   weekdays, date ranges, time windows, and deterministic precedence;
 - a non-blocking Windows update-status bridge with an allowlisted HTTPS feed and
   explicit unsigned-package warnings; and
+- a safe external-editor bridge that discovers Visual Studio Code installations,
+  persists a validated executable, and opens exported folders as workspace roots;
 - a bounded startup dim-sum surprise foundation that reads authoritative dish
   names from the public catalog without copying or vendoring photos; and
 - a dependency-free Material 3 documentation site with tabs, feature and
@@ -104,6 +106,7 @@ Relevant source and contracts:
 - [`amulet_map_editor/api/wx/material3.py`](amulet_map_editor/api/wx/material3.py)
 - [`amulet_map_editor/api/wx/ui/preferences.py`](amulet_map_editor/api/wx/ui/preferences.py)
 - [`amulet_map_editor/api/regex_builder.py`](amulet_map_editor/api/regex_builder.py)
+- [`docs/features/external-editor/README.md`](docs/features/external-editor/README.md)
 - [`docs/features/scheduled-settings/README.md`](docs/features/scheduled-settings/README.md)
 - [`installer/PACKAGING.md`](installer/PACKAGING.md)
 - [`docs/site/README.md`](docs/site/README.md)

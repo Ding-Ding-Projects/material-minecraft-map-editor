@@ -15,7 +15,7 @@ import unicodedata
 from amulet_map_editor.api import config
 
 PREFERENCES_ID = "amulet_preferences"
-PREFERENCES_VERSION = 2
+PREFERENCES_VERSION = 3
 DEFAULT_DISPLAY_NAME = "Amulet"
 MAX_DISPLAY_NAME_LENGTH = 64
 LANGUAGE_MODES: Tuple[str, ...] = ("english", "cantonese", "bilingual")
@@ -38,6 +38,7 @@ class Preferences:
     accent: str = "#6750A4"
     ui_font: str = ""
     ui_scale: float = 1.0
+    external_editor_path: str = ""
 
     def normalised(self) -> "Preferences":
         """Return a safe value even when an older profile was hand-edited."""
@@ -63,6 +64,9 @@ class Preferences:
             self.ui_scale = min(2.0, max(0.8, float(self.ui_scale)))
         except (TypeError, ValueError):
             self.ui_scale = 1.0
+        if not isinstance(self.external_editor_path, str):
+            self.external_editor_path = ""
+        self.external_editor_path = self.external_editor_path.strip()[:4096]
         if not isinstance(self.accent, str) or not re.fullmatch(
             r"#[0-9a-fA-F]{6,8}", self.accent
         ):
