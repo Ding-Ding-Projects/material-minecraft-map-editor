@@ -6,6 +6,7 @@ import traceback
 from weakref import WeakMethod
 
 import wx
+from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
 
 from amulet.api.data_types import OperationYieldType
 
@@ -195,7 +196,7 @@ class EditExtension(wx.Panel, BaseProgram):
         """
         unsaved_changes = self._world.history_manager.unsaved_changes
         if unsaved_changes:
-            msg = wx.MessageDialog(
+            response = show_material_confirmation(
                 self,
                 f"""There {
                 'is' if unsaved_changes == 1 else 'are'
@@ -206,8 +207,6 @@ class EditExtension(wx.Panel, BaseProgram):
                 }. Would you like to save?""",
                 style=wx.YES_NO | wx.CANCEL | wx.CANCEL_DEFAULT,
             )
-            log.debug(f"Showing MessageDialog at {msg.GetRect()}")
-            response = msg.ShowModal()
             if response == wx.ID_YES:
                 self._canvas.save()
                 return True

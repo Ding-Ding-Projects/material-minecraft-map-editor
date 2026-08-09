@@ -5,6 +5,7 @@ import wx
 
 from amulet_map_editor.api import lang
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
 from amulet_map_editor.api.wx.ui.simple import (
     SimpleDialog,
     SimpleScrollablePanel,
@@ -512,14 +513,11 @@ class KeyConfig(wx.BoxSizer):
 
     def _modify_button(self, action):
         if self._choice.GetCurrentString() in self._fixed_keybinds:
-            msg = wx.MessageDialog(
+            if show_material_confirmation(
                 self._options,
                 lang.get("key_config.active_not_editable"),
                 style=wx.YES_NO,
-            )
-            msg.CentreOnScreen()
-            log.debug(f"Showing key_config not editable dialog at {msg.GetRect()}")
-            if msg.ShowModal() == wx.ID_YES:
+            ) == wx.ID_YES:
                 self._create_new_group()
             else:
                 return
