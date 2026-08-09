@@ -9,7 +9,8 @@ def test_root_build_scripts_are_touchless_and_use_supported_paths():
     installer = (ROOT / "build-installer.bat").read_text(encoding="utf-8")
     assert "SILENT_MODE" in build and "pip install --user" in build
     assert '"numpy~=1.26"' in build and "--no-build-isolation" in build
-    assert "PYTHON_CMD=py -3.11" in build and "PYTHON_CMD=py -3.11" in installer
+    assert "PYTHON_ARGS=-3.11" in build and "PYTHON_ARGS=-3.11" in installer
+    assert "Python311\\python.exe" in build and "Python311\\python.exe" in installer
     assert "bootstrap-python.ps1" in build and "ExecutionPolicy Bypass" in build
     assert "build.bat" in installer and "PyInstaller" in installer
     assert "choice /M \"Launch Amulet now\"" in build
@@ -30,3 +31,5 @@ def test_root_build_scripts_are_touchless_and_use_supported_paths():
     bootstrap = (ROOT / "scripts/bootstrap-python.ps1").read_text(encoding="utf-8")
     assert "Python.Python.3.11" in bootstrap
     assert "--scope user" in bootstrap and "--accept-package-agreements" in bootstrap
+    assert "python.org/ftp/python/3.11.9" in bootstrap
+    assert "winget unavailable" in bootstrap

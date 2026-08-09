@@ -6,8 +6,12 @@ if /I "%~1"=="--silent" set "SILENT_MODE=1"
 if "%SILENT%"=="1" set "SILENT_MODE=1"
 
 call "%~dp0build.bat" /s || exit /b 1
-set "PYTHON_CMD=py -3.11"
-%PYTHON_CMD% -c "import sys" >nul 2>nul || set "PYTHON_CMD=py -3"
+set "PYTHON_EXE="
+set "PYTHON_ARGS=-3.11"
+where py >nul 2>nul && set "PYTHON_EXE=py"
+if not defined PYTHON_EXE if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (set "PYTHON_EXE=%LocalAppData%\Programs\Python\Python311\python.exe"& set "PYTHON_ARGS=")
+if not defined PYTHON_EXE (echo [installer] Python 3.11 was not found after bootstrap.& exit /b 1)
+set "PYTHON_CMD=%PYTHON_EXE% %PYTHON_ARGS%"
 %PYTHON_CMD% -m pip install --user pyinstaller~=6.18 || (echo [installer] PyInstaller bootstrap failed.& exit /b 1)
 if exist "%~dp0installer\dist" rmdir /s /q "%~dp0installer\dist"
 %PYTHON_CMD% -m PyInstaller -y --distpath "%~dp0installer\dist" "%~dp0installer\Amulet.spec" || (echo [installer] PyInstaller build failed.& exit /b 1)
