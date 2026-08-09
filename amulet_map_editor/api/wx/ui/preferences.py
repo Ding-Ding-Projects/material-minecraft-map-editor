@@ -323,9 +323,12 @@ class PreferencesDialog(wx.Dialog):
         font_search_row = wx.BoxSizer(wx.HORIZONTAL)
         self.font_search = wx.TextCtrl(page, name="Installed font search")
         self.font_search.SetHint("Search installed fonts")
+        self.font_regex = wx.CheckBox(page, label="Regex")
+        self.font_regex.SetName("Installed font regex mode")
         self.font_choice = wx.Choice(page, choices=[])
         self.font_choice.SetName("Installed font choices")
         font_search_row.Add(self.font_search, 1, wx.EXPAND | wx.RIGHT, 8)
+        font_search_row.Add(self.font_regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
         font_search_row.Add(self.font_choice, 1, wx.EXPAND)
         grid.Add(font_search_row, 1, wx.EXPAND)
         grid.Add(
@@ -483,6 +486,7 @@ class PreferencesDialog(wx.Dialog):
             wx.EVT_COLOURPICKER_CHANGED, self._accent_picker_changed
         )
         self.font_search.Bind(wx.EVT_TEXT, self._filter_appearance_fonts)
+        self.font_regex.Bind(wx.EVT_CHECKBOX, self._filter_appearance_fonts)
         self.font_choice.Bind(wx.EVT_CHOICE, self._select_font_choice)
         self.scale.Bind(wx.EVT_SLIDER, self._scale_appearance_preview)
         self.external_editor_browse.Bind(wx.EVT_BUTTON, self._browse_external_editor)
@@ -598,10 +602,21 @@ class PreferencesDialog(wx.Dialog):
             return ()
 
     def _filter_appearance_fonts(self, _event: wx.Event | None = None) -> None:
-        names = appearance_editor.filter_font_names(
-            getattr(self, "_appearance_font_names", ()),
-            self.font_search.GetValue() if hasattr(self, "font_search") else "",
-        )
+        source_names = getattr(self, "_appearance_font_names", ())
+        query = self.font_search.GetValue().strip() if hasattr(self, "font_search") else ""
+        if query and getattr(self, "font_regex", None) is not None:
+            builder = RegexBuilder(query, regex_enabled=self.font_regex.GetValue())
+            try:
+                names = tuple(name for name in source_names if builder.search([name]))
+            except (ValueError, re.error) as exc:
+                names = ()
+                self.font_search.SetToolTip(f"Invalid font search: {exc}")
+            else:
+                self.font_search.SetToolTip(
+                    "Regex font search" if self.font_regex.GetValue() else "Plain-text font search"
+                )
+        else:
+            names = appearance_editor.filter_font_names(source_names, query)
         self.font_choice.Set(list(names))
         current = self.font.GetSelectedFont().GetFaceName()
         if current in names:

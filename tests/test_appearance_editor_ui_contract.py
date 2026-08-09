@@ -23,6 +23,7 @@ class AppearanceEditorUiContractTestCase(unittest.TestCase):
         body = ast.get_source_segment(source, build)
         for required in (
             "font_search",
+            "font_regex",
             "font_choice",
             "font_preview",
             "_filter_appearance_fonts",
@@ -35,6 +36,7 @@ class AppearanceEditorUiContractTestCase(unittest.TestCase):
             self.assertIn(required, body)
         self.assertIn("appearance_editor.parse_hex", source)
         self.assertIn("appearance_editor.contrast_summary", source)
+        self.assertIn("RegexBuilder(query, regex_enabled=self.font_regex.GetValue())", source)
 
     def test_appearance_form_still_round_trips_through_existing_preset_values(self):
         source = SOURCE.read_text(encoding="utf-8")
