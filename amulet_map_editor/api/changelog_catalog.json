@@ -1,8 +1,1688 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "997259d5ffbdb504f1300afcd3537dfe818a94b8",
+  "source_revision": "f95695f7cbadecd3272370a1fa694e9b601ab124",
   "entries": [
+    {
+      "version": "0.10.0-dev.414",
+      "released_on": "2026-08-09",
+      "commit_sha": "f95695f7cbadecd3272370a1fa694e9b601ab124",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add native calendar controls to changelog filters / 變更記錄篩選加入原生日曆",
+          "commit_sha": "f95695f7cbadecd3272370a1fa694e9b601ab124"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.412",
+      "released_on": "2026-08-09",
+      "commit_sha": "45ccd4c2fb3e04c3e64d73dbaf787130d62f7c77",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove native caption chrome from core M3 dialogs / 核心 M3 對話框移除原生標題欄",
+          "commit_sha": "45ccd4c2fb3e04c3e64d73dbaf787130d62f7c77"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.410",
+      "released_on": "2026-08-09",
+      "commit_sha": "c63c53cc7bb51b8a29a91f4128604e5bbd83ebfc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Expand handwritten M3 surface inventory / 擴闊 M3 表面清單守門",
+          "commit_sha": "c63c53cc7bb51b8a29a91f4128604e5bbd83ebfc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.409",
+      "released_on": "2026-08-09",
+      "commit_sha": "41ab8cacbac1f1c42df213e91a4cb627084f8590",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Apply Material 3 to palette and changelog dialogs / 指令面板同變更記錄對齊 M3",
+          "commit_sha": "41ab8cacbac1f1c42df213e91a4cb627084f8590"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.406",
+      "released_on": "2026-08-09",
+      "commit_sha": "d38bc6e974006baaf3fcab0348e5980cee959125",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Complete notification bulk selection keyboard paths / 通知批量選擇補齊鍵盤路線",
+          "commit_sha": "d38bc6e974006baaf3fcab0348e5980cee959125"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.405",
+      "released_on": "2026-08-09",
+      "commit_sha": "6c810c272468edd9af6e96146d42a11b8f5986b0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Project left and right tab docks into side rail / 左右標籤停靠真正投影側邊欄",
+          "commit_sha": "6c810c272468edd9af6e96146d42a11b8f5986b0"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.403",
+      "released_on": "2026-08-09",
+      "commit_sha": "79a844337bf26111e1c36a8c67a67d4c534cd0c9",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add safe bulk-close actions to tab manager / 標籤管理器加埋安全批量關閉",
+          "commit_sha": "79a844337bf26111e1c36a8c67a67d4c534cd0c9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.401",
+      "released_on": "2026-08-09",
+      "commit_sha": "2b6035ad1a6bb24b321676fe96d694f942ec6a49",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make bulk history actions keyboard complete / 本地歷史批量掣有鍵盤路線",
+          "commit_sha": "2b6035ad1a6bb24b321676fe96d694f942ec6a49"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.399",
+      "released_on": "2026-08-09",
+      "commit_sha": "39c0255af59501f5a38fa4e471b8cdfcced8325f",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add bulk local-history selection and restore / 本地歷史終於識得一齊揀",
+          "commit_sha": "39c0255af59501f5a38fa4e471b8cdfcced8325f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.395",
+      "released_on": "2026-08-09",
+      "commit_sha": "64a6a6ccbe10a7281a21f0231411f0fe9f897675",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Project persisted tab docking into notebook / 將保存標籤停靠投影到筆記本",
+          "commit_sha": "64a6a6ccbe10a7281a21f0231411f0fe9f897675"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.394",
+      "released_on": "2026-08-09",
+      "commit_sha": "f54cbd078d16de43d2afb33bb8812b200e8097e4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Refresh offline appearance article bundle / 刷新離線外觀文章包",
+          "commit_sha": "f54cbd078d16de43d2afb33bb8812b200e8097e4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.393",
+      "released_on": "2026-08-09",
+      "commit_sha": "db4de9a459e403b16934d279ea54e8c827f61af1",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Clarify wx typography capability boundary / 澄清 wx 文字能力界線",
+          "commit_sha": "db4de9a459e403b16934d279ea54e8c827f61af1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.391",
+      "released_on": "2026-08-09",
+      "commit_sha": "8c11b69c25310b1ddfb431af5b71af61825fbb5b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Deepen per-element typography controls / 加深元素文字樣式控制",
+          "commit_sha": "8c11b69c25310b1ddfb431af5b71af61825fbb5b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.389",
+      "released_on": "2026-08-09",
+      "commit_sha": "d39ceb891530a37897d28442bb9ae74be8bc9b85",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Complete native palette keyboard navigation / 完善原生指令面板鍵盤操作",
+          "commit_sha": "d39ceb891530a37897d28442bb9ae74be8bc9b85"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.387",
+      "released_on": "2026-08-09",
+      "commit_sha": "2d1620ebb2b3db7273e5ec7036fa4c25b00efd78",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add Material 3 notification toasts / 加入 Material 3 通知提示",
+          "commit_sha": "2d1620ebb2b3db7273e5ec7036fa4c25b00efd78"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.386",
+      "released_on": "2026-08-09",
+      "commit_sha": "5d9e11f196c5180c10be468a45d4c38f4c42c55d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Surface scheduled source failures / 顯示排程來源失敗",
+          "commit_sha": "5d9e11f196c5180c10be468a45d4c38f4c42c55d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.384",
+      "released_on": "2026-08-09",
+      "commit_sha": "1af072b107fab0feaaf9403a3bb5c337dd13380d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Apply scheduled settings at runtime / 排程設定即時落地",
+          "commit_sha": "1af072b107fab0feaaf9403a3bb5c337dd13380d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.381",
+      "released_on": "2026-08-09",
+      "commit_sha": "53e5fbb89eda8909859efe9c3f005d416a5b8c99",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Expose scheduled source controls / 顯示排程來源控制",
+          "commit_sha": "53e5fbb89eda8909859efe9c3f005d416a5b8c99"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.379",
+      "released_on": "2026-08-09",
+      "commit_sha": "1d4a4861ceb8a89f63d275cddbb466d6f59b64c7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Persist scheduled source metadata / 保存排程來源資料",
+          "commit_sha": "1d4a4861ceb8a89f63d275cddbb466d6f59b64c7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.377",
+      "released_on": "2026-08-09",
+      "commit_sha": "ca077457e7e74c4755e956eed2e8c1fac20359dc",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add generation-safe schedule refresh / 加入有代次保護嘅排程刷新",
+          "commit_sha": "ca077457e7e74c4755e956eed2e8c1fac20359dc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.376",
+      "released_on": "2026-08-09",
+      "commit_sha": "0f7528cc6c3a5015e21251254e4d1d636d3facfb",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add fail-safe scheduled source contract / 加入安全排程來源合約",
+          "commit_sha": "0f7528cc6c3a5015e21251254e4d1d636d3facfb"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.374",
+      "released_on": "2026-08-09",
+      "commit_sha": "c38df397350a0a821fdceea3fbefbbf1ca7f6a4d",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add per-element Material 3 appearance editor / 加入逐控制項 Material 3 外觀編輯器",
+          "commit_sha": "c38df397350a0a821fdceea3fbefbbf1ca7f6a4d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.371",
+      "released_on": "2026-08-09",
+      "commit_sha": "dbf119b85d049f3600a1047443dab87f1d10154f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Record tab organisation changes / 記低分頁整理變更",
+          "commit_sha": "dbf119b85d049f3600a1047443dab87f1d10154f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.370",
+      "released_on": "2026-08-09",
+      "commit_sha": "2f0b98901e456a27cda25892171d4555a6d43678",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add native tab and group manager / 加入原生分頁同群組管理器",
+          "commit_sha": "2f0b98901e456a27cda25892171d4555a6d43678"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.368",
+      "released_on": "2026-08-09",
+      "commit_sha": "0405c8303be34752363be20826388dd72fd277b3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Record preference saves in local history",
+          "commit_sha": "0405c8303be34752363be20826388dd72fd277b3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.364",
+      "released_on": "2026-08-09",
+      "commit_sha": "cb8ebf17069851d0d98348437972da2194119bd4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Refresh roadmap after history UI delivery",
+          "commit_sha": "cb8ebf17069851d0d98348437972da2194119bd4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.363",
+      "released_on": "2026-08-09",
+      "commit_sha": "8a18780daebcb246b6f9c6a97ce8665c982fc720",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Expose local history in the native M3 UI",
+          "commit_sha": "8a18780daebcb246b6f9c6a97ce8665c982fc720"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.361",
+      "released_on": "2026-08-09",
+      "commit_sha": "d92a8ce724cf586bb6accfeca3c9b1cb7498dd6b",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add native schedule date and time pickers",
+          "commit_sha": "d92a8ce724cf586bb6accfeca3c9b1cb7498dd6b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.360",
+      "released_on": "2026-08-09",
+      "commit_sha": "7f7a416c3e6aa992b223c3563a542c22107b2f54",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Route site surfaces through M3 semantic roles",
+          "commit_sha": "7f7a416c3e6aa992b223c3563a542c22107b2f54"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.357",
+      "released_on": "2026-08-09",
+      "commit_sha": "55bff30c500824a2409fac778652e4da98eda496",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add the Preferences regex builder button",
+          "commit_sha": "55bff30c500824a2409fac778652e4da98eda496"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.354",
+      "released_on": "2026-08-09",
+      "commit_sha": "cf762a99bed03f5d6791597620fdd023a9957f3d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Preserve block entities in the block editor",
+          "commit_sha": "cf762a99bed03f5d6791597620fdd023a9957f3d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.353",
+      "released_on": "2026-08-09",
+      "commit_sha": "9e4c716964aad24afd19b7db43b0d42d303016e1",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Replace the native key-group prompt with M3",
+          "commit_sha": "9e4c716964aad24afd19b7db43b0d42d303016e1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.352",
+      "released_on": "2026-08-09",
+      "commit_sha": "3edcd62f82b97bf77ced170939b65887ec037839",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Document and bundle the one-click build path",
+          "commit_sha": "3edcd62f82b97bf77ced170939b65887ec037839"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.347",
+      "released_on": "2026-08-09",
+      "commit_sha": "a3701422347025f073ff326bb500321016a4866c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make the site palette inventory complete",
+          "commit_sha": "a3701422347025f073ff326bb500321016a4866c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.346",
+      "released_on": "2026-08-09",
+      "commit_sha": "0fc3eea922bd3671041fee52c8ff0e0537ae4854",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Correct README runtime capture inventory",
+          "commit_sha": "0fc3eea922bd3671041fee52c8ff0e0537ae4854"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.345",
+      "released_on": "2026-08-09",
+      "commit_sha": "c88b8cb87194c9ad855f73082cc1c98c77c56537",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Migrate block selection entry dialogs to M3",
+          "commit_sha": "c88b8cb87194c9ad855f73082cc1c98c77c56537"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.343",
+      "released_on": "2026-08-09",
+      "commit_sha": "2e6a96061c6dffcc1564ebca1187e53cb733dcf4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bring editor tool dialogs onto M3 chrome",
+          "commit_sha": "2e6a96061c6dffcc1564ebca1187e53cb733dcf4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.340",
+      "released_on": "2026-08-09",
+      "commit_sha": "e759b1525a072f742114e9e6233d2c85b668e7aa",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Harden fresh Windows Python bootstrap",
+          "commit_sha": "e759b1525a072f742114e9e6233d2c85b668e7aa"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.338",
+      "released_on": "2026-08-09",
+      "commit_sha": "f758d7b5aa673f6c28af3534392f9bc2aac3072e",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add regex builders to appearance searches",
+          "commit_sha": "f758d7b5aa673f6c28af3534392f9bc2aac3072e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.337",
+      "released_on": "2026-08-09",
+      "commit_sha": "b1ad77c8dac47700ba6ca557f86eedc658f2e4b4",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add regex builders to palette and changelog",
+          "commit_sha": "b1ad77c8dac47700ba6ca557f86eedc658f2e4b4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.335",
+      "released_on": "2026-08-09",
+      "commit_sha": "e3ce48d6918fcb4ab7a5e98b4356a2e196eaf903",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add regex builders to notification and documentation search",
+          "commit_sha": "e3ce48d6918fcb4ab7a5e98b4356a2e196eaf903"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.331",
+      "released_on": "2026-08-09",
+      "commit_sha": "094fa44a5b685166d2c24017f4e22e7523e24482",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add an M3 regex builder to block search",
+          "commit_sha": "094fa44a5b685166d2c24017f4e22e7523e24482"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.330",
+      "released_on": "2026-08-09",
+      "commit_sha": "48f93585c04becf5c9bc767fe84f5b14e988f18f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Theme common wx controls with M3 roles",
+          "commit_sha": "48f93585c04becf5c9bc767fe84f5b14e988f18f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.328",
+      "released_on": "2026-08-09",
+      "commit_sha": "235bb3067b9bb01bf9ad7adcc535c8f5bec03378",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Guard the M3 surface inventory",
+          "commit_sha": "235bb3067b9bb01bf9ad7adcc535c8f5bec03378"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.326",
+      "released_on": "2026-08-09",
+      "commit_sha": "ad5658fd6e2b243319ef1185a87d4a1fe27aa843",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Replace native confirmations with M3 decisions",
+          "commit_sha": "ad5658fd6e2b243319ef1185a87d4a1fe27aa843"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.323",
+      "released_on": "2026-08-09",
+      "commit_sha": "b03e38fd7ac5bcb082b41d4fce0b2a613e2fc573",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Put compatibility updater on M3 chrome",
+          "commit_sha": "b03e38fd7ac5bcb082b41d4fce0b2a613e2fc573"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.321",
+      "released_on": "2026-08-09",
+      "commit_sha": "9ae6ed6597bbb2a54c15286d29df44b0ee2bc21e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Style shortcut capture with M3 chrome",
+          "commit_sha": "9ae6ed6597bbb2a54c15286d29df44b0ee2bc21e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.320",
+      "released_on": "2026-08-09",
+      "commit_sha": "aa34d8cdc5d85bd63eede2e630accbcaba4c9986",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Start traceback surface on M3 chrome",
+          "commit_sha": "aa34d8cdc5d85bd63eede2e630accbcaba4c9986"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.318",
+      "released_on": "2026-08-09",
+      "commit_sha": "622013c492d7ba8b29782f0d5a19b933219983e1",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove native page-dialog chrome",
+          "commit_sha": "622013c492d7ba8b29782f0d5a19b933219983e1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.317",
+      "released_on": "2026-08-09",
+      "commit_sha": "cd5fb6423f5515a1b6fd0d04216cb827d9ca9c1b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Start NBT editor on M3 frame chrome",
+          "commit_sha": "cd5fb6423f5515a1b6fd0d04216cb827d9ca9c1b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.315",
+      "released_on": "2026-08-09",
+      "commit_sha": "2c1b4fd961dd6d6a41d15f21d0a54d6914c05907",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Start world picker on M3 chrome",
+          "commit_sha": "2c1b4fd961dd6d6a41d15f21d0a54d6914c05907"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.313",
+      "released_on": "2026-08-09",
+      "commit_sha": "3dd6aa518fc92b6894d54cc863860bba97102240",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove native dialog caption flash",
+          "commit_sha": "3dd6aa518fc92b6894d54cc863860bba97102240"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.311",
+      "released_on": "2026-08-09",
+      "commit_sha": "6aff61d9129b806aa7eee7085c14256f1d6d12e7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Prevent repeated dim-sum code names",
+          "commit_sha": "6aff61d9129b806aa7eee7085c14256f1d6d12e7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.309",
+      "released_on": "2026-08-09",
+      "commit_sha": "42a233b63b299e157bdc4e387d3dbd26a491a91e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Expand site color translation controls",
+          "commit_sha": "42a233b63b299e157bdc4e387d3dbd26a491a91e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.307",
+      "released_on": "2026-08-09",
+      "commit_sha": "6aba28319be0bdacf32cd08461f317355f20e9b9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Preserve failed Windows artifacts",
+          "commit_sha": "6aba28319be0bdacf32cd08461f317355f20e9b9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.302",
+      "released_on": "2026-08-09",
+      "commit_sha": "72d8dfdb513b15cc29badc98020515f3336e1839",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Document Python bootstrap fallback",
+          "commit_sha": "72d8dfdb513b15cc29badc98020515f3336e1839"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.298",
+      "released_on": "2026-08-09",
+      "commit_sha": "b573ceeff660bd79e31a61bbb52d61e1eb55b2e9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make Windows bootstrap truly one click",
+          "commit_sha": "b573ceeff660bd79e31a61bbb52d61e1eb55b2e9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.292",
+      "released_on": "2026-08-09",
+      "commit_sha": "08d9827159ae244d5345791e63ed42db24b7a577",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Enable notification bulk selection",
+          "commit_sha": "08d9827159ae244d5345791e63ed42db24b7a577"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.290",
+      "released_on": "2026-08-09",
+      "commit_sha": "c6175f81d665726e0cbff093cda7e0cef384e557",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Anchor world dialog layout",
+          "commit_sha": "c6175f81d665726e0cbff093cda7e0cef384e557"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.288",
+      "released_on": "2026-08-09",
+      "commit_sha": "d841ac872c0537896b45fc7b5e3575623cccff11",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Centralize Material 3 heading roles",
+          "commit_sha": "d841ac872c0537896b45fc7b5e3575623cccff11"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.285",
+      "released_on": "2026-08-09",
+      "commit_sha": "4d529461d75f737e004d777ef6b4d2d84bcbc48c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Apply Material 3 to licence dialog",
+          "commit_sha": "4d529461d75f737e004d777ef6b4d2d84bcbc48c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.284",
+      "released_on": "2026-08-09",
+      "commit_sha": "5e13a8b125d07887bd9a9e60045c43b3a38250eb",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Tokenize world selection typography",
+          "commit_sha": "5e13a8b125d07887bd9a9e60045c43b3a38250eb"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.283",
+      "released_on": "2026-08-09",
+      "commit_sha": "1fd73745bca2801a9e10eb04b91b0b73131b1f50",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Tokenize main menu geometry",
+          "commit_sha": "1fd73745bca2801a9e10eb04b91b0b73131b1f50"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.281",
+      "released_on": "2026-08-09",
+      "commit_sha": "68fef85e8559d13426d4b2567ba1340e283c74f9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Name language dialog actions",
+          "commit_sha": "68fef85e8559d13426d4b2567ba1340e283c74f9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.280",
+      "released_on": "2026-08-09",
+      "commit_sha": "ed6ad0084e90c1f710fd54e96da0c2dcc60dfd0c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Migrate version selector chrome to Material 3",
+          "commit_sha": "ed6ad0084e90c1f710fd54e96da0c2dcc60dfd0c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.277",
+      "released_on": "2026-08-09",
+      "commit_sha": "386522f8735ab5dd90906f746bd60227cb215c47",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove legacy modal updater path",
+          "commit_sha": "386522f8735ab5dd90906f746bd60227cb215c47"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.275",
+      "released_on": "2026-08-09",
+      "commit_sha": "d8c144f21f5009901b82bd1f867ef40887c41d64",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Complete one-click build script interaction",
+          "commit_sha": "d8c144f21f5009901b82bd1f867ef40887c41d64"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.274",
+      "released_on": "2026-08-09",
+      "commit_sha": "454255629625954914e3a80b53279c6f8ee1dd32",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Harden shared wx controls with Material 3",
+          "commit_sha": "454255629625954914e3a80b53279c6f8ee1dd32"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.273",
+      "released_on": "2026-08-09",
+      "commit_sha": "f0d56f689a820e617f503f97dc5b1feecbbebc91",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Migrate error dialog chrome to Material 3",
+          "commit_sha": "f0d56f689a820e617f503f97dc5b1feecbbebc91"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.271",
+      "released_on": "2026-08-09",
+      "commit_sha": "88662b30736bfac988839646bb86ef34fa224b38",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Apply Material 3 to world selection",
+          "commit_sha": "88662b30736bfac988839646bb86ef34fa224b38"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.268",
+      "released_on": "2026-08-09",
+      "commit_sha": "ff95052b5737a5905080f2cb9df2064b1f8bf21e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Migrate block property selectors to Material 3",
+          "commit_sha": "ff95052b5737a5905080f2cb9df2064b1f8bf21e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.267",
+      "released_on": "2026-08-09",
+      "commit_sha": "ebe2e4eceb55cb140425e4cf388845c356ec5406",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Migrate base selector chrome to Material 3",
+          "commit_sha": "ebe2e4eceb55cb140425e4cf388845c356ec5406"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.266",
+      "released_on": "2026-08-09",
+      "commit_sha": "9debee54283ea4ad032061f6cbcd687e4e13f56c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Constrain release delivery to Windows Squirrel",
+          "commit_sha": "9debee54283ea4ad032061f6cbcd687e4e13f56c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.265",
+      "released_on": "2026-08-09",
+      "commit_sha": "f4d7513f94b28781508bf3a0145c5f9f18ab5274",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Localize shared path picker chrome",
+          "commit_sha": "f4d7513f94b28781508bf3a0145c5f9f18ab5274"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.264",
+      "released_on": "2026-08-09",
+      "commit_sha": "5044b05e1a23dd730fd52ceea311f379b0aa4b6d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Migrate NBT editor chrome to Material 3",
+          "commit_sha": "5044b05e1a23dd730fd52ceea311f379b0aa4b6d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.263",
+      "released_on": "2026-08-09",
+      "commit_sha": "594511bc85360d06739f61b07d6531dc09d46b25",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Localize changelog dialog chrome",
+          "commit_sha": "594511bc85360d06739f61b07d6531dc09d46b25"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.262",
+      "released_on": "2026-08-09",
+      "commit_sha": "0bb722430273a268f0a3674b2f7945c1fd6293bb",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Localize notification history chrome",
+          "commit_sha": "0bb722430273a268f0a3674b2f7945c1fd6293bb"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.259",
+      "released_on": "2026-08-09",
+      "commit_sha": "3330e2a7bc8e7c57b0dbce00ce4957736b88c614",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Localize command palette chrome",
+          "commit_sha": "3330e2a7bc8e7c57b0dbce00ce4957736b88c614"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.258",
+      "released_on": "2026-08-09",
+      "commit_sha": "ca24f5c90308fa2f871d9cb8c3f920b932ea87cf",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Localize documentation browser chrome",
+          "commit_sha": "ca24f5c90308fa2f871d9cb8c3f920b932ea87cf"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.256",
+      "released_on": "2026-08-09",
+      "commit_sha": "1e4ae3e2d1bb37f9e2fda536efb6e3f9398d0804",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Correct the site to the Windows delivery scope / 將網站修正至 Windows 交付範圍",
+          "commit_sha": "1e4ae3e2d1bb37f9e2fda536efb6e3f9398d0804"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.253",
+      "released_on": "2026-08-09",
+      "commit_sha": "4871a85c33e8f1957394d65742f91eed32012196",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add regex search to installed-font picker / 為已安裝字體選擇器加入正則搜尋",
+          "commit_sha": "4871a85c33e8f1957394d65742f91eed32012196"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.252",
+      "released_on": "2026-08-09",
+      "commit_sha": "479ed3e8ad8fbbd79a662575a7e1821cd085f99e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Use the persisted display name in the main menu / 主選單使用已保存嘅顯示名稱",
+          "commit_sha": "479ed3e8ad8fbbd79a662575a7e1821cd085f99e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.250",
+      "released_on": "2026-08-09",
+      "commit_sha": "b01e8a374ebf980b04e3bb2f4946cab9916bef69",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove stale sponsor localization keys / 移除過時贊助翻譯鍵",
+          "commit_sha": "b01e8a374ebf980b04e3bb2f4946cab9916bef69"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.248",
+      "released_on": "2026-08-09",
+      "commit_sha": "f45f7ff04f774d0b3041a4c471fe5aa9662232db",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add live typography and accent controls to the M3 site / 為 Material 3 網站加入即時字體及色彩控制",
+          "commit_sha": "f45f7ff04f774d0b3041a4c471fe5aa9662232db"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.247",
+      "released_on": "2026-08-09",
+      "commit_sha": "c4a3320ecc9a3ef725006c526281be4b529b88e5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Open the bundled offline documentation browser / 開啟內置離線文件瀏覽器",
+          "commit_sha": "c4a3320ecc9a3ef725006c526281be4b529b88e5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.245",
+      "released_on": "2026-08-09",
+      "commit_sha": "9efa021a06fc5d1c0e4aded2fd625fd71eb46456",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove promotional chrome and style remaining legal surfaces / 移除推廣介面並美化法律頁面",
+          "commit_sha": "9efa021a06fc5d1c0e4aded2fd625fd71eb46456"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.244",
+      "released_on": "2026-08-09",
+      "commit_sha": "578cdd742750049f1aef77f4e3f0614018faa4bb",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Style the startup safety warning with Material 3 / 用 Material 3 美化啟動安全提示",
+          "commit_sha": "578cdd742750049f1aef77f4e3f0614018faa4bb"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.241",
+      "released_on": "2026-08-09",
+      "commit_sha": "acd91e1928314e3a44ab7fc574b4a39c7864e24f",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove the startup purchase gate / 移除啟動購買門檻",
+          "commit_sha": "acd91e1928314e3a44ab7fc574b4a39c7864e24f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.239",
+      "released_on": "2026-08-09",
+      "commit_sha": "9e1729e9dc31b29b2cca0619904092b77c05900e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Harden Material 3 runtime styling / 加固 Material 3 runtime styling",
+          "commit_sha": "9e1729e9dc31b29b2cca0619904092b77c05900e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.237",
+      "released_on": "2026-08-09",
+      "commit_sha": "4319d7934ddf46728d0e782c1a3de0275bff48ba",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bootstrap Python on clean Windows installs / 乾淨 Windows 自動裝 Python",
+          "commit_sha": "4319d7934ddf46728d0e782c1a3de0275bff48ba"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.236",
+      "released_on": "2026-08-09",
+      "commit_sha": "780d58081a37ff2798aad9084811dc3d75549f69",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make one-click Windows bootstrap portable / 令一鍵 Windows bootstrap 兼容",
+          "commit_sha": "780d58081a37ff2798aad9084811dc3d75549f69"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.228",
+      "released_on": "2026-08-09",
+      "commit_sha": "d1938cde697da54ed48bd304f1087d55a1a4e15a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Verify local installer artifacts and hashes / 驗證本機 installer 同雜湊",
+          "commit_sha": "d1938cde697da54ed48bd304f1087d55a1a4e15a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.227",
+      "released_on": "2026-08-09",
+      "commit_sha": "d23f79147c9f2658ad661b9f9e4cc7ae7b6403ea",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Document release code names offline / 將 release code name 加入離線文件",
+          "commit_sha": "d23f79147c9f2658ad661b9f9e4cc7ae7b6403ea"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.224",
+      "released_on": "2026-08-09",
+      "commit_sha": "096d261469dec26d7e79f55bc1c8fd970d206a6b",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove unsafe release metadata evaluation / 移除不安全 release metadata 執行",
+          "commit_sha": "096d261469dec26d7e79f55bc1c8fd970d206a6b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.218",
+      "released_on": "2026-08-09",
+      "commit_sha": "396bf0f2ca2213ad24ad0ce7ce4c9beea92a464d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Derive M3 roles from the accent seed / 由 accent seed 推導 M3 角色",
+          "commit_sha": "396bf0f2ca2213ad24ad0ce7ce4c9beea92a464d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.217",
+      "released_on": "2026-08-09",
+      "commit_sha": "9cad5cb0dc8258600de4501238f12ca5416ab807",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Retry lazy M3 chrome after layout / 版面完成後重試 M3 外框",
+          "commit_sha": "9cad5cb0dc8258600de4501238f12ca5416ab807"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.216",
+      "released_on": "2026-08-09",
+      "commit_sha": "2840d2a67c37ecbc3a6e0e766db694339e8054f7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Theme secondary frames with M3 chrome / 次級視窗套用 M3 外框",
+          "commit_sha": "2840d2a67c37ecbc3a6e0e766db694339e8054f7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.215",
+      "released_on": "2026-08-09",
+      "commit_sha": "907d07addc8833ada0df91af680e437680712e7e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Migrate world and notification pickers to M3 / 世界同通知選擇器改用 M3",
+          "commit_sha": "907d07addc8833ada0df91af680e437680712e7e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.213",
+      "released_on": "2026-08-09",
+      "commit_sha": "65cf31b4acdd54bc13481466c724f773b669203c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Route edit import and exports through M3 picker / 編輯匯入匯出改用 M3 選擇器",
+          "commit_sha": "65cf31b4acdd54bc13481466c724f773b669203c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.209",
+      "released_on": "2026-08-09",
+      "commit_sha": "0e81af1f2cf0f2ec36e96ffc8a83927efd1d8176",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Introduce an M3-owned path picker / 引入自家 Material 3 路徑選擇器",
+          "commit_sha": "0e81af1f2cf0f2ec36e96ffc8a83927efd1d8176"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.207",
+      "released_on": "2026-08-09",
+      "commit_sha": "cf43668c4a5f22b88d46989db97f31d3246c2ac4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Replace modal operation errors with notifications / 將操作錯誤由 modal 改為通知",
+          "commit_sha": "cf43668c4a5f22b88d46989db97f31d3246c2ac4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.206",
+      "released_on": "2026-08-09",
+      "commit_sha": "bd6eb20c7003f867e3d22e7eb3e396c79d0f71f8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Finish non-blocking informational migration / 完成非阻塞資訊流程搬遷",
+          "commit_sha": "bd6eb20c7003f867e3d22e7eb3e396c79d0f71f8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.205",
+      "released_on": "2026-08-09",
+      "commit_sha": "b999115b649fd1fe55f8bb892e46653022279ba8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Move edit-tool outcomes to non-blocking notifications / 將編輯工具結果搬到非阻塞通知",
+          "commit_sha": "b999115b649fd1fe55f8bb892e46653022279ba8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.203",
+      "released_on": "2026-08-09",
+      "commit_sha": "a930707f18aaa3777419d7032ea6d531fb373525",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Normalize multiline notification details / 正規化多行通知內容",
+          "commit_sha": "a930707f18aaa3777419d7032ea6d531fb373525"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.202",
+      "released_on": "2026-08-09",
+      "commit_sha": "44eb745ceaba2367b26fb3539124707373d1a94f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Move informational outcomes to non-blocking notifications / 將資訊結果搬到非阻塞通知",
+          "commit_sha": "44eb745ceaba2367b26fb3539124707373d1a94f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.200",
+      "released_on": "2026-08-09",
+      "commit_sha": "3a1fb11a584a83895dd30b682147023d071d0f81",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Theme the world tab strip with M3 roles / 為世界分頁列套用 M3 色彩角色",
+          "commit_sha": "3a1fb11a584a83895dd30b682147023d071d0f81"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.198",
+      "released_on": "2026-08-09",
+      "commit_sha": "97aca729e3fb5eddf03b0406f4a6cf9db1ff5ba3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Apply M3 surfaces to editable controls / 為可編輯控制項套用 M3 表面色",
+          "commit_sha": "97aca729e3fb5eddf03b0406f4a6cf9db1ff5ba3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.196",
+      "released_on": "2026-08-09",
+      "commit_sha": "7ee64aca46a77455e3652efd9b7435952af8e6fb",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Replace native dialog captions with M3 chrome / 將原生對話框標題列換成 M3 外殼",
+          "commit_sha": "7ee64aca46a77455e3652efd9b7435952af8e6fb"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.195",
+      "released_on": "2026-08-09",
+      "commit_sha": "e4b7b2cf4688bb48b72e9a71fc3455471f84232d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Style common wx collections and selection controls with M3 tokens / 為常見 wx 集合與選擇控制項套用 M3 token",
+          "commit_sha": "e4b7b2cf4688bb48b72e9a71fc3455471f84232d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.194",
+      "released_on": "2026-08-09",
+      "commit_sha": "94bffc689804aae14d1e715aa0ee92a22d21e0fe",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Theme every native surface and complete the M3 site inventory / 全部原生畫面套用 M3 並補齊網站功能地圖",
+          "commit_sha": "94bffc689804aae14d1e715aa0ee92a22d21e0fe"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.192",
+      "released_on": "2026-08-09",
+      "commit_sha": "014c3ae226e56199605ceca67a49948c7935f845",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Apply live M3 density and typography tokens / 實時套用 M3 密度與字體令控制項唔再食生菜",
+          "commit_sha": "014c3ae226e56199605ceca67a49948c7935f845"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.190",
+      "released_on": "2026-08-09",
+      "commit_sha": "6c8131641fc0481d65474f4d42e592a51e2b515c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Integrate startup dim-sum toast / 加入啟動點心驚喜",
+          "commit_sha": "6c8131641fc0481d65474f4d42e592a51e2b515c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.187",
+      "released_on": "2026-08-09",
+      "commit_sha": "e214e8d57bf47f5b12b05b9f193b63c4f8dd0af6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Validate every publication asset in browser",
+          "commit_sha": "e214e8d57bf47f5b12b05b9f193b63c4f8dd0af6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.186",
+      "released_on": "2026-08-09",
+      "commit_sha": "e832d5fa8d1d7ab98c515a4a473cb7691a5c8df6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make static publication contract explicit",
+          "commit_sha": "e832d5fa8d1d7ab98c515a4a473cb7691a5c8df6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.184",
+      "released_on": "2026-08-09",
+      "commit_sha": "27843d51aac1f1d222dba3f4c274fc7a24211215",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add optional TTS narrator foundation",
+          "commit_sha": "27843d51aac1f1d222dba3f4c274fc7a24211215"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.182",
+      "released_on": "2026-08-09",
+      "commit_sha": "85832bfb62755226618637a4afb421877edfbe97",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add offline documentation browser / 加入離線文件瀏覽器",
+          "commit_sha": "85832bfb62755226618637a4afb421877edfbe97"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.180",
+      "released_on": "2026-08-09",
+      "commit_sha": "215be6ea3034623c547fbe773ed53e87141adf8e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Open exports in VS Code / 匯出檔案可以搵 VS Code 開",
+          "commit_sha": "215be6ea3034623c547fbe773ed53e87141adf8e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.178",
+      "released_on": "2026-08-09",
+      "commit_sha": "fa43e674164e5d03b0b65e5c8976dbea6c8f7302",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add external editor bridge / 加個 VS Code 出口",
+          "commit_sha": "fa43e674164e5d03b0b65e5c8976dbea6c8f7302"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.174",
+      "released_on": "2026-08-09",
+      "commit_sha": "5409937ef5e0ae52c25ee8d0788edd19a1a14fd3",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add persistent tab and group contract",
+          "commit_sha": "5409937ef5e0ae52c25ee8d0788edd19a1a14fd3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.173",
+      "released_on": "2026-08-09",
+      "commit_sha": "38fc2b551c8a8c1da9561dace12493ca0b5804bf",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add persistent tab and group contract",
+          "commit_sha": "38fc2b551c8a8c1da9561dace12493ca0b5804bf"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.172",
+      "released_on": "2026-08-09",
+      "commit_sha": "a9c4692d67343a5c556dee45d97dc0552d68b4dd",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add persistent tab and group contract",
+          "commit_sha": "a9c4692d67343a5c556dee45d97dc0552d68b4dd"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.170",
+      "released_on": "2026-08-09",
+      "commit_sha": "ee5e1654daf13debd3778bab741857137a195b6e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Deepen appearance editor controls",
+          "commit_sha": "ee5e1654daf13debd3778bab741857137a195b6e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.167",
+      "released_on": "2026-08-09",
+      "commit_sha": "de0cd83748303e9cb29065b5c1ea4746903a25bd",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove macOS signing inputs",
+          "commit_sha": "de0cd83748303e9cb29065b5c1ea4746903a25bd"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.166",
+      "released_on": "2026-08-09",
+      "commit_sha": "c0d54403c7db13215790f7acb111eceaa2868403",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Repair cross-platform release gates",
+          "commit_sha": "c0d54403c7db13215790f7acb111eceaa2868403"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.163",
+      "released_on": "2026-08-09",
+      "commit_sha": "1d8e6f71707b0ecf4ebbf8b03e8c87113a2ef1c7",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add persistent Squirrel update banner",
+          "commit_sha": "1d8e6f71707b0ecf4ebbf8b03e8c87113a2ef1c7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.159",
+      "released_on": "2026-08-09",
+      "commit_sha": "b1367945aa9bd26933676ba5393508aab7a4b20e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Harden release timing and tag inputs / 發佈時間同標籤唔好再亂咁跑",
+          "commit_sha": "b1367945aa9bd26933676ba5393508aab7a4b20e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.158",
+      "released_on": "2026-08-09",
+      "commit_sha": "458444e610a0095a48aa1b6980c37ac0ade5e0bc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Preserve full literal search limits / 保留完整字面搜尋上限",
+          "commit_sha": "458444e610a0095a48aa1b6980c37ac0ade5e0bc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.157",
+      "released_on": "2026-08-09",
+      "commit_sha": "d7e657e1d9f2c57aa56db91ff0a183c6172570a0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Harden site search and keyboard navigation / 網站搜尋同鍵盤導航加固",
+          "commit_sha": "d7e657e1d9f2c57aa56db91ff0a183c6172570a0"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.155",
+      "released_on": "2026-08-09",
+      "commit_sha": "f7a8705efe06e42e17bf3147945624e30853d07b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Normalize Squirrel dev versions / Squirrel dev 版本唔好再撞牆",
+          "commit_sha": "f7a8705efe06e42e17bf3147945624e30853d07b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.76",
+      "released_on": "2026-08-09",
+      "commit_sha": "3b8790c6e24f0d307b87c1a4e7e4c9a1e39ccdbc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wire appearance presets into native preferences",
+          "commit_sha": "3b8790c6e24f0d307b87c1a4e7e4c9a1e39ccdbc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.74",
+      "released_on": "2026-08-09",
+      "commit_sha": "85385a8c056330be80c5135925942636ca5387b5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Use available Windows runner and parse prerelease tags / 用可用 Windows runner 同預發版本",
+          "commit_sha": "85385a8c056330be80c5135925942636ca5387b5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.73",
+      "released_on": "2026-08-09",
+      "commit_sha": "015edaa913d1b8da8d1bcc464ca63833871a85e6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Document site regex builder and CI / README 記低網站建構器同 CI",
+          "commit_sha": "015edaa913d1b8da8d1bcc464ca63833871a85e6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.72",
+      "released_on": "2026-08-09",
+      "commit_sha": "5f8eedf1b69db9ed1cbb0e846c0c8dbf970f1171",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Document site image publication boundary / 記低網站映像發佈界線",
+          "commit_sha": "5f8eedf1b69db9ed1cbb0e846c0c8dbf970f1171"
+        }
+      ]
+    },
+    {
+      "version": "0.10.71",
+      "released_on": "2026-08-09",
+      "commit_sha": "dc49936b24a787148f2601639462ed2230e36127",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Validate and package owner hosted site / 自有網站驗證打包",
+          "commit_sha": "dc49936b24a787148f2601639462ed2230e36127"
+        }
+      ]
+    },
+    {
+      "version": "0.10.70",
+      "released_on": "2026-08-09",
+      "commit_sha": "822f92739c524c9eb97926579322d1a4423a8985",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Expand site regex builder / 網站正則建構器加料",
+          "commit_sha": "822f92739c524c9eb97926579322d1a4423a8985"
+        }
+      ]
+    },
+    {
+      "version": "0.10.69",
+      "released_on": "2026-08-09",
+      "commit_sha": "c0ac372790f0f1283047613afd432565892d2064",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add versioned appearance preset foundation",
+          "commit_sha": "c0ac372790f0f1283047613afd432565892d2064"
+        }
+      ]
+    },
+    {
+      "version": "0.10.67",
+      "released_on": "2026-08-09",
+      "commit_sha": "4999f3388cddf0d4601ec565e2acf20e5638e9f0",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Refresh generated changelog catalog / 變更記錄目錄更新",
+          "commit_sha": "4999f3388cddf0d4601ec565e2acf20e5638e9f0"
+        }
+      ]
+    },
+    {
+      "version": "0.10.64",
+      "released_on": "2026-08-09",
+      "commit_sha": "e9a927c780a309ec96c945a3e7453a5d5d6a3dd8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Fetch full history for changelog tests / 變更記錄測試下載完整歷史",
+          "commit_sha": "e9a927c780a309ec96c945a3e7453a5d5d6a3dd8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.65",
+      "released_on": "2026-08-09",
+      "commit_sha": "e9a927c780a309ec96c945a3e7453a5d5d6a3dd8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Fetch full history for changelog tests / 變更記錄測試下載完整歷史",
+          "commit_sha": "e9a927c780a309ec96c945a3e7453a5d5d6a3dd8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.62",
+      "released_on": "2026-08-09",
+      "commit_sha": "fc4a5c5d7e8c13187d9c98c33e6c8f8958cf2abc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Link changelog across README and site / README 同網站連結離線變更記錄",
+          "commit_sha": "fc4a5c5d7e8c13187d9c98c33e6c8f8958cf2abc"
+        }
+      ]
+    },
     {
       "version": "0.10.63",
       "released_on": "2026-08-09",

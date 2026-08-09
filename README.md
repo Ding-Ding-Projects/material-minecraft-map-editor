@@ -296,8 +296,14 @@ python -m black --check --diff .
 python scripts/count_lines.py
 ```
 
-The committed line counter is the release source of truth. It separates source,
-tests, and styles/markup and excludes dependency and build-output directories.
+The committed line counter is the release source of truth. It counts tracked,
+line-oriented text and separates source, tests, styles/markup, generated text,
+and deliberately excluded text. `project-total` is the three hand-written
+project rows; `repository-grand-total` adds the generated and excluded rows.
+Each row reports total/nonblank lines plus surviving `git blame` attribution as
+agent, person, or unattributed, and the script fails if that arithmetic drifts.
+Binary assets are not line-counted. Dependency/build directories and lockfiles
+are excluded explicitly instead of disappearing into an unexplained total.
 
 ### Preview the documentation site
 
