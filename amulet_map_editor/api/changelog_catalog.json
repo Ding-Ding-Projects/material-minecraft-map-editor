@@ -1,8 +1,248 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "e9a927c780a309ec96c945a3e7453a5d5d6a3dd8",
+  "source_revision": "997259d5ffbdb504f1300afcd3537dfe818a94b8",
   "entries": [
+    {
+      "version": "0.10.63",
+      "released_on": "2026-08-09",
+      "commit_sha": "fc4a5c5d7e8c13187d9c98c33e6c8f8958cf2abc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Link changelog across README and site / README 同網站連結離線變更記錄",
+          "commit_sha": "fc4a5c5d7e8c13187d9c98c33e6c8f8958cf2abc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.61",
+      "released_on": "2026-08-09",
+      "commit_sha": "21d9eda77f48bc4b1148eab97d3920b3bfd2807a",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add generated offline changelog foundation",
+          "commit_sha": "21d9eda77f48bc4b1148eab97d3920b3bfd2807a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.54",
+      "released_on": "2026-08-09",
+      "commit_sha": "39b5dbd54da957c27e019cddb806beb0d789753c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Rewrite README with verified app gallery",
+          "commit_sha": "39b5dbd54da957c27e019cddb806beb0d789753c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.55",
+      "released_on": "2026-08-09",
+      "commit_sha": "39b5dbd54da957c27e019cddb806beb0d789753c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Rewrite README with verified app gallery",
+          "commit_sha": "39b5dbd54da957c27e019cddb806beb0d789753c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.49",
+      "released_on": "2026-08-09",
+      "commit_sha": "4e853b361ce56239c20ddbb8265391867316be41",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add native scheduled settings editor",
+          "commit_sha": "4e853b361ce56239c20ddbb8265391867316be41"
+        }
+      ]
+    },
+    {
+      "version": "0.10.50",
+      "released_on": "2026-08-09",
+      "commit_sha": "4e853b361ce56239c20ddbb8265391867316be41",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add native scheduled settings editor",
+          "commit_sha": "4e853b361ce56239c20ddbb8265391867316be41"
+        }
+      ]
+    },
+    {
+      "version": "0.10.45",
+      "released_on": "2026-08-09",
+      "commit_sha": "43bbfc78456172638ae4a711696bf9e806ac5b7e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Record scheduled-settings handoff / 交接文件記錄排程設定",
+          "commit_sha": "43bbfc78456172638ae4a711696bf9e806ac5b7e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.46",
+      "released_on": "2026-08-09",
+      "commit_sha": "43bbfc78456172638ae4a711696bf9e806ac5b7e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Record scheduled-settings handoff / 交接文件記錄排程設定",
+          "commit_sha": "43bbfc78456172638ae4a711696bf9e806ac5b7e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.43",
+      "released_on": "2026-08-09",
+      "commit_sha": "0ce91a77f054d08a2ce7f6241b5a3f72da7f57d8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Document scheduled settings on the site / 網站加入排程設定功能",
+          "commit_sha": "0ce91a77f054d08a2ce7f6241b5a3f72da7f57d8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.44",
+      "released_on": "2026-08-09",
+      "commit_sha": "0ce91a77f054d08a2ce7f6241b5a3f72da7f57d8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Document scheduled settings on the site / 網站加入排程設定功能",
+          "commit_sha": "0ce91a77f054d08a2ce7f6241b5a3f72da7f57d8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.41",
+      "released_on": "2026-08-09",
+      "commit_sha": "eb45c2f2bf6216d6b717b226ef986bb8cb41a330",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add validated scheduled settings foundation",
+          "commit_sha": "eb45c2f2bf6216d6b717b226ef986bb8cb41a330"
+        }
+      ]
+    },
+    {
+      "version": "0.10.42",
+      "released_on": "2026-08-09",
+      "commit_sha": "eb45c2f2bf6216d6b717b226ef986bb8cb41a330",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add validated scheduled settings foundation",
+          "commit_sha": "eb45c2f2bf6216d6b717b226ef986bb8cb41a330"
+        }
+      ]
+    },
+    {
+      "version": "0.10.39",
+      "released_on": "2026-08-09",
+      "commit_sha": "448daeac913db34ee18646a8c39038ead818062f",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add site command palette / 加入網站命令面板",
+          "commit_sha": "448daeac913db34ee18646a8c39038ead818062f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.40",
+      "released_on": "2026-08-09",
+      "commit_sha": "448daeac913db34ee18646a8c39038ead818062f",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add site command palette / 加入網站命令面板",
+          "commit_sha": "448daeac913db34ee18646a8c39038ead818062f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.32",
+      "released_on": "2026-08-09",
+      "commit_sha": "2ddf0810976180d9ef4518e7f56643b5f0f3bbfe",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Write release notes as a real file / 用實體檔案寫發佈說明",
+          "commit_sha": "2ddf0810976180d9ef4518e7f56643b5f0f3bbfe"
+        }
+      ]
+    },
+    {
+      "version": "0.10.33",
+      "released_on": "2026-08-09",
+      "commit_sha": "2ddf0810976180d9ef4518e7f56643b5f0f3bbfe",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Write release notes as a real file / 用實體檔案寫發佈說明",
+          "commit_sha": "2ddf0810976180d9ef4518e7f56643b5f0f3bbfe"
+        }
+      ]
+    },
+    {
+      "version": "0.10.30",
+      "released_on": "2026-08-09",
+      "commit_sha": "d38a504d54f1602fa80fc281159c7babedf057cc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Publish CI line-count evidence / 發佈 CI 程式碼行數證據",
+          "commit_sha": "d38a504d54f1602fa80fc281159c7babedf057cc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.31",
+      "released_on": "2026-08-09",
+      "commit_sha": "d38a504d54f1602fa80fc281159c7babedf057cc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Publish CI line-count evidence / 發佈 CI 程式碼行數證據",
+          "commit_sha": "d38a504d54f1602fa80fc281159c7babedf057cc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.28",
+      "released_on": "2026-08-09",
+      "commit_sha": "adfc76017baef16af5897a2f2bb29bf6c71bec22",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Upload the exact Squirrel release directory / 上載正確 Squirrel 發佈目錄",
+          "commit_sha": "adfc76017baef16af5897a2f2bb29bf6c71bec22"
+        }
+      ]
+    },
+    {
+      "version": "0.10.29",
+      "released_on": "2026-08-09",
+      "commit_sha": "adfc76017baef16af5897a2f2bb29bf6c71bec22",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Upload the exact Squirrel release directory / 上載正確 Squirrel 發佈目錄",
+          "commit_sha": "adfc76017baef16af5897a2f2bb29bf6c71bec22"
+        }
+      ]
+    },
     {
       "version": "0.10.61a2",
       "released_on": "2026-07-31",
@@ -196,18 +436,6 @@
       ]
     },
     {
-      "version": "0.10.55",
-      "released_on": "2026-04-08",
-      "commit_sha": "b7862d69163e7b252d74eeefe1aba540a51fa139",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Improve flatpak naming (#1337)",
-          "commit_sha": "b7862d69163e7b252d74eeefe1aba540a51fa139"
-        }
-      ]
-    },
-    {
       "version": "0.10.55a5",
       "released_on": "2026-04-07",
       "commit_sha": "ebea0e1c8eaeee5b9ffc0f5990ec1b7f6598640b",
@@ -240,18 +468,6 @@
           "action": "added",
           "summary": "Add argument to disable python's faulthandler (#1332)",
           "commit_sha": "0c90560a3e1212aca1b6613fb76d5f963b3b3e54"
-        }
-      ]
-    },
-    {
-      "version": "0.10.54",
-      "released_on": "2026-03-29",
-      "commit_sha": "b677e86a9a2bf4464dde14de7043092aa4fbce70",
-      "changes": [
-        {
-          "action": "fixed",
-          "summary": "Fix remove command (#1330)",
-          "commit_sha": "b677e86a9a2bf4464dde14de7043092aa4fbce70"
         }
       ]
     },
@@ -316,18 +532,6 @@
       ]
     },
     {
-      "version": "0.10.50",
-      "released_on": "2026-02-23",
-      "commit_sha": "9a05b3de1528cf75d314c1db81b9823dcf7cd758",
-      "changes": [
-        {
-          "action": "fixed",
-          "summary": "Fix docker (#1283)",
-          "commit_sha": "9a05b3de1528cf75d314c1db81b9823dcf7cd758"
-        }
-      ]
-    },
-    {
       "version": "0.10.50b3",
       "released_on": "2026-02-20",
       "commit_sha": "e09d291225fcec07470c48763192ad602fee40f5",
@@ -372,18 +576,6 @@
           "action": "changed",
           "summary": "Improve build (#1272)",
           "commit_sha": "ffd42ddb9e2227ee8eb15624ab700434648e8962"
-        }
-      ]
-    },
-    {
-      "version": "0.10.49",
-      "released_on": "2026-01-20",
-      "commit_sha": "e8c3e01c12b6bc0473a4a0b6fa28b5baf137badb",
-      "changes": [
-        {
-          "action": "added",
-          "summary": "Add an option to control which chunks get modified when pasting (#1263)",
-          "commit_sha": "e8c3e01c12b6bc0473a4a0b6fa28b5baf137badb"
         }
       ]
     },
@@ -460,30 +652,6 @@
       ]
     },
     {
-      "version": "0.10.45",
-      "released_on": "2025-10-30",
-      "commit_sha": "e8a83ce9bcb5a5230f3c62da7e27b74c9118cc69",
-      "changes": [
-        {
-          "action": "added",
-          "summary": "Add Bedrock 1.21.120 world paths (#1209)",
-          "commit_sha": "e8a83ce9bcb5a5230f3c62da7e27b74c9118cc69"
-        }
-      ]
-    },
-    {
-      "version": "0.10.46",
-      "released_on": "2025-10-30",
-      "commit_sha": "e8a83ce9bcb5a5230f3c62da7e27b74c9118cc69",
-      "changes": [
-        {
-          "action": "added",
-          "summary": "Add Bedrock 1.21.120 world paths (#1209)",
-          "commit_sha": "e8a83ce9bcb5a5230f3c62da7e27b74c9118cc69"
-        }
-      ]
-    },
-    {
       "version": "0.10.45b1",
       "released_on": "2025-10-22",
       "commit_sha": "ebafe4b4a955d10378b66c8529f2fb47b2fcb44e",
@@ -508,66 +676,6 @@
       ]
     },
     {
-      "version": "0.10.43",
-      "released_on": "2025-06-18",
-      "commit_sha": "4889915b0f7a30416b9994929241dc657f6848b4",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Use a 'default' instead of a 'decorative' font family (#1174)",
-          "commit_sha": "4889915b0f7a30416b9994929241dc657f6848b4"
-        }
-      ]
-    },
-    {
-      "version": "0.10.44",
-      "released_on": "2025-06-18",
-      "commit_sha": "4889915b0f7a30416b9994929241dc657f6848b4",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Use a 'default' instead of a 'decorative' font family (#1174)",
-          "commit_sha": "4889915b0f7a30416b9994929241dc657f6848b4"
-        }
-      ]
-    },
-    {
-      "version": "0.10.42",
-      "released_on": "2025-04-29",
-      "commit_sha": "679d42367da5ca3516bde9cc3c56a3ef9c45405b",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Improve movement speed button (#1161)",
-          "commit_sha": "679d42367da5ca3516bde9cc3c56a3ef9c45405b"
-        }
-      ]
-    },
-    {
-      "version": "0.10.40",
-      "released_on": "2025-01-06",
-      "commit_sha": "5ede8eda544df7ec1a4335376ec768bb255b7235",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Update Vietnamese translation (#1129)",
-          "commit_sha": "5ede8eda544df7ec1a4335376ec768bb255b7235"
-        }
-      ]
-    },
-    {
-      "version": "0.10.41",
-      "released_on": "2025-01-06",
-      "commit_sha": "5ede8eda544df7ec1a4335376ec768bb255b7235",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Update Vietnamese translation (#1129)",
-          "commit_sha": "5ede8eda544df7ec1a4335376ec768bb255b7235"
-        }
-      ]
-    },
-    {
       "version": "0.10.37",
       "released_on": "2024-09-19",
       "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc",
@@ -581,18 +689,6 @@
     },
     {
       "version": "0.10.38",
-      "released_on": "2024-09-19",
-      "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "improve-lang-<zh_CN> (#1088)",
-          "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc"
-        }
-      ]
-    },
-    {
-      "version": "0.10.39",
       "released_on": "2024-09-19",
       "commit_sha": "128de1caec6cc7da035b8336cd804d33aa3d5adc",
       "changes": [
@@ -652,18 +748,6 @@
       ]
     },
     {
-      "version": "0.10.33",
-      "released_on": "2024-06-17",
-      "commit_sha": "20bf6cdb0bc1b92c26af3fc0e644d97745351afd",
-      "changes": [
-        {
-          "action": "removed",
-          "summary": "Remove pyopengl accelerate (#1066)",
-          "commit_sha": "20bf6cdb0bc1b92c26af3fc0e644d97745351afd"
-        }
-      ]
-    },
-    {
       "version": "0.10.33b0",
       "released_on": "2024-06-17",
       "commit_sha": "20bf6cdb0bc1b92c26af3fc0e644d97745351afd",
@@ -672,66 +756,6 @@
           "action": "removed",
           "summary": "Remove pyopengl accelerate (#1066)",
           "commit_sha": "20bf6cdb0bc1b92c26af3fc0e644d97745351afd"
-        }
-      ]
-    },
-    {
-      "version": "0.10.31",
-      "released_on": "2024-06-12",
-      "commit_sha": "5e68e5bb35ea78f546ca068fe0c10331298b13ab",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Improved the sponsor section on the home page (#1059)",
-          "commit_sha": "5e68e5bb35ea78f546ca068fe0c10331298b13ab"
-        }
-      ]
-    },
-    {
-      "version": "0.10.32",
-      "released_on": "2024-06-12",
-      "commit_sha": "5e68e5bb35ea78f546ca068fe0c10331298b13ab",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Improved the sponsor section on the home page (#1059)",
-          "commit_sha": "5e68e5bb35ea78f546ca068fe0c10331298b13ab"
-        }
-      ]
-    },
-    {
-      "version": "0.10.30",
-      "released_on": "2024-05-29",
-      "commit_sha": "dd41b8e194c8c49a43af74298657a0e9bead5077",
-      "changes": [
-        {
-          "action": "added",
-          "summary": "Added a sponsor button (#1054)",
-          "commit_sha": "dd41b8e194c8c49a43af74298657a0e9bead5077"
-        }
-      ]
-    },
-    {
-      "version": "0.10.29",
-      "released_on": "2024-05-01",
-      "commit_sha": "a7043321ede926a5ec9ab0d90620395494c71910",
-      "changes": [
-        {
-          "action": "fixed",
-          "summary": "Fix versioneer (#1043)",
-          "commit_sha": "a7043321ede926a5ec9ab0d90620395494c71910"
-        }
-      ]
-    },
-    {
-      "version": "0.10.28",
-      "released_on": "2024-03-18",
-      "commit_sha": "9a3d9c5a3abb996730b2375e61fcb33d9ca7fc5e",
-      "changes": [
-        {
-          "action": "changed",
-          "summary": "Merge pull request #1032 from Amulet-Team/bug-1031",
-          "commit_sha": "9a3d9c5a3abb996730b2375e61fcb33d9ca7fc5e"
         }
       ]
     },
