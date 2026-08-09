@@ -90,6 +90,9 @@ class SitePublicationContractTests(unittest.TestCase):
         self.assertIn('id="site-scale"', html)
         self.assertIn('function contrastRatio', app)
         self.assertIn('id="reset-site-settings"', html)
+        self.assertIn("Windows one-click builds", html)
+        self.assertNotIn("macOS, Debian, Flatpak, and Docker workflows", html)
+        self.assertIn("verified Windows release", html)
 
 
 if __name__ == "__main__":
