@@ -8,9 +8,11 @@
 - ✅ Versioned named appearance presets, validated JSON interchange, and
   native Appearance-tab load/save/import/export and staged reset controls.
 - ✅ Versioned scheduled-settings foundation with local precedence and boundary tests.
-- 🏃 Complete full per-element appearance editing and tab groups; scheduled
-  settings now have native date/time pickers and local history has a native
-  browser, while the remaining global-memory surfaces still need migration.
+- 🏃 Complete full per-element appearance editing and live tab-strip projection;
+  the native tab/group manager now covers persisted docking, pinning, grouping,
+  search, and notebook activation. Scheduled settings have native date/time
+  pickers and local history has a native browser; remaining global-memory
+  surfaces still need migration.
 
 ## Windows delivery
 

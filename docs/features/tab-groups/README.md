@@ -1,67 +1,35 @@
-# Browser-style tabs and groups
+# Tabs and groups
 
-`amulet_map_editor.api.tab_groups` is the reusable state and search contract for
-browser-style tabs. It is wx-independent so native wx surfaces and the Material
-3 documentation surface can project the same state without duplicating rules.
+The desktop app exposes **View → Tabs and groups…** and the same destination in
+the `Ctrl+Shift+F` command palette. The native Material 3 surface searches open
+tabs in plain-text mode by default and has an adjacent bounded regex builder.
 
-## Behaviour
+The manager persists the existing tab contract: left/top/right/bottom strip
+edge, pinned-first ordering, named groups, group membership, and active-tab
+teleportation. Selecting **Activate selected** returns to the real notebook
+page rather than opening a duplicate surface. Invalid regex input is handled as
+an empty result and never changes tab state.
 
-- A surface stores a bounded, versioned tab list and named groups.
-- The tab strip can dock to `left`, `top`, `right`, or `bottom`; new state uses
-  `left` and vertical keyboard navigation.
-- Tabs retain order, a protected `pinned` flag, group membership, and the active
-  tab. Groups retain order and their expanded/collapsed state.
-- State is persisted through the existing profile configuration store under a
-  surface-scoped identifier. Invalid or over-sized profile data is normalised
-  to safe limits (256 tabs and 64 groups).
+The current notebook remains the source of truth for rendering and close/dirty
+protection. The manager is the persisted organisation and discovery surface;
+future work will project the chosen edge and group headers into the live strip
+without changing the saved contract.
 
-## Four search contracts
+## Failure modes and security
 
-`TabWorkspace` exposes four independent search methods:
-
-1. `search_strip` searches visible tab titles in the current strip.
-2. `search_group` searches titles inside one named group.
-3. `search_group_names` searches group names.
-4. `search_master` searches all tabs owned by the surface.
-
-Each search is plain-text-first and delegates compilation, length limits, regex
-opt-in, flags, and nested-quantifier protection to the shared `RegexBuilder`.
-Results identify the tab, group, pinned state, search scope, and current dock so
-a future UI can teleport to the exact result without losing its group state.
-
-## Accessibility projection
-
-`tab_strip_aria`, `tab_aria`, and `tab_keyboard_target` provide stable ARIA and
-roving-focus semantics. `apply_wx_tab_accessibility` applies the safe subset
-(`SetName` and `SetHelpText`) when a wx control supplies those methods and always
-returns the complete attribute map for a richer native adapter.
-
-This commit supplies the reusable contract and tests; it does **not** claim that
-every existing notebook or dialog has already migrated to the new tab strip.
-Migration remains a separate UI lane so existing world-editor close and unsaved
-work behaviour stays intact.
-
-## Failure and security boundaries
-
-- Empty, control-character, duplicate, unknown, and over-sized identifiers are
-  rejected or discarded during normalisation.
-- Invalid explicit regex patterns raise `ValueError`; ordinary text such as `[` is
-  escaped and remains a literal search.
-- Persistence uses the application's existing profile store and never writes a
-  `.git` directory into a user project.
+- Search is bounded to 256 characters and evaluates locally.
+- Invalid patterns produce no matches and do not mutate state.
+- Unknown or malformed persisted IDs are discarded by `TabWorkspace` migration.
+- Group and pin changes are saved through the versioned app configuration.
 
 ## Verification
 
-`tests/test_tab_groups.py` covers round-trip migration, persistence, all four
-searches, regex validation, docking, pinned/group state, ARIA attributes, and
-keyboard navigation without importing wx.
+`tests/test_tab_manager_ui_contract.py` checks the native M3 shell, regex
+builder, persisted operations, View-menu route, and command-palette route.
+The underlying `tests/test_tab_groups.py` suite covers persistence, four search
+scopes, pinning, grouping, docking, ARIA attributes, and axis-aware keyboard
+navigation.
 
-### Suggested articles
-
-- [Appearance presets](../appearance-presets/README.md) — customize the tab
-  chrome after a surface adopts the contract.
-- [Local history](../local-history/README.md) — record tab and group changes in
-  an append-only profile history.
-- [Scheduled settings](../scheduled-settings/README.md) — schedule a dock or
-  appearance override while preserving the base value.
-
+Suggested articles: [Appearance presets](../appearance-presets/README.md),
+[Local history](../local-history/README.md), and
+[Scheduled settings](../scheduled-settings/README.md).
