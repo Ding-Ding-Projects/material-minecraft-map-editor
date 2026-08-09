@@ -11,10 +11,12 @@ page rather than opening a duplicate surface. Invalid regex input is handled as
 an empty result and never changes tab state.
 
 The current notebook remains the source of truth for rendering and close/dirty
-protection. Persisted top/bottom docking now projects into the live AGW
-notebook. Left/right remain explicitly capability-limited because this native
-control has no side-strip renderer yet; group headers remain a follow-up while
-the saved discovery contract stays intact.
+protection. Persisted top/bottom docking projects into the live AGW notebook,
+and left/right now project into a real keyboard-selectable Material side rail
+that mirrors the notebook's pages and active selection. AGW still retains its
+native tab header underneath because the control does not expose a supported
+hide-header flag; group headers remain a follow-up while the saved discovery
+contract stays intact.
 
 The manager also provides **Close tabs containing text** and **Close tabs not
 containing text**. Both actions use their own plain-text-first query and

@@ -60,6 +60,38 @@ UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 
 CLOSEABLE_PAGE_TYPE = Union[WorldPageUI]
 
+
+class SideTabRail(wx.Panel):
+    """Material side projection for the persisted left/right tab dock."""
+
+    def __init__(self, parent: wx.Window, notebook: "AmuletLevelNotebook"):
+        super().__init__(parent)
+        self._notebook = notebook
+        self._ids: list[int] = []
+        self.list = wx.ListBox(self, name="Side tab rail")
+        self.list.SetMinSize(wx.Size(220, -1))
+        self.list.Bind(wx.EVT_LISTBOX, self._activate)
+        root = wx.BoxSizer(wx.VERTICAL)
+        heading = wx.StaticText(self, label="Open tabs")
+        heading.SetName("Side tab rail heading")
+        root.Add(heading, 0, wx.ALL | wx.EXPAND, 10)
+        root.Add(self.list, 1, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 8)
+        self.SetSizer(root)
+        apply_material3(self)
+
+    def sync(self) -> None:
+        self._ids = list(range(self._notebook.GetPageCount()))
+        self.list.Set([self._notebook.GetPageText(index) for index in self._ids])
+        selection = self._notebook.GetSelection()
+        if selection != wx.NOT_FOUND and selection < self.list.GetCount():
+            self.list.SetSelection(selection)
+
+    def _activate(self, event: wx.CommandEvent) -> None:
+        row = event.GetSelection()
+        if 0 <= row < len(self._ids):
+            self._notebook.SetSelection(self._ids[row])
+
+
 wx.Image.SetDefaultLoadFlags(0)
 
 
@@ -107,11 +139,18 @@ class AmuletUI(wx.Frame):
         self._update_banner.SetSizer(self._update_banner_sizer)
         self._update_banner.Hide()
         self._shell_sizer.Add(self._update_banner, 0, wx.EXPAND | wx.ALL, 8)
+        self._tab_content = wx.Panel(self._shell)
+        self._tab_content_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._level_notebook = AmuletLevelNotebook(
-            self._shell, agwStyle=NOTEBOOK_MENU_STYLE
+            self._tab_content, agwStyle=NOTEBOOK_MENU_STYLE
         )
+        self._level_notebook._owner_frame = self
+        self._tab_rail = SideTabRail(self._tab_content, self._level_notebook)
+        self._tab_content_sizer.Add(self._tab_rail, 0, wx.EXPAND)
+        self._tab_content_sizer.Add(self._level_notebook, 1, wx.EXPAND)
+        self._tab_content.SetSizer(self._tab_content_sizer)
         self._level_notebook.init()
-        self._shell_sizer.Add(self._level_notebook, 1, wx.EXPAND)
+        self._shell_sizer.Add(self._tab_content, 1, wx.EXPAND)
         self._shell.SetSizer(self._shell_sizer)
         root_sizer = wx.BoxSizer(wx.VERTICAL)
         root_sizer.Add(self._shell, 1, wx.EXPAND)
@@ -119,6 +158,7 @@ class AmuletUI(wx.Frame):
         # Apply the shared M3 roles after pages exist so newly-created shell
         # controls receive the same palette and accessible sizing.
         apply_material3(self)
+        self._apply_tab_rail()
 
         # Keep the global command palette reachable while any child has focus.
         self._palette_id = int(wx.NewIdRef())
@@ -156,13 +196,19 @@ class AmuletUI(wx.Frame):
 
         self.Bind(wx.EVT_CLOSE, self._on_app_close)
 
-    def show_notification(self, title: str, body: str, *, severity: str = "info") -> None:
+    def show_notification(
+        self, title: str, body: str, *, severity: str = "info"
+    ) -> None:
         """Show a stacked, non-modal M3 toast without moving focus."""
         if self.IsBeingDeleted():
             return
-        toast = NotificationToast(self._shell, title, body, severity, self._dismiss_notification)
+        toast = NotificationToast(
+            self._shell, title, body, severity, self._dismiss_notification
+        )
         self._notification_toasts.append(toast)
-        self._shell_sizer.Insert(1, toast, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        self._shell_sizer.Insert(
+            1, toast, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8
+        )
         self._shell.Layout()
 
     def _dismiss_notification(self, toast: NotificationToast) -> None:
@@ -187,17 +233,25 @@ class AmuletUI(wx.Frame):
             name="amulet-scheduled-settings",
             daemon=True,
         ).start()
-        self._scheduled_timer = wx.CallLater(5 * 60 * 1000, self._refresh_scheduled_runtime)
+        self._scheduled_timer = wx.CallLater(
+            5 * 60 * 1000, self._refresh_scheduled_runtime
+        )
 
-    def _apply_scheduled_runtime_state(self, state: scheduled_runtime.RuntimeScheduleState) -> None:
+    def _apply_scheduled_runtime_state(
+        self, state: scheduled_runtime.RuntimeScheduleState
+    ) -> None:
         wx.CallAfter(self._finish_scheduled_runtime_state, state)
 
-    def _finish_scheduled_runtime_state(self, state: scheduled_runtime.RuntimeScheduleState) -> None:
+    def _finish_scheduled_runtime_state(
+        self, state: scheduled_runtime.RuntimeScheduleState
+    ) -> None:
         if self.IsBeingDeleted():
             return
         apply_material3(self)
         if state.matched_rule_ids:
-            self.SetStatusText("Scheduled settings active: " + ", ".join(state.matched_rule_ids))
+            self.SetStatusText(
+                "Scheduled settings active: " + ", ".join(state.matched_rule_ids)
+            )
         elif state.error:
             self.SetStatusText("Scheduled settings unavailable: " + state.error)
 
@@ -395,6 +449,22 @@ class AmuletUI(wx.Frame):
         dialog.CentreOnParent()
         dialog.ShowModal()
         dialog.Destroy()
+
+    def _apply_tab_rail(self) -> None:
+        """Project left/right docking into a live keyboard-selectable rail."""
+
+        dock = self._level_notebook._tab_workspace.state.dock
+        side = dock in (TabDock.LEFT, TabDock.RIGHT)
+        self._tab_rail.Show(side)
+        self._tab_content_sizer.Detach(self._tab_rail)
+        if side and dock is TabDock.RIGHT:
+            self._tab_content_sizer.Add(self._tab_rail, 0, wx.EXPAND)
+        elif side:
+            self._tab_content_sizer.Insert(0, self._tab_rail, 0, wx.EXPAND)
+        if side:
+            self._tab_rail.SetMinSize(wx.Size(220, -1))
+            self._tab_rail.sync()
+        self._tab_content.Layout()
 
     def _open_command_palette(self, _event=None) -> None:
         page = self._level_notebook.GetCurrentPage()
@@ -601,6 +671,7 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
         self._main_menu = AmuletMainMenu(self)
         self._open_worlds = {}
         self._tab_workspace = TabWorkspace("main-window")
+        self._owner_frame = None
 
     def init(self):
         self._add_world_tab(self._main_menu, lang.get("main_menu.tab_name"))
@@ -609,11 +680,17 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
     def apply_tab_workspace(self) -> None:
         """Project persisted notebook docking where AGW supports it."""
         dock = self._tab_workspace.state.dock
-        style = NOTEBOOK_STYLE if self.GetCurrentPage() is not self._main_menu else NOTEBOOK_MENU_STYLE
+        style = (
+            NOTEBOOK_STYLE
+            if self.GetCurrentPage() is not self._main_menu
+            else NOTEBOOK_MENU_STYLE
+        )
         if dock is TabDock.BOTTOM:
             style |= flatnotebook.FNB_BOTTOM
         self.SetAGWWindowStyleFlag(style)
         self.SetName(f"Amulet tabs ({dock.value})")
+        if self._owner_frame is not None:
+            self._owner_frame._apply_tab_rail()
 
     def set_tab_dock(self, dock: TabDock | str) -> None:
         self._tab_workspace.set_dock(dock)
@@ -651,6 +728,8 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
     def _add_world_tab(self, page: BasePageUI, obj_name: str):
         """Add a tab and enable it."""
         self.AddPage(page, obj_name, True)
+        if self._owner_frame is not None:
+            self._owner_frame._tab_rail.sync()
 
     def close_level(self, path: str):
         """Close a given world and remove it from the notebook"""
@@ -672,6 +751,8 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
                 del self._open_worlds[path]
             else:
                 evt.Veto()
+        if self._owner_frame is not None:
+            self._owner_frame._tab_rail.sync()
 
     def _page_changing(self, evt: wx.BookCtrlEvent):
         old_selection_index = evt.GetOldSelection()
@@ -696,6 +777,8 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
 
         if self.GetCurrentPage() is not None:
             self.GetCurrentPage().enable()
+        if self._owner_frame is not None:
+            self._owner_frame._tab_rail.sync()
 
     def on_app_close(self, evt: wx.CloseEvent):
         for path, page in list(self._open_worlds.items()):
