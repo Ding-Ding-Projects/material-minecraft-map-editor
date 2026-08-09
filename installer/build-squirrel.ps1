@@ -33,6 +33,29 @@ $packageRoot = Join-Path $scratch 'package'
 $packageLib = Join-Path $packageRoot 'lib\net45'
 $nupkg = Join-Path $scratch "Amulet.$Version.nupkg"
 
+function Get-Sha256([string] $Path) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [IO.File]::ReadAllBytes($Path)
+        return ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').ToLowerInvariant()
+    }
+    finally { $sha.Dispose() }
+}
+
+function Get-SignatureStatus([string] $Path) {
+    # Windows PowerShell 5.1 can fail to autoload Microsoft.PowerShell.Security
+    # on stripped-down runners.  The signed-file API is available in the base
+    # .NET Framework and lets the unsigned policy remain fail-closed without
+    # depending on that optional module.
+    try {
+        [void][Security.Cryptography.X509Certificates.X509Certificate]::CreateFromSignedFile($Path)
+        return 'Signed'
+    }
+    catch {
+        return 'NotSigned'
+    }
+}
+
 function Invoke-Native([string] $FilePath, [string[]] $ArgumentList) {
     & $FilePath @ArgumentList
     if ($LASTEXITCODE -ne 0) {
@@ -47,7 +70,15 @@ function Invoke-SquirrelWithTimeout([string] $FilePath, [string[]] $ArgumentList
     $info.RedirectStandardOutput = $true
     $info.RedirectStandardError = $true
     $info.CreateNoWindow = $true
-    foreach ($argument in $ArgumentList) { [void]$info.ArgumentList.Add($argument) }
+    if ($null -ne $info.ArgumentList) {
+        foreach ($argument in $ArgumentList) { [void]$info.ArgumentList.Add($argument) }
+    } else {
+        # Windows PowerShell 5.1/.NET Framework has no ArgumentList property.
+        # Quote the bounded arguments explicitly for the legacy Arguments API.
+        $info.Arguments = ($ArgumentList | ForEach-Object {
+            '"' + ([string]$_).Replace('"', '\"') + '"'
+        }) -join ' '
+    }
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $info
     [void]$process.Start()
@@ -71,7 +102,7 @@ try {
         '--fail', '--location', '--silent', '--show-error', '--retry', '4',
         '--retry-all-errors', '--output', $nuget, $nugetUri
     )
-    $nugetHash = (Get-FileHash -LiteralPath $nuget -Algorithm SHA256).Hash.ToLowerInvariant()
+    $nugetHash = Get-Sha256 $nuget
     if ($nugetHash -ne $NuGetSha256.ToLowerInvariant()) {
         throw "NuGet $NuGetVersion SHA-256 mismatch: expected $NuGetSha256, got $nugetHash"
     }
@@ -176,9 +207,9 @@ try {
         throw 'Squirrel output has no Setup.exe to verify'
     }
     foreach ($file in $signatureTargets) {
-        $signature = Get-AuthenticodeSignature $file.FullName
-        if ($signature.Status -ne 'NotSigned') {
-            throw "Unsigned policy violated: $($file.Name) reports $($signature.Status)"
+        $signatureStatus = Get-SignatureStatus $file.FullName
+        if ($signatureStatus -ne 'NotSigned') {
+            throw "Unsigned policy violated: $($file.Name) reports $signatureStatus"
         }
     }
     $releaseIndex = Get-Content (Join-Path $releaseDir 'RELEASES') -Raw

@@ -128,6 +128,8 @@ jobs:
         ./installer/build-squirrel.ps1
         -Version "$env:BUILD_VERSION"
         -Architecture '${{ matrix.cfg.architecture }}'
+        -InputDirectory "$PWD/installer/dist/amulet"
+        -OutputDirectory "$PWD/installer/dist/squirrel"
         -PreviousPackagePath "$env:PREVIOUS_PACKAGE"
 
     - name: Verify unsigned installer contract
