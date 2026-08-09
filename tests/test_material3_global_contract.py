@@ -79,3 +79,14 @@ def test_nonblocking_bridge_normalises_multiline_exception_text():
         encoding="utf-8"
     )
     assert 'replace("\\n", " · ")' in bridge
+
+
+def test_editing_and_world_selection_info_flows_are_nonblocking():
+    for relative in (
+        "amulet_map_editor/programs/edit/plugins/tools/paste.py",
+        "amulet_map_editor/programs/edit/plugins/tools/import_tool.py",
+        "amulet_map_editor/api/wx/ui/select_world.py",
+    ):
+        source = (ROOT / relative).read_text(encoding="utf-8")
+        assert "nonblocking import notify" in source
+        assert "wx.MessageBox" not in source

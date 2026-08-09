@@ -7,6 +7,7 @@ import amulet
 from amulet.api.errors import LoaderNoneMatched
 
 from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.programs.edit.api.ui.tool import DefaultBaseToolUI
 from amulet_map_editor.programs.edit.api.behaviour import StaticSelectionBehaviour
 from amulet_map_editor.programs.edit.api.events import ToolChangeEvent
@@ -66,7 +67,7 @@ class ImportTool(wx.BoxSizer, DefaultBaseToolUI):
         except LoaderNoneMatched:
             msg = f"Could not find a matching loader for {pathname}."
             log.error(msg)
-            wx.MessageBox(msg)
+            notify(self.canvas, "Import unavailable", msg, severity="error")
         except Exception as e:
             log.error(f"Could not open {pathname}.", exc_info=True)
             with TracebackDialog(

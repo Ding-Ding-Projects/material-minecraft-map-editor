@@ -15,6 +15,7 @@ from amulet.api.errors import FormatError
 from amulet_map_editor import lang, CONFIG
 from amulet_map_editor.api.wx.ui import simple
 from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.framework import app
 
 if TYPE_CHECKING:
@@ -523,7 +524,12 @@ class WorldSelectUI(wx.Panel):
         else:
             del busy_msg
 
-        wx.MessageBox(lang.get("select_world.extracting_world_finished"), "Info", wx.OK)
+        notify(
+            self,
+            "World extraction finished",
+            lang.get("select_world.extracting_world_finished"),
+            severity="success",
+        )
 
         self.open_world_callback(extract_dir)
 

@@ -26,6 +26,7 @@ from amulet_map_editor import lang
 from amulet_map_editor.api import image
 from amulet_map_editor.api.wx.util.validators import int_validator, float_validator
 from amulet_map_editor.api.wx.ui.simple import SimpleScrollablePanel
+from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.opengl.camera import Projection, Camera
 from amulet_map_editor.api.opengl.mesh.level import RenderLevel
 from amulet_map_editor.programs.edit.api.key_config import (
@@ -529,7 +530,12 @@ class PasteTool(wx.BoxSizer, DefaultBaseToolUI):
         elif structure_cache:
             structure, dimension = structure_cache.get_structure()
         else:
-            wx.MessageBox("A structure needs to be copied before one can be pasted.")
+            notify(
+                self,
+                "Paste unavailable",
+                "A structure needs to be copied before one can be pasted.",
+                severity="warning",
+            )
             return
 
         self._paste_panel.Enable()
