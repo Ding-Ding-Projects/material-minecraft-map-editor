@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import wx
 
-from amulet_map_editor.api import notifications
+from amulet_map_editor.api import export_actions, notifications
 from amulet_map_editor.api.wx.material3 import apply_material3
 
 
@@ -34,16 +34,28 @@ class NotificationHistoryDialog(wx.Dialog):
         self.dismiss = wx.Button(self, label="Dismiss selected")
         self.dismiss_all = wx.Button(self, label="Dismiss all visible")
         self.export = wx.Button(self, label="Export Markdown")
+        self.open_export = wx.Button(self, label="Open export in VS Code")
+        self.open_export.Enable(False)
         close = wx.Button(self, id=wx.ID_CLOSE, label="Close")
-        for button in (self.dismiss, self.dismiss_all, self.export, close):
+        for button in (
+            self.dismiss,
+            self.dismiss_all,
+            self.export,
+            self.open_export,
+            close,
+        ):
             actions.Add(button, 0, wx.RIGHT, 8)
+        self.export_status = wx.StaticText(self, label="")
+        self.export_status.SetName("Notification export status")
         root.Add(actions, 0, wx.ALL, 12)
+        root.Add(self.export_status, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.SetSizer(root)
         self.search.Bind(wx.EVT_TEXT, self._refresh)
         self.regex.Bind(wx.EVT_CHECKBOX, self._refresh)
         self.dismiss.Bind(wx.EVT_BUTTON, self._dismiss_selected)
         self.dismiss_all.Bind(wx.EVT_BUTTON, self._dismiss_visible)
         self.export.Bind(wx.EVT_BUTTON, self._export)
+        self.open_export.Bind(wx.EVT_BUTTON, self._open_export)
         close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CLOSE))
         self._refresh()
         apply_material3(self)
@@ -98,3 +110,15 @@ class NotificationHistoryDialog(wx.Dialog):
                 return
             with open(dialog.GetPath(), "w", encoding="utf-8", newline="\n") as stream:
                 stream.write(notifications.export_markdown(self._items))
+            self._last_export_path = dialog.GetPath()
+        self.open_export.Enable(True)
+        self.export_status.SetLabel(
+            f"Exported notification history to {self._last_export_path}"
+        )
+
+    def _open_export(self, _event) -> None:
+        target = getattr(self, "_last_export_path", None)
+        if not target:
+            return
+        action = export_actions.open_exported_path(target)
+        self.export_status.SetLabel(action.message)

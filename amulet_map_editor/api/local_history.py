@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from amulet_map_editor.api import export_actions
+
 SCHEMA_VERSION = 1
 MAX_IDENTIFIER_LENGTH = 160
 MAX_TYPE_LENGTH = 80
@@ -479,6 +481,19 @@ class LocalHistory:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8", newline="\n")
         return target
+
+    def export_and_open(
+        self,
+        path: str | os.PathLike[str],
+        *,
+        format: str = "json",
+        opener=None,
+        **filters: Any,
+    ) -> tuple[Path, export_actions.ExportEditorAction]:
+        """Export history and offer the produced file to the external editor."""
+
+        target = self.export(path, format=format, **filters)
+        return target, export_actions.open_exported_path(target, opener=opener)
 
     # Safe wrappers are intentionally broad: history is audit support, never
     # a reason to fail the operation that changed the user's data.
