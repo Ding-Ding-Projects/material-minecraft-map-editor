@@ -104,6 +104,20 @@ def test_startup_has_no_purchase_gate():
     assert "ShowModal()" in source  # the remaining warning is an actual first-run decision
 
 
+def test_main_menu_has_no_unsolicited_sponsor_promotion_and_styles_legal_surfaces():
+    main_menu = (ROOT / "amulet_map_editor/api/framework/pages/main_menu.py").read_text(
+        encoding="utf-8"
+    )
+    legal = (ROOT / "amulet_map_editor/api/framework/pages/_legal.py").read_text(
+        encoding="utf-8"
+    )
+    assert "urlopen" not in main_menu
+    assert "sponsors" not in main_menu
+    assert "pathway_logo" not in main_menu
+    assert "apply_material3(self)" in main_menu
+    assert "apply_material3(self)" in legal
+
+
 def test_nonblocking_bridge_normalises_multiline_exception_text():
     bridge = (ROOT / "amulet_map_editor/api/wx/nonblocking.py").read_text(
         encoding="utf-8"

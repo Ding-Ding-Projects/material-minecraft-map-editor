@@ -1,6 +1,4 @@
 import webbrowser
-from urllib.request import urlopen
-import json
 import logging
 
 import wx
@@ -8,6 +6,7 @@ import wx.adv
 import wx.lib.inspection
 
 from amulet_map_editor.api import image, lang
+from amulet_map_editor.api.wx.material3 import apply_material3
 from .base_page import BasePageUI
 from amulet_map_editor.api.wx.ui.select_world import open_level_from_dialog
 from ._legal import LicenceDialog
@@ -93,47 +92,7 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
 
         top_sizer.Add(side_sizer)
 
-        footer_sizer = wx.BoxSizer(wx.VERTICAL)
-        root_sizer.Add(footer_sizer, 0, wx.EXPAND, 0)
-
-        sponsor_header = wx.BoxSizer(wx.HORIZONTAL)
-        self._sponsor_label = wx.StaticText(self)
-        self._sponsor_link = wx.adv.HyperlinkCtrl(
-            self, url="https://github.com/sponsors/Amulet-Team"
-        )
-        sponsor_header.AddStretchSpacer(1)
-        sponsor_header.Add(self._sponsor_label)
-        sponsor_header.AddSpacer(10)
-        sponsor_header.Add(self._sponsor_link)
-        sponsor_header.AddStretchSpacer(1)
-        footer_sizer.Add(sponsor_header, 0, wx.EXPAND)
-
-        sponsor_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        footer_sizer.Add(sponsor_sizer, 0, wx.EXPAND)
-        pathway_bitmap = image.logo.pathway_logo.bitmap(300, 130)
-        pathway_button = wx.StaticBitmap(
-            self, wx.ID_ANY, pathway_bitmap, (0, 0), (300, 130)
-        )
-        pathway_button.Bind(wx.EVT_LEFT_DOWN, self._pathway)
-        sponsor_sizer.Add(pathway_button)
-
-        try:
-            with urlopen(
-                "https://raw.githubusercontent.com/Amulet-Team/sponsors/main/sponsors.json"
-            ) as f:
-                sponsors = json.load(f)
-        except Exception:
-            pass
-        else:
-            github_sponsor_text = wx.TextCtrl(
-                self,
-                value="   ".join(sponsors),
-                style=wx.TE_READONLY | wx.TE_MULTILINE | wx.TE_CENTRE | wx.BORDER_NONE,
-                size=wx.Size(-1, 130),
-            )
-            github_sponsor_text.SetBackgroundColour(self.GetBackgroundColour())
-            sponsor_sizer.Add(github_sponsor_text, 1)
-
+        apply_material3(self)
         self._load_strings()
 
     def _load_strings(self):
@@ -145,8 +104,6 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         self._bug_tracker_button.SetToolTip(lang.get("app.browser_open_tooltip"))
         self._discord_button.SetLabel(lang.get("main_menu.discord"))
         self._discord_button.SetToolTip(lang.get("app.browser_open_tooltip"))
-        self._sponsor_label.SetLabel(lang.get("main_menu.our_sponsors"))
-        self._sponsor_link.SetLabel(lang.get("main_menu.sponsor_link"))
         self._licence_button.SetToolTip(lang.get("main_menu.licence_tooltip"))
 
     @staticmethod
@@ -164,10 +121,6 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
     @staticmethod
     def _discord(_):
         webbrowser.open("https://www.amuletmc.com/discord")
-
-    @staticmethod
-    def _pathway(_):
-        webbrowser.open("https://www.pathway.studio/")
 
     def enable(self):
         self.GetTopLevelParent().create_menu()
@@ -234,6 +187,7 @@ class LangSelectDialog(wx.Dialog):
         self.SetEscapeId(self._button_cancel.GetId())
 
         self.Layout()
+        apply_material3(self)
 
     def get_language(self):
         return self._lang_list_box.GetStringSelection()

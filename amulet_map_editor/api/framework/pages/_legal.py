@@ -6,6 +6,7 @@ import wx.lib.scrolledpanel
 import wx.lib.agw.hyperlink
 
 from amulet_map_editor.api import lang
+from amulet_map_editor.api.wx.material3 import apply_material3
 
 
 @dataclass
@@ -81,6 +82,8 @@ class LicenceDialog(wx.Dialog):
 
         button_sizer = self.CreateButtonSizer(wx.OK)
         self._sizer.Add(button_sizer, 0, wx.EXPAND | wx.ALL, 5)
+        self.Layout()
+        apply_material3(self)
 
     def _layout(self, evt) -> None:
         self.Layout()

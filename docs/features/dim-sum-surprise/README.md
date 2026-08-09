@@ -8,8 +8,9 @@ most one fresh random draw. Values from `0` up to, but not including, `0.10`
 qualify. An ineligible first-run, update, error, or mid-task launch is a no-op.
 
 A qualifying draw resolves catalog data on a daemon thread and projects a
-focus-safe, non-modal `DimSumSurpriseToast` after the startup license/warning
-gates return to the event loop. The toast forbids focus stealing, supplies an
+focus-safe, non-modal `DimSumSurpriseToast` after the first-run safety-warning
+gate returns to the event loop. Amulet has no purchase or license gate. The
+toast forbids focus stealing, supplies an
 eight-second auto-dismiss, and localizes the authoritative dish name and
 meaningful image alt text for English, Cantonese, or bilingual presentation.
 Missing/offline catalog data, School mode, update/error states, and a user who
