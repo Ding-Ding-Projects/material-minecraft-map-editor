@@ -95,6 +95,15 @@ def test_informational_workflows_use_nonblocking_notifications():
         assert "wx.MessageBox" not in source
 
 
+def test_startup_has_no_purchase_gate():
+    source = (ROOT / "amulet_map_editor/api/framework/app.py").read_text(
+        encoding="utf-8"
+    )
+    assert "LicenceDialog" not in source
+    assert "Buy a license" not in source
+    assert "ShowModal()" in source  # the remaining warning is an actual first-run decision
+
+
 def test_nonblocking_bridge_normalises_multiline_exception_text():
     bridge = (ROOT / "amulet_map_editor/api/wx/nonblocking.py").read_text(
         encoding="utf-8"

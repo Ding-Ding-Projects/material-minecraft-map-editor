@@ -3,13 +3,11 @@ from . import amulet_ui
 import sys
 import locale
 import logging
-import time
 import os
 
 from amulet_map_editor.api import config
 from amulet_map_editor import __version__
 from .warning_dialog import WarningDialog
-from .licence_dialog import LicenceDialog
 from amulet_map_editor.api.wx.material3 import apply_material3
 
 # Disable OpenGL_accelerate logging
@@ -67,19 +65,6 @@ class AmuletApp(wx.App):
         )
 
         meta_config = config.get("amulet_meta", {})
-
-        if not (getattr(sys, "frozen", False) or os.path.exists("/.flatpak-info")):
-            licence_dialog_show_time = meta_config.get("licence_dialog_show_time", 0)
-            if licence_dialog_show_time < time.time() - 3600 * 24 * 30:
-                # Last shown more than a month ago
-                licence_dialog = LicenceDialog(self._amulet_ui)
-                centre_on_main_screen(licence_dialog)
-                log.debug(f"Showing licence dialog at {licence_dialog.GetRect()}")
-                if licence_dialog.ShowModal() == wx.ID_OK:
-                    meta_config["licence_dialog_show_time"] = time.time()
-                    config.put("amulet_meta", meta_config)
-                else:
-                    return False
 
         if not meta_config.get("do_not_show_warning_dialog", False):
             warning_dialog = WarningDialog(self._amulet_ui)
