@@ -36,6 +36,16 @@ class DocumentationUiContractTestCase(unittest.TestCase):
             ),
         )
 
+    def test_documentation_chrome_uses_persisted_language_modes_and_resources(self):
+        for marker in (
+            "preferences.load().language_mode",
+            "_copy(\"title\", self._language_mode)",
+            "documentation.en.title",
+            "documentation.zh.title",
+            "if mode == \"bilingual\"",
+        ):
+            self.assertIn(marker, UI if "documentation." not in marker else UI + (ROOT / "amulet_map_editor/lang/en.lang").read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,7 +13,21 @@ from amulet_map_editor.api.docs_browser import (
     DocumentationIndex,
     load_bundled_articles,
 )
+from amulet_map_editor.api import preferences
+from amulet_map_editor.api import lang
 from amulet_map_editor.api.wx.material3 import apply_material3
+
+
+def _copy(key: str, mode: str) -> str:
+    """Return localized chrome copy in the persisted three-mode contract."""
+
+    english = lang.get(f"documentation.en.{key}")
+    cantonese = lang.get(f"documentation.zh.{key}")
+    if mode == "cantonese":
+        return cantonese
+    if mode == "bilingual":
+        return f"{english} · {cantonese}"
+    return english
 
 
 def _markdown_to_html(index: DocumentationIndex, slug: str, markdown: str) -> str:
@@ -73,15 +87,20 @@ class DocumentationDialog(wx.Dialog):
     """Browse bundled feature articles while offline."""
 
     def __init__(self, parent: wx.Window):
-        super().__init__(parent, title="Documentation", size=wx.Size(900, 620))
+        self._language_mode = preferences.load().language_mode
+        super().__init__(
+            parent,
+            title=_copy("title", self._language_mode),
+            size=wx.Size(900, 620),
+        )
         self._index = load_bundled_articles()
         self._visible = self._index.articles
 
         root = wx.BoxSizer(wx.VERTICAL)
         filters = wx.BoxSizer(wx.HORIZONTAL)
         self.query = wx.TextCtrl(self)
-        self.query.SetHint("Search documentation (plain text by default)")
-        self.regex = wx.CheckBox(self, label="Regex")
+        self.query.SetHint(_copy("search_hint", self._language_mode))
+        self.regex = wx.CheckBox(self, label=_copy("regex", self._language_mode))
         self.feedback = wx.StaticText(self, label="")
         filters.Add(self.query, 1, wx.EXPAND | wx.RIGHT, 8)
         filters.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
@@ -96,7 +115,7 @@ class DocumentationDialog(wx.Dialog):
         body.Add(self.article_view, 1, wx.EXPAND)
         root.Add(body, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
-        close = wx.Button(self, id=wx.ID_CLOSE, label="Close")
+        close = wx.Button(self, id=wx.ID_CLOSE, label=_copy("close", self._language_mode))
         close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL))
         root.Add(close, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
         self.SetSizer(root)
@@ -119,9 +138,15 @@ class DocumentationDialog(wx.Dialog):
             )
         except DocumentationBundleError as exc:
             self._visible = ()
-            self.feedback.SetLabel(f"Invalid search: {exc}")
+            self.feedback.SetLabel(
+                f"{_copy('invalid_search', self._language_mode)}: {exc}"
+            )
         else:
-            self.feedback.SetLabel(f"{len(self._visible)} article(s)")
+            self.feedback.SetLabel(
+                _copy("article_count", self._language_mode).format(
+                    count=len(self._visible)
+                )
+            )
         self.results.Set(
             [
                 article.title
@@ -134,7 +159,9 @@ class DocumentationDialog(wx.Dialog):
             self._show_selected()
         else:
             self.article_view.SetPage(
-                "<html><body><p>No matching documentation.</p></body></html>"
+                "<html><body><p>"
+                + html.escape(_copy("no_match", self._language_mode))
+                + "</p></body></html>"
             )
 
     def _show_selected(self, _event: wx.Event | None = None) -> None:
