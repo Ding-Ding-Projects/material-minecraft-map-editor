@@ -139,6 +139,35 @@ def _ensure_material_dialog_chrome(window: wx.Window) -> None:
     window.Layout()
 
 
+def _ensure_material_frame_chrome(window: wx.Window) -> None:
+    """Give secondary wx frames the same M3 title bar as the main shell."""
+
+    if (
+        not isinstance(window, wx.Frame)
+        or hasattr(window, "_title_bar")
+        or getattr(window, "_material3_frame_chrome", False)
+    ):
+        return
+    content = window.GetSizer()
+    if content is None:
+        return
+    from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
+
+    style = window.GetWindowStyleFlag()
+    window.SetWindowStyleFlag(
+        (style & ~wx.CAPTION & ~wx.SYSTEM_MENU & ~wx.MINIMIZE_BOX & ~wx.MAXIMIZE_BOX)
+        | wx.NO_BORDER
+        | wx.RESIZE_BORDER
+    )
+    title_bar = MaterialTitleBar(window, window.GetTitle() or "Amulet")
+    outer = wx.BoxSizer(wx.VERTICAL)
+    outer.Add(title_bar, 0, wx.EXPAND)
+    outer.Add(content, 1, wx.EXPAND)
+    wx.Frame.SetSizer(window, outer)
+    window._material3_frame_chrome = True
+    window.Layout()
+
+
 def apply_material3(window: wx.Window) -> None:
     """Apply M3 roles to a window tree.
 
@@ -152,6 +181,7 @@ def apply_material3(window: wx.Window) -> None:
         return
 
     _ensure_material_dialog_chrome(window)
+    _ensure_material_frame_chrome(window)
 
     palette = _active_palette()
 

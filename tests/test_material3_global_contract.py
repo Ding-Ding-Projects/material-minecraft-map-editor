@@ -38,6 +38,15 @@ def test_dialogs_receive_borderless_material_chrome():
     assert "MaterialTitleBar(window" in source
 
 
+def test_secondary_frames_receive_the_same_material_chrome():
+    source = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(
+        encoding="utf-8"
+    )
+    assert "_ensure_material_frame_chrome" in source
+    assert "wx.Frame.SetSizer(window, outer)" in source
+    assert "hasattr(window, \"_title_bar\")" in source
+
+
 def test_editable_controls_use_m3_surface_roles():
     source = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(
         encoding="utf-8"
