@@ -20,8 +20,6 @@ if TYPE_CHECKING:
     from PyInstaller.building.osx import BUNDLE
 
 is_windows = os.name == "nt"
-is_macos = sys.platform == "darwin"
-
 sys.modules["FixTk"] = None
 
 a = Analysis(
@@ -49,8 +47,10 @@ exe = EXE(
     console=is_windows, # Only show the console on Windows
     icon="logo.ico",
     contents_directory="lib",
-    codesign_identity=os.environ.get("APPLE_CODESIGN_IDENTITY", None) if is_macos else None,
-    entitlements_file="installer/entitlements.plist" if is_macos else None,
+    # macOS packaging is intentionally unsigned; never discover or invoke a
+    # developer certificate from the build environment.
+    codesign_identity=None,
+    entitlements_file=None,
 )
 exe_debug = EXE(
     pyz,
@@ -64,8 +64,9 @@ exe_debug = EXE(
     console=is_windows, # Only show the console on Windows
     icon="logo.ico",
     contents_directory="lib",
-    codesign_identity=os.environ.get("APPLE_CODESIGN_IDENTITY", None) if is_macos else None,
-    entitlements_file="installer/entitlements.plist" if is_macos else None,
+    # Keep the debug bundle under the same unsigned policy as the release app.
+    codesign_identity=None,
+    entitlements_file=None,
 )
 
 coll = COLLECT(
