@@ -10,7 +10,12 @@ param(
 
     [string] $InputDirectory = (Join-Path $PSScriptRoot 'dist\amulet'),
     [string] $OutputDirectory = (Join-Path $PSScriptRoot 'dist\squirrel'),
-    [string] $NuGetVersion = 'latest',
+    # Keep the bootstrap executable immutable: the NuGet "latest" alias is a
+    # moving target and would let a packaging run silently change toolchains.
+    [ValidatePattern('^v\d+\.\d+\.\d+$')]
+    [string] $NuGetVersion = 'v6.14.0',
+    [ValidatePattern('^[0-9a-fA-F]{64}$')]
+    [string] $NuGetSha256 = '92dbed160ddee0f64b901e907439e021211b428e57c089ecc12fc38dcc4bd9a5',
     [string] $SquirrelVersion = '2.0.1'
 )
 
@@ -39,6 +44,10 @@ try {
         '--fail', '--location', '--silent', '--show-error', '--retry', '4',
         '--retry-all-errors', '--output', $nuget, $nugetUri
     )
+    $nugetHash = (Get-FileHash -LiteralPath $nuget -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($nugetHash -ne $NuGetSha256.ToLowerInvariant()) {
+        throw "NuGet $NuGetVersion SHA-256 mismatch: expected $NuGetSha256, got $nugetHash"
+    }
 
     Invoke-Native $nuget @(
         'install', 'squirrel.windows', '-Version', $SquirrelVersion,
