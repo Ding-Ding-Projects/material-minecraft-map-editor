@@ -81,6 +81,8 @@ include:
   weekdays, date ranges, time windows, and deterministic precedence;
 - a non-blocking Windows update-status bridge with an allowlisted HTTPS feed and
   explicit unsigned-package warnings; and
+- a bounded startup dim-sum surprise foundation that reads authoritative dish
+  names from the public catalog without copying or vendoring photos; and
 - a dependency-free Material 3 documentation site with tabs, feature and
   settings search, an attached bounded regex builder with flags, sample text,
   and capture feedback, persisted appearance controls, responsive layouts,
