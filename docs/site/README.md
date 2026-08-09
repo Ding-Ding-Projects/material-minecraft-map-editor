@@ -21,6 +21,16 @@ owner-controlled host. The artifact is a transport package, not proof that a
 public hostname has been configured; this repository makes no live-host claim
 until an owner supplies and verifies that endpoint.
 
+The feature, settings, and command-palette searches treat ordinary input as
+literal text (metacharacters are escaped), cap all patterns at 256 characters,
+and reserve JavaScript regular-expression evaluation for the explicit regex
+toggle. Primary navigation is a real horizontal tablist with roving focus and
+Home/End/arrow-key movement. The command palette is a labelled listbox with
+ArrowUp/ArrowDown/Home/End navigation and Enter activation. Language mode
+updates the navigation, principal actions, release heading, reset/close actions,
+document language, and the settings explanation; bilingual mode keeps both
+labels visible while retaining the factual English copy.
+
 ## Content boundary
 
 The feature inventory links to the repository's source, Releases, Actions, wiki, issues, discussions, and contributing guide. It does not claim capabilities that cannot be verified from this repository. Update the inventory when a feature or supported platform changes.
