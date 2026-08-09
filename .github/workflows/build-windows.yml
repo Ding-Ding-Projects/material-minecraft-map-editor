@@ -61,7 +61,7 @@ jobs:
 
     - name: PyInstaller build
       run: |
-        python -m PyInstaller -y --distpath ./installer/dist installer/Amulet.spec
+        python scripts/run_with_timeout.py --seconds 900 -- -m PyInstaller -y --distpath ./installer/dist installer/Amulet.spec
 
     - name: Resolve build version
       id: resolve-version
