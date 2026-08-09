@@ -31,6 +31,7 @@ from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
+from amulet_map_editor.api.wx.ui.simple import MaterialDateTimeField
 
 
 def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
@@ -1031,17 +1032,13 @@ class PreferencesDialog(wx.Dialog):
         weekday_panel.SetSizer(weekday_sizer)
         add_row("weekdays", weekday_panel)
 
-        self.schedule_start_date = wx.TextCtrl(page)
-        self.schedule_start_date.SetHint("YYYY-MM-DD")
+        self.schedule_start_date = MaterialDateTimeField(page, "date")
         add_row("startdate", self.schedule_start_date)
-        self.schedule_end_date = wx.TextCtrl(page)
-        self.schedule_end_date.SetHint("YYYY-MM-DD")
+        self.schedule_end_date = MaterialDateTimeField(page, "date")
         add_row("enddate", self.schedule_end_date)
-        self.schedule_start_time = wx.TextCtrl(page)
-        self.schedule_start_time.SetHint("HH:MM")
+        self.schedule_start_time = MaterialDateTimeField(page, "time")
         add_row("starttime", self.schedule_start_time)
-        self.schedule_end_time = wx.TextCtrl(page)
-        self.schedule_end_time.SetHint("HH:MM")
+        self.schedule_end_time = MaterialDateTimeField(page, "time")
         add_row("endtime", self.schedule_end_time)
 
         no_override = self._schedule_text("nooverride")

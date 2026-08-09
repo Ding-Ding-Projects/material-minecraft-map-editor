@@ -59,6 +59,11 @@ loads as an empty version-1 document through the existing config-store behavior.
 - The end time is exclusive, avoiding two adjacent rules both owning the same
   minute at their boundary.
 
+The native Preferences editor pairs every typed ISO date and `HH:MM` value with
+an M3-styled wx date or time picker. Typed text remains the canonical value for
+validation and keyboard workflows; choosing a picker value synchronizes the
+same field rather than creating a second schedule representation.
+
 ## Deterministic precedence
 
 All matching rules are applied from lower to higher integer priority. Rules at

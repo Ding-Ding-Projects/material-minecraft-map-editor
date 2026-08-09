@@ -3,6 +3,7 @@ the repeated code and make working with wx a bit more simple."""
 
 import logging
 import wx
+import wx.adv
 from wx.lib.scrolledpanel import ScrolledPanel
 from typing import Iterable, Union, Any, List, Optional, Sequence, Dict, Tuple
 from amulet_map_editor.api.wx.material3 import apply_material3
@@ -208,3 +209,62 @@ class MaterialTextEntryDialog(wx.Dialog):
 
     def GetValue(self) -> str:
         return self.value.GetValue()
+
+
+class MaterialDateTimeField(wx.Panel):
+    """Typed schedule field with a native date/time picker companion."""
+
+    def __init__(self, parent: wx.Window, kind: str):
+        if kind not in ("date", "time"):
+            raise ValueError("kind must be date or time")
+        super().__init__(parent)
+        self.kind = kind
+        self.text = wx.TextCtrl(self)
+        self.text.SetHint("YYYY-MM-DD" if kind == "date" else "HH:MM")
+        if kind == "date":
+            self.picker = wx.adv.DatePickerCtrl(
+                self, style=wx.adv.DP_DROPDOWN | wx.adv.DP_SHOWCENTURY
+            )
+            self.picker.Bind(wx.adv.EVT_DATE_CHANGED, self._picker_changed)
+        else:
+            self.picker = wx.adv.TimePickerCtrl(self)
+            self.picker.Bind(wx.adv.EVT_TIME_CHANGED, self._picker_changed)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(self.text, 1, wx.EXPAND | wx.RIGHT, 6)
+        row.Add(self.picker, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.SetSizer(row)
+        self.text.Bind(wx.EVT_TEXT, self._text_changed)
+        apply_material3(self)
+
+    def _text_changed(self, event: wx.Event) -> None:
+        event.Skip()
+
+    def _picker_changed(self, _event: wx.Event) -> None:
+        value = self.picker.GetValue()
+        if self.kind == "date":
+            self.text.ChangeValue(value.FormatISODate())
+        else:
+            self.text.ChangeValue(value.Format("%H:%M"))
+
+    def SetValue(self, value: str) -> None:
+        self.text.ChangeValue(str(value or ""))
+        try:
+            if self.kind == "date":
+                parsed = __import__("datetime").date.fromisoformat(str(value))
+                self.picker.SetValue(
+                    wx.DateTime.FromDMY(parsed.day, parsed.month - 1, parsed.year)
+                )
+            else:
+                hour, minute = (int(part) for part in str(value).split(":", 1))
+                self.picker.SetValue(wx.DateTime.Now())
+                self.picker.SetTime(hour, minute, 0)
+        except (TypeError, ValueError):
+            pass
+
+    def GetValue(self) -> str:
+        return self.text.GetValue()
+
+    def Bind(self, event, handler, source=None):
+        if event == wx.EVT_TEXT:
+            return self.text.Bind(event, handler, source)
+        return super().Bind(event, handler, source)
