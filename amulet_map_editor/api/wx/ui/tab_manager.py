@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
 import wx
 
 from amulet_map_editor.api import local_history
 from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
+from amulet_map_editor.api.regex_builder import RegexBuilder
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 from amulet_map_editor.api.wx.ui.simple import MaterialTextEntryDialog
 
@@ -22,8 +25,11 @@ class TabManagerDialog(wx.Dialog):
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._notebook = notebook
-        self._workspace = getattr(notebook, "_tab_workspace", TabWorkspace("main-window"))
+        self._workspace = getattr(
+            notebook, "_tab_workspace", TabWorkspace("main-window")
+        )
         self._regex_flags = 0
+        self._close_regex_flags = 0
         self._sync_notebook()
 
         root = wx.BoxSizer(wx.VERTICAL)
@@ -35,24 +41,61 @@ class TabManagerDialog(wx.Dialog):
         self.search = wx.TextCtrl(self, name="Tab manager search")
         self.search.SetHint("Search tabs and groups")
         self.regex = wx.CheckBox(self, label="Regex")
-        self.regex_button = wx.Button(self, label="Regex…", name="Tab manager regex builder")
+        self.regex_button = wx.Button(
+            self, label="Regex…", name="Tab manager regex builder"
+        )
         self.regex_button.SetName("Tab manager regex builder")
         search_row.Add(self.search, 1, wx.EXPAND | wx.RIGHT, 8)
         search_row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
         search_row.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL)
         root.Add(search_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
 
+        bulk = wx.BoxSizer(wx.HORIZONTAL)
+        self.close_query = wx.TextCtrl(self, name="Bulk close tab query")
+        self.close_query.SetHint("Bulk-close query")
+        self.close_regex = wx.CheckBox(self, label="Regex")
+        self.close_regex_button = wx.Button(
+            self, label="Regex…", name="Bulk close regex builder"
+        )
+        self.include_pinned = wx.CheckBox(self, label="Include pinned")
+        self.close_contains = wx.Button(self, label="Close tabs containing text")
+        self.close_not_contains = wx.Button(
+            self, label="Close tabs not containing text"
+        )
+        bulk.Add(self.close_query, 1, wx.EXPAND | wx.RIGHT, 8)
+        bulk.Add(self.close_regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
+        bulk.Add(self.close_regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        bulk.Add(self.include_pinned, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        bulk.Add(self.close_contains, 0, wx.RIGHT, 8)
+        bulk.Add(self.close_not_contains, 0)
+        root.Add(bulk, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
+
         options = wx.BoxSizer(wx.HORIZONTAL)
-        options.Add(wx.StaticText(self, label="Tab strip edge"), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        options.Add(
+            wx.StaticText(self, label="Tab strip edge"),
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            8,
+        )
         self.dock = wx.Choice(self, choices=[item.value.title() for item in TabDock])
         self.dock.SetName("Tab strip edge")
-        self.dock.SetSelection([item for item in TabDock].index(self._workspace.state.dock))
+        self.dock.SetSelection(
+            [item for item in TabDock].index(self._workspace.state.dock)
+        )
         self.pin = wx.CheckBox(self, label="Pinned")
-        self.group = wx.Choice(self, choices=["No group"] + [item.name for item in self._workspace.state.groups])
+        self.group = wx.Choice(
+            self,
+            choices=["No group"] + [item.name for item in self._workspace.state.groups],
+        )
         self.group.SetName("Tab group")
         options.Add(self.dock, 0, wx.RIGHT, 16)
         options.Add(self.pin, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 16)
-        options.Add(wx.StaticText(self, label="Group"), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        options.Add(
+            wx.StaticText(self, label="Group"),
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            8,
+        )
         options.Add(self.group, 1, wx.RIGHT, 8)
         self.new_group = wx.Button(self, label="New group")
         options.Add(self.new_group, 0)
@@ -78,6 +121,11 @@ class TabManagerDialog(wx.Dialog):
         self.search.Bind(wx.EVT_TEXT, self._refresh)
         self.regex.Bind(wx.EVT_CHECKBOX, self._refresh)
         self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
+        self.close_regex_button.Bind(wx.EVT_BUTTON, self._open_close_regex_builder)
+        self.close_contains.Bind(wx.EVT_BUTTON, lambda event: self._bulk_close(False))
+        self.close_not_contains.Bind(
+            wx.EVT_BUTTON, lambda event: self._bulk_close(True)
+        )
         self.list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._selection_changed)
         self.dock.Bind(wx.EVT_CHOICE, self._dock_changed)
         self.pin.Bind(wx.EVT_CHECKBOX, self._pin_changed)
@@ -92,9 +140,13 @@ class TabManagerDialog(wx.Dialog):
         existing = {item.tab_id for item in self._workspace.state.tabs}
         for index in range(self._notebook.GetPageCount()):
             page = self._notebook.GetPage(index)
-            tab_id = getattr(page, "path", None) or ("main-menu" if index == 0 else f"page-{index}")
+            tab_id = getattr(page, "path", None) or (
+                "main-menu" if index == 0 else f"page-{index}"
+            )
             if tab_id not in existing:
-                self._workspace.add_tab(self._notebook.GetPageText(index), tab_id=tab_id)
+                self._workspace.add_tab(
+                    self._notebook.GetPageText(index), tab_id=tab_id
+                )
         self._workspace.state = self._workspace.state.normalised()
 
     def _matches(self, title: str) -> bool:
@@ -119,11 +171,15 @@ class TabManagerDialog(wx.Dialog):
             row = self.list.InsertItem(self.list.GetItemCount(), item.title)
             self.list.SetItem(row, 1, groups.get(item.group_id, "No group"))
             self.list.SetItem(row, 2, "Yes" if item.pinned else "No")
-            self.list.SetItem(row, 3, "Yes" if item.tab_id == state.active_tab_id else "No")
+            self.list.SetItem(
+                row, 3, "Yes" if item.tab_id == state.active_tab_id else "No"
+            )
             self.list.SetItemData(row, state.tabs.index(item))
         for column, width in enumerate((300, 220, 100, 100)):
             self.list.SetColumnWidth(column, width)
-        self.feedback.SetLabel(f"{len(visible)} of {len(state.tabs)} tabs shown; strip edge is {state.dock.value}.")
+        self.feedback.SetLabel(
+            f"{len(visible)} of {len(state.tabs)} tabs shown; strip edge is {state.dock.value}."
+        )
         self._selection_changed()
 
     def _selected_tab(self):
@@ -163,7 +219,11 @@ class TabManagerDialog(wx.Dialog):
         if not item:
             return
         selection = self.group.GetSelection()
-        group_id = None if selection <= 0 else self._workspace.state.groups[selection - 1].group_id
+        group_id = (
+            None
+            if selection <= 0
+            else self._workspace.state.groups[selection - 1].group_id
+        )
         self._workspace.move_tab(item.tab_id, group_id)
         self._record_workspace_change("tab group changed")
         self._refresh()
@@ -186,7 +246,9 @@ class TabManagerDialog(wx.Dialog):
         self._workspace.activate_tab(item.tab_id)
         for index in range(self._notebook.GetPageCount()):
             page = self._notebook.GetPage(index)
-            tab_id = getattr(page, "path", None) or ("main-menu" if index == 0 else f"page-{index}")
+            tab_id = getattr(page, "path", None) or (
+                "main-menu" if index == 0 else f"page-{index}"
+            )
             if tab_id == item.tab_id:
                 self._notebook.SetSelection(index)
                 self.EndModal(wx.ID_OK)
@@ -215,6 +277,90 @@ class TabManagerDialog(wx.Dialog):
             self.regex.SetValue(dialog.regex_enabled)
             self._regex_flags = dialog.flags
         self._refresh()
+
+    def _open_close_regex_builder(self, _event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.close_query.GetValue(),
+            regex_enabled=self.close_regex.GetValue(),
+            flags=self._close_regex_flags,
+            sample="World tab title",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.close_query.ChangeValue(dialog.pattern)
+            self.close_regex.SetValue(dialog.regex_enabled)
+            self._close_regex_flags = dialog.flags
+
+    def _bulk_close(self, inverse: bool) -> None:
+        query = self.close_query.GetValue()[:256].strip()
+        if not query:
+            self.feedback.SetLabel("Bulk close needs a non-empty query")
+            return
+        try:
+            matcher = RegexBuilder(
+                query,
+                regex_enabled=self.close_regex.GetValue(),
+                flags=self._close_regex_flags,
+            )
+            candidates = []
+            excluded_pinned = 0
+            for tab in self._workspace.state.tabs:
+                matched = bool(matcher.search([tab.title]))
+                if inverse:
+                    matched = not matched
+                if not matched:
+                    continue
+                if tab.pinned and not self.include_pinned.GetValue():
+                    excluded_pinned += 1
+                    continue
+                candidates.append(tab)
+        except (re.error, ValueError, TypeError, OverflowError) as exc:
+            self.feedback.SetLabel(f"Invalid bulk-close query: {exc}")
+            return
+        if not candidates:
+            self.feedback.SetLabel(
+                f"No tabs match; {excluded_pinned} pinned tab(s) protected"
+            )
+            return
+        mode = "containing" if not inverse else "not containing"
+        message = (
+            f"Close {len(candidates)} tab(s) {mode} {query!r}?\n"
+            f"Pinned tabs excluded: {excluded_pinned}. Unsaved-work protection still applies."
+        )
+        if (
+            show_material_confirmation(
+                self, message, wx.YES | wx.NO | wx.CANCEL, "Close tabs"
+            )
+            != wx.ID_YES
+        ):
+            return
+        closed = 0
+        skipped = 0
+        for tab in candidates:
+            for index in range(self._notebook.GetPageCount()):
+                page = self._notebook.GetPage(index)
+                page_id = getattr(page, "path", None) or (
+                    "main-menu" if index == 0 else f"page-{index}"
+                )
+                if page_id != tab.tab_id:
+                    continue
+                if page is self._notebook._main_menu:
+                    skipped += 1
+                else:
+                    before = self._notebook.GetPageCount()
+                    self._notebook.close_level(page.path)
+                    if self._notebook.GetPageCount() < before:
+                        closed += 1
+                    else:
+                        skipped += 1
+                break
+        self._sync_notebook()
+        self._record_workspace_change("bulk tabs closed")
+        self._refresh()
+        self.feedback.SetLabel(
+            f"Closed {closed} tab(s); {skipped} skipped by close protection or unavailable pages"
+        )
 
 
 __all__ = ["TabManagerDialog"]

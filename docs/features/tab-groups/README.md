@@ -16,6 +16,13 @@ notebook. Left/right remain explicitly capability-limited because this native
 control has no side-strip renderer yet; group headers remain a follow-up while
 the saved discovery contract stays intact.
 
+The manager also provides **Close tabs containing text** and **Close tabs not
+containing text**. Both actions use their own plain-text-first query and
+adjacent regex builder, show a reviewable count before closing, protect pinned
+tabs unless **Include pinned** is selected, and route each real close through
+the notebook's existing unsaved-work veto. Skipped pages are counted instead
+of being silently reported as closed.
+
 ## Failure modes and security
 
 - Search is bounded to 256 characters and evaluates locally.

@@ -1,9 +1,12 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[1]
-SOURCE = (ROOT / "amulet_map_editor/api/wx/ui/tab_manager.py").read_text(encoding="utf-8")
-FRAME = (ROOT / "amulet_map_editor/api/framework/amulet_ui.py").read_text(encoding="utf-8")
+SOURCE = (ROOT / "amulet_map_editor/api/wx/ui/tab_manager.py").read_text(
+    encoding="utf-8"
+)
+FRAME = (ROOT / "amulet_map_editor/api/framework/amulet_ui.py").read_text(
+    encoding="utf-8"
+)
 
 
 def test_tab_manager_is_borderless_searchable_and_regex_enabled():
@@ -15,6 +18,13 @@ def test_tab_manager_is_borderless_searchable_and_regex_enabled():
     assert "self._workspace.set_pinned" in SOURCE
     assert "self._workspace.move_tab" in SOURCE
     assert "local_history.safe_record" in SOURCE
+    assert "Bulk close tab query" in SOURCE
+    assert "Bulk close regex builder" in SOURCE
+    assert "Include pinned" in SOURCE
+    assert "Close tabs containing text" in SOURCE
+    assert "Close tabs not containing text" in SOURCE
+    assert "show_material_confirmation" in SOURCE
+    assert "Unsaved-work protection still applies" in SOURCE
 
 
 def test_tab_manager_is_reachable_from_view_and_palette():
