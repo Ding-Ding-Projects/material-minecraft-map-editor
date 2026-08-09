@@ -28,7 +28,7 @@ import numpy
 import wx
 
 from amulet_map_editor.api.wx.ui.base_select import EVT_PICK
-from amulet_map_editor.api.wx.ui.simple import SimpleDialog
+from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.wx.ui.block_select import BlockDefine
 from amulet_map_editor.programs.edit.api.operations import DefaultOperationUI
 from amulet_map_editor.api import image
@@ -75,21 +75,20 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         top_sizer.Add(help_button)
 
         def on_button(evt):
-            dialog = SimpleDialog(self, "Extra block help.")
-            text = wx.TextCtrl(
-                dialog,
-                value="Blocks in the newer versions of Minecraft support having two blocks in the same location.\n"
+            details = (
+                "Blocks in the newer versions of Minecraft support having two blocks in the same location.\n"
                 "This is how the game is able to have water and blocks like fences at the same location.\n"
                 "In the example of waterlogged fences the fence is the first block and the water is the second. Unless it is water the second block is usually just visual.\n"
                 "In Java currently the second block is strictly water but in Bedrock there is no limit on what the second block can be.\n"
                 "It is not possible to set non-water second blocks in the game but this operation enables the use of that feature.\n"
-                "There are a number of different modes which can be selected at the top. A description of how it works will appear.",
-                style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_BESTWRAP,
+                "There are a number of different modes which can be selected at the top. A description of how it works will appear."
             )
-            dialog.sizer.Add(text, 1, wx.EXPAND)
-            dialog.CentreOnScreen()
-            log.debug(f"Showing waterlog help dialog at {dialog.GetRect()}")
-            dialog.ShowModal()
+            notify(
+                self,
+                "Extra block help",
+                "Waterlogging guidance is available in Notification history.",
+                details=details,
+            )
             evt.Skip()
 
         help_button.Bind(wx.EVT_BUTTON, on_button)

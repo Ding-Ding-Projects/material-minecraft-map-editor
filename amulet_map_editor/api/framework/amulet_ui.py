@@ -11,7 +11,6 @@ import threading
 
 from amulet.api.errors import LoaderNoneMatched
 from amulet_map_editor.api.wx.ui.select_world import open_level_from_dialog
-from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
 from amulet_map_editor import __version__, lang
 from amulet_map_editor.api.framework.pages import WorldPageUI
 from .pages import AmuletMainMenu, BasePageUI
@@ -28,6 +27,7 @@ from amulet_map_editor.api import (
 from . import update_copy
 from amulet_map_editor.api.wx.components import MaterialButton
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.modeless import show_modeless_dialog
 from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
 from amulet_map_editor.api.wx.ui.preferences import (
     PreferencesDialog,
@@ -41,7 +41,7 @@ from amulet_map_editor.api.wx.ui.tab_manager import TabManagerDialog
 from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
 from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
 from amulet_map_editor.api.wx.ui.notification_toast import NotificationToast
-from amulet_map_editor.api.wx.nonblocking import notify
+from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
 from .squirrel_update import (
     check_for_update,
     find_update_exe,
@@ -444,22 +444,13 @@ class AmuletUI(wx.Frame):
         dialog.Destroy()
 
     def _open_changelog(self, _event=None) -> None:
-        dialog = ChangelogDialog(self)
-        dialog.CentreOnParent()
-        dialog.ShowModal()
-        dialog.Destroy()
+        show_modeless_dialog(self, "changelog", ChangelogDialog)
 
     def _open_documentation(self, _event=None) -> None:
-        dialog = DocumentationDialog(self)
-        dialog.CentreOnParent()
-        dialog.ShowModal()
-        dialog.Destroy()
+        show_modeless_dialog(self, "documentation", DocumentationDialog)
 
     def _open_notification_history(self, _event=None) -> None:
-        dialog = NotificationHistoryDialog(self)
-        dialog.CentreOnParent()
-        dialog.ShowModal()
-        dialog.Destroy()
+        show_modeless_dialog(self, "notification-history", NotificationHistoryDialog)
         self._level_notebook.apply_tab_workspace()
 
     def _open_local_history(self, _event=None) -> None:
@@ -747,14 +738,12 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
                 )
             except Exception as e:
                 log.error(lang.get("select_world.loading_world_failed"), exc_info=True)
-                with TracebackDialog(
+                notify_exception(
                     self,
                     lang.get("select_world.loading_world_failed"),
                     str(e),
                     traceback.format_exc(),
-                ) as dialog:
-                    log.debug(f"Showing TracebackDialog at {dialog.GetRect()}")
-                    dialog.ShowModal()
+                )
             else:
                 self._open_worlds[path] = world
                 self._add_world_tab(world, world.world_name)

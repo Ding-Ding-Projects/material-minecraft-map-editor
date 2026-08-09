@@ -58,7 +58,18 @@ class NotificationHistoryDialog(wx.Dialog):
             self.list.InsertColumn(index, label)
         root.Add(self.list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
-        actions = wx.BoxSizer(wx.HORIZONTAL)
+        details_label = wx.StaticText(self, label=_copy("details", self._language_mode))
+        self.details = wx.TextCtrl(
+            self,
+            value=_copy("no_details", self._language_mode),
+            style=wx.TE_MULTILINE | wx.TE_READONLY,
+            name="Notification technical details",
+        )
+        self.details.SetMinSize(wx.Size(-1, 120))
+        root.Add(details_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 12)
+        root.Add(self.details, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 12)
+
+        actions = wx.WrapSizer(wx.HORIZONTAL)
         self.dismiss = wx.Button(
             self, label=_copy("dismiss_selected", self._language_mode)
         )
@@ -76,6 +87,10 @@ class NotificationHistoryDialog(wx.Dialog):
             self, label=_copy("open_export", self._language_mode)
         )
         self.open_export.Enable(False)
+        self.copy_details = wx.Button(
+            self, label=_copy("copy_details", self._language_mode)
+        )
+        self.copy_details.Enable(False)
         close = wx.Button(
             self, id=wx.ID_CLOSE, label=_copy("close", self._language_mode)
         )
@@ -86,6 +101,7 @@ class NotificationHistoryDialog(wx.Dialog):
             self.dismiss_all,
             self.export,
             self.open_export,
+            self.copy_details,
             close,
         ):
             actions.Add(button, 0, wx.RIGHT, 8)
@@ -101,10 +117,13 @@ class NotificationHistoryDialog(wx.Dialog):
         self.select_all.Bind(wx.EVT_BUTTON, self._select_all)
         self.invert_selection.Bind(wx.EVT_BUTTON, self._invert_selection)
         self.list.Bind(wx.EVT_KEY_DOWN, self._list_key_down)
+        self.list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._selection_changed)
+        self.list.Bind(wx.EVT_LIST_ITEM_DESELECTED, self._selection_changed)
         self.dismiss.Bind(wx.EVT_BUTTON, self._dismiss_selected)
         self.dismiss_all.Bind(wx.EVT_BUTTON, self._dismiss_visible)
         self.export.Bind(wx.EVT_BUTTON, self._export)
         self.open_export.Bind(wx.EVT_BUTTON, self._open_export)
+        self.copy_details.Bind(wx.EVT_BUTTON, self._copy_details)
         close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CLOSE))
         self._refresh()
         apply_material3(self)
@@ -154,6 +173,22 @@ class NotificationHistoryDialog(wx.Dialog):
         self.list.SetColumnWidth(4, max(170, int(width * 0.20)))
         self.dismiss.Enable(bool(self._items))
         self.dismiss_all.Enable(bool(self._items))
+        self._selection_changed()
+
+    def _selection_changed(self, _event=None) -> None:
+        index = self.list.GetNextItem(-1, wx.LIST_NEXT_ALL, wx.LIST_STATE_SELECTED)
+        item = self._items[index] if 0 <= index < len(self._items) else None
+        details = item.details if item is not None else ""
+        self.details.ChangeValue(details or _copy("no_details", self._language_mode))
+        self.copy_details.Enable(bool(details))
+
+    def _copy_details(self, _event) -> None:
+        value = self.details.GetValue()
+        if not self.copy_details.IsEnabled() or not value:
+            return
+        if wx.TheClipboard.Open():
+            wx.TheClipboard.SetData(wx.TextDataObject(value))
+            wx.TheClipboard.Close()
 
     def _dismiss_selected(self, _event) -> None:
         selected = []

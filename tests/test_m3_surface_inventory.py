@@ -8,7 +8,6 @@ M3_SURFACES = (
     "amulet_map_editor/api/framework/pages/_legal.py",
     "amulet_map_editor/api/wx/util/key_config.py",
     "amulet_map_editor/api/wx/ui/simple.py",
-    "amulet_map_editor/api/wx/ui/traceback_dialog.py",
     "amulet_map_editor/api/wx/ui/select_world.py",
     "amulet_map_editor/api/wx/ui/notifications.py",
     "amulet_map_editor/api/wx/ui/documentation.py",

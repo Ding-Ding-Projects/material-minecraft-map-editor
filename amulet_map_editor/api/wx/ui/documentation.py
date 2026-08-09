@@ -16,6 +16,7 @@ from amulet_map_editor.api.docs_browser import (
 from amulet_map_editor.api import preferences
 from amulet_map_editor.api import lang
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.modeless import finish_dialog
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 
 
@@ -124,7 +125,7 @@ class DocumentationDialog(wx.Dialog):
         close = wx.Button(
             self, id=wx.ID_CLOSE, label=_copy("close", self._language_mode)
         )
-        close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL))
+        close.Bind(wx.EVT_BUTTON, lambda _event: finish_dialog(self, wx.ID_CANCEL))
         root.Add(close, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
         self.SetSizer(root)
         self._search_flags = 0

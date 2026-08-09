@@ -29,6 +29,9 @@ the editor.
   stack. Informational and success toasts dismiss after six seconds; warnings
   and errors remain until the user chooses **Dismiss**. Toasts never request
   focus or block the active editor.
+- Exception records keep a bounded summary in the toast and the complete
+  multiline error and traceback in a selectable technical-details panel.
+  **Copy details**, Markdown export, and JSON export preserve that evidence.
 
 ## Failure and security boundaries
 

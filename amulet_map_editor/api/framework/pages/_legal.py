@@ -7,6 +7,7 @@ import wx.lib.agw.hyperlink
 
 from amulet_map_editor.api import lang
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.modeless import finish_dialog
 
 
 @dataclass
@@ -84,6 +85,9 @@ class LicenceDialog(wx.Dialog):
 
         button_sizer = self.CreateButtonSizer(wx.OK)
         self._sizer.Add(button_sizer, 0, wx.EXPAND | wx.ALL, 5)
+        close = self.FindWindow(wx.ID_OK)
+        if close is not None:
+            close.Bind(wx.EVT_BUTTON, lambda _event: finish_dialog(self, wx.ID_OK))
         self.Layout()
         apply_material3(self)
 

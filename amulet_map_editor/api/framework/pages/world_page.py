@@ -15,7 +15,7 @@ from amulet_map_editor.api.datatypes import MenuData
 from amulet_map_editor.api.framework import app
 from amulet_map_editor.api.framework.pages import BasePageUI
 from amulet_map_editor.api.framework.programs import BaseProgram, AboutProgram
-from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.nonblocking import notify_exception
 
 _extensions: List[Tuple[str, Type[BaseProgram]]] = []
 _fixed_extensions: List[Tuple[str, Type[BaseProgram]]] = [
@@ -180,14 +180,12 @@ class WorldPageUI(wx.Notebook, BasePageUI):
                 self.GetTopLevelParent().create_menu()
             except Exception as e:
                 log.critical(traceback.format_exc())
-                with TracebackDialog(
+                notify_exception(
                     self,
                     "Exception loading sub-program",
                     str(e),
                     traceback.format_exc(),
-                ) as dialog:
-                    log.debug(f"Showing TracebackDialog at {dialog.GetRect()}")
-                    dialog.ShowModal()
+                )
                 self.DeletePage(page)
 
     def can_disable(self) -> bool:
