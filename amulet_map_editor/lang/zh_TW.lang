@@ -535,3 +535,7 @@ properties.zh.name=屬性名稱
 properties.zh.value=屬性數值（SNBT）
 properties.zh.invalid=SNBT 格式唔正確
 properties.zh.not_valid={type_name} 唔適用
+traceback.en.copy_error=Copy error
+traceback.en.close=Close
+traceback.zh.copy_error=複製錯誤
+traceback.zh.close=關閉

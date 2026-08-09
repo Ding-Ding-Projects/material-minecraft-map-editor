@@ -1,6 +1,17 @@
 from typing import Optional
 import wx
-from amulet_map_editor.api import image
+from amulet_map_editor.api import image, lang, preferences
+from amulet_map_editor.api.wx.material3 import apply_material3
+
+
+def _copy(key: str, mode: str) -> str:
+    english = lang.get(f"traceback.en.{key}")
+    cantonese = lang.get(f"traceback.zh.{key}")
+    if mode == "cantonese":
+        return cantonese
+    if mode == "bilingual":
+        return f"{english} · {cantonese}"
+    return english
 
 
 class TracebackDialog(wx.Dialog):
@@ -12,6 +23,7 @@ class TracebackDialog(wx.Dialog):
         traceback: str,
         **kwargs,
     ):
+        self._language_mode = preferences.load().language_mode
         kwargs["style"] = (
             kwargs.get("style", 0) | wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
         )
@@ -47,11 +59,19 @@ class TracebackDialog(wx.Dialog):
         button_sizer = wx.StdDialogButtonSizer()
         main_sizer.Add(button_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 4)
 
-        copy_button = wx.Button(self, wx.ID_ANY, "Copy Error")
+        copy_button = wx.Button(
+            self,
+            wx.ID_ANY,
+            _copy("copy_error", self._language_mode),
+        )
         copy_button.Bind(wx.EVT_BUTTON, self._on_copy_error)
         button_sizer.Add(copy_button, 0, 0, 0)
 
-        button_ok = wx.Button(self, wx.ID_OK, "")
+        button_ok = wx.Button(
+            self,
+            wx.ID_OK,
+            _copy("close", self._language_mode),
+        )
         button_ok.SetDefault()
         button_sizer.AddButton(button_ok)
 
@@ -63,6 +83,7 @@ class TracebackDialog(wx.Dialog):
 
         self.Fit()
         self.Layout()
+        apply_material3(self)
 
     def _on_copy_error(self, evt):
         if wx.TheClipboard.Open():
