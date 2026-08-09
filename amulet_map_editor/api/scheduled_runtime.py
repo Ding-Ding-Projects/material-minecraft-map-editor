@@ -8,7 +8,7 @@ import threading
 from typing import Callable, Mapping
 
 from amulet_map_editor.api import scheduled_settings
-from amulet_map_editor.api.scheduled_refresh import ScheduledRefreshCoordinator
+from amulet_map_editor.api.scheduled_refresh import RefreshResult, ScheduledRefreshCoordinator
 from amulet_map_editor.api.scheduled_sources import ScheduleSource
 
 
@@ -70,8 +70,23 @@ class ScheduledRuntimeController:
             raw_source.pop("version", None)
             source = ScheduleSource(**raw_source)
             if source.kind != "local":
-                self._coordinator.refresh_async(source, apply=self._apply_remote)
+                self._coordinator.refresh_async(
+                    source, apply=self._apply_remote, on_result=self._remote_result
+                )
         return state
+
+    def _remote_result(self, result: RefreshResult) -> None:
+        if result.source.ok:
+            return
+        with self._lock:
+            if self._stopped:
+                return
+            state = RuntimeScheduleState(
+                current_values(), current_state().matched_rule_ids, result.source.detail
+            )
+        _set_state(state)
+        if self._on_state:
+            self._on_state(state)
 
     def _apply_remote(self, values: dict[str, str]) -> None:
         with self._lock:

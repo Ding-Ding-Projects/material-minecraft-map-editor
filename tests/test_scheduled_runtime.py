@@ -30,3 +30,20 @@ def test_runtime_controller_invalid_storage_fails_safe(monkeypatch):
     state = scheduled_runtime.ScheduledRuntimeController().refresh({"theme": "light"})
     assert state.error == "bad schedule"
     assert state.values == {"theme": "light"}
+
+
+def test_refresh_coordinator_reports_result_to_callback():
+    from amulet_map_editor.api.scheduled_refresh import ScheduledRefreshCoordinator
+    from amulet_map_editor.api.scheduled_sources import ScheduleSource, SourceResult
+
+    seen = []
+    coordinator = ScheduledRefreshCoordinator(
+        fetcher=lambda *_args, **_kwargs: SourceResult(False, {}, "offline")
+    )
+    thread = coordinator.refresh_async(
+        ScheduleSource(kind="api", url="https://example.test/settings"),
+        on_result=seen.append,
+    )
+    thread.join(timeout=2)
+    assert seen and seen[0].source.detail == "offline"
+    coordinator.stop()

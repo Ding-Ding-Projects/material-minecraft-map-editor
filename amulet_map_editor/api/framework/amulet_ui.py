@@ -178,6 +178,8 @@ class AmuletUI(wx.Frame):
         apply_material3(self)
         if state.matched_rule_ids:
             self.SetStatusText("Scheduled settings active: " + ", ".join(state.matched_rule_ids))
+        elif state.error:
+            self.SetStatusText("Scheduled settings unavailable: " + state.error)
 
     def begin_startup_dim_sum_surprise(self) -> None:
         """Start the optional delight after startup gates have completed.

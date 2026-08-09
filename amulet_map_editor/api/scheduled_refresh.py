@@ -57,10 +57,17 @@ class ScheduledRefreshCoordinator:
         *,
         token_provider: Callable[[], str | None] | None = None,
         apply: Callable[[dict[str, str]], None] | None = None,
+        on_result: Callable[[RefreshResult], None] | None = None,
     ) -> threading.Thread:
         def run() -> None:
             try:
-                self.refresh(source, token=token_provider() if token_provider else None, apply=apply)
+                result = self.refresh(
+                    source,
+                    token=token_provider() if token_provider else None,
+                    apply=apply,
+                )
+                if on_result:
+                    on_result(result)
             finally:
                 with self._lock:
                     self._threads.discard(thread)
