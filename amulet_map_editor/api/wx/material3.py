@@ -42,10 +42,16 @@ class Material3Tokens:
 TOKENS = Material3Tokens()
 
 
-def _font_for(window: wx.Window, point_size: int, weight=wx.FONTWEIGHT_NORMAL) -> wx.Font:
+def _font_for(
+    window: wx.Window, point_size: int, weight=wx.FONTWEIGHT_NORMAL
+) -> wx.Font:
     """Return a platform-safe UI font while retaining the system family."""
 
-    base = window.GetFont() if window and window.GetFont().IsOk() else wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+    base = (
+        window.GetFont()
+        if window and window.GetFont().IsOk()
+        else wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+    )
     font = wx.Font(base)
     font.SetPointSize(point_size)
     font.SetWeight(weight)
@@ -88,8 +94,15 @@ def apply_material3(window: wx.Window) -> None:
             child.SetFont(_font_for(child, 10, wx.FONTWEIGHT_MEDIUM))
             child.SetBackgroundColour(TOKENS.primary_container)
             child.SetForegroundColour(TOKENS.on_primary_container)
-            child.SetMinSize(wx.Size(max(child.GetBestSize().width, 88), max(child.GetBestSize().height, 40)))
-        elif isinstance(child, (wx.TextCtrl, wx.ComboBox, wx.Choice, wx.SpinCtrl, wx.SpinCtrlDouble)):
+            child.SetMinSize(
+                wx.Size(
+                    max(child.GetBestSize().width, 88),
+                    max(child.GetBestSize().height, 40),
+                )
+            )
+        elif isinstance(
+            child, (wx.TextCtrl, wx.ComboBox, wx.Choice, wx.SpinCtrl, wx.SpinCtrlDouble)
+        ):
             child.SetFont(_font_for(child, 10))
             child.SetMinSize(wx.Size(-1, max(child.GetBestSize().height, 40)))
         apply_material3(child)
