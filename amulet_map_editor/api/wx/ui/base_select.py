@@ -1,5 +1,6 @@
 import wx
 from wx.lib import newevent
+import re
 from typing import Tuple, List, Optional
 
 import PyMCTranslate
@@ -7,6 +8,8 @@ import PyMCTranslate
 from amulet_map_editor.api.image import COLOUR_PICKER
 from amulet_map_editor.api import lang, preferences
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.regex_builder import RegexBuilder
+from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 
 
 def _copy(key: str, mode: str) -> str:
@@ -105,6 +108,12 @@ class BaseSelect(wx.Panel):
         self._search = wx.SearchCtrl(self)
         self._search.SetHint(_copy("search", self._language_mode))
         search_sizer.Add(self._search, 1, wx.ALIGN_CENTER_VERTICAL)
+        self._regex_button = wx.Button(self, label="Regex…")
+        self._regex_button.SetToolTip("Build a bounded regular-expression search")
+        search_sizer.Add(self._regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
+        self._search_regex_enabled = False
+        self._search_flags = 0
+        self._regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self._search.Bind(wx.EVT_TEXT, self._on_search_change)
         if show_pick:
             pick_button = wx.BitmapButton(self, bitmap=COLOUR_PICKER.bitmap(22, 22))
@@ -208,8 +217,29 @@ class BaseSelect(wx.Panel):
         if self._update_item_name(search_str):
             self._post_item_change()
 
+    def _open_regex_builder(self, _event):
+        with RegexBuilderDialog(
+            self,
+            self._search.GetValue(),
+            self._search_regex_enabled,
+            self._search_flags,
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self._search_regex_enabled = dialog.regex_enabled
+            self._search_flags = dialog.flags
+            self._search.ChangeValue(dialog.pattern)
+            self._update_item_name(dialog.pattern)
+
     def _update_item_name(self, search_str: str) -> bool:
-        names = [bn for bn in self._names if search_str in bn]
+        try:
+            names = RegexBuilder(
+                search_str[:4096],
+                flags=self._search_flags,
+                regex_enabled=self._search_regex_enabled,
+            ).search(self._names)
+        except (re.error, ValueError):
+            names = []
         if search_str not in names:
             names.insert(0, f'"{search_str}"')
 
