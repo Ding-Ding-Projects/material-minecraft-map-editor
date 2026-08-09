@@ -7,6 +7,7 @@ import amulet
 from amulet.api.errors import LoaderNoneMatched
 
 from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
+from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.programs.edit.api.ui.tool import DefaultBaseToolUI
 from amulet_map_editor.programs.edit.api.behaviour import StaticSelectionBehaviour
@@ -39,11 +40,11 @@ class ImportTool(wx.BoxSizer, DefaultBaseToolUI):
         self._open_file()
 
     def _open_file(self):
-        with wx.FileDialog(
+        pathname = choose_path(
             self.canvas,
             "Open a Minecraft data file",
             wildcard="|".join(
-                [  # TODO: Automatically load these from the FormatWrapper classes.
+                [
                     "All files (*.construction;*.mcstructure;*.schematic .schem)|*.construction;*.mcstructure;*.schematic;*.schem",
                     "Construction file (*.construction)|*.construction",
                     "Bedrock mcstructure file (*.mcstructure)|*.mcstructure",
@@ -51,17 +52,10 @@ class ImportTool(wx.BoxSizer, DefaultBaseToolUI):
                     "Sponge Schematic file (*.schem)|*.schem",
                 ]
             ),
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
-        ) as fileDialog:
-            log.debug(f"Showing Import FileDialog at {fileDialog.GetRect()}")
-            if fileDialog.ShowModal() == wx.ID_CANCEL:
-                wx.PostEvent(
-                    self.canvas,
-                    ToolChangeEvent(tool="Select"),
-                )
-                return
-            else:
-                pathname = fileDialog.GetPath()
+        )
+        if pathname is None:
+            wx.PostEvent(self.canvas, ToolChangeEvent(tool="Select"))
+            return
         try:
             level = amulet.load_level(pathname)
         except LoaderNoneMatched:
