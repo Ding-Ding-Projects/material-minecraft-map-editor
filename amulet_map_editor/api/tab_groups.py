@@ -98,8 +98,18 @@ class TabState:
                 continue
             group_id = item.group_id if item.group_id in groups_by_id else None
             tabs_by_id[item.tab_id] = Tab(
-                item.tab_id, item.title, group_id, item.pinned, len(tabs_by_id)
+                item.tab_id, item.title, group_id, item.pinned, item.order
             )
+        # Pinned tabs form a stable protected region before ordinary tabs, even
+        # when an older profile stored them interleaved.
+        ordered_tabs = sorted(
+            tabs_by_id.values(),
+            key=lambda item: (not item.pinned, item.order, item.tab_id),
+        )
+        tabs_by_id = {
+            item.tab_id: Tab(item.tab_id, item.title, item.group_id, item.pinned, index)
+            for index, item in enumerate(ordered_tabs)
+        }
         active = self.active_tab_id if self.active_tab_id in tabs_by_id else None
         if active is None and tabs_by_id:
             active = next(iter(tabs_by_id))

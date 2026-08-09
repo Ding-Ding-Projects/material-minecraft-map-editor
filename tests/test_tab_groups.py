@@ -47,8 +47,8 @@ def test_workspace_persists_dock_pins_groups_and_moves(tmp_path, monkeypatch):
 
     restored = TabWorkspace("worlds/main")
     assert restored.state.dock is TabDock.RIGHT
-    assert restored.state.tabs[1].pinned is True
-    assert restored.state.tabs[0].group_id == group.group_id
+    assert restored.state.tabs[0].pinned is True
+    assert restored.state.tabs[1].group_id == group.group_id
     assert restored.state.groups[0].collapsed is True
     assert restored.state.active_tab_id == first.tab_id
     assert second.tab_id in {tab.tab_id for tab in restored.state.tabs}
