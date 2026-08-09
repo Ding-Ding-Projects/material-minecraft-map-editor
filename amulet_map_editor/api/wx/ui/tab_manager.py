@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import wx
 
+from amulet_map_editor.api import local_history
 from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
@@ -145,12 +146,14 @@ class TabManagerDialog(wx.Dialog):
 
     def _dock_changed(self, _event) -> None:
         self._workspace.set_dock(list(TabDock)[self.dock.GetSelection()])
+        self._record_workspace_change("tab strip edge changed")
         self._refresh()
 
     def _pin_changed(self, _event) -> None:
         item = self._selected_tab()
         if item:
             self._workspace.set_pinned(item.tab_id, self.pin.GetValue())
+            self._record_workspace_change("tab pin changed")
             self._refresh()
 
     def _group_changed(self, _event) -> None:
@@ -160,6 +163,7 @@ class TabManagerDialog(wx.Dialog):
         selection = self.group.GetSelection()
         group_id = None if selection <= 0 else self._workspace.state.groups[selection - 1].group_id
         self._workspace.move_tab(item.tab_id, group_id)
+        self._record_workspace_change("tab group changed")
         self._refresh()
 
     def _new_group(self, _event) -> None:
@@ -167,6 +171,7 @@ class TabManagerDialog(wx.Dialog):
         try:
             if dialog.ShowModal() == wx.ID_OK and dialog.GetValue().strip():
                 self._workspace.add_group(dialog.GetValue().strip())
+                self._record_workspace_change("tab group created")
                 self.group.Append(dialog.GetValue().strip())
                 self._refresh()
         finally:
@@ -184,6 +189,15 @@ class TabManagerDialog(wx.Dialog):
                 self._notebook.SetSelection(index)
                 self.EndModal(wx.ID_OK)
                 return
+
+    def _record_workspace_change(self, _description: str) -> None:
+        """Record organisation changes without making history a hard dependency."""
+
+        local_history.safe_record(
+            "main-window-tabs",
+            self._workspace.state.to_dict(),
+            record_type="settings",
+        )
 
     def _open_regex_builder(self, _event) -> None:
         with RegexBuilderDialog(

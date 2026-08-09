@@ -14,6 +14,7 @@ def test_tab_manager_is_borderless_searchable_and_regex_enabled():
     assert "self._workspace.set_dock" in SOURCE
     assert "self._workspace.set_pinned" in SOURCE
     assert "self._workspace.move_tab" in SOURCE
+    assert "local_history.safe_record" in SOURCE
 
 
 def test_tab_manager_is_reachable_from_view_and_palette():
