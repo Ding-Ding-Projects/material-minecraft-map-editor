@@ -17,9 +17,7 @@ import sys
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
-DEFAULT_FEED_URL = (
-    "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/latest/download/"
-)
+DEFAULT_FEED_URL = "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/latest/download/"
 
 
 @dataclass(frozen=True)
