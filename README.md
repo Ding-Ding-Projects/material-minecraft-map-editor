@@ -37,6 +37,7 @@ and Bedrock Edition 1.7 and newer.
 - **Learn:** follow the [open-world guide](amulet_map_editor/readme.md), [3D editor guide](amulet_map_editor/programs/edit/readme.md), and [conversion guide](amulet_map_editor/programs/convert/readme.md).
 - **Explore the site:** open the dependency-free [Material 3 site source](docs/site/index.html), or visit the [official Amulet website](https://www.amuletmc.com/). This repository does not currently claim a live deployment of its own site source.
 - **Track the modernization:** see the factual [roadmap](ROADMAP.md) and [handoff](HANDOFF.md).
+- **Read the offline history contract:** [`docs/features/changelog/README.md`](docs/features/changelog/README.md).
 - **Contribute:** read [Development and contribution](#development-and-contribution), then use [Issues](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues) or [Discussions](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions).
 
 ## What Amulet can do
