@@ -9,10 +9,11 @@
   native Appearance-tab load/save/import/export and staged reset controls.
 - ✅ Versioned scheduled-settings foundation with local precedence and boundary tests.
 - 🏃 Complete full per-element appearance editing and live tab-strip projection;
-  the native tab/group manager now covers persisted docking, pinning, grouping,
-  search, and notebook activation. Scheduled settings have native date/time
-  pickers and local history has a native browser; remaining global-memory
-  surfaces still need migration.
+  native controls now expose a bounded persisted M3 element editor, and the
+  native tab/group manager covers persisted docking, pinning, grouping, search,
+  and notebook activation. Scheduled settings have native date/time pickers
+  and local history has a native browser; remaining global-memory surfaces
+  still need migration.
 
 ## Windows delivery
 

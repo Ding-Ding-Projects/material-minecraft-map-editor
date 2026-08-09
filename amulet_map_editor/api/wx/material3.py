@@ -161,6 +161,47 @@ def _children(window: wx.Window) -> Iterable[wx.Window]:
     yield from window.GetChildren()
 
 
+def _bind_element_appearance_menu(window: wx.Window) -> None:
+    """Give every native control an accessible M3 appearance entry."""
+
+    if getattr(window, "_material3_appearance_menu_bound", False):
+        return
+    if isinstance(window, (wx.TopLevelWindow, wx.Menu, wx.MenuItem)):
+        return
+
+    def show_menu(event, control=window):
+        menu = wx.Menu()
+        item = menu.Append(wx.ID_ANY, "Edit appearance…")
+        menu.Bind(
+            wx.EVT_MENU,
+            lambda _event: __import__(
+                "amulet_map_editor.api.wx.ui.element_appearance",
+                fromlist=["open_element_appearance"],
+            ).open_element_appearance(control),
+            item,
+        )
+        menu.AppendSeparator()
+        reset = menu.Append(wx.ID_ANY, "Reset element appearance")
+
+        def reset_element(_event, control=control):
+            appearance = __import__(
+                "amulet_map_editor.api.wx.ui.element_appearance",
+                fromlist=["reset_override", "element_key"],
+            )
+            appearance.reset_override(appearance.element_key(control))
+
+        menu.Bind(
+            wx.EVT_MENU,
+            reset_element,
+            reset,
+        )
+        control.PopupMenu(menu, event.GetPosition())
+        menu.Destroy()
+
+    window.Bind(wx.EVT_CONTEXT_MENU, show_menu)
+    window._material3_appearance_menu_bound = True
+
+
 def _ensure_material_dialog_chrome(window: wx.Window) -> None:
     """Replace wx's caption with the shared M3 title bar once content exists."""
 
@@ -339,5 +380,16 @@ def apply_material3(window: wx.Window) -> None:
             child.SetForegroundColour(palette["on_surface"])
             child.SetMinSize(wx.Size(-1, _control_min_height(child)))
         apply_material3(child)
+
+    _bind_element_appearance_menu(window)
+    try:
+        __import__(
+            "amulet_map_editor.api.wx.ui.element_appearance",
+            fromlist=["apply_override"],
+        ).apply_override(window)
+    except (ImportError, RuntimeError, TypeError, ValueError):
+        # The appearance editor is an optional UI layer; base M3 styling stays
+        # available if a headless/import-only environment cannot load it.
+        pass
 
     window.Layout()
