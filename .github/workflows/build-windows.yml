@@ -15,6 +15,7 @@ jobs:
     if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
     outputs:
       build_version: ${{ steps.resolve-version.outputs.build_version }}
+      tests_passed: ${{ steps.release-gating-tests.outcome == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -55,6 +56,7 @@ jobs:
         python -m pip install dist/amulet_map_editor-*.whl --upgrade
 
     - name: Run release-gating tests
+      id: release-gating-tests
       run: |
         python scripts/generate_changelog.py
         python -m unittest discover -v -s tests
@@ -166,7 +168,7 @@ jobs:
     # marker in our notes prevents that event from trying to upload the same
     # immutable assets a second time, while still allowing manually published
     # releases to use this path.
-    if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
+    if: ${{ needs.deploy.result == 'success' && needs.deploy.outputs.tests_passed == 'true' && (github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -184,7 +186,8 @@ jobs:
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
-          RELEASE_EVENT_TAG: ${{ github.event.release.tag_name || '' }}
+          RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || '' }}
+          RELEASE_TAG_FALLBACK: 0.10.0-dev.${{ github.run_number }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
           RUN_SHA: ${{ github.sha }}
@@ -200,14 +203,13 @@ jobs:
           if [[ "$releases_path" != "release-assets/RELEASES" ]]; then cp -- "$releases_path" release-assets/RELEASES; fi
           nupkg_name="$(basename -- "$nupkg_path")"
           if [[ "$nupkg_path" != "release-assets/$nupkg_name" ]]; then cp -- "$nupkg_path" "release-assets/$nupkg_name"; fi
-          tag="${RELEASE_EVENT_TAG:-0.10.0-dev.${RUN_NUMBER}}"
-          # Keep the value data-only: it came from an event payload, so never
-          # interpolate it into generated shell source or an unquoted command.
-          [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$ ]] || { echo 'Release tag contains unsupported characters'; exit 1; }
+          # Both event data and the fallback stay in environment variables;
+          # the helper validates them before the value reaches the release API.
+          tag="$(python3 scripts/normalize_release_tag.py)"
           completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           started="$(gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name | startswith("deploy")) | .started_at' | sed -n '1p')"
           test -n "$started" || { echo 'Could not resolve the deploy job start time for release timing notes'; exit 1; }
-          duration="$(STARTED="$started" python3 -c 'from datetime import datetime,timezone; import os; s=datetime.fromisoformat(os.environ["STARTED"].replace("Z","+00:00")); n=datetime.now(timezone.utc); print(str(n-s).split(".")[0])')"
+          duration="$(STARTED="$started" python3 -c 'from datetime import datetime,timezone; import os; s=datetime.fromisoformat(os.environ["STARTED"].replace("Z","+00:00")); n=datetime.now(timezone.utc); elapsed=max(0,int((n-s).total_seconds())); print(f"{elapsed//3600:02d}:{(elapsed%3600)//60:02d}:{elapsed%60:02d}")')"
           line_table="$(python3 scripts/count_lines.py)"
           notes_file="$(mktemp)"
           {
