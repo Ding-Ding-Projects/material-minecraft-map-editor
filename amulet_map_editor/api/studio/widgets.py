@@ -248,17 +248,45 @@ def draw_dashed_round_rect(
     dc.SetBrush(wx.NullBrush)
 
 
-def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.GCDC]:
+def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.DC]:
     """Return a cleared buffered device context and its antialiased wrapper.
 
     Every painted widget starts the same way, and the wrapper is what makes a
     rounded corner read as a curve rather than a staircase.  The caller deletes
     the wrapper before the buffer goes out of scope.
+
+    The device context type matters more than it looks.  ``wx.GCDC`` accepts a
+    ``wx.WindowDC``, a ``wx.MemoryDC``, a ``wx.PrinterDC`` or a
+    ``wx.GraphicsContext`` — and on wxPython 4.3.1 / wxWidgets 3.3.3 a
+    ``wx.AutoBufferedPaintDC`` matches none of those overloads, so wrapping one
+    raises ``TypeError`` *inside* ``EVT_PAINT``.  A paint handler that raises
+    leaves its control unpainted, which is how every owner-drawn control in an
+    interface becomes a flat grey rectangle while the native ones beside it
+    still draw correctly.  ``wx.BufferedPaintDC`` keeps the double buffering
+    and is accepted, so it is tried first; ``wx.PaintDC`` is the unbuffered
+    fallback, and if a future build rejects the wrapper for both, the plain
+    device context is returned as its own wrapper so the control still draws —
+    without antialiasing, but visibly, which beats not at all.
     """
-    dc = wx.AutoBufferedPaintDC(window)
+    for factory in (wx.BufferedPaintDC, wx.PaintDC):
+        try:
+            dc = factory(window)
+        except (TypeError, RuntimeError, wx.wxAssertionError):
+            continue
+        try:
+            wrapper: wx.DC = wx.GCDC(dc)
+        except TypeError:
+            # Release the device context before creating another one for the
+            # same window: two live paint contexts on one window is undefined.
+            del dc
+            continue
+        dc.SetBackground(wx.Brush(background))
+        dc.Clear()
+        return dc, wrapper
+    dc = wx.PaintDC(window)
     dc.SetBackground(wx.Brush(background))
     dc.Clear()
-    return dc, wx.GCDC(dc)
+    return dc, dc
 
 
 class _Themed:
@@ -276,6 +304,14 @@ class _Themed:
         if name:
             self.SetName(name)
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        # Ask the platform to double-buffer as well, so the unbuffered paint
+        # fallback in ``paint_context`` still repaints without flicker.
+        try:
+            self.SetDoubleBuffered(True)
+        except (AttributeError, RuntimeError):
+            # Not every platform backend implements it; the buffered device
+            # context above is the primary route regardless.
+            pass
         if listen is None:
             listen = not self._has_themed_ancestor()
         if listen:
