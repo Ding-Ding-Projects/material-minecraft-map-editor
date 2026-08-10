@@ -52,8 +52,19 @@ class DimSumSurpriseToast(wx.Panel):
         copy.Add(description, 0, wx.EXPAND)
         root.Add(copy, 1, wx.EXPAND | wx.ALL, 12)
 
-        close = wx.Button(self, label="Dismiss", name="Dismiss dim-sum surprise")
-        close.SetToolTip("Dismiss this non-blocking surprise")
+        dismiss_labels = {
+            "english": ("Dismiss", "Dismiss this non-blocking surprise"),
+            "cantonese": ("收埋", "收埋呢個唔阻住你嘅驚喜"),
+            "bilingual": (
+                "Dismiss · 收埋",
+                "Dismiss this non-blocking surprise · 收埋呢個唔阻住你嘅驚喜",
+            ),
+        }
+        close_label, close_tip = dismiss_labels.get(
+            payload.language_mode, dismiss_labels["english"]
+        )
+        close = wx.Button(self, label=close_label, name="Dismiss dim-sum surprise")
+        close.SetToolTip(close_tip)
         root.Add(close, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
         self.SetSizer(root)
         close.Bind(wx.EVT_BUTTON, lambda _event: self.dismiss())
