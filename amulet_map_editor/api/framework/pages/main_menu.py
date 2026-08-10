@@ -176,7 +176,8 @@ class LangSelectDialog(wx.Dialog):
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
 
         self._label = wx.StaticText(
-            self, label=preferences.resolve_display_name(lang.get("language_select.help"))
+            self,
+            label=preferences.resolve_display_name(lang.get("language_select.help")),
         )
         sizer_1.Add(self._label, 0, wx.ALIGN_CENTER)
 
