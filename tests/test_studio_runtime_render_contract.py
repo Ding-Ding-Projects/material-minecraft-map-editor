@@ -20,6 +20,11 @@ cannot see.
 
 from __future__ import annotations
 
+import json
+import pathlib
+import subprocess
+import sys
+
 
 
 
@@ -78,6 +83,8 @@ GENERIC_NAMES = frozenset(
 #: The offscreen corner the host frame lives at, so a developer who runs this on
 #: a visible desktop never gets 111 dialogs flashing across their screen.
 OFFSCREEN = (-32000, -32000)
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 SURFACE_KEYS = spec_registry.keys()
 
@@ -294,16 +301,91 @@ def test_no_control_is_built_and_then_never_laid_out(surface):
     )
 
 
-# A fifth check -- asserting that no paint handler raises -- is deliberately
-# NOT here. It is detectable and it matters: on wxPython 4.3.1 every owner-drawn
-# widget fails to paint because `paint_context()` passes an AutoBufferedPaintDC
-# to wx.GCDC, which that version has no overload for. But provoking the paint
-# needs an explicit Refresh/Update, wx writes the traceback straight to file
-# descriptor 2 where a Python-level redirect cannot see it, and driving a device
-# context the handler has already failed on takes the interpreter down with an
-# access violation partway through the parametrised run. A test that crashes the
-# process proves less than no test at all, so the reproducer lives outside the
-# suite until the paint path is fixed, at which point this can come back safely.
+#: Run in a child interpreter, one pass over every surface, reporting which ones
+#: raised while painting. It has to be a child for two reasons that each make an
+#: in-process version silently useless: under pytest ``sys.stderr`` is already
+#: pytest's own buffer, so wx's traceback never reaches file descriptor 2 and a
+#: dup2 capture returns empty no matter how broken the paint path is -- verified
+#: by reinstating the real defect and watching the in-process check still pass.
+#: And a paint handler that fails can destabilise GDI badly enough to take the
+#: interpreter down, which in a child fails one test instead of the whole run.
+_PAINT_CHILD = r"""
+import json, os, sys, tempfile
+import wx
+from amulet_map_editor.api.studio import specs as registry
+from amulet_map_editor.api.studio.spec_dialog import SpecDialog
+
+app = wx.App(False)
+host = wx.Frame(None, pos=(-32000, -32000))
+host.Show()
+wx.Yield()
+
+noisy = {}
+for key in registry.keys():
+    stream = tempfile.TemporaryFile(mode="w+")
+    saved = os.dup(2)
+    os.dup2(stream.fileno(), 2)
+    dialog = None
+    try:
+        dialog = SpecDialog(host, registry.get(key))
+        dialog.Layout()
+        dialog.Show()
+        wx.Yield()
+        dialog.Refresh()
+        dialog.Update()
+        wx.Yield()
+    finally:
+        if dialog is not None:
+            dialog.Hide()
+            dialog.Destroy()
+            wx.Yield()
+        os.dup2(saved, 2)
+        os.close(saved)
+    stream.seek(0)
+    text = stream.read()
+    stream.close()
+    if "Traceback" in text:
+        noisy[key] = text[:1500]
+
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    json.dump(noisy, handle)
+"""
+
+
+@pytest.fixture(scope="module")
+def paint_report(app, tmp_path_factory):
+    """Map of surface key -> captured traceback, for surfaces that failed to paint."""
+    report = tmp_path_factory.mktemp("paint") / "report.json"
+    completed = subprocess.run(
+        [sys.executable, "-c", _PAINT_CHILD, str(report)],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    if not report.exists():
+        pytest.fail(
+            "the paint probe produced no report, so this check ran on nothing.\n"
+            f"exit={completed.returncode}\nstderr:\n{completed.stderr[-2000:]}"
+        )
+    return json.loads(report.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("key", SURFACE_KEYS)
+def test_no_paint_handler_raises(paint_report, key):
+    """A paint handler that throws leaves a blank control and a green suite.
+
+    wx catches the exception, prints the traceback, and carries on drawing
+    nothing -- so the window keeps a non-uniform bitmap from its native children
+    and every structural assertion above still passes. This is the check that
+    caught an entire interface rendering as flat grey rectangles while 387 other
+    tests stayed green, and it is worth its awkwardness.
+    """
+    noise = paint_report.get(key)
+    assert not noise, (
+        f"{key}: a handler raised while the surface was painting -- the control "
+        f"draws nothing and no source-reading test can see it:\n{noise}"
+    )
 
 
 def test_the_bitmap_check_was_not_inert():
