@@ -801,16 +801,20 @@ class AmuletUI(wx.Frame):
                 body,
             )
             if notification_key != self._last_update_notification_key:
-                notifications.add(
-                    (
+                notify(
+                    self,
+                    title,
+                    body,
+                    severity=(
                         "error"
                         if state.status == "failed"
                         else (
                             "success" if state.status == "ready_to_restart" else "info"
                         )
                     ),
-                    title,
-                    body,
+                    details=(state.detail or "")
+                    if state.status == "failed"
+                    else "",
                 )
                 tts_narrator.announce_event(
                     self._narrator,
