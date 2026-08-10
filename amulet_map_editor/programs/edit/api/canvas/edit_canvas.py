@@ -209,6 +209,9 @@ class EditCanvas(BaseEditCanvas):
     def _on_close(self, _):
         close_level(self.world.level_path)
 
+    def can_close(self) -> bool:
+        return not self._operation_running
+
     @property
     def tools(self):
         return self._tool_sizer.tools

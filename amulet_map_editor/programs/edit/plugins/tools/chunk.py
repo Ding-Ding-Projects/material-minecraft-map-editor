@@ -289,8 +289,8 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
                 nonlocal destination_changed
 
                 src_level = load_format(path)
-                src_level.open()
                 try:
+                    src_level.open()
                     dimension = self.canvas.dimension
 
                     chunks = list(self.canvas.selection.selection_group.chunk_locations())
