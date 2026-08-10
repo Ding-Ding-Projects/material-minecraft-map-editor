@@ -83,20 +83,20 @@ main_menu.discord=Discord do Amulet
 
 # Language Select
 language_select.title=Selecionar Linguagem
-language_select.help=Selecione o idioma a ser usado no Amulet na lista abaixo.
+language_select.help=Selecione o idioma a ser usado no {display_name} na lista abaixo.
 language_select.contribute=Se você deseja corrigir ou adicionar traduções, clique aqui.
 
 # Warning Dialog
-warning_dialog.title=Bem-vindo ao Amulet
-warning_dialog.content=Olá e bem-vindo ao Amulet.\n\nSugerimos criar backups de seus mundos antes de abri-los no Amulet.\n\nTentamos garantir que o Amulet não corrompa os mundos, mas o formato de salvamento não é documentado e muda constantemente e, às vezes, apenas ocorrem erros.\n\nPor esses motivos, oferecemos suporte oficial apenas a versões completas com as quais testamos.\nSnapshots Java, betas de Bedrock e recursos experimentais podem funcionar, mas não foram testados, portanto, não são oficialmente suportados.\n\nAtualmente, as entidades não são suportadas e os itens são suportado apenas na mesma plataforma.\nSe você encontrar um recurso que deseja adicionar ou um bug que precisa ser corrigido, informe-o em nosso rastreador de bugs.\nUse a ferramenta de pesquisa para ver se ele foi relatado antes de criar um novo ticket.\n \nSe você é novo, sugerimos a leitura do manual do usuário para se familiarizar com o programa.\n\n- A Equipe Amulet
+warning_dialog.title=Bem-vindo ao {display_name}
+warning_dialog.content=Olá e bem-vindo ao {display_name}.\n\nSugerimos criar backups de seus mundos antes de abri-los no {display_name}.\n\nTentamos garantir que o {display_name} não corrompa os mundos, mas o formato de salvamento não é documentado e muda constantemente e, às vezes, apenas ocorrem erros.\n\nPor esses motivos, oferecemos suporte oficial apenas a versões completas com as quais testamos.\nSnapshots Java, betas de Bedrock e recursos experimentais podem funcionar, mas não foram testados, portanto, não são oficialmente suportados.\n\nAtualmente, as entidades não são suportadas e os itens são suportado apenas na mesma plataforma.\nSe você encontrar um recurso que deseja adicionar ou um bug que precisa ser corrigido, informe-o em nosso rastreador de bugs.\nUse a ferramenta de pesquisa para ver se ele foi relatado antes de criar um novo ticket.\n \nSe você é novo, sugerimos a leitura do manual do usuário para se familiarizar com o programa.\n\n- A Equipe {display_name}
 warning_dialog.do_not_show_again=Não mostre isso novamente
 warning_dialog.i_understand=Eu entendo
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=Uma nova versão do Amulet foi lançada!
-update_check.new_version=Nova Versão: 
-update_check.current_version=Sua Versão: 
+update_check.newer_version_released=Uma nova versão do {display_name} foi lançada!
+update_check.new_version=Nova Versão:
+update_check.current_version=Sua Versão:
 update_check.update=Ir para a Página de Download
 update_check.ok=Ok
 

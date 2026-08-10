@@ -53,17 +53,17 @@ main_menu.discord=Discord Amulet
 
 # Language Select
 language_select.title=Pemilihan Bahasa
-language_select.help=Pilih bahasa yang akan digunakan di Amulet dari daftar di bawah ini.
+language_select.help=Pilih bahasa yang akan digunakan di {display_name} dari daftar di bawah ini.
 language_select.contribute=Jika Anda ingin memperbaiki atau menambahkan terjemahan, klik di sini.
 
 # Warning Dialog
-warning_dialog.title=Selamat datang di Amulet
-warning_dialog.content=Halo dan selamat datang di Amulet!\n\nKami menyarankan untuk membuat cadangan dunia Anda sebelum membukanya di Amulet.\n\nKami mencoba untuk memastikan bahwa Amulet tidak merusak dunia, namun format penyimpanan terkadang tidak terdokumentasi dan terus berubah-ubah, dan terkadang kami melakukan kesalahan.\n\nKarena alasan ini, kami hanya secara resmi mendukung rilis penuh yang sudah kami uji coba.\n\nSnapshot Java, beta Bedrock, dan fitur-fitur eksperimental dapat berfungsi namun belum teruji, sehingga tidak secara resmi didukung. Saat ini entitas tidak didukung dan item hanya didukung dalam platform yang sama.\n\nJika Anda menemukan fitur yang ingin ditambahkan atau bug yang perlu diperbaiki, laporkan di pelacak bug kami.\n\nSilakan gunakan alat pencarian untuk melihat apakah sudah dilaporkan sebelum membuat tiket baru.\n\nJika Anda masih baru, kami sarankan untuk membaca buku panduan untuk membiasakan diri dengan program ini.\n\n- Tim Amulet
+warning_dialog.title=Selamat datang di {display_name}
+warning_dialog.content=Halo dan selamat datang di {display_name}!\n\nKami menyarankan untuk membuat cadangan dunia Anda sebelum membukanya di {display_name}.\n\nKami mencoba untuk memastikan bahwa {display_name} tidak merusak dunia, namun format penyimpanan terkadang tidak terdokumentasi dan terus berubah-ubah, dan terkadang kami melakukan kesalahan.\n\nKarena alasan ini, kami hanya secara resmi mendukung rilis penuh yang sudah kami uji coba.\n\nSnapshot Java, beta Bedrock, dan fitur-fitur eksperimental dapat berfungsi namun belum teruji, sehingga tidak secara resmi didukung. Saat ini entitas tidak didukung dan item hanya didukung dalam platform yang sama.\n\nJika Anda menemukan fitur yang ingin ditambahkan atau bug yang perlu diperbaiki, laporkan di pelacak bug kami.\n\nSilakan gunakan alat pencarian untuk melihat apakah sudah dilaporkan sebelum membuat tiket baru.\n\nJika Anda masih baru, kami sarankan untuk membaca buku panduan untuk membiasakan diri dengan program ini.\n\n- Tim {display_name}
 warning_dialog.do_not_show_again=Jangan tampilkan ini lagi
 warning_dialog.i_understand=Saya paham
 
 # Update check
-update_check.newer_version_released=Versi baru Amulet telah dikeluarkan!
+update_check.newer_version_released=Versi baru {display_name} telah dikeluarkan!
 update_check.new_version=Versi Baru:
 update_check.current_version=Versi Anda:
 update_check.update=Pergi ke Halaman Unduh

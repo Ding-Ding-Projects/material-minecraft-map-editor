@@ -132,14 +132,14 @@ main_menu.discord=Amulet Discord
 
 # 語言選擇
 language_select.title=選擇語言
-language_select.help=從下面的列表中選擇要在Amulet中使用的語言。
+language_select.help=從下面的列表中選擇要在{display_name}中使用的語言。
 language_select.contribute=如果您想改善或增加翻譯，請點擊這裡。
 language_select.ok=套用
 language_select.cancel=取消
 
 # 更新檢查
 ## 當Amulet有新版本可用時顯示的窗口
-update_check.newer_version_released=Amulet的新版本已經發布！
+update_check.newer_version_released={display_name}的新版本已經發布！
 update_check.new_version=新版本：
 update_check.current_version=您的版本：
 update_check.update=轉到下載頁面

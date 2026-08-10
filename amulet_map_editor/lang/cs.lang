@@ -80,7 +80,7 @@ main_menu.discord=Amulet Discord
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=Nová verze Amuletu byla vydána!
+update_check.newer_version_released=Nová verze {display_name} byla vydána!
 update_check.new_version=Nejnovější verze:
 update_check.current_version=Vaše verze:
 update_check.update=Přejít na stránku stažení
@@ -192,9 +192,9 @@ program_3d_edit.paste_tool.rotation_label=Rotace
 program_3d_edit.paste_tool.free_rotation_label=Volná rotace
 program_3d_edit.paste_tool.free_rotation_tooltip=Nezaškrtnuto umožňuje rotaci pouze po 90 stupních. Zaškrtnuto umožňuje rotaci po jednom stupni.
 program_3d_edit.paste_tool.rotation_x_label=x
-program_3d_edit.paste_tool.rotation_x_tooltip=Úhel rotace osy x ve stupních. Všimněte si, že toto je osa x modelu, která je transformována rotací osy y a z, takže se nemusí shodovat s globální osou x. 
+program_3d_edit.paste_tool.rotation_x_tooltip=Úhel rotace osy x ve stupních. Všimněte si, že toto je osa x modelu, která je transformována rotací osy y a z, takže se nemusí shodovat s globální osou x.
 program_3d_edit.paste_tool.rotation_y_label=y
-program_3d_edit.paste_tool.rotation_y_tooltip=Úhel rotace osy y ve stupních. Všimněte si, že toto je osa y modelu, která je transformována rotací osy z, takže se nemusí shodovat s globální osou y. 
+program_3d_edit.paste_tool.rotation_y_tooltip=Úhel rotace osy y ve stupních. Všimněte si, že toto je osa y modelu, která je transformována rotací osy z, takže se nemusí shodovat s globální osou y.
 program_3d_edit.paste_tool.rotation_z_label=z
 program_3d_edit.paste_tool.rotation_z_tooltip=Úhel rotace osy z ve stupních
 program_3d_edit.paste_tool.rotate_anti_clockwise_tooltip=Kliknutím otočíte výběr o 90 stupňů proti směru hodinových ručiček vzhledem k otočení pohledu.

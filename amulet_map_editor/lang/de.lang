@@ -53,7 +53,7 @@ main_menu.discord=Amulet auf Discord
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=Eine neue Amulet Version ist verfügbar!
+update_check.newer_version_released=Eine neue {display_name} Version ist verfügbar!
 update_check.new_version=Neue Version:
 update_check.current_version=Deine Version:
 update_check.update=Zum Download...
@@ -84,7 +84,7 @@ program_convert.input_world=Eingabewelt:
 program_convert.output_world=Ausgabewelt:
 program_convert.select_output_world=Ausgabewelt wählen
 program_convert.input_output_must_different=Eingabe- und Ausgabewelt müssen verschieden sein!
-program_convert.select_before_converting=Keine Welt ausgewählt! 
+program_convert.select_before_converting=Keine Welt ausgewählt!
 program_convert.conversion_completed=Welt erfolgreich konvertiert!
 
 ## Menu bar
@@ -200,7 +200,7 @@ program_3d_edit.chunk_tool.max_y_tooltip=Die maximale y-Koordinate, die in der t
 program_3d_edit.chunk_tool.delete_chunks=Lösche ausgewählte Blöcke
 program_3d_edit.chunk_tool.delete_chunks_tooltip=Lösche die ausgewählten Blöcke. Dadurch werden der eigentliche Block und alle darin enthaltenen Daten gelöscht. Wenn Du den Bereich das nächste Mal im Spiel lädst, werden die Blöcke neu erstellt.
 program_3d_edit.chunk_tool.prune_chunks=Lösche nicht ausgewählte Blöcke
-program_3d_edit.chunk_tool.prune_chunks_tooltip=Lösche alle nicht ausgewählten Blöcke. Dadurch werden der eigentliche Block und alle darin enthaltenen Daten gelöscht. Wenn Du den Bereich das nächste Mal im Spiel lädst, werden die Blöcke neu erstellt. 
+program_3d_edit.chunk_tool.prune_chunks_tooltip=Lösche alle nicht ausgewählten Blöcke. Dadurch werden der eigentliche Block und alle darin enthaltenen Daten gelöscht. Wenn Du den Bereich das nächste Mal im Spiel lädst, werden die Blöcke neu erstellt.
 
 ## Goto/Teleport window
 program_3d_edit.goto_ui.title=Teleport

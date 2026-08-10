@@ -83,18 +83,18 @@ main_menu.discord=Discord de Amulet
 
 # Language Select
 language_select.title=Selector de Idioma
-language_select.help=Selecciona el idioma de la lista de abajo que quieras usar en Amulet.
+language_select.help=Selecciona el idioma de la lista de abajo que quieras usar en {display_name}.
 language_select.contribute=Si quieres mejorar o agregar traducciones, da click aquí.
 
 # Warning Dialog
-warning_dialog.title=Bienvenido/a a Amulet
-warning_dialog.content=Hola y bienvenido/a a Amulet.\n\Te sugerimos crear un respaldo de tu mundo antes de abrirlo en Amulet.\n\nIntentamos de asegurarnos de no corromper tu mundo, pero el formato de guardado está indocumentado y en cambios constantes y aveces nos equivocamos.\n\nPor esta razón, solo soportamos oficialmente versiones completas las cuales hemos probado.\nLas versiones experimentales de Java (snapshots), versiones beta y funciones experimentales de Bedrock podrían funcionar pero están sin probar, así que no las soportamos oficialmente.\n\nActualmente, las entidades no están soportadas y los ítems son solo soportados en la misma plataforma.\nSi quieres agregar una funcionalidad nueva o un bug que necesita ser arreglado, repórtalo en nuestro rastreador de bugs.\nPor favor usa la herramienta de búsqueda para ver si ya ha sido reportado antes de crear un ticket.\n\nSi eres nuevo, te sugerimos que leas el manual del usuario para familiarizarte con el programa.\n\n- El Equipo de Amulet
+warning_dialog.title=Bienvenido/a a {display_name}
+warning_dialog.content=Hola y bienvenido/a a {display_name}.\n\Te sugerimos crear un respaldo de tu mundo antes de abrirlo en {display_name}.\n\nIntentamos de asegurarnos de no corromper tu mundo, pero el formato de guardado está indocumentado y en cambios constantes y aveces nos equivocamos.\n\nPor esta razón, solo soportamos oficialmente versiones completas las cuales hemos probado.\nLas versiones experimentales de Java (snapshots), versiones beta y funciones experimentales de Bedrock podrían funcionar pero están sin probar, así que no las soportamos oficialmente.\n\nActualmente, las entidades no están soportadas y los ítems son solo soportados en la misma plataforma.\nSi quieres agregar una funcionalidad nueva o un bug que necesita ser arreglado, repórtalo en nuestro rastreador de bugs.\nPor favor usa la herramienta de búsqueda para ver si ya ha sido reportado antes de crear un ticket.\n\nSi eres nuevo, te sugerimos que leas el manual del usuario para familiarizarte con el programa.\n\n- El Equipo de {display_name}
 warning_dialog.do_not_show_again=No mostrar denuevo
 warning_dialog.i_understand=Entiendo
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=¡Una nueva versión de Amulet está disponible!
+update_check.newer_version_released=¡Una nueva versión de {display_name} está disponible!
 update_check.new_version=Nueva Versión:
 update_check.current_version=Tu Versión:
 update_check.update=Ir a la Página de Descarga

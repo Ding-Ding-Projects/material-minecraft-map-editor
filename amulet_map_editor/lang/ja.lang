@@ -87,14 +87,14 @@ language_select.help=使用する言語を選択してください
 language_select.contribute=翻訳を修正・追加したい場合はこちらをご覧ください
 
 # Warning Dialog
-warning_dialog.title=ようこそ Amulet へ
-warning_dialog.content=こんにちは、Amuletへようこそ。\n\nAmuletで開く前にワールドのバックアップを作成することをお勧めします。\n\n私たちは、Amuletがワールドを破壊しないように努めていますが、保存形式は文書化されておらず、常に変化しているため、どうしても間違ってしまうことがあります。\n\nこのような理由から、私たちはテスト済みのフルリリースのみを公式にサポートしています。\nJava版スナップショット、Bedrock版preview、および実験的な機能は動作するかもしれませんが、未検証のため公式にはサポートされません。\n\n現在、エンティティはサポートされておらず、アイテムは同じプラットフォーム内でのみサポートされています。\nもし、追加してほしい機能や修正すべきバグを見つけた場合は、バグトラッカーに報告してください。\n\n初めての方は、ユーザーマニュアルを読んで、プログラムに慣れることをお勧めします。\n\n- The Amulet Team
+warning_dialog.title=ようこそ {display_name} へ
+warning_dialog.content=こんにちは、{display_name}へようこそ。\n\n{display_name}で開く前にワールドのバックアップを作成することをお勧めします。\n\n私たちは、{display_name}がワールドを破壊しないように努めていますが、保存形式は文書化されておらず、常に変化しているため、どうしても間違ってしまうことがあります。\n\nこのような理由から、私たちはテスト済みのフルリリースのみを公式にサポートしています。\nJava版スナップショット、Bedrock版preview、および実験的な機能は動作するかもしれませんが、未検証のため公式にはサポートされません。\n\n現在、エンティティはサポートされておらず、アイテムは同じプラットフォーム内でのみサポートされています。\nもし、追加してほしい機能や修正すべきバグを見つけた場合は、バグトラッカーに報告してください。\n\n初めての方は、ユーザーマニュアルを読んで、プログラムに慣れることをお勧めします。\n\n- The {display_name} Team
 warning_dialog.do_not_show_again=二度と表示しない
 warning_dialog.i_understand=理解しました
 
 # アップデートチェック
 ## Amuletのバージョンが上がったときに表示される画面
-update_check.newer_version_released=Amuletの新バージョンがリリースされました!
+update_check.newer_version_released={display_name}の新バージョンがリリースされました!
 update_check.new_version=新バージョン:
 update_check.current_version=現在のバージョン:
 update_check.update=ダウンロードページを開く

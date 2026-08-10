@@ -83,18 +83,18 @@ main_menu.discord=Discord Amuleta
 
 # Language Select
 language_select.title=Wybór Języka
-language_select.help=Wybierz język z poniższej listy, którego chcesz używać w Amulecie.
+language_select.help=Wybierz język z poniższej listy, którego chcesz używać w {display_name}.
 language_select.contribute=Jeśli chcesz naprawić lub dodać tłumaczenia, kliknij tutaj.
 
 # Warning Dialog
-warning_dialog.title=Witaj w Amulecie
-warning_dialog.content=Cześć, witaj w Amulecie.\n\nZalecamy tworzenie kopii zapasowych Twoich światów przed otwieraniem ich w Amulecie.\n\nStaramy się upewniać, że Amulet nie uszkadza światów, ale format zapisu jest nieudokumentowany, ciągle się zmienia i czasami po prostu się mylimy.\n\nZ tych powodów oficjalnie wspieramy tylko pełne wydania, na których program przetestowaliśmy.\nSnapshoty Javy, bety Bedrocka i funkcje eksperymentalne mogą działać, ale są nieprzetestowane i nie są oficjalnie wspierane.\n\nObecnie moby nie są wspierane i przedmioty są wspierane tylko na tych samych platformach.\nJeśli chcesz, żeby jakaś funkcja została dodana lub znajdziesz błąd, który wymana naprawy, zgłoś to na bug trackerze.\nProsimy użyć narzędzia wyszukiwania, aby zobaczyć, czy zostało to już zgłoszone przed stworzeniem nowego ticketa.\n\nJeśli jesteś tu nowy/a, zalecamy przeczytanie instrukcji obsługi, aby zapoznać się z programem.\n\n- Zespół Amulet
+warning_dialog.title=Witaj w {display_name}
+warning_dialog.content=Cześć, witaj w {display_name}.\n\nZalecamy tworzenie kopii zapasowych Twoich światów przed otwieraniem ich w {display_name}.\n\nStaramy się upewniać, że {display_name} nie uszkadza światów, ale format zapisu jest nieudokumentowany, ciągle się zmienia i czasami po prostu się mylimy.\n\nZ tych powodów oficjalnie wspieramy tylko pełne wydania, na których program przetestowaliśmy.\nSnapshoty Javy, bety Bedrocka i funkcje eksperymentalne mogą działać, ale są nieprzetestowane i nie są oficjalnie wspierane.\n\nObecnie moby nie są wspierane i przedmioty są wspierane tylko na tych samych platformach.\nJeśli chcesz, żeby jakaś funkcja została dodana lub znajdziesz błąd, który wymana naprawy, zgłoś to na bug trackerze.\nProsimy użyć narzędzia wyszukiwania, aby zobaczyć, czy zostało to już zgłoszone przed stworzeniem nowego ticketa.\n\nJeśli jesteś tu nowy/a, zalecamy przeczytanie instrukcji obsługi, aby zapoznać się z programem.\n\n- Zespół {display_name}
 warning_dialog.do_not_show_again=Nie pokazuj tego ponownie
 warning_dialog.i_understand=Rozumiem
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=Została wydana nowa wersja Amuleta!
+update_check.newer_version_released=Została wydana nowa wersja {display_name}!
 update_check.new_version=Nowa Wersja:
 update_check.current_version=Twoja Wersja:
 update_check.update=Przejdź na stronę pobierania

@@ -83,18 +83,18 @@ main_menu.discord=Amulet 디스코드
 
 # Language Select
 language_select.title=언어 선택
-language_select.help=아래 목록에서 Amulet에서 사용할 언어를 선택하세요.
+language_select.help=아래 목록에서 {display_name}에서 사용할 언어를 선택하세요.
 language_select.contribute=번역을 수정하거나 추가하고 싶다면 여기를 클릭하세요.
 
 # Warning Dialog
-warning_dialog.title=Amulet에 오신 것을 환영합니다
-warning_dialog.content=안녕하세요. Amulet에 오신 것을 환영합니다.\n\nAmulet을 사용하기 전에 월드의 백업을 만드는 것을 권장합니다.\n\nAmulet이 월드를 손상시키지 않도록 최선을 다하고 있지만, 저장 형식은 문서화되어 있지 않으며 지속적으로 변경되며 때로는 잘못된 동작을 할 수도 있습니다.\n\n이러한 이유로 공식적으로는 테스트된 완전한 릴리스만 공식적으로 지원합니다.\nJava 스냅샷, Bedrock 베타 및 실험적인 기능은 동작할 수 있지만, 테스트되지 않았으므로 공식적으로 지원되지 않습니다.\n\n현재 엔티티는 지원되지 않으며, 아이템은 동일한 플랫폼에서만 지원됩니다.\n추가하고자 하는 기능이나 수정이 필요한 버그를 발견하면 버그 추적기에 보고해 주세요.\n새 티켓을 생성하기 전에 이미 보고된 내용인지 검색 도구를 사용하여 확인해 주세요.\n\n새로 오신 분들께는 프로그램에 익숙해지기 위해 사용자 매뉴얼을 읽는 것을 권장합니다.\n\n- Amulet 팀
+warning_dialog.title={display_name}에 오신 것을 환영합니다
+warning_dialog.content=안녕하세요. {display_name}에 오신 것을 환영합니다.\n\n{display_name}을 사용하기 전에 월드의 백업을 만드는 것을 권장합니다.\n\n{display_name}이 월드를 손상시키지 않도록 최선을 다하고 있지만, 저장 형식은 문서화되어 있지 않으며 지속적으로 변경되며 때로는 잘못된 동작을 할 수도 있습니다.\n\n이러한 이유로 공식적으로는 테스트된 완전한 릴리스만 공식적으로 지원합니다.\nJava 스냅샷, Bedrock 베타 및 실험적인 기능은 동작할 수 있지만, 테스트되지 않았으므로 공식적으로 지원되지 않습니다.\n\n현재 엔티티는 지원되지 않으며, 아이템은 동일한 플랫폼에서만 지원됩니다.\n추가하고자 하는 기능이나 수정이 필요한 버그를 발견하면 버그 추적기에 보고해 주세요.\n새 티켓을 생성하기 전에 이미 보고된 내용인지 검색 도구를 사용하여 확인해 주세요.\n\n새로 오신 분들께는 프로그램에 익숙해지기 위해 사용자 매뉴얼을 읽는 것을 권장합니다.\n\n- {display_name} 팀
 warning_dialog.do_not_show_again=다시 보지 않기
 warning_dialog.i_understand=알겠습니다
 
 # Update check
 ## 새로운 Amulet 버전이 사용 가능할 때 표시되는 창
-update_check.newer_version_released=Amulet의 새 버전이 출시되었습니다!
+update_check.newer_version_released={display_name}의 새 버전이 출시되었습니다!
 update_check.new_version=새로운 버전:
 update_check.current_version=현재 버전:
 update_check.update=다운로드 페이지로 이동
@@ -165,7 +165,7 @@ program_3d_edit.menu_bar.help.user_guide=사용자 가이드(온라인)
 program_3d_edit.select_tool.delete_button=블록 삭제
 program_3d_edit.select_tool.delete_button_tooltip=선택한 영역의 블록을 삭제합니다.
 program_3d_edit.select_tool.copy_button=복사
-program_3d_edit.select_tool.copy_button_tooltip=선택한 영역을 복사하여 나중에 붙여넣습니다. 모든 월드와 차원에 붙여넣을 수 있습니다. 
+program_3d_edit.select_tool.copy_button_tooltip=선택한 영역을 복사하여 나중에 붙여넣습니다. 모든 월드와 차원에 붙여넣을 수 있습니다.
 program_3d_edit.select_tool.cut_button=잘라내기
 program_3d_edit.select_tool.cut_button_tooltip=선택한 영역을 복사하여 나중에 붙여넣고 삭제합니다. 모든 월드와 차원에 붙여넣을 수 있습니다.
 program_3d_edit.select_tool.paste_button=붙여넣기

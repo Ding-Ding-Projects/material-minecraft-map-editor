@@ -97,14 +97,14 @@ main_menu.licence_title=Third Party Licenses
 
 # Language Select
 language_select.title=Language Select
-language_select.help=Select the language to use in Amulet from the list below.
+language_select.help=Select the language to use in {display_name} from the list below.
 language_select.contribute=If you want to fix or add translations click here.
 language_select.ok=Apply
 language_select.cancel=Cancel
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=A new version of Amulet has been released!
+update_check.newer_version_released=A new version of {display_name} has been released!
 update_check.new_version=New Version:
 update_check.current_version=Your Version:
 update_check.update=Go to Download Page

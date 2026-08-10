@@ -87,18 +87,18 @@ main_menu.discord=‫הדיסקורד של Amulet
 
 # Language Select
 language_select.title=בחר שפה
-language_select.help=‫בחר את השפה לשימוש ב - Amulet מהרשימה למטה.
+language_select.help=‫בחר את השפה לשימוש ב - {display_name} מהרשימה למטה.
 language_select.contribute=אם תרצה לתקן או להוסיף תרגומים לחץ כאן
 
 # Warning Dialog
-warning_dialog.title=‮ברוך הבא ל - ‭Amulet
-warning_dialog.content=Hello and welcome to Amulet.\n\nWe suggest creating backups of your worlds before opening them in Amulet.\n\nWe try to make sure that Amulet does not corrupt worlds but the save format is undocumented and constantly changing and sometimes we just get things wrong.\n\nFor these reasons we only officially support full releases we have tested against.\nJava snapshots, Bedrock betas and experimental features may work but are untested so not officially supported.\n\nCurrently entities are not supported and items are only supported within the same platform.\nIf you find a feature you want added or a bug that needs fixing report it on our bug tracker.\nPlease use the search tool to see if it has been reported before creating a new ticket.\n\nIf you are new we suggest reading the user manual to familiarise yourself with the program.\n\n- The Amulet Team
+warning_dialog.title=‮ברוך הבא ל - ‭{display_name}
+warning_dialog.content=Hello and welcome to {display_name}.\n\nWe suggest creating backups of your worlds before opening them in {display_name}.\n\nWe try to make sure that {display_name} does not corrupt worlds but the save format is undocumented and constantly changing and sometimes we just get things wrong.\n\nFor these reasons we only officially support full releases we have tested against.\nJava snapshots, Bedrock betas and experimental features may work but are untested so not officially supported.\n\nCurrently entities are not supported and items are only supported within the same platform.\nIf you find a feature you want added or a bug that needs fixing report it on our bug tracker.\nPlease use the search tool to see if it has been reported before creating a new ticket.\n\nIf you are new we suggest reading the user manual to familiarise yourself with the program.\n\n- The {display_name} Team
 warning_dialog.do_not_show_again=אל תציג את זה שוב
 warning_dialog.i_understand=אני מבין
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=‫גרסה חדשה של Amulet שוחררה!
+update_check.newer_version_released=‫גרסה חדשה של {display_name} שוחררה!
 update_check.new_version=‫גרסה חדשה:
 update_check.current_version=‫הגרסה שלך:
 update_check.update=עבור לדף ההורדה

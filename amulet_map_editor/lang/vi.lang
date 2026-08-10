@@ -86,18 +86,18 @@ main_menu.discord=Discord
 
 # Language Select
 language_select.title=Lựa chọn ngôn ngữ
-language_select.help=Lựa chọn ngôn ngữ để sử dụng trong Amulet từ danh sách bên dưới.
+language_select.help=Lựa chọn ngôn ngữ để sử dụng trong {display_name} từ danh sách bên dưới.
 language_select.contribute=Nếu bạn muốn sửa hoặc thêm bản dịch, nháy vào đây.
 
 # Warning Dialog
-warning_dialog.title=Chào mừng đến với Amulet
-warning_dialog.content=Xin chào và chào mừng bạn đến với Amulet.\n\nChúng tôi khuyên bạn nên tạo bản sao lưu các thế giới của mình trước khi mở chúng trong Amulet.\n\nChúng tôi cố gắng đảm bảo rằng Amulet không làm hỏng các thế giới nhưng mà định dạng lưu lại không được ghi chép lại và liên tục thay đổi và đôi khi chúng tôi gặp sự cố.\n\nVì những lý do này, chúng tôi chỉ chính thức hỗ trợ các bản phát hành đầy đủ mà chúng tôi đã thử nghiệm.\nCác bản thử nghiệm (snapshot) Java, bản beta Bedrock và các tính năng thử nghiệm có thể hoạt động nhưng chưa được kiểm tra nên không được hỗ trợ chính thức.\n\nHiện nay các thực thể không được hỗ trợ và các vật phẩm chỉ được hỗ trợ trong cùng một nền tảng.\nNếu bạn muốn thêm một tính năng hay tìm thấy một lỗi cần sửa, hãy báo cáo trên trình theo dõi lỗi của chúng tôi.\nVui lòng sử dụng công cụ tìm kiếm để xem liệu nó đã được báo cáo hay chưa trước khi tạo một vấn đề mới.\n\nNếu bạn là người mới, chúng tôi khuyên bạn nên đọc hướng dẫn sử dụng để làm quen với chương trình. \n\n- Nhóm Amulet
+warning_dialog.title=Chào mừng đến với {display_name}
+warning_dialog.content=Xin chào và chào mừng bạn đến với {display_name}.\n\nChúng tôi khuyên bạn nên tạo bản sao lưu các thế giới của mình trước khi mở chúng trong {display_name}.\n\nChúng tôi cố gắng đảm bảo rằng {display_name} không làm hỏng các thế giới nhưng mà định dạng lưu lại không được ghi chép lại và liên tục thay đổi và đôi khi chúng tôi gặp sự cố.\n\nVì những lý do này, chúng tôi chỉ chính thức hỗ trợ các bản phát hành đầy đủ mà chúng tôi đã thử nghiệm.\nCác bản thử nghiệm (snapshot) Java, bản beta Bedrock và các tính năng thử nghiệm có thể hoạt động nhưng chưa được kiểm tra nên không được hỗ trợ chính thức.\n\nHiện nay các thực thể không được hỗ trợ và các vật phẩm chỉ được hỗ trợ trong cùng một nền tảng.\nNếu bạn muốn thêm một tính năng hay tìm thấy một lỗi cần sửa, hãy báo cáo trên trình theo dõi lỗi của chúng tôi.\nVui lòng sử dụng công cụ tìm kiếm để xem liệu nó đã được báo cáo hay chưa trước khi tạo một vấn đề mới.\n\nNếu bạn là người mới, chúng tôi khuyên bạn nên đọc hướng dẫn sử dụng để làm quen với chương trình. \n\n- Nhóm {display_name}
 warning_dialog.do_not_show_again=Không hiện lại nữa
 warning_dialog.i_understand=Tôi đã hiểu
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=Một phiên bản mới của Amulet đã được phát hành!
+update_check.newer_version_released=Một phiên bản mới của {display_name} đã được phát hành!
 update_check.new_version=Phiên bản mới:
 update_check.current_version=Phiên bản của bạn:
 update_check.update=Đi đến trang tải xuống

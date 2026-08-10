@@ -80,7 +80,7 @@ main_menu.discord=Discord d'Amulet
 
 # Vérification de mise à jour
 ## La fenêtre affichée lorsqu'une version plus récente d'Amulet est disponible
-update_check.newer_version_released=Une nouvelle version d'Amulet est disponible !
+update_check.newer_version_released=Une nouvelle version d'{display_name} est disponible !
 update_check.new_version=Nouvelle version :
 update_check.current_version=Votre version :
 update_check.update=Voir la page de téléchargement

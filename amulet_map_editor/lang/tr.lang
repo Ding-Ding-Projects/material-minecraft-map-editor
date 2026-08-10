@@ -87,14 +87,14 @@ language_select.help=Aşağıdaki listeden kullanmak istediğiniz dili seçin.
 language_select.contribute=Eğer çevirileri düzeltmek veya yeni çeviri eklemek istiyorsanız buraya tıklayın.
 
 # Warning Dialog
-warning_dialog.title=Amulet'e Hoş Geldiniz
-warning_dialog.content=Amulet'e hoş geldiniz.\n\nDünyalarınızı Amulet ile açmadan önce yedek almanızı öneririz.\n\nAmulet'in dünyaları bozmadığından emin olmaya çalışsak da kayıt biçiminin belgelenmemiş ve sürekli değişiyor olması sebebiyle yanlış bir şeyler yapabiliyoruz.\n\nBelirtilen nedenlerden dolayı sadece test edilen tam sürümleri resmi olarak destekliyor olsak da Java sürümleri, Bedrock betaları ve deneysel özellikler kesinlikle çalışmayacak anlamına gelmiyor.\n\nŞu anda yaratıklar desteklenmiyor, eşyalar ise yalnızca aynı platformda destekleniyor.\nEklenecek bir özellik veya düzeltilecek bir hata bulursanız, lütfen Bug Tracker aracılığıyla rapor edin. Yeni bir talep oluşturmadan önce rapor edilip edilmediğini kontrol edin.\n\nEğer yeniyseniz, programı tanımak için kullanım kılavuzumuzu okumanızı öneririz.\n\n- Amulet Ekibi
+warning_dialog.title={display_name}'e Hoş Geldiniz
+warning_dialog.content={display_name}'e hoş geldiniz.\n\nDünyalarınızı {display_name} ile açmadan önce yedek almanızı öneririz.\n\n{display_name}'in dünyaları bozmadığından emin olmaya çalışsak da kayıt biçiminin belgelenmemiş ve sürekli değişiyor olması sebebiyle yanlış bir şeyler yapabiliyoruz.\n\nBelirtilen nedenlerden dolayı sadece test edilen tam sürümleri resmi olarak destekliyor olsak da Java sürümleri, Bedrock betaları ve deneysel özellikler kesinlikle çalışmayacak anlamına gelmiyor.\n\nŞu anda yaratıklar desteklenmiyor, eşyalar ise yalnızca aynı platformda destekleniyor.\nEklenecek bir özellik veya düzeltilecek bir hata bulursanız, lütfen Bug Tracker aracılığıyla rapor edin. Yeni bir talep oluşturmadan önce rapor edilip edilmediğini kontrol edin.\n\nEğer yeniyseniz, programı tanımak için kullanım kılavuzumuzu okumanızı öneririz.\n\n- {display_name} Ekibi
 warning_dialog.do_not_show_again=Bunu tekrar gösterme
 warning_dialog.i_understand=Anladım
 
 # Update check
 ## The window displayed when a newer version of Amulet is available
-update_check.newer_version_released=Amulet'in yeni bir sürümü yayınlandı!
+update_check.newer_version_released={display_name}'in yeni bir sürümü yayınlandı!
 update_check.new_version=Yeni Sürüm:
 update_check.current_version=Mevcut Sürüm:
 update_check.update=İndirme Sayfasına Git
