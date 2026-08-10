@@ -1499,6 +1499,9 @@ class PreferencesDialog(wx.Dialog):
 
     def _reset(self, _event: wx.Event) -> None:
         self._prefs = preferences.reset()
+        parent = self.GetParent()
+        if hasattr(parent, "refresh_display_identity"):
+            parent.refresh_display_identity(self._prefs.display_name)
         self.EndModal(wx.ID_CANCEL)
 
     def _save(self, _event: wx.Event) -> None:

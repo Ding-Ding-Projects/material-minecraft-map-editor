@@ -374,6 +374,7 @@ class AmuletUI(wx.Frame):
         """Apply the persisted display label without changing stable app IDs."""
         self.SetTitle(self._format_display_title(display_name))
         self._title_bar.set_title(self.GetTitle())
+        self._level_notebook._main_menu.refresh_display_identity()
 
     def open_level(self, path: str):
         """Open a level. You should use the method in the app."""

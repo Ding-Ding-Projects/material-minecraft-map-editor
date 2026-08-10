@@ -107,8 +107,14 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         self._load_strings()
         apply_material3(self)
 
-    def _load_strings(self):
+    def refresh_display_identity(self) -> None:
+        """Refresh the already-created heading from persisted preferences."""
         self._amulet_name.SetLabel(preferences.load().display_name)
+        self._start_card.Layout()
+        self.Layout()
+
+    def _load_strings(self):
+        self.refresh_display_identity()
         self._hero_subtitle.SetLabel(lang.get("main_menu.hero_subtitle"))
         self._hero_subtitle.Wrap(400)
         self._open_world_button.SetLabel(lang.get("main_menu.open_world"))
@@ -150,6 +156,9 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
             if dialog.ShowModal() == wx.ID_OK:
                 lang.set_language(dialog.get_language())
         self._load_strings()
+        parent = self.GetTopLevelParent()
+        if hasattr(parent, "refresh_display_identity"):
+            parent.refresh_display_identity()
 
     def _show_licences(self, evt) -> None:
         show_modeless_dialog(self, "third-party-licences", LicenceDialog)
@@ -166,7 +175,9 @@ class LangSelectDialog(wx.Dialog):
 
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
 
-        self._label = wx.StaticText(self, label=lang.get("language_select.help"))
+        self._label = wx.StaticText(
+            self, label=preferences.resolve_display_name(lang.get("language_select.help"))
+        )
         sizer_1.Add(self._label, 0, wx.ALIGN_CENTER)
 
         self.hyperlink_1 = wx.adv.HyperlinkCtrl(

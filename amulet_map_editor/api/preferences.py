@@ -95,6 +95,17 @@ def validate_display_name(value: Any) -> str:
     return value
 
 
+DISPLAY_NAME_TOKEN = "{display_name}"
+
+
+def resolve_display_name(text: str) -> str:
+    """Replace the literal display-name token using current valid preferences."""
+    if not isinstance(text, str):
+        raise TypeError("Display-name text must be a string.")
+    display_name = validate_display_name(load().display_name)
+    return text.replace(DISPLAY_NAME_TOKEN, display_name)
+
+
 def format_window_title(
     version: str, *, display_name: str | None = None, source: bool = False
 ) -> str:

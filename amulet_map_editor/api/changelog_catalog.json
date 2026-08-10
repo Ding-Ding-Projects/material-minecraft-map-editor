@@ -1,8 +1,32 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "45405526a6c0ffe448f153e0811082aec1608a86",
+  "source_revision": "9c76c7ff986f5a02709bb30f91a6361cd9023fb3",
   "entries": [
+    {
+      "version": "0.10.0-dev.430",
+      "released_on": "2026-08-09",
+      "commit_sha": "e064f92c21694734ac1fbd7f9864d639fcb9c457",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Integrate squirrel-delta",
+          "commit_sha": "e064f92c21694734ac1fbd7f9864d639fcb9c457"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.428",
+      "released_on": "2026-08-09",
+      "commit_sha": "b6e3cdba584be118ed1f1c1247b0d9f680ee3816",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Localize dim-sum surprise controls",
+          "commit_sha": "b6e3cdba584be118ed1f1c1247b0d9f680ee3816"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.426",
       "released_on": "2026-08-09",
