@@ -88,8 +88,13 @@ class MaterialButton(wx.Control):
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
         dc.SetFont(self.GetFont())
-        width, height = dc.GetTextExtent(self.GetLabel() or " ")
-        return wx.Size(max(96, width + 48), max(_control_min_height(self), height + 20))
+        width, text_height = dc.GetTextExtent(self.GetLabel() or " ")
+        native_height = wx.Control.DoGetBestSize(self).height
+        content_height = max(native_height, text_height) + 20
+        return wx.Size(
+            max(96, width + 48),
+            max(_control_min_height(), content_height),
+        )
 
     def _enter(self, event: wx.MouseEvent) -> None:
         self._hovered = True

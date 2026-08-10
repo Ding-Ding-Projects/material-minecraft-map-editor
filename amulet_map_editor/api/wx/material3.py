@@ -195,13 +195,13 @@ def _font_for(
     return font
 
 
-def _control_min_height(window: wx.Window) -> int:
-    """Resolve the touch target from the persisted M3 density choice."""
+def _control_min_height(*, natural_height: int = 0) -> int:
+    """Resolve the M3 density target without asking a control for its best size."""
 
     prefs = school_mode.presentation_preferences(preferences.load())
     density = scheduled_runtime.current_values().get("density", prefs.density)
     target = {"compact": 36, "comfortable": 40, "spacious": 48}.get(density, 40)
-    return max(target, window.GetBestSize().height)
+    return max(target, natural_height)
 
 
 def _children(window: wx.Window) -> Iterable[wx.Window]:
@@ -434,7 +434,10 @@ def apply_material3(window: wx.Window) -> None:
                     wx.CollapsiblePane,
                 ),
             ):
-                child.SetMinSize(wx.Size(-1, _control_min_height(child)))
+                natural_height = child.GetBestSize().height
+                child.SetMinSize(
+                    wx.Size(-1, _control_min_height(natural_height=natural_height))
+                )
             elif isinstance(child, wx.StaticText):
                 child.SetBackgroundColour(window.GetBackgroundColour())
         elif isinstance(child, (wx.ListBox, wx.ListCtrl, wx.TreeCtrl)):
@@ -446,8 +449,12 @@ def apply_material3(window: wx.Window) -> None:
             child.SetFont(_font_for(child, 10, wx.FONTWEIGHT_MEDIUM))
             child.SetBackgroundColour(palette["primary_container"])
             child.SetForegroundColour(palette["on_primary_container"])
+            native_best_size = child.GetBestSize()
             child.SetMinSize(
-                wx.Size(max(child.GetBestSize().width, 88), _control_min_height(child))
+                wx.Size(
+                    max(native_best_size.width, 88),
+                    _control_min_height(natural_height=native_best_size.height),
+                )
             )
         elif isinstance(
             child,
@@ -463,7 +470,10 @@ def apply_material3(window: wx.Window) -> None:
             child.SetFont(_font_for(child, 10))
             child.SetBackgroundColour(palette["surface_container"])
             child.SetForegroundColour(palette["on_surface"])
-            child.SetMinSize(wx.Size(-1, _control_min_height(child)))
+            natural_height = child.GetBestSize().height
+            child.SetMinSize(
+                wx.Size(-1, _control_min_height(natural_height=natural_height))
+            )
         apply_material3(child)
 
     _bind_element_appearance_menu(window)
