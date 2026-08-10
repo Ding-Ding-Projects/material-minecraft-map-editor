@@ -53,7 +53,7 @@ def test_secondary_frames_receive_the_same_material_chrome():
         encoding="utf-8"
     )
     assert "_ensure_material_frame_chrome" in source
-    assert "wx.Frame.SetSizer(window, outer)" in source
+    assert "wx.Frame.SetSizer(window, outer, deleteOld=False)" in source
     assert 'hasattr(window, "_title_bar")' in source
 
 
