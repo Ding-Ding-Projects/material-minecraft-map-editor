@@ -47,6 +47,7 @@ class DimSumSurprisePayload:
     title: str
     alt_text: str
     image_asset_path: str
+    language_mode: str = "english"
     catalog_url: str = CATALOG_URL
     non_blocking: bool = True
     steal_focus: bool = False
@@ -64,8 +65,20 @@ def notification_copy(payload: DimSumSurprisePayload) -> Tuple[str, str]:
 
     if payload.status != "ready":
         raise ValueError("only ready payloads can be projected")
-    title = f"Dim-sum surprise: {payload.title}"
-    body = f"{payload.alt_text} · Public catalog image: {payload.image_asset_path}"
+    labels = {
+        "english": ("Dim-sum surprise", "Public catalog image"),
+        "cantonese": ("點心驚喜", "公開目錄圖片"),
+        "bilingual": (
+            "Dim-sum surprise · 點心驚喜",
+            "Public catalog image · 公開目錄圖片",
+        ),
+    }
+    try:
+        title_label, image_label = labels[payload.language_mode]
+    except KeyError as exc:
+        raise ValueError("payload language mode is unsupported") from exc
+    title = f"{title_label}: {payload.title}"
+    body = f"{payload.alt_text} · {image_label}: {payload.image_asset_path}"
     return title, body
 
 
@@ -203,6 +216,7 @@ def build_payload(dish: DishMetadata, language_mode: str) -> DimSumSurprisePaylo
         title=title,
         alt_text=alt_text,
         image_asset_path=dish.image_asset_path,
+        language_mode=language_mode,
     )
 
 

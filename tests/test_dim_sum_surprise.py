@@ -99,6 +99,9 @@ class DimSumSurpriseTestCase(unittest.TestCase):
         self.assertEqual(bilingual.title, "Classic Har Gow · 蝦餃")
         self.assertIn(dish.alt_english, bilingual.alt_text)
         self.assertIn(dish.alt_cantonese, bilingual.alt_text)
+        self.assertEqual(english.language_mode, "english")
+        self.assertEqual(cantonese.language_mode, "cantonese")
+        self.assertEqual(bilingual.language_mode, "bilingual")
 
     def test_native_projection_copy_is_factual_and_non_networked(self):
         payload = surprise.build_payload(self.metadata(), "bilingual")
@@ -108,6 +111,13 @@ class DimSumSurpriseTestCase(unittest.TestCase):
         self.assertIn(self.metadata().alt_cantonese, body)
         self.assertIn(self.metadata().image_asset_path, body)
         self.assertNotIn("http", body)
+        self.assertIn("點心驚喜", title)
+
+        cantonese_title, cantonese_body = surprise.notification_copy(
+            surprise.build_payload(self.metadata(), "cantonese")
+        )
+        self.assertTrue(cantonese_title.startswith("點心驚喜:"))
+        self.assertIn("公開目錄圖片", cantonese_body)
 
     def test_projection_rejects_non_ready_payloads(self):
         payload = surprise.DimSumSurprisePayload(
