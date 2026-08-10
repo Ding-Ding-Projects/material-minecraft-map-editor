@@ -1,6 +1,3 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
 name: Unittests
 
 on:
@@ -11,11 +8,79 @@ on:
       - '[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+'
   pull_request:
+  workflow_dispatch:
+
+# This workflow only produces a check result, so a newer push supersedes it
+# outright.  Release and publishing workflows deliberately do not do this.
+concurrency:
+  group: unittests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
+  # The interface data model carries no wx dependency by design, so it is
+  # checked on a runner with no display at all.  A regression that reintroduces
+  # a display dependency into the registries fails here rather than at startup
+  # on a user's machine.
+  headless-import:
+    name: Headless import and registry contract
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Import the studio data modules without a display
+        run: |
+          python - <<'PY'
+          import importlib
+          import sys
+
+          sys.path.insert(0, ".")
+          modules = [
+              "amulet_map_editor.api.studio.search",
+              "amulet_map_editor.api.studio.spec",
+          ]
+          optional = [
+              "amulet_map_editor.api.studio.specs",
+              "amulet_map_editor.api.studio.surfaces",
+              "amulet_map_editor.api.studio.ribbon_defs",
+              "amulet_map_editor.api.studio.commands",
+              "amulet_map_editor.api.studio.blocks",
+              "amulet_map_editor.api.studio.memory_content",
+              "amulet_map_editor.api.studio.nbt_model",
+          ]
+          for name in modules:
+              importlib.import_module(name)
+              print(f"imported {name}")
+          missing = []
+          for name in optional:
+              try:
+                  importlib.import_module(name)
+              except ModuleNotFoundError:
+                  missing.append(name)
+                  continue
+              print(f"imported {name}")
+          if missing:
+              print("not present in this revision: " + ", ".join(missing))
+          PY
+
+      - name: Verify no child process can open a console window
+        run: |
+          python -m pip install --quiet pytest
+          python -m pytest tests/test_no_console_window_contract.py -q
+
   unittests:
+    name: Test suite
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.11']
 
@@ -35,9 +100,27 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -e . pytest
+        pip install -e . pytest pytest-timeout
 
-    - name: Test with unittest
+    - name: Generate the changelog the tests read
       run: |
         python scripts/generate_changelog.py
-        python -m unittest discover -v -s tests
+
+    # pytest collects both styles.  ``unittest discover`` only finds TestCase
+    # subclasses, which silently skipped every module-level ``def test_*``
+    # in this suite — the majority of it.
+    - name: Test with pytest
+      run: |
+        python -m pytest tests -v --timeout=300 --junitxml=test-results/junit.xml
+
+    # Evidence survives a failure: the report is what says which test failed
+    # and why, and it is worth nothing if it is only collected when green.
+    - name: Upload test results
+      uses: actions/upload-artifact@v6
+      if: ${{ always() }}
+      continue-on-error: true
+      with:
+        name: test-results-${{ matrix.python-version }}
+        path: test-results
+        if-no-files-found: warn
+        retention-days: 7

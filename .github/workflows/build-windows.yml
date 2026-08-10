@@ -15,6 +15,13 @@ on:
 permissions:
   contents: read
 
+# This workflow publishes an immutable release, so a run is never cancelled by
+# a newer push: cancelling mid-publish can strand a tag without its installer.
+# Runs on one ref queue instead.
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
@@ -50,7 +57,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install twine pyinstaller~=6.18 build pytest
+        pip install twine pyinstaller~=6.18 build pytest pytest-timeout
 
     - name: Build Wheels
       shell: pwsh
@@ -66,7 +73,19 @@ jobs:
       id: release-gating-tests
       run: |
         python scripts/generate_changelog.py
-        python -m unittest discover -v -s tests
+        python -m pytest tests -v --junitxml=test-results/junit.xml
+
+    # The gating report is the evidence for whether this build may ship, so it
+    # is collected whether the gate passed or failed.
+    - name: Upload release-gating test results
+      uses: actions/upload-artifact@v6
+      if: ${{ always() }}
+      continue-on-error: true
+      with:
+        name: release-gating-tests-${{ matrix.cfg.architecture }}
+        path: test-results
+        if-no-files-found: warn
+        retention-days: 7
 
     - name: PyInstaller build
       run: |
