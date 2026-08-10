@@ -45,7 +45,6 @@ try:
     import faulthandler
     import subprocess
     import multiprocessing
-    import amulet_faulthandler
 except Exception as e_:
     _log_error(e_)
     input("Press ENTER to continue.")
@@ -115,20 +114,40 @@ def _init_log() -> logging.Logger:
         faulthandler.enable(log_file)
 
     if "--enable-amulet-faulthandler" in sys.argv:
-        amulet_faulthandler.install(
-            os.path.join(logs_path, f"amulet_{os.getpid()}.dmp"), debug
-        )
+        try:
+            import amulet_faulthandler
+
+            amulet_faulthandler.install(
+                os.path.join(logs_path, f"amulet_{os.getpid()}.dmp"), debug
+            )
+        except (ImportError, OSError):
+            log.warning(
+                "Unable to enable amulet_faulthandler; continuing without it.",
+                exc_info=True,
+            )
     if sys.platform == "win32":
-        os.makedirs(
-            os.path.join(
-                os.getenv("LOCALAPPDATA"),
-                "AmuletTeam",
-                "AmuletMapEditor",
-                "Logs",
-                "crash",
-            ),
-            exist_ok=True,
-        )
+        local_app_data = os.getenv("LOCALAPPDATA")
+        if local_app_data:
+            try:
+                os.makedirs(
+                    os.path.join(
+                        local_app_data,
+                        "AmuletTeam",
+                        "AmuletMapEditor",
+                        "Logs",
+                        "crash",
+                    ),
+                    exist_ok=True,
+                )
+            except OSError:
+                log.warning(
+                    "Unable to create the Windows crash-dump directory; continuing without it.",
+                    exc_info=True,
+                )
+        else:
+            log.warning(
+                "LOCALAPPDATA is unavailable; skipping Windows crash-dump directory setup."
+            )
 
     return log
 
