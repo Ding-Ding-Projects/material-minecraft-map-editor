@@ -20,7 +20,14 @@ def _log_error(e) -> None:
             )
         msg_lines.append(str(e))
         err = "\n".join(msg_lines)
-        print(err)
+        # A windowed build has no standard streams, so printing straight to
+        # stdout would replace the real failure with a stream error.
+        if sys.stdout is not None:
+            try:
+                sys.stdout.write(err + "\n")
+                sys.stdout.flush()
+            except (ValueError, OSError):
+                pass
         try:
             with open("crash.log", "w") as f:
                 f.write(err)
@@ -186,17 +193,41 @@ def _app_main() -> int:
     return 0
 
 
+def _launcher_python() -> str:
+    """Return the interpreter that starts the child without a console.
+
+    A source checkout normally runs under ``python.exe``, which owns a console
+    window.  Re-launching through the matching ``pythonw.exe`` keeps the child
+    windowed even when the parent was started from a terminal, which is what
+    makes ``py -3 -m amulet_map_editor`` behave like the packaged application.
+    """
+    executable = sys.executable
+    if os.name != "nt" or getattr(sys, "frozen", False):
+        return executable
+    directory, name = os.path.split(executable)
+    if name.lower() == "python.exe":
+        windowed = os.path.join(directory, "pythonw.exe")
+        if os.path.isfile(windowed):
+            return windowed
+    return executable
+
+
 def main() -> NoReturn:
     is_launcher = False
     try:
         multiprocessing.freeze_support()
         is_launcher = "--amulet-main" not in sys.argv
         if is_launcher:
+            launcher = _launcher_python()
             if getattr(sys, "frozen", False):
                 args = [sys.executable, "--amulet-main"] + sys.argv[1:]
             else:
-                args = [sys.executable, __file__, "--amulet-main"] + sys.argv[1:]
-            exit_code = subprocess.run(args).returncode
+                args = [launcher, __file__, "--amulet-main"] + sys.argv[1:]
+            # Amulet is a windowed application; the relaunched child must not
+            # allocate a console of its own on Windows.
+            from amulet_map_editor.api import process as _process
+
+            exit_code = _process.run(args).returncode
         else:
             exit_code = _app_main()
     except Exception as e:
@@ -204,20 +235,30 @@ def main() -> NoReturn:
         exit_code = 1
 
     if is_launcher and exit_code:
-        print(f"Application crashed with exit code {exit_code} (0x{exit_code:0X})")
-        print("Please report this issue to a developer.")
-        print("Attach the logs in the opened directory with your report.")
+        from amulet_map_editor.api import process as _process
+
+        report = (
+            f"Application crashed with exit code {exit_code} (0x{exit_code:0X})\n"
+            "Please report this issue to a developer.\n"
+            "Attach the logs in the opened directory with your report."
+        )
+        _process.write_console(report)
         log_dir = os.environ.get("LOG_DIR") or platformdirs.user_log_dir(
             "AmuletMapEditor", "AmuletTeam"
         )
         if sys.platform == "win32":
             os.startfile(log_dir)
         elif sys.platform == "darwin":
-            subprocess.run(["open", log_dir])
+            _process.run(["open", log_dir])
         else:
-            subprocess.run(["xdg-open", log_dir])
-        if getattr(sys, "frozen", False) and sys.stdin is not None:
-            input(f"Press ENTER to continue.")
+            _process.run(["xdg-open", log_dir])
+        # ``input`` needs a real console; a windowed build has none, so the log
+        # directory opening above is the whole report there.
+        if getattr(sys, "frozen", False) and _process.has_console():
+            try:
+                input("Press ENTER to continue.")
+            except (EOFError, OSError):
+                pass
     sys.exit(bool(exit_code))
 
 

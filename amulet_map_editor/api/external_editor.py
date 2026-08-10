@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+from amulet_map_editor.api import process
 import sys
 from typing import Callable, Iterable, Mapping
 
@@ -179,7 +180,7 @@ def open_path(
     target: str | os.PathLike[str],
     *,
     editor: str | os.PathLike[str] | None = None,
-    runner: Callable[..., object] = subprocess.Popen,
+    runner: Callable[..., object] = process.popen,
 ) -> EditorResult:
     """Open a file or folder, treating folders as VS Code workspace roots."""
 

@@ -18,12 +18,15 @@ if not defined PYTHON_EXE (echo [build] Python 3.11 was not found after bootstra
 set "PYTHON_CMD=%PYTHON_EXE% %PYTHON_ARGS%"
 %PYTHON_CMD% -m pip install --user --upgrade pip build cython versioneer "numpy~=1.26" >nul || (echo [build] dependency bootstrap failed.& exit /b 1)
 %PYTHON_CMD% -m pip install --user --editable . --no-build-isolation || (echo [build] editable package build failed.& exit /b 1)
-if "%SILENT_MODE%"=="0" echo [build] source package is ready; run py -3 -m amulet_map_editor to launch it.
+if "%SILENT_MODE%"=="0" echo [build] source package is ready; run pyw -3.11 -m amulet_map_editor to launch it without a terminal window.
 if "%SILENT_MODE%"=="0" (
   choice /M "Launch Amulet now"
   if errorlevel 2 goto :build_done
-  %PYTHON_CMD% -m amulet_map_editor
-  if errorlevel 1 exit /b 1
+  rem Amulet is a windowed application: launch it through pythonw so no
+  rem terminal window is left behind attached to the running editor.
+  set "LAUNCH_CMD=%PYTHON_CMD%"
+  where pyw >nul 2>nul && set "LAUNCH_CMD=pyw %PYTHON_ARGS%"
+  start "" %LAUNCH_CMD% -m amulet_map_editor
 )
 :build_done
 exit /b 0

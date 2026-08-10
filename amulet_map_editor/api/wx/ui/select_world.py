@@ -6,6 +6,7 @@ import traceback
 import logging
 import zipfile
 import subprocess
+from amulet_map_editor.api import process
 
 import wx
 
@@ -355,9 +356,9 @@ class CollapsibleWorldListUI(wx.CollapsiblePane):
                 if platform == "win32":
                     os.startfile(root_directory)
                 elif platform == "darwin":
-                    subprocess.call(["open", root_directory])
+                    process.call(["open", root_directory])
                 else:
-                    subprocess.call(["xdg-open", root_directory])
+                    process.call(["xdg-open", root_directory])
                 evt.Skip()
 
             open_directory_button = wx.Button(

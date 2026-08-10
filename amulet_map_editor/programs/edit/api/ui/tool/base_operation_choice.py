@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import subprocess
+from amulet_map_editor.api import process
 
 from amulet_map_editor.api import image
 from amulet_map_editor.api.wx.ui.simple import SimpleChoiceAny
@@ -209,7 +210,7 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
             os.startfile(path)
         else:
             opener = "open" if sys.platform == "darwin" else "xdg-open"
-            subprocess.call([opener, path])
+            process.call([opener, path])
 
     def _on_resize(self, evt):
         self._resize()

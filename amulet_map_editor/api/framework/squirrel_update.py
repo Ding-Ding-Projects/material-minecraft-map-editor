@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 import subprocess
+from amulet_map_editor.api.process import no_window_kwargs
 import sys
 import threading
 import time
@@ -481,6 +482,9 @@ def _run_update_process(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         close_fds=True,
+        # Update.exe is a console program; without this the updater's periodic
+        # background check flashes a terminal over the editor.
+        **no_window_kwargs(),
     )
     if process.stdout is None or process.stderr is None:
         process.kill()

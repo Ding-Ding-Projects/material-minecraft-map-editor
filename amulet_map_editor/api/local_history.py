@@ -12,6 +12,7 @@ import json
 import os
 import re
 import subprocess
+from amulet_map_editor.api import process
 import threading
 import uuid
 from dataclasses import dataclass
@@ -222,6 +223,9 @@ class LocalHistory:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=False,
+                # A windowed application must never flash a console for a
+                # background history commit.
+                **process.no_window_kwargs(),
             )
         except OSError as exc:
             raise LocalHistoryError("git is unavailable for local history") from exc

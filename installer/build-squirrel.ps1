@@ -190,6 +190,32 @@ try {
     # itself is not a .NET application. Keep the PyInstaller tree intact.
     Copy-Item (Join-Path $inputPath '*') $packageLib -Recurse -Force
 
+    # Squirrel creates a shortcut for every executable it finds in the package.
+    # amulet_debug.exe is the console diagnostic build, so leaving it in would
+    # put a terminal-opening entry in the Start menu beside the real app. The
+    # installed application has exactly one launcher, and it is windowed.
+    $debugExe = Join-Path $packageLib 'amulet_debug.exe'
+    if (Test-Path -LiteralPath $debugExe) {
+        Remove-Item -LiteralPath $debugExe -Force
+        Write-Host '[squirrel] excluded amulet_debug.exe so the install has one windowed launcher'
+    }
+    $mainExe = Join-Path $packageLib 'amulet.exe'
+    if (-not (Test-Path -LiteralPath $mainExe)) {
+        throw "Squirrel package has no amulet.exe to install: $packageLib"
+    }
+    # A console subsystem in the shipped executable is a packaging defect, not a
+    # cosmetic one: it flashes a terminal on every launch and on every update
+    # restart. Fail the build rather than shipping it.
+    $subsystem = [BitConverter]::ToUInt16(
+        [IO.File]::ReadAllBytes($mainExe)[
+            ([BitConverter]::ToInt32([IO.File]::ReadAllBytes($mainExe), 0x3C) + 0x5C)..
+            ([BitConverter]::ToInt32([IO.File]::ReadAllBytes($mainExe), 0x3C) + 0x5D)
+        ], 0)
+    if ($subsystem -ne 2) {
+        throw "amulet.exe must be built for the Windows GUI subsystem (2); found $subsystem"
+    }
+    Write-Host '[squirrel] amulet.exe is a GUI-subsystem executable; no console will be allocated'
+
     # The updater uses these framework files during install/update. They are
     # redistributable Squirrel payload, not signing tools or application code.
     Copy-Item (Join-Path $squirrelRoot 'tools\Squirrel.exe') (Join-Path $packageLib 'squirrel.exe') -Force

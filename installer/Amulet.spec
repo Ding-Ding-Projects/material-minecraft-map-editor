@@ -44,7 +44,9 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=is_windows, # Only show the console on Windows
+    # Amulet is a windowed application: a console here would flash a black
+    # terminal over the user's work on every launch.
+    console=False,
     icon="logo.ico",
     contents_directory="lib",
     # macOS packaging is intentionally unsigned; never discover or invoke a
@@ -61,7 +63,9 @@ exe_debug = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=is_windows, # Only show the console on Windows
+    # The debug bundle exists to show diagnostics, so it keeps its console.
+    # The shipped "amulet" executable above never opens one.
+    console=True,
     icon="logo.ico",
     contents_directory="lib",
     # Keep the debug bundle under the same unsigned policy as the release app.

@@ -26,6 +26,7 @@ from amulet_map_editor.api import (
     scheduled_runtime,
 )
 from . import update_copy
+from amulet_map_editor.api.process import no_window_kwargs
 from amulet_map_editor.api.wx.components import MaterialButton
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.modeless import show_modeless_dialog
@@ -662,7 +663,13 @@ class AmuletUI(wx.Frame):
             return
         self._update_restart_generation = generation
         try:
-            process = subprocess.Popen(build_restart_command(updater), close_fds=True)
+            # Update.exe is a console program: restarting for an update must
+            # not flash a terminal over the editor as it closes.
+            process = subprocess.Popen(
+                build_restart_command(updater),
+                close_fds=True,
+                **no_window_kwargs(),
+            )
         except (OSError, ValueError) as exc:
             self._update_restart_generation = None
             self._level_notebook.cancel_preapproved_app_close(generation)
