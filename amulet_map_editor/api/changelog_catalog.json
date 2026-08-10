@@ -1,8 +1,32 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "6ec9a7d69ada86c71535684f1d3e28c3fc2d4674",
+  "source_revision": "a8cb41e017e5b1fc11758b0e4a9d8c8908fe5904",
   "entries": [
+    {
+      "version": "0.10.0-dev.492",
+      "released_on": "2026-08-10",
+      "commit_sha": "fba6d16459ffc7399d1b244ffccb641fab61bda9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop a stale generated catalog from drowning the one real failure",
+          "commit_sha": "fba6d16459ffc7399d1b244ffccb641fab61bda9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.489",
+      "released_on": "2026-08-10",
+      "commit_sha": "6ec9a7d69ada86c71535684f1d3e28c3fc2d4674",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Turn CI green: the collector swap left one stale assertion behind",
+          "commit_sha": "6ec9a7d69ada86c71535684f1d3e28c3fc2d4674"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.480",
       "released_on": "2026-08-10",
