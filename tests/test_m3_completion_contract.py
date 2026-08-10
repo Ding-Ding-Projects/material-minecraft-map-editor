@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 MATERIAL3 = ROOT / "amulet_map_editor/api/wx/material3.py"
 COMPONENTS = ROOT / "amulet_map_editor/api/wx/components.py"
@@ -35,7 +34,9 @@ def test_owner_drawn_controls_harden_capture_and_keyboard_activation() -> None:
     assert "wx.Menu(" not in source
 
 
-def test_integration_replaces_native_command_menu_when_worktree_is_materialized() -> None:
+def test_integration_replaces_native_command_menu_when_worktree_is_materialized() -> (
+    None
+):
     if not AMULET_UI.exists():
         return
     source = AMULET_UI.read_text(encoding="utf-8")
@@ -57,6 +58,7 @@ def test_custom_best_size_does_not_reenter_itself_and_deferred_api_survives() ->
     assert "weakref.ref(window)" in material_source
     assert "_control_min_height(self)" not in component_source
     assert "_control_min_height(natural_height=height + 20)" in component_source
+
 
 def test_system_theme_dynamic_focus_and_contract_compatibility() -> None:
     material_source = MATERIAL3.read_text(encoding="utf-8")
@@ -80,4 +82,3 @@ def test_system_theme_dynamic_focus_and_contract_compatibility() -> None:
         assert "wx.CallAfter(apply_material3, window)" not in contract_source
         assert 'assert "apply_material3_deferred" in source' in contract_source
         assert 'assert "apply_material3_deferred(window)" in source' in contract_source
-

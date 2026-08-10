@@ -1,8 +1,20 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "8b877c4de1bcf795a15c77d7470ecb5ed409c1a2",
+  "source_revision": "31600ae0678efc08a4360f50ee27867d86174233",
   "entries": [
+    {
+      "version": "0.10.0-dev.471",
+      "released_on": "2026-08-10",
+      "commit_sha": "8b877c4de1bcf795a15c77d7470ecb5ed409c1a2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Align Material frame contract with adopted sizers",
+          "commit_sha": "8b877c4de1bcf795a15c77d7470ecb5ed409c1a2"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.470",
       "released_on": "2026-08-10",

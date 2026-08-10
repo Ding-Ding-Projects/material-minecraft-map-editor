@@ -7,7 +7,6 @@ from typing import Any
 
 from amulet_map_editor.api import notification_copy, notifications
 
-
 log = logging.getLogger(__name__)
 
 

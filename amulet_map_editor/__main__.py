@@ -94,7 +94,9 @@ def _clean_stale_app_logs(logs_path: str) -> None:
                         os.remove(entry.path)
                 except OSError as e:
                     # Another process may remove or lock a log between inspection and deletion.
-                    _early_diagnostic(f"Unable to remove stale application log {entry.name}", e)
+                    _early_diagnostic(
+                        f"Unable to remove stale application log {entry.name}", e
+                    )
     except OSError as e:
         _early_diagnostic("Unable to iterate stale application logs", e)
 
@@ -204,7 +206,9 @@ def _init_log(*, clean_stale_logs: bool = False) -> logging.Logger:
         if log_file is not None:
             faulthandler.enable(log_file)
         else:
-            log.warning("Unable to enable faulthandler because no writable log file is available.")
+            log.warning(
+                "Unable to enable faulthandler because no writable log file is available."
+            )
 
     if "--enable-amulet-faulthandler" in sys.argv:
         if effective_logs_path is None:
@@ -216,7 +220,8 @@ def _init_log(*, clean_stale_logs: bool = False) -> logging.Logger:
                 import amulet_faulthandler
 
                 amulet_faulthandler.install(
-                    os.path.join(effective_logs_path, f"amulet_{os.getpid()}.dmp"), debug
+                    os.path.join(effective_logs_path, f"amulet_{os.getpid()}.dmp"),
+                    debug,
                 )
             except (ImportError, OSError):
                 log.warning(
@@ -320,7 +325,9 @@ def main() -> NoReturn:
                     log_dir_channel_path = log_dir_channel.name
                 child_env["AMULET_LOG_DIR_PATH"] = log_dir_channel_path
             except OSError as e:
-                _early_diagnostic("Unable to create the effective log directory channel", e)
+                _early_diagnostic(
+                    "Unable to create the effective log directory channel", e
+                )
 
             try:
                 if getattr(sys, "frozen", False):
@@ -339,9 +346,13 @@ def main() -> NoReturn:
                         if 0 < len(effective_log_dir) <= _LOG_DIR_CHANNEL_LIMIT:
                             os.environ["LOG_DIR"] = effective_log_dir
                         elif len(effective_log_dir) > _LOG_DIR_CHANNEL_LIMIT:
-                            _early_diagnostic("Child reported an oversized effective log directory")
+                            _early_diagnostic(
+                                "Child reported an oversized effective log directory"
+                            )
                     except (OSError, UnicodeError) as e:
-                        _early_diagnostic("Unable to read the effective log directory", e)
+                        _early_diagnostic(
+                            "Unable to read the effective log directory", e
+                        )
             finally:
                 if log_dir_channel_path is not None:
                     try:
