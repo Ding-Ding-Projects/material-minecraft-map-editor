@@ -6,12 +6,12 @@ from .thread_generator import ThreadedObject, ThreadedObjectContainer
 def check_opengl(checked=False):
     try:
         import OpenGL.GL
-    except ImportError as e:
-        import os
-        import ctypes.util
+    except ImportError:
+        import platform
 
-        uname = os.uname()
-        if uname[0] == "Darwin" and uname[2] >= "20." and not checked:
+        if platform.system() == "Darwin" and platform.release() >= "20." and not checked:
+            import ctypes.util
+
             real_find_library = ctypes.util.find_library
 
             def find_library(name):
@@ -22,4 +22,4 @@ def check_opengl(checked=False):
             ctypes.util.find_library = find_library
             check_opengl(True)
         else:
-            raise e
+            raise
