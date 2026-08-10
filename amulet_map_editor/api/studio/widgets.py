@@ -2101,7 +2101,42 @@ class SearchBar(wx.Panel, _Themed):
         event.Skip()
 
     def open_builder(self) -> None:
-        """Open the shared regex builder for this field and apply its result."""
+        """Open the regex builder for this field and apply its result.
+
+        The builder is anchored beside the field it belongs to, because that is
+        the field the user is already typing in.  A modal dialog is the fallback
+        for a display too small to hold the popover, and nothing else.
+        """
+        if self._builder_fits():
+            popup = _RegexBuilderPopup(
+                self,
+                self.builder_button or self.field,
+                self.state,
+                on_apply=self._adopt_builder_result,
+            )
+            popup.popup()
+            return
+        self._open_builder_dialog()
+
+    def _builder_fits(self) -> bool:
+        """Return whether this display can hold the anchored builder."""
+        try:
+            index = wx.Display.GetFromWindow(self)
+            area = wx.Display(index if index != wx.NOT_FOUND else 0).GetClientArea()
+        except Exception:  # pragma: no cover - platform boundary
+            return False
+        return area.width >= tokens.scaled(520) and area.height >= tokens.scaled(420)
+
+    def _adopt_builder_result(self, state: SearchState) -> None:
+        """Reflect a pattern built in the popover back into this field."""
+        self.field.set_value(state.query)
+        if self.regex_box is not None:
+            self.regex_box.SetValue(state.regex)
+        self.refresh_feedback()
+        invoke(self.on_change, self.state)
+
+    def _open_builder_dialog(self) -> None:
+        """Fall back to the modal builder when the popover cannot fit."""
         from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 
         flags = re.IGNORECASE if "i" in (self.state.flags or "") else 0
@@ -2201,22 +2236,39 @@ class AnchoredPopup(wx.PopupTransientWindow):
             return wx.Rect(0, 0, 1280, 800)
 
     def layout(self) -> None:
-        """Size the popup to its content, clamped to the display work area."""
+        """Size the popup to its content, clamped to the display work area.
+
+        The height comes from the content sizer's own minimum rather than from
+        ``Fit()``.  A ``wx.ScrolledWindow`` reports its *viewport* as its best
+        size, so fitting the popup around one collapses it to a couple of rows
+        and silently hides everything below the cut -- which is the exact
+        failure the scrolling was added to prevent.
+        """
         area = self.work_area()
         self.header.Fit()
-        self.content.FitInside()
-        self.Fit()
-        width, height = self.GetSize()
+        header_height = self.header.GetBestSize().height
+        content_min = self.content_sizer.GetMinSize()
+        self.content.SetVirtualSize(content_min)
+        inset = (tokens.scaled(self.MARGIN) + tokens.scaled(self.PADDING)) * 2
+
+        width = content_min.width + inset
         if self.requested_width:
             width = tokens.scaled(self.requested_width)
         width = max(width, self.anchor.GetSize().width)
         width = min(width, max(120, area.width - tokens.scaled(16)))
+
+        height = (
+            header_height + content_min.height + inset + tokens.scaled(self.PADDING)
+        )
         limit = area.height - tokens.scaled(24)
         if self.requested_max_height:
             limit = min(limit, tokens.scaled(self.requested_max_height))
-        height = min(height, limit)
+        # Clamping is what makes the content scroll instead of being clipped:
+        # the virtual size above stays at the full content height either way.
+        height = max(tokens.scaled(48), min(height, limit))
         self.SetSize(wx.Size(width, height))
         self.Layout()
+        self.content.FitInside()
 
     def popup(self) -> None:
         """Lay out, position beside the anchor, and show the popup."""
@@ -2263,6 +2315,155 @@ class AnchoredPopup(wx.PopupTransientWindow):
             gcdc, card, radius, palette.surface, palette.outline_variant
         )
         del gcdc
+
+
+class _RegexBuilderPopup(AnchoredPopup):
+    """The regex builder, anchored beside the field it belongs to.
+
+    The builder belongs to the search bar the user is already typing in, so it
+    opens attached to that field rather than as a window somewhere else on the
+    screen.  A modal dialog remains the fallback for a display too small to hold
+    the popover, which is the only case the design allows it for.
+    """
+
+    WIDTH = 380
+    PREVIEW_LIMIT = 6
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        anchor: wx.Window,
+        state: SearchState,
+        *,
+        on_apply=None,
+    ) -> None:
+        super().__init__(parent, anchor, width=self.WIDTH, max_height=460)
+        self.state = state
+        self.on_apply = on_apply
+        self.SetName("Regex builder")
+        palette = tokens.palette()
+
+        header_sizer = wx.BoxSizer(wx.VERTICAL)
+        header_sizer.Add(SectionLabel(self.header, "Regex builder"), 0, wx.EXPAND)
+        self.header.SetSizer(header_sizer)
+
+        self.pattern_field = OutlinedField(
+            self.content,
+            "Pattern",
+            state.query,
+            placeholder="height|debug",
+            mono=True,
+            on_change=self._on_edit,
+        )
+        self.flags_field = OutlinedField(
+            self.content,
+            "Flags",
+            state.flags,
+            placeholder="iu",
+            mono=True,
+            on_change=self._on_edit,
+        )
+        self.sample_field = OutlinedField(
+            self.content,
+            "Sample text",
+            state.sample,
+            mono=False,
+            on_change=self._on_edit,
+        )
+        self.feedback = wx.StaticText(self.content, label="")
+        self.feedback.SetName("Regex builder feedback")
+        self.feedback.SetForegroundColour(palette.on_surface_variant)
+        self.feedback.SetFont(tokens.font(self.feedback, 9))
+        self.preview = wx.StaticText(self.content, label="")
+        self.preview.SetName("Regex builder match preview")
+        self.preview.SetForegroundColour(palette.on_surface)
+        self.preview.SetFont(tokens.mono_font(self.preview, 9))
+
+        actions = wx.BoxSizer(wx.HORIZONTAL)
+        actions.AddStretchSpacer()
+        actions.Add(
+            StudioButton(
+                self.content,
+                "Cancel",
+                variant="text",
+                on_click=self.Dismiss,
+                name="Cancel the regex builder",
+            ),
+            0,
+            wx.RIGHT,
+            tokens.SPACE_SM,
+        )
+        actions.Add(
+            StudioButton(
+                self.content,
+                "Apply pattern",
+                variant="filled",
+                on_click=self._apply,
+                name="Apply the built pattern",
+            ),
+            0,
+        )
+
+        gap = tokens.scaled(tokens.SPACE_SM)
+        for control in (
+            self.pattern_field,
+            self.flags_field,
+            self.sample_field,
+            self.feedback,
+            self.preview,
+        ):
+            self.content_sizer.Add(control, 0, wx.EXPAND | wx.BOTTOM, gap)
+        self.content_sizer.Add(actions, 0, wx.EXPAND | wx.TOP, gap)
+        self._refresh_preview()
+
+    def _current(self) -> SearchState:
+        """Return a throwaway state carrying whatever is typed right now."""
+        return SearchState(
+            query=self.pattern_field.value()[:MAX_PATTERN_LENGTH],
+            regex=True,
+            flags=self.flags_field.value()[:8],
+            sample=self.sample_field.value(),
+        )
+
+    def _on_edit(self, _text: str) -> None:
+        self._refresh_preview()
+
+    def _refresh_preview(self) -> None:
+        """Show whether the pattern compiles and what it matches right now."""
+        probe = self._current()
+        palette = tokens.palette()
+        self.feedback.SetLabel(probe.feedback())
+        self.feedback.SetForegroundColour(
+            palette.error if not probe.is_valid() else palette.on_surface_variant
+        )
+        if not probe.is_active():
+            self.preview.SetLabel("Type a pattern to see what it matches.")
+        elif not probe.is_valid():
+            self.preview.SetLabel("No matches while the pattern is invalid.")
+        else:
+            spans = probe.highlights(probe.sample)
+            if not spans:
+                self.preview.SetLabel("No match in the sample text.")
+            else:
+                shown = spans[: self.PREVIEW_LIMIT]
+                pieces = [probe.sample[start:end] for start, end in shown]
+                more = len(spans) - len(shown)
+                text = " \u00b7 ".join(pieces)
+                if more > 0:
+                    text = f"{text} \u00b7 +{more} more"
+                self.preview.SetLabel(f"{len(spans)} match: {text}")
+        self.preview.Wrap(tokens.scaled(self.WIDTH) - tokens.scaled(40))
+        self.layout()
+
+    def _apply(self) -> None:
+        """Write the built pattern back into the field state and close."""
+        probe = self._current()
+        self.state.query = probe.query
+        self.state.flags = probe.flags or self.state.flags
+        self.state.sample = probe.sample or self.state.sample
+        self.state.regex = True
+        invoke(self.on_apply, self.state)
+        self.Dismiss()
 
 
 class _OptionRow(wx.Control, _Interactive):

@@ -37,6 +37,22 @@ EXPECTED_MODAL_CALLS = Counter(
             "dialog",
         ),
         (
+            "amulet_map_editor/api/studio/widgets.py",
+            "SearchBar._open_builder_dialog",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/widgets.py",
+            "PathField._browse_folder",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/widgets.py",
+            "PathField._browse_file",
+            "dialog",
+        ),
+        ("amulet_map_editor/api/studio/widgets.py", "ImageSlot.browse", "dialog"),
+        (
             "amulet_map_editor/api/wx/ui/base_select.py",
             "BaseSelect._open_regex_builder",
             "dialog",
@@ -163,8 +179,91 @@ EXPECTED_MODAL_CALLS = Counter(
             "ChunkTool._import_chunks",
             "select_world",
         ),
+        (
+            "amulet_map_editor/api/studio/backstage.py",
+            "BackstageView._preview",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/backstage.py",
+            "BackstageView._write_export",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/backstage.py",
+            "BackstageView._open_detected_world",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/backstage.py",
+            "BackstageView._open_structure_file",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/memory_console.py",
+            "MemoryConsoleDialog.export_article",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/nbt_studio.py",
+            "NbtStudioDialog._edit_element",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/nbt_studio.py",
+            "NbtStudioDialog.add_tag",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/nbt_studio.py",
+            "NbtStudioDialog.rename_tag",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/nbt_studio.py",
+            "NbtStudioDialog.delete_tag",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/nbt_studio.py",
+            "NbtStudioDialog.import_snbt",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/studio/nbt_studio.py",
+            "NbtStudioDialog.export_snbt",
+            "dialog",
+        ),
     )
 )
+
+#: Modals that complete or cancel an explicit editing task.  The regex builder
+#: appears here only as ``_open_builder_dialog``: the primary route is an
+#: anchored popover beside the field it belongs to, and this modal is the
+#: fallback for a display too small to hold the popover.
+_EDITOR_MODALS = {
+    "AmuletUI._open_local_history",
+    "SearchBar._open_builder_dialog",
+    "NbtStudioDialog._edit_element",
+    "NbtStudioDialog.add_tag",
+    "NbtStudioDialog.rename_tag",
+}
+
+#: Modals the user must answer before anything proceeds.  A bulk-action preview
+#: belongs here rather than under "picker": it exists to state exactly what is
+#: about to change and to return whether that may happen.
+_DECISION_MODALS = {
+    "show_material_confirmation",
+    "BackstageView._preview",
+}
+
+#: Modals guarding irreversible data loss.  These are the only ones allowed to
+#: block unconditionally, and each is behind the two-key authorisation gate.
+_DESTRUCTIVE_MODALS = {
+    "ChunkTool._ask_delete_chunks",
+    "NbtStudioDialog.delete_tag",
+}
+
 
 MODAL_REASONS = {
     key: reason
@@ -180,15 +279,27 @@ MODAL_REASONS = {
         *(
             (key, "editor: complete or cancel an explicit editing task")
             for key in EXPECTED_MODAL_CALLS
-            if "_open_local_history" in key[1] or "open_element_appearance" in key[1]
+            if key[1] in _EDITOR_MODALS or "open_element_appearance" in key[1]
+        ),
+        *(
+            (key, "decision: return an explicit yes, no, or cancel result")
+            for key in EXPECTED_MODAL_CALLS
+            if key[1] in _DECISION_MODALS
+        ),
+        *(
+            (key, "destructive: authorize, decline, or cancel data loss")
+            for key in EXPECTED_MODAL_CALLS
+            if key[1] in _DESTRUCTIVE_MODALS
         ),
         *(
             (key, "picker: apply or cancel an explicit user selection")
             for key in EXPECTED_MODAL_CALLS
             if key[1]
-            not in {
+            not in _EDITOR_MODALS
+            | _DECISION_MODALS
+            | _DESTRUCTIVE_MODALS
+            | {
                 "AmuletUI._open_preferences",
-                "AmuletUI._open_local_history",
                 "AmuletUI._open_tab_manager",
                 "EditExtension._edit_controls",
                 "EditExtension._edit_options",
@@ -196,22 +307,6 @@ MODAL_REASONS = {
                 "show_material_confirmation",
                 "ChunkTool._ask_delete_chunks",
             }
-        ),
-        (
-            next(
-                key
-                for key in EXPECTED_MODAL_CALLS
-                if key[1] == "show_material_confirmation"
-            ),
-            "decision: return an explicit yes, no, or cancel result",
-        ),
-        (
-            next(
-                key
-                for key in EXPECTED_MODAL_CALLS
-                if key[1] == "ChunkTool._ask_delete_chunks"
-            ),
-            "destructive: authorize, decline, or cancel chunk deletion",
         ),
     )
 }
