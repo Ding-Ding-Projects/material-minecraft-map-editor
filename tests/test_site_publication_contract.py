@@ -11,17 +11,51 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "docs" / "site"
 sys.path.insert(0, str(ROOT / "scripts"))
-from verify_site_release_manifest import validate_bundle  # noqa: E402
+from verify_site_release_manifest import ASSET_KEYS, validate_bundle  # noqa: E402
 
 
 class SitePublicationContractTests(unittest.TestCase):
-    def test_site_config_and_unverified_manifest_are_truthful(self):
+    def test_site_manifest_is_unverified_or_backed_by_a_real_commit(self):
+        # The point of this guard is that the page never offers a download the
+        # repository cannot prove. It used to say so by refusing any verified
+        # manifest at all, which stopped being true once a release shipped; the
+        # protection now travels with the claim instead of forbidding it.
         validate_bundle(SITE)
         manifest = json.loads(
             (SITE / "release-manifest.json").read_text(encoding="utf-8")
         )
-        self.assertFalse(manifest["verified"])
-        self.assertEqual(manifest["assets"], {})
+        if not manifest["verified"]:
+            # Nothing proven yet, so nothing may be offered. validate_bundle has
+            # already refused a releaseTag or commit on an unverified manifest.
+            self.assertEqual(manifest["assets"], {})
+            return
+
+        release_tag = manifest["releaseTag"]
+        self.assertEqual(set(manifest["assets"]), set(ASSET_KEYS))
+        for key, asset in manifest["assets"].items():
+            with self.subTest(asset=key):
+                self.assertRegex(asset["sha256"], r"\A[0-9a-f]{64}\Z")
+                self.assertTrue(asset["url"].startswith("https://"))
+                self.assertIn(f"/download/{release_tag}/", asset["url"])
+                self.assertTrue(asset["url"].endswith("/" + asset["name"]))
+
+        commit = manifest["commit"]
+        self.assertRegex(commit, r"\A[0-9a-f]{40}\Z")
+        # A well-formed but invented SHA is the failure the old assertion could
+        # never catch, because it rejected every verified manifest on sight.
+        # Unittests checks out with fetch-depth 0, so the object is really here.
+        resolved = subprocess.run(
+            ["git", "cat-file", "-t", commit],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            resolved.returncode,
+            0,
+            f"manifest commit {commit} is not an object in this repository",
+        )
+        self.assertEqual(resolved.stdout.strip(), "commit")
 
     def test_site_bundle_can_use_an_explicit_https_base_url(self):
         with tempfile.TemporaryDirectory() as temp:
