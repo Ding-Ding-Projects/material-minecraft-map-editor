@@ -293,7 +293,9 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
                     src_level.open()
                     dimension = self.canvas.dimension
 
-                    chunks = list(self.canvas.selection.selection_group.chunk_locations())
+                    chunks = list(
+                        self.canvas.selection.selection_group.chunk_locations()
+                    )
                     count = len(chunks)
 
                     for i, (cx, cz) in enumerate(chunks):

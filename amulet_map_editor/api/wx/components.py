@@ -37,9 +37,7 @@ class MaterialCard(wx.Panel):
         dc = wx.AutoBufferedPaintDC(self)
         parent = self.GetParent()
         outside = (
-            parent.GetBackgroundColour()
-            if parent is not None
-            else palette["surface"]
+            parent.GetBackgroundColour() if parent is not None else palette["surface"]
         )
         dc.SetBackground(wx.Brush(outside))
         dc.Clear()
@@ -71,7 +69,9 @@ class MaterialButton(wx.Control):
         if variant not in self._VARIANTS:
             raise ValueError(f"Unknown Material button variant: {variant}")
         if text_alignment not in {"left", "center"}:
-            raise ValueError("Material button text_alignment must be 'left' or 'center'")
+            raise ValueError(
+                "Material button text_alignment must be 'left' or 'center'"
+            )
         super().__init__(
             parent, name=name or label, style=wx.BORDER_NONE | wx.WANTS_CHARS
         )
@@ -114,9 +114,7 @@ class MaterialButton(wx.Control):
         if not enable:
             self._cancel_press(release_capture=True)
         changed = super().Enable(enable)
-        self.SetCursor(
-            wx.Cursor(wx.CURSOR_HAND if enable else wx.CURSOR_ARROW)
-        )
+        self.SetCursor(wx.Cursor(wx.CURSOR_HAND if enable else wx.CURSOR_ARROW))
         self.Refresh()
         return changed
 
@@ -456,9 +454,7 @@ class MaterialSearchField(wx.Panel):
         root = wx.BoxSizer(wx.HORIZONTAL)
         root.Add(self.text, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 14)
         self.SetSizer(root)
-        self.SetMinSize(
-            wx.Size(260, _control_min_height(natural_height=48))
-        )
+        self.SetMinSize(wx.Size(260, _control_min_height(natural_height=48)))
         self.Bind(wx.EVT_PAINT, self._paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.text.Bind(wx.EVT_SET_FOCUS, self._focus_changed)

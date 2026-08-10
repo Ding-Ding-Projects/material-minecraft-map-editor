@@ -9,7 +9,6 @@ from pathlib import Path
 import stat
 import zipfile
 
-
 EXCLUDED_PARTS = {
     ".git",
     ".pytest_cache",
@@ -65,9 +64,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", "--repo", dest="source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument(
-        "--prefix", default="material-minecraft-map-editor-m3-complete"
-    )
+    parser.add_argument("--prefix", default="material-minecraft-map-editor-m3-complete")
     args = parser.parse_args()
     count, digest = package(args.source, args.output, args.prefix)
     print(f"Packaged {count} files: {args.output}")

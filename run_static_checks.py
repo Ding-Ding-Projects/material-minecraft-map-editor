@@ -14,8 +14,7 @@ import sys
 import tempfile
 import zipfile
 
-
-FIXTURE = '''from __future__ import annotations
+FIXTURE = """from __future__ import annotations
 import threading
 import wx
 from amulet_map_editor.api.wx.components import MaterialButton
@@ -70,15 +69,15 @@ class AmuletLevelNotebook:
                 self.apply_tab_workspace()
             else:
                 self.apply_tab_workspace()
-'''
+"""
 
-GLOBAL_CONTRACT_FIXTURE = '''from pathlib import Path
+GLOBAL_CONTRACT_FIXTURE = """from pathlib import Path
 
 def test_all_new_windows_receive_material_theme():
     source = Path("amulet_map_editor/api/framework/app.py").read_text()
     assert "wx.CallAfter(apply_material3, window)" in source
     assert "wx.CallLater(100, apply_material3, window)" in source
-'''
+"""
 
 
 def _run(command: list[str], *, cwd: Path | None = None, env=None) -> None:
@@ -105,9 +104,7 @@ def _test_patcher(kit: Path) -> None:
         target.write_text(FIXTURE, encoding="utf-8", newline="\n")
         contract = repo / "tests/test_material3_global_contract.py"
         contract.parent.mkdir(parents=True)
-        contract.write_text(
-            GLOBAL_CONTRACT_FIXTURE, encoding="utf-8", newline="\n"
-        )
+        contract.write_text(GLOBAL_CONTRACT_FIXTURE, encoding="utf-8", newline="\n")
         command = [
             sys.executable,
             str(kit / "patches/apply_completion.py"),
@@ -197,21 +194,30 @@ def main() -> int:
                 str(repo),
             ]
         )
-        tests = ["tests"] if args.full_tests else [
-            name
-            for name in (
-                "tests/test_material_menu.py",
-                "tests/test_m3_completion_contract.py",
-                "tests/test_material3_global_contract.py",
-                "tests/test_material_components_contract.py",
-                "tests/test_material3_common_control_roles.py",
-                "tests/test_m3_surface_inventory.py",
-            )
-            if (repo / name).is_file()
-        ]
+        tests = (
+            ["tests"]
+            if args.full_tests
+            else [
+                name
+                for name in (
+                    "tests/test_material_menu.py",
+                    "tests/test_m3_completion_contract.py",
+                    "tests/test_material3_global_contract.py",
+                    "tests/test_material_components_contract.py",
+                    "tests/test_material3_common_control_roles.py",
+                    "tests/test_m3_surface_inventory.py",
+                )
+                if (repo / name).is_file()
+            ]
+        )
         repo_env = os.environ.copy()
         repo_env["PYTHONDONTWRITEBYTECODE"] = "1"
-        print("+", " ".join([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *tests]))
+        print(
+            "+",
+            " ".join(
+                [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *tests]
+            ),
+        )
         subprocess.run(
             [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *tests],
             cwd=repo,

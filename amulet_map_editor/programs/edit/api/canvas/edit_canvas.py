@@ -242,9 +242,7 @@ class EditCanvas(BaseEditCanvas):
     ) -> Any:
         title = preferences.load().display_name if title is None else title
         try:
-            out = self._run_operation(
-                operation, title, msg, True, rollback_on_error
-            )
+            out = self._run_operation(operation, title, msg, True, rollback_on_error)
         except BaseException as e:
             if throw_exceptions:
                 raise e

@@ -388,9 +388,7 @@ def _control_min_height(
     """
 
     active = context or _theme_context()
-    target = {"compact": 36, "comfortable": 40, "spacious": 48}.get(
-        active.density, 40
-    )
+    target = {"compact": 36, "comfortable": 40, "spacious": 48}.get(active.density, 40)
     scaled_target = round(target * active.ui_scale)
     measured_height = max(0, int(natural_height))
     if window is not None:
@@ -607,9 +605,7 @@ def _style_control(child: wx.Window, context: MaterialThemeContext) -> None:
         ):
             # Public compatibility form retained for third-party callers:
             # _control_min_height(child)
-            child.SetMinSize(
-                wx.Size(-1, _control_min_height(child, context=context))
-            )
+            child.SetMinSize(wx.Size(-1, _control_min_height(child, context=context)))
         elif isinstance(child, wx.StaticText) and child.GetParent() is not None:
             child.SetBackgroundColour(child.GetParent().GetBackgroundColour())
     elif isinstance(child, (wx.ListBox, wx.ListCtrl, wx.TreeCtrl)):
@@ -641,9 +637,7 @@ def _style_control(child: wx.Window, context: MaterialThemeContext) -> None:
         child.SetFont(_font_for(child, 10, context=context))
         child.SetBackgroundColour(palette["surface_container"])
         child.SetForegroundColour(palette["on_surface"])
-        child.SetMinSize(
-            wx.Size(-1, _control_min_height(child, context=context))
-        )
+        child.SetMinSize(wx.Size(-1, _control_min_height(child, context=context)))
 
 
 def _bind_system_colour_refresh(window: wx.Window) -> None:

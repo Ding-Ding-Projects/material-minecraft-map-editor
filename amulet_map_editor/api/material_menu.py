@@ -56,12 +56,20 @@ class MaterialMenuItem:
         object.__setattr__(self, "label", clean_label)
         object.__setattr__(self, "description", str(self.description or "").strip())
         object.__setattr__(self, "section", str(self.section or "").strip())
-        derived_shortcut = raw_label.split("\t", 1)[1].strip() if "\t" in raw_label else ""
-        object.__setattr__(self, "shortcut", str(self.shortcut or derived_shortcut).strip())
+        derived_shortcut = (
+            raw_label.split("\t", 1)[1].strip() if "\t" in raw_label else ""
+        )
+        object.__setattr__(
+            self, "shortcut", str(self.shortcut or derived_shortcut).strip()
+        )
         object.__setattr__(
             self,
             "keywords",
-            tuple(str(keyword).strip() for keyword in self.keywords if str(keyword).strip()),
+            tuple(
+                str(keyword).strip()
+                for keyword in self.keywords
+                if str(keyword).strip()
+            ),
         )
 
     @property

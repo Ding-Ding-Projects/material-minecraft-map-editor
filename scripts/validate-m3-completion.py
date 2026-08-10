@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 import sys
 
-
 REQUIRED = (
     "amulet_map_editor/api/material_menu.py",
     "amulet_map_editor/api/wx/material3.py",
@@ -60,7 +59,8 @@ def validate(repo: Path) -> list[str]:
     if components.is_file():
         source = components.read_text(encoding="utf-8")
         checks = {
-            "MaterialMenu popup": "class MaterialMenu(wx.PopupTransientWindow)" in source,
+            "MaterialMenu popup": "class MaterialMenu(wx.PopupTransientWindow)"
+            in source,
             "MaterialSearchField": "class MaterialSearchField" in source,
             "capture-loss recovery": "wx.EVT_MOUSE_CAPTURE_LOST" in source,
             "key-up activation": "wx.EVT_KEY_UP" in source,
@@ -83,7 +83,8 @@ def validate(repo: Path) -> list[str]:
             errors.append("could not locate AmuletUI.create_menu")
         else:
             checks = {
-                "integration patch marker": "BEGIN CODEX MATERIAL 3 COMMAND MENU" in menu,
+                "integration patch marker": "BEGIN CODEX MATERIAL 3 COMMAND MENU"
+                in menu,
                 "MaterialMenuItem integration": "MaterialMenuItem(" in menu,
                 "MaterialMenu integration": "MaterialMenu(" in menu,
                 "native command menu removed": "wx.Menu(" not in menu,

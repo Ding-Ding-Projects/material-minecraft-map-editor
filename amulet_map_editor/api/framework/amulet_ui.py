@@ -296,6 +296,7 @@ class AmuletUI(wx.Frame):
             self._scheduled_runtime.refresh(base)
         except Exception:  # keep a scheduled preference error off the UI thread
             log.exception("Scheduled settings refresh failed")
+
     def _apply_scheduled_runtime_state(
         self, state: scheduled_runtime.RuntimeScheduleState
     ) -> None:
@@ -484,6 +485,7 @@ class AmuletUI(wx.Frame):
         apply_material3(self._command_bar)
         self._command_bar.Layout()
         # END CODEX MATERIAL 3 COMMAND MENU
+
     def _open_preferences(self, _event=None) -> None:
         dialog = PreferencesDialog(self)
         dialog.CentreOnParent()
@@ -821,10 +823,7 @@ class AmuletUI(wx.Frame):
             return
         if self._update_restart_generation is not None:
             return
-        if (
-            generation is not None
-            and not self._update_generation_is_active(generation)
-        ):
+        if generation is not None and not self._update_generation_is_active(generation):
             return
         self._update_state = state
         if state.status in {"available", "ready_to_restart", "failed"}:
@@ -852,9 +851,7 @@ class AmuletUI(wx.Frame):
                             "success" if state.status == "ready_to_restart" else "info"
                         )
                     ),
-                    details=(state.detail or "")
-                    if state.status == "failed"
-                    else "",
+                    details=(state.detail or "") if state.status == "failed" else "",
                 )
                 tts_narrator.announce_event(
                     self._narrator,
