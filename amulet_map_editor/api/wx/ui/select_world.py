@@ -32,115 +32,119 @@ log = logging.getLogger(__name__)
 minecraft_world_paths: list[tuple[str, str]] = []
 
 
-def find_world_paths():
-    if platform == "win32":
-        minecraft_world_paths.append(
-            (
-                lang.get("world.java_platform"),
-                os.path.join(os.getenv("APPDATA"), ".minecraft", "saves"),
-            )
-        )
-        minecraft_world_paths.append(
-            (
-                lang.get("world.bedrock_uwp"),
-                os.path.join(
-                    os.getenv("LOCALAPPDATA"),
-                    "Packages",
-                    "Microsoft.MinecraftUWP_8wekyb3d8bbwe",
-                    "LocalState",
-                    "games",
-                    "com.mojang",
-                    "minecraftWorlds",
-                ),
-            )
-        )
-        minecraft_world_paths.append(
-            (
-                lang.get("world.bedrock_uwp_beta"),
-                os.path.join(
-                    os.getenv("LOCALAPPDATA"),
-                    "Packages",
-                    "Microsoft.MinecraftWindowsBeta_8wekyb3d8bbwe",
-                    "LocalState",
-                    "games",
-                    "com.mojang",
-                    "minecraftWorlds",
-                ),
-            )
-        )
-        minecraft_world_paths.append(
-            (
-                lang.get("world.bedrock_education_store"),
-                os.path.join(
-                    os.getenv("LOCALAPPDATA"),
-                    "Packages",
-                    "Microsoft.MinecraftEducationEdition_8wekyb3d8bbwe",
-                    "LocalState",
-                    "games",
-                    "com.mojang",
-                    "minecraftWorlds",
-                ),
-            )
-        )
-        minecraft_world_paths.append(
-            (
-                lang.get("world.bedrock_education_desktop"),
-                os.path.join(
-                    os.getenv("APPDATA"),
-                    "Minecraft Education Edition",
-                    "games",
-                    "com.mojang",
-                    "minecraftWorlds",
-                ),
-            )
-        )
-        minecraft_world_paths.append(
-            (
-                lang.get("world.bedrock_netease"),
-                os.path.join(
-                    os.getenv("APPDATA"),
-                    "MinecraftPE_Netease",
-                    "minecraftWorlds",
-                ),
-            )
-        )
-        for group, key in (
-            ("Minecraft Bedrock", "world.bedrock_gdk"),
-            ("Minecraft Bedrock Preview", "world.bedrock_gdk_preview"),
-        ):
-            for worlds_path in glob.glob(
-                os.path.join(
-                    glob.escape(os.getenv("APPDATA")),
-                    group,
-                    "Users",
-                    "*",
-                    "games",
-                    "com.mojang",
-                    "minecraftWorlds",
-                )
-            ):
-                user_id = worlds_path.split(os.sep)[-4]
-                minecraft_world_paths.append(
-                    (
-                        f"{lang.get(key)} {user_id}",
-                        worlds_path,
-                    )
-                )
-        minecraft_world_paths.append(
-            (
-                lang.get("world.legends_legacy"),
-                os.path.join(
-                    os.getenv("APPDATA"),
-                    "MinecraftPE",
-                    "games",
-                    "com.mojang",
-                    "minecraftWorlds",
-                ),
-            )
-        )
+def find_world_paths() -> None:
+    """Discover automatic world locations for the world picker."""
+    minecraft_world_paths.clear()
+    modrinth_path = ""
+    curseforge_path = ""
 
-        modrinth_path = os.path.join(os.getenv("APPDATA"), "ModrinthApp")
-        curseforge_path = os.path.join(os.getenv("APPDATA"), "curseforge", "minecraft")
+    if platform == "win32":
+        appdata = os.getenv("APPDATA")
+        localappdata = os.getenv("LOCALAPPDATA")
+
+        if appdata:
+            minecraft_world_paths.extend(
+                (
+                    (
+                        lang.get("world.java_platform"),
+                        os.path.join(appdata, ".minecraft", "saves"),
+                    ),
+                    (
+                        lang.get("world.bedrock_education_desktop"),
+                        os.path.join(
+                            appdata,
+                            "Minecraft Education Edition",
+                            "games",
+                            "com.mojang",
+                            "minecraftWorlds",
+                        ),
+                    ),
+                    (
+                        lang.get("world.bedrock_netease"),
+                        os.path.join(
+                            appdata,
+                            "MinecraftPE_Netease",
+                            "minecraftWorlds",
+                        ),
+                    ),
+                    (
+                        lang.get("world.legends_legacy"),
+                        os.path.join(
+                            appdata,
+                            "MinecraftPE",
+                            "games",
+                            "com.mojang",
+                            "minecraftWorlds",
+                        ),
+                    ),
+                )
+            )
+            for group, key in (
+                ("Minecraft Bedrock", "world.bedrock_gdk"),
+                ("Minecraft Bedrock Preview", "world.bedrock_gdk_preview"),
+            ):
+                for worlds_path in glob.glob(
+                    os.path.join(
+                        glob.escape(appdata),
+                        group,
+                        "Users",
+                        "*",
+                        "games",
+                        "com.mojang",
+                        "minecraftWorlds",
+                    )
+                ):
+                    user_id = worlds_path.split(os.sep)[-4]
+                    minecraft_world_paths.append(
+                        (
+                            f"{lang.get(key)} {user_id}",
+                            worlds_path,
+                        )
+                    )
+            modrinth_path = os.path.join(appdata, "ModrinthApp")
+            curseforge_path = os.path.join(appdata, "curseforge", "minecraft")
+
+        if localappdata:
+            minecraft_world_paths.extend(
+                (
+                    (
+                        lang.get("world.bedrock_uwp"),
+                        os.path.join(
+                            localappdata,
+                            "Packages",
+                            "Microsoft.MinecraftUWP_8wekyb3d8bbwe",
+                            "LocalState",
+                            "games",
+                            "com.mojang",
+                            "minecraftWorlds",
+                        ),
+                    ),
+                    (
+                        lang.get("world.bedrock_uwp_beta"),
+                        os.path.join(
+                            localappdata,
+                            "Packages",
+                            "Microsoft.MinecraftWindowsBeta_8wekyb3d8bbwe",
+                            "LocalState",
+                            "games",
+                            "com.mojang",
+                            "minecraftWorlds",
+                        ),
+                    ),
+                    (
+                        lang.get("world.bedrock_education_store"),
+                        os.path.join(
+                            localappdata,
+                            "Packages",
+                            "Microsoft.MinecraftEducationEdition_8wekyb3d8bbwe",
+                            "LocalState",
+                            "games",
+                            "com.mojang",
+                            "minecraftWorlds",
+                        ),
+                    ),
+                )
+            )
 
     elif platform == "darwin":
         minecraft_world_paths.append(
@@ -188,9 +192,6 @@ def find_world_paths():
         curseforge_path = os.path.join(
             os.path.expanduser("~"), "Documents", "curseforge", "minecraft"
         )
-    else:
-        modrinth_path = ""
-        curseforge_path = ""
 
     if os.path.isdir(modrinth_path):
         for path in glob.glob(
@@ -216,9 +217,6 @@ def find_world_paths():
                         path,
                     ),
                 )
-
-
-find_world_paths()
 
 world_images: Dict[str, Tuple[int, wx.Bitmap, int]] = {}
 
@@ -389,6 +387,7 @@ class ScrollableWorldsUI(simple.SimpleScrollablePanel):
         self.Layout()
 
     def reload(self):
+        find_world_paths()
         for val in self.dirs.values():
             val.Destroy()
         self.dirs.clear()
