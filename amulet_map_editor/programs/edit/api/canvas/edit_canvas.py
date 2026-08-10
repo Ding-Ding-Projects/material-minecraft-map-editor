@@ -34,6 +34,7 @@ from amulet.api.structure import structure_cache
 from amulet.api.level import BaseLevel
 
 from amulet_map_editor import CONFIG
+from amulet_map_editor.api import preferences
 from amulet_map_editor import close_level
 from amulet_map_editor.api.wx.ui.traceback_dialog import TracebackDialog
 from amulet_map_editor.programs.edit.api.ui.goto import show_goto
@@ -221,10 +222,11 @@ class EditCanvas(BaseEditCanvas):
     def run_operation(
         self,
         operation: OperationType,
-        title="Amulet",
+        title: str | None = None,
         msg="Running Operation",
         throw_exceptions=False,
     ) -> Any:
+        title = preferences.load().display_name if title is None else title
         try:
             out = self._run_operation(operation, title, msg, True)
         except BaseException as e:

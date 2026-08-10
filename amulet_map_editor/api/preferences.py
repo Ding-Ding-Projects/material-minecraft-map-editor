@@ -91,6 +91,11 @@ def validate_display_name(value: Any) -> str:
     return value
 
 
+def resolve_display_name(text: str) -> str:
+    """Replace literal display-name tokens with the persisted validated label."""
+    return text.replace("{display_name}", load().display_name)
+
+
 def format_window_title(
     version: str, *, display_name: str | None = None, source: bool = False
 ) -> str:

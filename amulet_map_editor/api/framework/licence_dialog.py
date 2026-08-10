@@ -4,6 +4,7 @@ import wx
 import wx.lib.agw.hyperlink
 
 from amulet_map_editor import lang
+from amulet_map_editor.api import preferences
 
 _padding = 20
 
@@ -11,7 +12,9 @@ _padding = 20
 class LicenceDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
         super().__init__(parent, style=wx.CAPTION)
-        self.SetTitle(lang.get("licence_dialog.title"))
+        self.SetTitle(
+            preferences.resolve_display_name(lang.get("licence_dialog.title"))
+        )
 
         root_sizer = wx.BoxSizer(wx.VERTICAL)
         root_sizer.AddSpacer(_padding)
@@ -29,7 +32,7 @@ class LicenceDialog(wx.Dialog):
         title = wx.StaticText(
             self,
             wx.ID_ANY,
-            lang.get("licence_dialog.header"),
+            preferences.resolve_display_name(lang.get("licence_dialog.header")),
             style=wx.ALIGN_CENTER_HORIZONTAL,
         )
         font = title.GetFont()
@@ -37,21 +40,30 @@ class LicenceDialog(wx.Dialog):
         title.SetFont(font)
         self._main_sizer.Add(title, 0, wx.ALL | wx.EXPAND, 5)
 
-        self._add_line(lang.get("licence_dialog.content_1"))
+        self._add_line(
+            preferences.resolve_display_name(lang.get("licence_dialog.content_1"))
+        )
         self._main_sizer.AddSpacer(20)
-        self._add_line(lang.get("licence_dialog.content_2"))
+        self._add_line(
+            preferences.resolve_display_name(lang.get("licence_dialog.content_2"))
+        )
         self._main_sizer.AddSpacer(20)
-        self._add_line(lang.get("licence_dialog.content_3"))
+        self._add_line(
+            preferences.resolve_display_name(lang.get("licence_dialog.content_3"))
+        )
         self._main_sizer.AddSpacer(20)
-        self._add_line(lang.get("licence_dialog.content_4"))
-
+        self._add_line(
+            preferences.resolve_display_name(lang.get("licence_dialog.content_4"))
+        )
         self._main_sizer.AddSpacer(10)
 
         button_sizer = wx.StdDialogButtonSizer()
         root_sizer.Add(button_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 4)
 
         self._quit_button = wx.Button(
-            self, wx.ID_CANCEL, lang.get("licence_dialog.quit_button")
+            self,
+            wx.ID_CANCEL,
+            preferences.resolve_display_name(lang.get("licence_dialog.quit_button")),
         )
         self.SetEscapeId(self._quit_button.GetId())
         button_sizer.Add(self._quit_button)

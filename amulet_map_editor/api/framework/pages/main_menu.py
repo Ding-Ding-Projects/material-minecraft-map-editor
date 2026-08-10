@@ -7,7 +7,7 @@ import wx
 import wx.adv
 import wx.lib.inspection
 
-from amulet_map_editor.api import image, lang
+from amulet_map_editor.api import image, lang, preferences
 from .base_page import BasePageUI
 from amulet_map_editor.api.wx.ui.select_world import open_level_from_dialog
 from ._legal import LicenceDialog
@@ -136,8 +136,12 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
 
         self._load_strings()
 
+    def refresh_display_identity(self) -> None:
+        self._amulet_name.SetLabel(preferences.load().display_name)
+        self.Layout()
+
     def _load_strings(self):
-        self._amulet_name.SetLabel(lang.get("meta.amulet"))
+        self.refresh_display_identity()
         self._open_world_button.SetLabel(lang.get("main_menu.open_world"))
         self._user_manual_button.SetLabel(lang.get("main_menu.user_manual"))
         self._user_manual_button.SetToolTip(lang.get("app.browser_open_tooltip"))
@@ -179,6 +183,9 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
             if dialog.ShowModal() == wx.ID_OK:
                 lang.set_language(dialog.get_language())
         self._load_strings()
+        parent = self.GetTopLevelParent()
+        if hasattr(parent, "refresh_display_identity"):
+            parent.refresh_display_identity()
 
     def _show_licences(self, evt) -> None:
         with LicenceDialog(self) as dlg:
@@ -198,7 +205,10 @@ class LangSelectDialog(wx.Dialog):
 
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
 
-        self._label = wx.StaticText(self, label=lang.get("language_select.help"))
+        self._label = wx.StaticText(
+            self,
+            label=preferences.resolve_display_name(lang.get("language_select.help")),
+        )
         sizer_1.Add(self._label, 0, wx.ALIGN_CENTER)
 
         self.hyperlink_1 = wx.adv.HyperlinkCtrl(

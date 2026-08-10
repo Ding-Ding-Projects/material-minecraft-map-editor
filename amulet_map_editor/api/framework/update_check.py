@@ -11,6 +11,7 @@ import wx
 from packaging.version import Version
 
 from amulet_map_editor import lang
+from amulet_map_editor.api import preferences
 
 URL = "http://api.github.com/repos/Amulet-Team/Amulet-Map-Editor/releases"
 
@@ -36,7 +37,10 @@ class UpdateDialog(wx.Dialog):
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
 
         static_text_1 = wx.StaticText(
-            self, label=lang.get("update_check.newer_version_released")
+            self,
+            label=preferences.resolve_display_name(
+                lang.get("update_check.newer_version_released")
+            ),
         )
         static_text_2 = wx.StaticText(
             self, label=f"{lang.get('update_check.new_version')} {new_version}"

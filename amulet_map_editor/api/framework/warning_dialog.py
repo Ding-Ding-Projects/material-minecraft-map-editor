@@ -1,18 +1,21 @@
 import wx
 from amulet_map_editor import lang
+from amulet_map_editor.api import preferences
 
 
 class WarningDialog(wx.Dialog):
     def __init__(self, parent: wx.Window):
         super().__init__(parent, style=wx.CAPTION)
-        self.SetTitle(lang.get("warning_dialog.title"))
+        self.SetTitle(
+            preferences.resolve_display_name(lang.get("warning_dialog.title"))
+        )
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
         content = wx.StaticText(
             self,
             wx.ID_ANY,
-            lang.get("warning_dialog.content"),
+            preferences.resolve_display_name(lang.get("warning_dialog.content")),
             style=wx.ALIGN_CENTER_HORIZONTAL,
         )
         content.Wrap(750)
