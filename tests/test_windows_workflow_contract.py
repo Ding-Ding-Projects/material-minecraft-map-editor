@@ -31,14 +31,14 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         self.assertLess(completion, duration)
         self.assertIn("Release remained a draft after publication", WORKFLOW)
 
-    def test_push_builds_also_search_for_a_safe_delta_base(self):
+    def test_only_release_builds_search_for_a_safe_delta_base(self):
         step = WORKFLOW[
             WORKFLOW.index("- name: Fetch previous Squirrel feed for delta") :
         ]
         step = step[
             : step.index("- name: Windows - Create unsigned Squirrel.Windows release")
         ]
-        self.assertNotIn("if: github.event_name == 'release'", step)
+        self.assertIn("if: github.event_name == 'release'", step)
         self.assertIn("scripts/validate_squirrel_delta_base.py", step)
         self.assertIn("CURRENT_VERSION", step)
 
