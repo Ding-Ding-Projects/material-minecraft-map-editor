@@ -1,6 +1,3 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
 name: Stylecheck
 
 on:
@@ -11,10 +8,22 @@ on:
       - '[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+'
   pull_request:
+  workflow_dispatch:
+
+# Style is a report, not a release gate: this job never appears in another
+# job's `needs`, so a formatting nit can never withhold a build or an
+# installer.  Its verdict still stays visible and honest.
+concurrency:
+  group: stylecheck-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   stylecheck:
-    runs-on: ubuntu-latest
+    name: Formatting report
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: ['3.11']
@@ -34,4 +43,15 @@ jobs:
 
     - name: run stylecheck
       run: |
-        python -m black --check --diff .
+        python -m black --check --diff . | tee black-report.diff
+        exit ${PIPESTATUS[0]}
+
+    - name: Upload formatting report
+      uses: actions/upload-artifact@v6
+      if: ${{ always() }}
+      continue-on-error: true
+      with:
+        name: black-report
+        path: black-report.diff
+        if-no-files-found: warn
+        retention-days: 7
