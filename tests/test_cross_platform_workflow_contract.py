@@ -26,7 +26,24 @@ class CrossPlatformWorkflowContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("build pytest", workflow)
-        self.assertIn("python -m unittest discover", workflow)
+        # The gate runs pytest, which collects both TestCase subclasses and
+        # module-level test functions.  ``unittest discover`` only finds the
+        # former, and silently skipped the majority of this suite.
+        self.assertIn("python -m pytest tests", workflow)
+        self.assertNotIn(
+            "python -m unittest discover",
+            workflow,
+            "the release gate must not fall back to a collector that skips "
+            "every module-level test function",
+        )
+
+    def test_check_workflow_uses_the_same_collector_as_the_release_gate(self):
+        """A gate that runs different tests from CI proves the wrong thing."""
+        checks = (ROOT / ".github" / "workflows" / "unittests.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("python -m pytest tests", checks)
+        self.assertNotIn("python -m unittest discover", checks)
 
 
 if __name__ == "__main__":
