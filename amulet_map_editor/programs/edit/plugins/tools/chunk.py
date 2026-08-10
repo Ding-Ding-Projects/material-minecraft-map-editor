@@ -283,27 +283,35 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
 
     def _import_chunks(self, evt):
         def on_world_selected(path: str):
+            destination_changed = False
+
             def operation() -> OperationReturnType:
+                nonlocal destination_changed
+
                 src_level = load_format(path)
                 src_level.open()
-                dimension = self.canvas.dimension
+                try:
+                    dimension = self.canvas.dimension
 
-                chunks = list(self.canvas.selection.selection_group.chunk_locations())
-                count = len(chunks)
+                    chunks = list(self.canvas.selection.selection_group.chunk_locations())
+                    count = len(chunks)
 
-                for i, (cx, cz) in enumerate(chunks):
-                    try:
-                        chunk = src_level.load_chunk(cx, cz, self.canvas.dimension)
-                        chunk.changed = True
-                        self.canvas.world.put_chunk(chunk, dimension)
-                    except ChunkLoadError:
-                        pass
+                    for i, (cx, cz) in enumerate(chunks):
+                        try:
+                            chunk = src_level.load_chunk(cx, cz, self.canvas.dimension)
+                            chunk.changed = True
+                            self.canvas.world.put_chunk(chunk, dimension)
+                            destination_changed = True
+                        except ChunkLoadError:
+                            pass
 
-                    yield (i + 1) / count
+                        yield (i + 1) / count
+                finally:
+                    src_level.close()
 
-                src_level.close()
-
-            self.canvas.run_operation(operation)
+            self.canvas.run_operation(
+                operation, rollback_on_error=lambda: destination_changed
+            )
 
         with WorldSelectDialog(self.canvas, on_world_selected) as select_world:
             select_world.CentreOnScreen()
