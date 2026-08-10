@@ -3,92 +3,259 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Amulet Map Editor — an open-source Minecraft world editor.">
-  <title>Amulet Map Editor · World editing, made clear</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Material Minecraft World Editor — an open-source Minecraft world editor for Java and Bedrock.">
+  <title>Material Minecraft World Editor · Shape worlds, keep the wonder</title>
+  <link rel="icon" href="assets/amulet_logo_512.png" sizes="any">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
   <header class="top-app-bar">
-    <a class="brand" href="#home" aria-label="Amulet Map Editor home"><span class="brand-mark" aria-hidden="true">✦</span><span>Amulet</span></a>
-    <nav class="primary-nav" role="tablist" aria-label="Primary navigation" aria-orientation="horizontal">
-      <button id="tab-home" class="nav-tab is-active" role="tab" aria-selected="true" aria-controls="home" tabindex="0" data-tab="home">Home</button>
-      <button id="tab-features" class="nav-tab" role="tab" aria-selected="false" aria-controls="features" tabindex="-1" data-tab="features">Features</button>
-      <button id="tab-guides" class="nav-tab" role="tab" aria-selected="false" aria-controls="guides" tabindex="-1" data-tab="guides">Guides</button>
-      <button id="tab-community" class="nav-tab" role="tab" aria-selected="false" aria-controls="community" tabindex="-1" data-tab="community">Community</button>
-      <button id="tab-settings" class="nav-tab" role="tab" aria-selected="false" aria-controls="settings" tabindex="-1" data-tab="settings">Settings</button>
-    </nav>
+    <a class="brand" href="#home" data-tab-link="home" aria-label="Material Minecraft World Editor home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" focusable="false"><rect x="12" y="1.8" width="7.2" height="7.2" rx="1.2" transform="rotate(45 12 1.8)" fill="#dce2ff"></rect><rect x="4.2" y="12.6" width="7" height="7" rx="1.2" fill="#ffffff"></rect><rect x="12.8" y="12.6" width="7" height="7" rx="1.2" fill="#ffffff" opacity=".6"></rect></svg>
+      </span>
+      <span id="brand-label">Material Minecraft World Editor</span>
+    </a>
+    <button class="palette-trigger" type="button" id="palette-open">
+      <span id="palette-label">Search everything</span> <kbd>Ctrl+Shift+F</kbd>
+    </button>
+    <button class="bell" type="button" id="notif-open" aria-label="Notification history" aria-expanded="false" aria-controls="notifications">
+      <span aria-hidden="true">🔔</span> <span id="notif-count">0</span>
+    </button>
     <a class="button button-tonal" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor" target="_blank" rel="noreferrer">View source ↗</a>
   </header>
 
-  <main>
+  <div class="tab-bar">
+    <div id="tab-strip" role="tablist" aria-label="Primary navigation" aria-orientation="horizontal"></div>
+    <label class="search-field search-field-sm" for="tab-search">
+      <span aria-hidden="true">⌕</span>
+      <input id="tab-search" type="search" placeholder="Search tabs" aria-label="Search tabs" autocomplete="off" maxlength="256">
+      <button class="regex-open" type="button" id="tab-regex-open" aria-label="Regex builder for the tab search" aria-expanded="false" aria-controls="tab-regex">.*</button>
+    </label>
+  </div>
+  <details class="regex-builder" id="tab-regex" data-search="tab"><summary>Regex builder · tab strip search</summary><div class="regex-controls" data-regex-controls="tab"></div></details>
+  <p class="tab-note" id="tab-note" role="status"></p>
+
+  <main id="main">
     <section id="home" class="page-section is-visible" role="tabpanel" aria-labelledby="tab-home" data-page="home" tabindex="-1">
       <div class="hero">
-        <div class="eyebrow">OPEN-SOURCE MINECRAFT WORLD EDITOR</div>
-        <h1>Shape worlds.<br><span class="accent">Keep the wonder.</span></h1>
-        <p class="hero-copy">Amulet brings a focused, cross-platform workspace to Minecraft world editing. Inspect, transform, and export your worlds with tools that stay out of the way.</p>
-        <div class="hero-actions"><button class="button button-filled" data-tab-link="guides">Open the install guide</button><button class="button button-text" data-tab-link="features">Explore features →</button></div>
-      <div class="trust-row"><span>✓ Windows desktop</span><span>✓ Unsigned Squirrel installer</span><span>✓ Offline-first docs</span><span>✓ Open source</span></div>
+        <p class="eyebrow">OPEN-SOURCE MINECRAFT WORLD EDITOR · JAVA &amp; BEDROCK</p>
+        <h1>Shape worlds. <span class="accent">Keep the wonder.</span></h1>
+        <p class="hero-copy" id="hero-copy">Open Minecraft worlds outside the game to inspect terrain, select precise regions, move builds between worlds, run block and biome operations, import or export structures, delete or regenerate chunks, and convert world data. Java Edition 1.12+ and Bedrock Edition 1.7+, on a Material Design 3 shell.</p>
+        <div class="hero-actions">
+          <a class="button button-filled" id="hero-download" hidden>Download</a>
+          <button class="button button-tonal" type="button" data-tab-link="features">Explore every feature</button>
+          <a class="button button-text" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases" target="_blank" rel="noreferrer">All releases ↗</a>
+        </div>
+        <div class="trust-row"><span>✓ Unsigned Squirrel.Windows installer</span><span>✓ Offline-first documentation</span><span>✓ Material Design 3 migration</span><span>✓ Python 3.11+ source build</span></div>
+        <div class="warning-card" role="note">
+          <span aria-hidden="true">!</span>
+          <p>Back up every world before editing it. Close the world in Minecraft and any other editor first. Conversion can overwrite chunks in the destination world.</p>
+        </div>
       </div>
-      <div class="feature-band"><div><span class="icon" aria-hidden="true">▦</span><h2>One workspace, many worlds</h2><p>Open a world, inspect its regions, and make a precise edit without losing your bearings.</p></div><div><span class="icon" aria-hidden="true">⌁</span><h2>Built for real formats</h2><p>Use the project's format-aware APIs and exporters to work with Java and Bedrock data.</p></div><div><span class="icon" aria-hidden="true">↺</span><h2>Open by default</h2><p>Source, issue tracker, and build recipes are available for every contributor.</p></div></div>
-      <section class="release-card" id="release-card" aria-labelledby="release-title"><div><div class="eyebrow" id="release-eyebrow">INSTALLER PUBLICATION STATUS</div><h2 id="release-title">Installer links appear after verification</h2><p id="release-copy">This site only exposes an immutable installer link after its local release manifest records the verified tag, commit, URL, and SHA-256 digest. No candidate or guessed download is shown.</p></div><a class="button button-filled" id="release-download" href="#guides" data-tab-link="guides" hidden>Open the install guide</a></section>
+
+      <figure class="shell-figure">
+        <img src="assets/main-frame-material-shell.png" alt="Material application shell: frameless title bar, command bar, and centred start card" width="2250" height="1395">
+        <figcaption>Real capture · commit b3cbec1c4b1035dd0c2ebdc9a545266f49c257ef · 2250×1395 · hidden Windows desktop, wxPython 4.2.5</figcaption>
+      </figure>
+
+      <section id="capabilities" class="band" aria-labelledby="capabilities-title">
+        <p class="eyebrow">CAPABILITIES IN THIS SOURCE TREE</p>
+        <h2 id="capabilities-title">What the editor can do.</h2>
+        <div class="card-grid" id="capability-grid"></div>
+      </section>
+
+      <section id="delivery" class="band" aria-labelledby="delivery-title">
+        <p class="eyebrow">VERIFIED DELIVERY</p>
+        <h2 id="delivery-title">Publication follows evidence.</h2>
+        <div class="split-grid" id="delivery-grid"></div>
+      </section>
+
+      <section id="install" class="band" aria-labelledby="install-title">
+        <p class="eyebrow">GET STARTED</p>
+        <h2 id="install-title">From checkout to installer.</h2>
+        <div class="card-grid" id="install-grid"></div>
+      </section>
+
+      <section class="release-card" id="release-card" aria-labelledby="release-title">
+        <div>
+          <p class="eyebrow" id="release-eyebrow">INSTALLER PUBLICATION STATUS</p>
+          <h2 id="release-title">Installer links appear after verification</h2>
+          <p id="release-copy">This site only exposes an immutable installer link after its local release manifest records the verified tag, commit, URL, and SHA-256 digest. No candidate or guessed download is shown.</p>
+        </div>
+        <a class="button button-filled" id="release-download" href="#install" data-tab-link="home" hidden>Open the install guide</a>
+      </section>
     </section>
 
     <section id="features" class="page-section" role="tabpanel" aria-labelledby="tab-features" data-page="features" tabindex="-1" hidden>
-      <div class="section-heading"><div><div class="eyebrow">CAPABILITY MAP</div><h1>Everything in one clear view.</h1><p>Search this inventory to jump to the workflow you need.</p></div><div class="search-stack"><label class="search-field" for="feature-search"><span aria-hidden="true">⌕</span><input id="feature-search" type="search" maxlength="256" placeholder="Search features" aria-label="Search features" autocomplete="off"><kbd>/</kbd></label><details class="regex-builder"><summary>Regex builder</summary><div class="regex-controls"><label><input id="feature-regex" type="checkbox"> Use regular expression</label><input id="feature-pattern" type="text" maxlength="256" placeholder="Pattern (plain text by default)" aria-label="Regex pattern"><label>Flags <select id="feature-flags" aria-label="Regex flags"><option value="i">Ignore case</option><option value="imu">Ignore case · multiline · Unicode</option><option value="gimu">Global · ignore case · multiline · Unicode</option></select></label><label>Sample text <input id="feature-sample" type="text" maxlength="512" value="world editing" aria-label="Regex sample text"></label><output id="regex-feedback" aria-live="polite"></output><output id="regex-captures" aria-live="polite"></output></div></details></div></div>
-      <div class="card-grid" id="feature-grid">
-        <article class="feature-card" data-search="world editing java bedrock"><span class="icon" aria-hidden="true">▣</span><h2>World editing</h2><p>Load and edit Minecraft Java and Bedrock worlds through the desktop editor.</p><a href="#guides" data-tab-link="guides">Read the workflow →</a></article>
-        <article class="feature-card" data-search="chunk region selection"><span class="icon" aria-hidden="true">⌗</span><h2>Regions & chunks</h2><p>Navigate region data and target a precise area before applying a change.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/tree/main/amulet_map_editor" target="_blank" rel="noreferrer">Inspect the API ↗</a></article>
-        <article class="feature-card" data-search="api format converter python"><span class="icon" aria-hidden="true">⌘</span><h2>Python API</h2><p>Build repeatable tools with the package's documented APIs and format modules.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor" target="_blank" rel="noreferrer">Browse source ↗</a></article>
-        <article class="feature-card" data-search="windows one click build installer bootstrap"><span class="icon" aria-hidden="true">◫</span><h2>Windows one-click builds</h2><p>Bootstrap a fresh Windows installation and build the unsigned Squirrel installer through the repository's supported path.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions" target="_blank" rel="noreferrer">See workflows ↗</a></article>
-        <article class="feature-card" data-search="open source contribution"><span class="icon" aria-hidden="true">✚</span><h2>Open contribution</h2><p>Issues, pull requests, and build instructions make the project approachable.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues" target="_blank" rel="noreferrer">Join the conversation ↗</a></article>
-        <article class="feature-card" data-search="testing quality unit tests"><span class="icon" aria-hidden="true">✓</span><h2>Quality gates</h2><p>Style checks and unit-test workflows provide a visible baseline for changes.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions" target="_blank" rel="noreferrer">Check CI ↗</a></article>
-        <article class="feature-card" data-search="scheduled settings language theme density accent"><span class="icon" aria-hidden="true">◷</span><h2>Scheduled settings</h2><p>Versioned local rules can schedule language, theme, density, and accent values with deterministic precedence.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/scheduled-settings/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="offline changelog release history commit links markdown export"><span class="icon" aria-hidden="true">▤</span><h2>Offline changelog</h2><p>Browse real release history with commit links, composable filters, bounded regex hooks, and Markdown export.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/changelog/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="dim sum startup surprise public catalog offline"><span class="icon" aria-hidden="true">◌</span><h2>Dim-sum surprise</h2><p>A bounded ten-percent startup draw resolves factual bilingual dish metadata from the public catalog without copying or vendoring photos.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/dim-sum-surprise/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="school mode unlock language funny presentation"><span class="icon" aria-hidden="true">▤</span><h2>School mode</h2><p>Rename the shared local presentation lock, verify its salted unlock credential, and keep prior language choices recoverable.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/school-mode/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="notification history search bulk dismiss markdown export"><span class="icon" aria-hidden="true">▥</span><h2>Notification history</h2><p>Review non-blocking messages, search them locally, dismiss visible matches in bulk, and export the current view as Markdown.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/notification-centre/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="appearance editor font color contrast presets theme density scale"><span class="icon" aria-hidden="true">◈</span><h2>Appearance editor</h2><p>Customize theme, density, accent, UI scale, installed fonts, color translations, contrast, and named presets with reset paths.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/appearance/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="browser tabs groups pin reorder docking regex search"><span class="icon" aria-hidden="true">▥</span><h2>Browser-style tabs</h2><p>Persist pinned tabs, groups, docking, collapse state, four discovery searches, and keyboard activation across sessions.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/tab-groups/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="squirrel update updater ready restart later unsigned feed hash"><span class="icon" aria-hidden="true">↻</span><h2>Safe updates</h2><p>Check an allowlisted HTTPS feed on startup and schedule, validate unsigned package metadata and hashes, then offer explicit restart or later actions.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/updater/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="offline documentation browser articles sha bundle search regex"><span class="icon" aria-hidden="true">▧</span><h2>Offline documentation</h2><p>Browse every feature article locally with rendered Markdown, article-to-article links, bounded search, and a SHA-checked bundle.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/offline-documentation/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="local git history snapshots restore export filters date action"><span class="icon" aria-hidden="true">⟲</span><h2>Local version history</h2><p>Keep append-only local Git history for user records, settings, exports, filters, restores, and recoverable changes without syncing user data.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/local-history/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="external editor vscode workspace root export open path"><span class="icon" aria-hidden="true">⌘</span><h2>External editor bridge</h2><p>Find VS Code installations, persist a validated choice, open folders as workspace roots, and open exported files directly from the app.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/external-editor/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="text to speech narrator english cantonese funny debounce cooldown optional"><span class="icon" aria-hidden="true">◖</span><h2>Optional narrator</h2><p>Opt-in English/Cantonese narration uses a serialized queue, debounce, cooldown, and the same factual copy as visible notifications.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/tts-narrator/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-        <article class="feature-card" data-search="squirrel windows setup releases nupkg unsigned installer delta ci"><span class="icon" aria-hidden="true">⬇</span><h2>Squirrel.Windows delivery</h2><p>Windows CI builds and verifies unsigned <code>Setup.exe</code>, <code>RELEASES</code>, full packages, and deltas where a previous package exists.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/installer/PACKAGING.md" target="_blank" rel="noreferrer">Read packaging contract ↗</a></article>
-        <article class="feature-card" data-search="command palette ctrl shift f settings features destinations teleport"><span class="icon" aria-hidden="true">⌕</span><h2>Command palette</h2><p>Use <kbd>Ctrl+Shift+F</kbd> to search commands, feature pages, settings, and appearance controls, then teleport to the owning surface.</p><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/0.10/docs/features/command-palette/README.md" target="_blank" rel="noreferrer">Read the contract ↗</a></article>
-      </div><p id="feature-empty" class="empty-state" hidden>No features match that search. Try a shorter phrase.</p>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">COMPLETE FEATURE INVENTORY</p>
+          <h1>Every documented feature, no gaps.</h1>
+          <p>One entry per tracked feature article — the editor's own surfaces plus every operating contract. Plain-text search is the default; the bounded regex builder is one click away.</p>
+        </div>
+        <div class="search-stack">
+          <label class="search-field" for="feature-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="feature-search" type="search" placeholder="Search features and contracts" aria-label="Search features" autocomplete="off" maxlength="256">
+            <span class="count" id="feature-count"></span>
+            <button class="regex-open" type="button" id="feature-regex-open" aria-label="Regex builder for the feature search" aria-expanded="false" aria-controls="feature-regex">.*</button>
+          </label>
+        </div>
+      </div>
+      <details class="regex-builder" id="feature-regex" data-search="feature"><summary>Regex builder · feature search</summary><div class="regex-controls" data-regex-controls="feature"></div></details>
+      <div class="chip-row" id="feature-categories" role="group" aria-label="Filter features by category"></div>
+      <div class="card-grid" id="feature-grid"></div>
+      <p id="feature-empty" class="empty-state" hidden>No feature matches that search. Try a shorter phrase, or switch the regex toggle off.</p>
+    </section>
+
+    <section id="docs" class="page-section" role="tabpanel" aria-labelledby="tab-docs" data-page="docs" tabindex="-1" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">OFFLINE DOCUMENTATION</p>
+          <h1>The articles, in the page.</h1>
+          <p>Every article is bundled with this page and renders without a network connection. Links between articles resolve here rather than sending you elsewhere.</p>
+        </div>
+        <div class="search-stack">
+          <label class="search-field" for="docs-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="docs-search" type="search" placeholder="Search documentation" aria-label="Search documentation" autocomplete="off" maxlength="256">
+            <span class="count" id="docs-count"></span>
+            <button class="regex-open" type="button" id="docs-regex-open" aria-label="Regex builder for the documentation search" aria-expanded="false" aria-controls="docs-regex">.*</button>
+          </label>
+        </div>
+      </div>
+      <details class="regex-builder" id="docs-regex" data-search="docs"><summary>Regex builder · documentation search</summary><div class="regex-controls" data-regex-controls="docs"></div></details>
+      <div class="docs-layout">
+        <nav class="docs-index" id="docs-index" aria-label="Documentation articles"></nav>
+        <article class="docs-article" id="docs-article" tabindex="-1"></article>
+      </div>
+      <p id="docs-empty" class="empty-state" hidden>No article matches that search.</p>
+    </section>
+
+    <section id="screenshots" class="page-section" role="tabpanel" aria-labelledby="tab-screenshots" data-page="screenshots" tabindex="-1" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">REAL APPLICATION SCREENSHOTS</p>
+          <h1>Every capture, with its provenance.</h1>
+          <p>Each image is a tracked screenshot of the real wxPython application. No mockup or generated image is presented as runtime evidence. Every dimension and commit below was verified against the repository before publication.</p>
+        </div>
+        <div class="search-stack">
+          <label class="search-field" for="shots-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="shots-search" type="search" placeholder="Search captures, commits, and provenance" aria-label="Search screenshots" autocomplete="off" maxlength="256">
+            <span class="count" id="shots-count"></span>
+            <button class="regex-open" type="button" id="shots-regex-open" aria-label="Regex builder for the screenshot search" aria-expanded="false" aria-controls="shots-regex">.*</button>
+          </label>
+        </div>
+      </div>
+      <details class="regex-builder" id="shots-regex" data-search="shots"><summary>Regex builder · screenshot search</summary><div class="regex-controls" data-regex-controls="shots"></div></details>
+      <div class="shots-grid" id="shots-grid"></div>
+      <p id="shots-empty" class="empty-state" hidden>No capture matches that search.</p>
     </section>
 
     <section id="guides" class="page-section" role="tabpanel" aria-labelledby="tab-guides" data-page="guides" tabindex="-1" hidden>
-      <div class="section-heading"><div><div class="eyebrow">GET STARTED</div><h1>From download to first edit.</h1><p>Three small steps keep your first session predictable.</p></div></div>
-      <ol class="steps"><li><span>01</span><div><h2>Choose a verified Windows release</h2><p>Download the unsigned Squirrel.Windows installer from a release with verified Setup.exe, RELEASES, and full package assets. Read the release notes before opening a world.</p></div></li><li><span>02</span><div><h2>Open a copy of your world</h2><p>Keep a backup, then open the copy in Amulet. The editor's page-based workspace keeps world selection and editing tools close at hand.</p></div></li><li><span>03</span><div><h2>Make one change, then export</h2><p>Target the smallest useful area, inspect the result, and save or export from the workflow that owns the change.</p></div></li></ol>
-      <div class="callout"><strong>Need a deeper reference?</strong><span>Use the source tree and issue tracker for format-specific behaviour, troubleshooting, and contributor discussion.</span><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/wiki" target="_blank" rel="noreferrer">Open the wiki ↗</a></div>
+      <div class="section-heading"><div><p class="eyebrow">GUIDES</p><h1>From download to first edit.</h1></div></div>
+      <ol class="steps">
+        <li><span>01</span><div><h2>Choose a verified Windows release</h2><p>Download the unsigned Squirrel.Windows installer from a release with verified <code>Setup.exe</code>, <code>RELEASES</code>, and full package assets. Read the release notes before opening a world.</p></div></li>
+        <li><span>02</span><div><h2>Open a copy of your world</h2><p>Keep a backup, then open the copy. The page-based workspace keeps world selection and editing tools close at hand.</p></div></li>
+        <li><span>03</span><div><h2>Make one change, then export</h2><p>Target the smallest useful area, inspect the result, and save or export from the workflow that owns the change.</p></div></li>
+        <li><span>04</span><div><h2>Keep the history</h2><p>Local append-only Git history records settings, exports, filters, and restores so a change can be recovered without syncing user data anywhere.</p></div></li>
+      </ol>
     </section>
 
     <section id="community" class="page-section" role="tabpanel" aria-labelledby="tab-community" data-page="community" tabindex="-1" hidden>
-      <div class="section-heading"><div><div class="eyebrow">OPEN PROJECT</div><h1>Bring a question, a fix, or a map.</h1><p>The best project documentation is paired with a real conversation.</p></div></div>
-      <div class="community-grid"><a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">☷</span><h2>Discussions</h2><p>Compare workflows and ask for help from the community.</p><span>Open discussions ↗</span></a><a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">!</span><h2>Issues</h2><p>Report reproducible bugs and propose improvements.</p><span>Browse issues ↗</span></a><a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer"><span class="icon" aria-hidden="true">✎</span><h2>Contributing</h2><p>Read the project guidance before opening a pull request.</p><span>Read the guide ↗</span></a></div>
+      <div class="section-heading"><div><p class="eyebrow">OPEN PROJECT</p><h1>Bring a question, a fix, or a map.</h1></div></div>
+      <div class="card-grid community-grid">
+        <a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions" target="_blank" rel="noreferrer"><h2>Discussions</h2><p>Compare workflows and ask for help. One rolling progress thread records meaningful milestones.</p><span>Open discussions ↗</span></a>
+        <a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues" target="_blank" rel="noreferrer"><h2>Issues</h2><p>Report reproducible bugs and propose improvements.</p><span>Browse issues ↗</span></a>
+        <a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/tree/main/docs/features" target="_blank" rel="noreferrer"><h2>Feature articles</h2><p>Behaviour, configuration, failure modes, security boundaries, and verification evidence.</p><span>Read the index ↗</span></a>
+        <a class="community-card" href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions" target="_blank" rel="noreferrer"><h2>CI evidence</h2><p>Windows build and unit-test workflows provide the visible baseline for every change.</p><span>Open Actions ↗</span></a>
+      </div>
     </section>
 
     <section id="settings" class="page-section" role="tabpanel" aria-labelledby="tab-settings" data-page="settings" tabindex="-1" hidden>
-      <div class="section-heading"><div><div class="eyebrow">PERSONALIZE THIS SITE</div><h1>Make the workspace yours.</h1><p id="settings-copy">Preferences persist in this browser and apply immediately. Funny levels style the surrounding copy; facts and links stay exact.</p></div><div class="search-stack"><label class="search-field" for="settings-search"><span aria-hidden="true">⌕</span><input id="settings-search" type="search" maxlength="256" placeholder="Search settings" aria-label="Search settings" autocomplete="off"><kbd>/</kbd></label><details class="regex-builder"><summary>Regex builder</summary><div class="regex-controls"><label><input id="settings-regex" type="checkbox"> Use regular expression</label><input id="settings-pattern" type="text" maxlength="256" placeholder="Pattern (plain text by default)" aria-label="Settings regex pattern"><label>Flags <select id="settings-flags" aria-label="Settings regex flags"><option value="i">Ignore case</option><option value="imu">Ignore case · multiline · Unicode</option></select></label><output id="settings-feedback" aria-live="polite"></output></div></details></div></div>
-      <div class="settings-grid" id="settings-grid">
-        <label class="setting-card" data-search="language mode english cantonese bilingual"><span>Language mode</span><select id="site-language"><option value="english">English</option><option value="cantonese">香港粵語</option><option value="bilingual">Bilingual · 雙語</option></select><small class="setting-help">Controls the site's primary labels. Bilingual mode keeps both labels visible.</small><small class="setting-provenance">Stored in this browser; shipped value is English when unset.</small></label>
-        <label class="setting-card" data-search="english funny level playful"><span>English funny level <output id="funny-en-value">1</output>/5</span><input id="funny-en" type="range" min="1" max="5" value="1"><small class="setting-help">Styles explanatory copy from serious to playful; it never changes facts.</small><small class="setting-provenance">Stored in this browser; shipped value is level 1 when unset.</small></label>
-        <label class="setting-card" data-search="cantonese funny level playful"><span>Cantonese funny level <output id="funny-yue-value">1</output>/5</span><input id="funny-yue" type="range" min="1" max="5" value="1"><small class="setting-help">獨立調校粵語語氣，唔會改變實際資料。</small><small class="setting-provenance">儲存喺此瀏覽器；未設定時使用第 1 級。</small></label>
-        <label class="setting-card" data-search="theme light dark appearance"><span>Theme</span><select id="site-theme"><option value="light">Light</option><option value="dark">Dark</option></select><small class="setting-help">Applies Material 3 surface and content roles immediately.</small><small class="setting-provenance">Stored in this browser; shipped value is Light when unset.</small></label>
-        <label class="setting-card" data-search="density compact comfortable appearance"><span>Density</span><select id="site-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select><small class="setting-help">Changes spacing without hiding content or shrinking touch targets.</small><small class="setting-provenance">Stored in this browser; shipped value is Comfortable when unset.</small></label>
-        <label class="setting-card" data-search="accent seed color appearance hex rgb hsl hue contrast"><span>Accent seed colour</span><input id="site-accent" type="color" value="#4d5f92" aria-label="Accent colour picker"><label for="site-accent-hue">Hue <output id="site-accent-hue-value">0°</output></label><input id="site-accent-hue" type="range" min="0" max="360" step="1" value="0" aria-label="Accent hue"><input id="site-accent-hex" type="text" value="#4d5f92" maxlength="7" pattern="#[0-9a-fA-F]{6}" aria-label="Accent colour HEX value"><input id="site-accent-rgb" type="text" value="rgb(77, 95, 146)" maxlength="32" aria-label="Accent colour RGB value"><input id="site-accent-hsl" type="text" value="hsl(225, 31%, 44%)" maxlength="32" aria-label="Accent colour HSL value"><output id="accent-contrast" aria-live="polite">Contrast readout pending</output><small class="setting-help">Use the continuous hue control or enter HEX, RGB, or HSL. Every representation stays synchronized and the live readout reports contrast against the site surface.</small><small class="setting-provenance">Stored in this browser; shipped value is #4d5f92 when unset.</small></label>
-        <label class="setting-card" data-search="font family typography installed fallback"><span>UI font family</span><select id="site-font"><option value="system-ui">System UI</option><option value="Segoe UI">Segoe UI</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option></select><small class="setting-help">Changes the site typography with a CJK-safe system fallback.</small><small class="setting-provenance">Stored in this browser; shipped value is System UI when unset.</small></label>
-        <label class="setting-card" data-search="scale size typography appearance"><span>UI scale <output id="site-scale-value">100%</output></span><input id="site-scale" type="range" min="90" max="120" step="5" value="100" aria-label="UI scale"><small class="setting-help">Scales type and spacing together while retaining minimum touch targets.</small><small class="setting-provenance">Stored in this browser; shipped value is 100% when unset.</small></label>
-        <div class="setting-card" data-search="reset site settings appearance"><span>Reset site settings</span><small class="setting-help">Restores every site preference to its shipped value.</small><small class="setting-provenance">The action is available now; it does not change app or release data.</small><button class="button button-tonal" id="reset-site-settings" type="button">Reset site settings</button></div>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">PERSONALIZE THIS SITE</p>
+          <h1>Every setting, wired to the real control.</h1>
+          <p id="settings-copy">Preferences persist in this browser and apply immediately. Funny levels style the surrounding copy; facts and links stay exact.</p>
+        </div>
+        <div class="search-stack">
+          <label class="search-field" for="settings-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="settings-search" type="search" placeholder="Search settings" aria-label="Search settings" autocomplete="off" maxlength="256">
+            <span class="count" id="settings-count"></span>
+            <button class="regex-open" type="button" id="settings-regex-open" aria-label="Regex builder for the settings search" aria-expanded="false" aria-controls="settings-regex">.*</button>
+          </label>
+        </div>
       </div>
-      <p id="settings-empty" class="empty-state" hidden>No settings match that search.</p>
+      <details class="regex-builder" id="settings-regex" data-search="settings"><summary>Regex builder · settings search</summary><div class="regex-controls" data-regex-controls="settings"></div></details>
+      <div class="settings-grid" id="settings-grid"></div>
+      <p id="settings-empty" class="empty-state" hidden>No setting matches that search.</p>
     </section>
   </main>
-  <dialog id="command-palette" aria-labelledby="palette-title"><form method="dialog" class="palette-card"><h2 id="palette-title">Command palette</h2><label class="search-field" for="palette-search"><span aria-hidden="true">⌕</span><input id="palette-search" type="search" maxlength="256" placeholder="Search commands, features, and settings" aria-label="Search commands, features, and settings" aria-autocomplete="list" aria-controls="palette-results" autocomplete="off"><kbd>Ctrl+Shift+F</kbd></label><details class="regex-builder"><summary>Regex builder</summary><div class="regex-controls"><label><input id="palette-regex" type="checkbox"> Use regular expression</label><input id="palette-pattern" type="text" maxlength="256" placeholder="Pattern (plain text by default)" aria-label="Palette regex pattern"><label>Flags <select id="palette-flags" aria-label="Palette regex flags"><option value="i">Ignore case</option><option value="imu">Ignore case · multiline · Unicode</option></select></label><output id="palette-feedback" aria-live="polite"></output></div></details><div id="palette-results" role="listbox" aria-label="Palette results" tabindex="0"></div><button class="button button-tonal" value="cancel">Close</button></form></dialog>
-  <footer><span>Amulet Map Editor</span><span>Open source · Built for curious map makers</span><a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor" target="_blank" rel="noreferrer">GitHub ↗</a></footer>
+
+  <aside id="notifications" class="drawer" aria-labelledby="notif-title" hidden>
+    <div class="drawer-head">
+      <h2 id="notif-title">Notification history</h2>
+      <button class="icon-button" type="button" id="notif-close" aria-label="Close notifications">×</button>
+    </div>
+    <label class="search-field" for="notif-search">
+      <span aria-hidden="true">⌕</span>
+      <input id="notif-search" type="search" placeholder="Search notifications" aria-label="Search notifications" autocomplete="off" maxlength="256">
+      <button class="regex-open" type="button" id="notif-regex-open" aria-label="Regex builder for the notification search" aria-expanded="false" aria-controls="notif-regex">.*</button>
+    </label>
+    <details class="regex-builder" id="notif-regex" data-search="notif"><summary>Regex builder · notification search</summary><div class="regex-controls" data-regex-controls="notif"></div></details>
+    <div class="drawer-actions">
+      <button class="button button-outlined" type="button" id="notif-dismiss">Dismiss visible</button>
+      <button class="button button-filled" type="button" id="notif-export">Export as Markdown</button>
+    </div>
+    <div id="notif-list"></div>
+    <p id="notif-empty" class="empty-state" hidden>No notification matches. Every message is local to this browser.</p>
+  </aside>
+
+  <dialog id="command-palette" aria-labelledby="palette-title">
+    <div class="palette-card">
+      <div class="drawer-head">
+        <h2 id="palette-title">Command palette</h2>
+        <button class="icon-button" type="button" id="palette-close" aria-label="Close palette">Esc</button>
+      </div>
+      <label class="search-field" for="palette-search">
+        <span aria-hidden="true">⌕</span>
+        <input id="palette-search" type="search" placeholder="Search commands, features, and settings" aria-label="Search commands, features, and settings" autocomplete="off" maxlength="256" role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls="palette-results">
+        <button class="regex-open" type="button" id="palette-regex-open" aria-label="Regex builder for the palette search" aria-expanded="false" aria-controls="palette-regex">.*</button>
+      </label>
+      <details class="regex-builder" id="palette-regex" data-search="palette"><summary>Regex builder · palette search</summary><div class="regex-controls" data-regex-controls="palette"></div></details>
+      <div id="palette-results" role="listbox" aria-label="Palette results"></div>
+      <p id="palette-empty" class="empty-state" hidden>Nothing matches. Results cover every tab, feature contract, article, capture, and setting on this site.</p>
+    </div>
+  </dialog>
+
+  <div id="toast-region" role="status" aria-live="polite"></div>
+  <div id="context-menu" class="context-menu" role="menu" hidden></div>
+
+  <footer>
+    <span id="footer-brand">Material Minecraft World Editor</span>
+    <span>Open source · Built for curious map makers</span>
+    <span class="mono" id="footer-count"></span>
+    <a href="https://github.com/Ding-Ding-Projects/material-minecraft-map-editor" target="_blank" rel="noreferrer">GitHub ↗</a>
+  </footer>
+
+  <!-- site-data.js must come first: site-core reads window.AMULET_SITE_DATA at
+       load, and every data-driven panel renders empty without it. app.js last,
+       because it integrates whatever the others registered. -->
+  <script src="site-data.js"></script>
+  <script src="site-core.js"></script>
+  <script src="regex-builder.js"></script>
+  <script src="tabs.js"></script>
+  <script src="panels.js"></script>
+  <script src="settings-panel.js"></script>
+  <script src="notifications.js"></script>
+  <script src="palette.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
-

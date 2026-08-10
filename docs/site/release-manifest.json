@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
   "verified": true,
-  "releaseTag": "0.10.0-dev.414",
-  "commit": "f95695f7cbadecd3272370a1fa694e9b601ab124",
+  "releaseTag": "0.10.0-dev.489",
+  "commit": "6ec9a7d69ada86c71535684f1d3e28c3fc2d4674",
   "assets": {
     "Setup.exe": {
       "name": "Setup.exe",
-      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Setup.exe",
-      "sha256": "c380b3de4c04cf006b6f6224cd49a541738342b98623888b7fbfd0c6614cc026"
+      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.489/Setup.exe",
+      "sha256": "9661dae103b36c1a41af6ed1e6ae5406e5136322e976f4cc554de449d8603ea4"
     },
     "RELEASES": {
       "name": "RELEASES",
-      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/RELEASES",
-      "sha256": "3bd6a85adddd4ce25dfbffb9821ab3b1d6fa6ca5e3bbe3878bfa3513210d967e"
+      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.489/RELEASES",
+      "sha256": "4ea819e440e70f5c66c4785c46abeb2c6daa187b804262694e52380b42bc4c07"
     },
     "full.nupkg": {
-      "name": "Amulet-0.10.0-dev414-full.nupkg",
-      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Amulet-0.10.0-dev414-full.nupkg",
-      "sha256": "69c49813c6502e91ab29da2c66fd16cd0435a13a933b1cd734a21a169778b82c"
+      "name": "Amulet-0.10.100489-full.nupkg",
+      "url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.489/Amulet-0.10.100489-full.nupkg",
+      "sha256": "b5cf049f33dc726a1e6f2bd4d9d62b6c2cb4ba422d18fe8bd3c0c5c75e68a605"
     }
   }
 }
