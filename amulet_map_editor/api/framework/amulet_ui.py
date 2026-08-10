@@ -206,10 +206,13 @@ class AmuletUI(wx.Frame):
         self._update_thread = None
         self._update_stage_thread = None
         self._update_state = SquirrelUpdateState("unknown")
-        # Update workers may finish after wx starts destroying the frame. Every
-        # worker result is scoped to this generation, and closing invalidates
-        # the current generation before controls begin their teardown.
+        # Update workers may finish while a close attempt is awaiting unsaved-
+        # work confirmation. Accepted closes invalidate their generation before
+        # teardown; vetoed closes reconcile the deferred current result.
+        self._update_worker_lock = threading.RLock()
         self._is_closing = False
+        self._closing_update_generation: int | None = None
+        self._pending_update_state: tuple[SquirrelUpdateState, int] | None = None
         self._update_state_generation = 0
         self._update_restart_generation: int | None = None
         self._update_restart_process: subprocess.Popen | None = None
@@ -553,9 +556,45 @@ class AmuletUI(wx.Frame):
         dialog.Destroy()
 
     def _update_generation_is_active(self, generation: int) -> bool:
-        """Return whether a queued update result still belongs to this frame."""
+        """Return whether an update result can still reach this frame.
 
-        return not self._is_closing and generation == self._update_state_generation
+        A close attempt temporarily reserves its current generation so a worker
+        that completes while unsaved-work protection is deciding can be
+        reconciled if that close is vetoed. Accepted close teardown clears the
+        reservation before destroying controls.
+        """
+
+        with self._update_worker_lock:
+            return generation == self._update_state_generation or (
+                self._is_closing and generation == self._closing_update_generation
+            )
+
+    def _resume_update_after_close_veto(
+        self,
+    ) -> tuple[SquirrelUpdateState, int] | None:
+        """Restore the pending worker generation after a close veto."""
+
+        with self._update_worker_lock:
+            closing_generation = self._closing_update_generation
+            pending_state = self._pending_update_state
+            self._is_closing = False
+            self._closing_update_generation = None
+            self._pending_update_state = None
+            if closing_generation is not None:
+                self._update_state_generation = closing_generation
+            if (
+                pending_state is not None
+                and pending_state[1] == closing_generation
+            ):
+                return pending_state
+            return None
+
+    def _discard_pending_update_after_accepted_close(self) -> None:
+        """Keep update callbacks suppressed after a close starts teardown."""
+
+        with self._update_worker_lock:
+            self._closing_update_generation = None
+            self._pending_update_state = None
 
     def _check_for_updates_async(self, _event=None) -> None:
         """Check without blocking startup or the active editing surface."""
@@ -592,10 +631,30 @@ class AmuletUI(wx.Frame):
             UPDATE_CHECK_INTERVAL_MS, self._periodic_update_check
         )
 
-    def _update_worker(self, generation: int) -> None:
-        state = check_for_update()
+    def _queue_update_state(
+        self, state: SquirrelUpdateState, generation: int
+    ) -> None:
+        """Return a worker result to wx without reviving accepted teardown."""
+
         if self._update_generation_is_active(generation):
-            wx.CallAfter(self._show_update_state, state, generation)
+            wx.CallAfter(self._deliver_update_state, state, generation)
+
+    def _deliver_update_state(
+        self, state: SquirrelUpdateState, generation: int
+    ) -> None:
+        """Deliver a worker result or retain it across a vetoed close."""
+
+        if self.IsBeingDeleted():
+            return
+        with self._update_worker_lock:
+            if self._is_closing:
+                if generation == self._closing_update_generation:
+                    self._pending_update_state = state, generation
+                return
+        self._show_update_state(state, generation)
+
+    def _update_worker(self, generation: int) -> None:
+        self._queue_update_state(check_for_update(), generation)
 
     def _stage_update_async(self, _event=None) -> None:
         """Stage a discovered update without interrupting active editing."""
@@ -638,8 +697,7 @@ class AmuletUI(wx.Frame):
                 version=version,
                 release_notes_url=release_notes_url,
             )
-        if self._update_generation_is_active(generation):
-            wx.CallAfter(self._show_update_state, state, generation)
+        self._queue_update_state(state, generation)
 
     def _open_update_release_notes(self, _event=None) -> None:
         """Open only the immutable release URL carried by the selected feed."""
@@ -730,13 +788,15 @@ class AmuletUI(wx.Frame):
             if event.CanVeto():
                 event.Veto()
             return
-        self._is_closing = True
-        self._update_state_generation += 1
+        with self._update_worker_lock:
+            self._is_closing = True
+            self._closing_update_generation = self._update_state_generation
+            self._update_state_generation += 1
         generation = self._update_restart_generation
         if not self._level_notebook.on_app_close(
             event, preapproved_generation=generation
         ):
-            self._is_closing = False
+            pending_state = self._resume_update_after_close_veto()
             if generation is not None:
                 process = self._update_restart_process
                 if process is not None and process.poll() is None:
@@ -750,7 +810,10 @@ class AmuletUI(wx.Frame):
                 self.SetStatusText(
                     "Update restart was cancelled; the update remains ready"
                 )
+            if pending_state is not None:
+                self._show_update_state(*pending_state)
             return
+        self._discard_pending_update_after_accepted_close()
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
         if self._scheduled_timer is not None and self._scheduled_timer.IsRunning():

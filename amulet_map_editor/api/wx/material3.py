@@ -275,7 +275,10 @@ def _ensure_material_dialog_chrome(window: wx.Window) -> None:
     outer = wx.BoxSizer(wx.VERTICAL)
     outer.Add(title_bar, 0, wx.EXPAND)
     outer.Add(content, 1, wx.EXPAND)
-    wx.Dialog.SetSizer(window, outer)
+    # ``content`` was installed on the dialog before this conversion.  It is
+    # now owned by ``outer``; deleting the dialog's old sizer here would destroy
+    # that adopted child and leave ``outer`` holding a dangling pointer.
+    wx.Dialog.SetSizer(window, outer, deleteOld=False)
     window._material3_dialog_chrome = True
     window.Layout()
 
@@ -304,7 +307,10 @@ def _ensure_material_frame_chrome(window: wx.Window) -> None:
     outer = wx.BoxSizer(wx.VERTICAL)
     outer.Add(title_bar, 0, wx.EXPAND)
     outer.Add(content, 1, wx.EXPAND)
-    wx.Frame.SetSizer(window, outer)
+    # ``content`` was installed on the frame before this conversion.  It is
+    # now owned by ``outer``; deleting the frame's old sizer here would destroy
+    # that adopted child and leave ``outer`` holding a dangling pointer.
+    wx.Frame.SetSizer(window, outer, deleteOld=False)
     window._material3_frame_chrome = True
     window.Layout()
 

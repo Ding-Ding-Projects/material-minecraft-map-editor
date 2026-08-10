@@ -48,7 +48,11 @@ try:
     import multiprocessing
 except Exception as e_:
     _log_error(e_)
-    input("Press ENTER to continue.")
+    try:
+        if sys.stdin is not None and sys.stdin.isatty():
+            input("Press ENTER to continue.")
+    except (AttributeError, EOFError, OSError, RuntimeError):
+        pass
     sys.exit(1)
 
 

@@ -468,13 +468,16 @@ class WorldSelectUI(wx.Panel):
         if extract_dir is None:
             return
 
-        if next(os.scandir(extract_dir), None) is not None:
-            wx.LogError(lang.get("select_world.extracting_world_not_empty"))
-            return
-
         busy_msg = wx.BusyInfo(lang.get("select_world.extracting_world_wait"))
 
         try:
+            if not os.path.isdir(extract_dir):
+                raise NotADirectoryError(
+                    f"Extraction destination is not an existing directory: {extract_dir}"
+                )
+            if next(os.scandir(extract_dir), None) is not None:
+                wx.LogError(lang.get("select_world.extracting_world_not_empty"))
+                return
             zipfile.ZipFile(mcworld_path).extractall(extract_dir)
         except Exception as e:
             del busy_msg
