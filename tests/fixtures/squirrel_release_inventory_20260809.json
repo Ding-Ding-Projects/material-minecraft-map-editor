@@ -1,0 +1,79 @@
+{
+  "captured_at": "2026-08-09T16:42:50Z",
+  "repository": "Ding-Ding-Projects/material-minecraft-map-editor",
+  "source": "GitHub Releases API",
+  "releases": [
+    {
+      "tag_name": "0.10.0-dev.426",
+      "draft": false,
+      "published_at": "2026-08-09T16:42:50Z",
+      "html_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.0-dev.426",
+      "assets": [
+        {
+          "name": "Amulet-0.10.0-dev426-full.nupkg",
+          "size": 86880504,
+          "digest": "sha256:02f51fcaedc10a3c8d1dda2320303b36a6dea47e5e38670ccfe1540030f28a8c",
+          "browser_download_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/Amulet-0.10.0-dev426-full.nupkg"
+        },
+        {
+          "name": "RELEASES",
+          "size": 84,
+          "digest": "sha256:241a547600a9728eaa71dd2168eeae44375dda68837517ae8859fbc4fca55750",
+          "browser_download_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/RELEASES"
+        },
+        {
+          "name": "Setup.exe",
+          "size": 87019520,
+          "digest": "sha256:a52d92b6d25cfcec15114b410f4f82be540d49e35810403dd32274bf256e5188",
+          "browser_download_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.426/Setup.exe"
+        }
+      ]
+    },
+    {
+      "tag_name": "0.10.0-dev.424",
+      "draft": false,
+      "published_at": "2026-08-09T16:20:24Z",
+      "html_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.0-dev.424",
+      "assets": [
+        {
+          "name": "Amulet-0.10.0-dev424-full.nupkg",
+          "size": 86874581,
+          "digest": "sha256:78c20e1c61f08b574081dc4ee133b419c19dda161dfc5ffe258e12fb53ab8262",
+          "browser_download_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.424/Amulet-0.10.0-dev424-full.nupkg"
+        },
+        {
+          "name": "RELEASES",
+          "size": 84,
+          "digest": "sha256:556d34c65f45e5860e9923e6d6e01ca42813ebf10e43c50e8bd71902e3c853e6",
+          "browser_download_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.424/RELEASES"
+        },
+        {
+          "name": "Setup.exe",
+          "size": 87012864,
+          "digest": "sha256:2de0065bdb3e66b076acdfbaf3a9307f4b02752fddd539847f71e761849a2e7a",
+          "browser_download_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.424/Setup.exe"
+        }
+      ]
+    },
+    {
+      "tag_name": "0.10.76",
+      "draft": false,
+      "published_at": "2026-08-09T06:58:50Z",
+      "html_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/tag/0.10.76",
+      "assets": [
+        {
+          "name": "Amulet-0.10.76-full.nupkg",
+          "size": 86456407,
+          "digest": "sha256:7bfecfb93f53183bc2b49c79d31161a09905b93f2cc70c0b5133ee3cbe9f5eb0",
+          "browser_download_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.76/Amulet-0.10.76-full.nupkg"
+        },
+        {
+          "name": "RELEASES",
+          "size": 78,
+          "digest": "sha256:5d60eba309e0131854601b66b60810cf45f3bff53b28045e1073e508b33f1fce",
+          "browser_download_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.76/RELEASES"
+        }
+      ]
+    }
+  ]
+}

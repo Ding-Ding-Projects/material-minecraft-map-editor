@@ -50,8 +50,9 @@ def update_copy(
         cantonese = f"有新版本 {version_text}。撳「Stage available update」先下載，唔會打斷你而家嘅工作。"
         title_en, title_zh = "Update available", "有更新"
     elif status == "ready_to_restart":
-        english = "The unsigned update is staged. Choose Restart to install update when your work is saved."
-        cantonese = "未簽署更新已準備好。儲存好工作後撳「Restart to install update」就可以安裝。"
+        ready_version = f" {version}" if version else ""
+        english = f"The unsigned update{ready_version} is staged. Choose Restart to install update when your work is saved."
+        cantonese = f"未簽署更新{ready_version} 已準備好。儲存好工作後撳「Restart to install update」就可以安裝。"
         title_en, title_zh = "Update ready", "更新已準備"
     elif status == "failed":
         reason = detail or "The update feed was unavailable."
@@ -97,3 +98,14 @@ def action_labels(status: str) -> Tuple[str, str]:
         "ready_to_restart": "Restart to install update",
         "failed": "Check for updates",
     }.get(status, "Close"), "Later"
+
+
+def release_notes_label() -> str:
+    """Return the localized label for the validated release-notes action."""
+
+    mode = _presentation().language_mode
+    if mode == "cantonese":
+        return "版本說明"
+    if mode == "bilingual":
+        return "Release notes · 版本說明"
+    return "Release notes"

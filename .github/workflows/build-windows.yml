@@ -4,6 +4,11 @@ on:
   push:
     branches: ['**']
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional canonical major.minor.patch or major.minor.0-dev.run tag
+        required: false
+        type: string
   release:
     types: [published]
 
@@ -15,6 +20,8 @@ jobs:
     if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
     outputs:
       build_version: ${{ steps.resolve-version.outputs.build_version }}
+      build_channel: ${{ steps.resolve-version.outputs.build_channel }}
+      source_tag: ${{ steps.resolve-version.outputs.source_tag }}
       tests_passed: ${{ steps.release-gating-tests.outcome == 'success' }}
     strategy:
       fail-fast: false
@@ -69,68 +76,145 @@ jobs:
       id: resolve-version
       shell: pwsh
       env:
-        RELEASE_TAG: ${{ github.event.release.tag_name }}
+        RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag || '' }}
         RUN_NUMBER: ${{ github.run_number }}
       run: |
         $raw = $env:RELEASE_TAG
         $fallback = "0.10.0-dev.$env:RUN_NUMBER"
         if ([string]::IsNullOrWhiteSpace($raw)) { $raw = $fallback }
-        $version = (python scripts/normalize_squirrel_version.py --raw $raw --fallback $fallback).Trim()
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($version)) {
+        $resolutionJson = (python scripts/normalize_squirrel_version.py --raw $raw --fallback $fallback --json).Trim()
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolutionJson)) {
           throw "Could not normalize Squirrel version from '$raw' with fallback '$fallback'."
         }
+        $resolution = $resolutionJson | ConvertFrom-Json
+        $version = [string]$resolution.version
+        $channel = [string]$resolution.channel
+        $source = [string]$resolution.source
+        if ([string]::IsNullOrWhiteSpace($version) -or
+            $channel -notin @('automated', 'stable') -or
+            [string]::IsNullOrWhiteSpace($source)) {
+          throw "Squirrel version resolution returned an unsupported channel or empty value: $resolutionJson"
+        }
         "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "BUILD_CHANNEL=$channel" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "BUILD_SOURCE_TAG=$source" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "build_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        "build_channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        "source_tag=$source" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-    - name: Fetch previous full package for delta
+    - name: Fetch previous Squirrel feed for delta
       shell: pwsh
       env:
         GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
         CURRENT_VERSION: ${{ env.BUILD_VERSION }}
-        CURRENT_RELEASE_TAG: ${{ github.event.release.tag_name }}
+        CURRENT_CHANNEL: ${{ env.BUILD_CHANNEL }}
+        CURRENT_SOURCE_TAG: ${{ env.BUILD_SOURCE_TAG }}
       run: |
         $destination = Join-Path $PWD 'installer\dist\squirrel\previous'
         New-Item -ItemType Directory -Force $destination | Out-Null
-        $candidates = @()
-        try {
-          $releaseJson = & gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName,isDraft,isPrerelease,publishedAt
-          if ($LASTEXITCODE -ne 0) { throw "gh release list failed with exit code $LASTEXITCODE" }
-          $releases = $releaseJson | ConvertFrom-Json
-          $candidates = @($releases |
-            Where-Object { -not $_.isDraft -and $_.tagName -ne $env:CURRENT_RELEASE_TAG } |
-            Sort-Object publishedAt -Descending)
-        } catch {
-          Write-Warning "Could not enumerate prior releases; delta generation will be skipped: $($_.Exception.Message)"
+        # gh release list paginates internally. Fetch one sentinel beyond the
+        # selector's 500-entry ceiling so a truncated inventory fails closed.
+        $releaseJson = & gh release list --repo $env:GITHUB_REPOSITORY --limit 501 --json tagName,isDraft,isPrerelease,publishedAt
+        if ($LASTEXITCODE -ne 0) { throw "gh release list failed with exit code $LASTEXITCODE" }
+        $candidateTags = @($releaseJson | & python scripts/select_squirrel_delta_candidates.py `
+          --current-source $env:CURRENT_SOURCE_TAG --channel $env:CURRENT_CHANNEL --limit 8)
+        if ($LASTEXITCODE -ne 0) {
+          throw "Could not select a bounded semantic delta base for $env:CURRENT_SOURCE_TAG on $env:CURRENT_CHANNEL."
         }
-        $selected = $null
-        :releaseSearch foreach ($candidate in $candidates) {
+        $selectedPackage = $null
+        $selectedReleases = $null
+        $selectedPackageDigest = ''
+        $selectedReleasesDigest = ''
+        $selectedSourceTag = ''
+        :releaseSearch foreach ($candidateTag in $candidateTags) {
+          $assetJson = & gh release view $candidateTag --repo $env:GITHUB_REPOSITORY --json tagName,isDraft,assets
+          if ($LASTEXITCODE -ne 0) { throw "gh release view $candidateTag failed with exit code $LASTEXITCODE" }
+          $releaseMetadata = $assetJson | ConvertFrom-Json
+          if ($releaseMetadata.tagName -cne $candidateTag -or $releaseMetadata.isDraft) {
+            throw "Release metadata did not match the selected published tag $candidateTag."
+          }
+          $assets = @($releaseMetadata.assets)
+          if ($assets.Count -gt 32) {
+            throw "Release $candidateTag exceeds the 32-asset inspection limit."
+          }
+          $releaseAssets = @($assets | Where-Object { $_.name -ceq 'RELEASES' })
+          $packageAssets = @($assets | Where-Object { $_.name -cmatch '^Amulet-\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+)?-full\.nupkg$' })
+          if ($releaseAssets.Count -eq 0 -and $packageAssets.Count -eq 0) {
+            Write-Host "Release $candidateTag has no Squirrel feed pair; checking the next older compatible release."
+            continue
+          }
+          if ($releaseAssets.Count -ne 1 -or $packageAssets.Count -ne 1) {
+            throw "Release $candidateTag must provide exactly one RELEASES and one full package; found $($releaseAssets.Count) and $($packageAssets.Count)."
+          }
+          $releaseAsset = $releaseAssets[0]
+          $packageAsset = $packageAssets[0]
+          $releaseSize = [long]$releaseAsset.size
+          $packageSize = [long]$packageAsset.size
+          if ($releaseSize -lt 1 -or $releaseSize -gt 262144) {
+            throw "Release $candidateTag has a RELEASES asset outside the 1..262144 byte limit."
+          }
+          if ($packageSize -lt 1 -or $packageSize -gt 134217728) {
+            throw "Release $candidateTag has a full package outside the 1..134217728 byte limit."
+          }
+          foreach ($asset in @($releaseAsset, $packageAsset)) {
+            $digest = [string]$asset.digest
+            if (-not [string]::IsNullOrWhiteSpace($digest) -and $digest -cnotmatch '^sha256:[0-9a-f]{64}$') {
+              throw "Release $candidateTag asset $($asset.name) has malformed SHA-256 metadata."
+            }
+          }
+
           $candidateDirectory = Join-Path $destination ([guid]::NewGuid().ToString('N'))
           New-Item -ItemType Directory -Force $candidateDirectory | Out-Null
-          try {
-            & gh release download $candidate.tagName --repo $env:GITHUB_REPOSITORY --pattern 'Amulet-*-full.nupkg' --dir $candidateDirectory --clobber
-            if ($LASTEXITCODE -ne 0) { throw "gh release download failed with exit code $LASTEXITCODE" }
-            $packages = @(Get-ChildItem $candidateDirectory -File -Filter 'Amulet-*-full.nupkg')
-            if (-not $packages) {
-              Write-Warning "Release $($candidate.tagName) had no full package; this candidate was skipped."
-            }
-            foreach ($package in $packages) {
-              $validation = & python scripts/validate_squirrel_delta_base.py --current $env:CURRENT_VERSION --package $package.FullName 2>&1
-              if ($LASTEXITCODE -eq 0) {
-                $selected = $package
-                Write-Host "Previous full package selected for delta: $($package.Name) ($validation)"
-                break releaseSearch
-              }
-              Write-Warning "Skipping unsafe delta base from $($candidate.tagName): $validation"
-            }
-          } catch {
-            Write-Warning "Could not inspect release $($candidate.tagName) for a delta base: $($_.Exception.Message)"
+          foreach ($asset in @($releaseAsset, $packageAsset)) {
+            & gh release download $candidateTag --repo $env:GITHUB_REPOSITORY --pattern $asset.name --dir $candidateDirectory --clobber
+            if ($LASTEXITCODE -ne 0) { throw "gh release download $($asset.name) failed with exit code $LASTEXITCODE" }
           }
+          $releaseIndex = Get-Item -LiteralPath (Join-Path $candidateDirectory 'RELEASES') -ErrorAction Stop
+          $package = Get-Item -LiteralPath (Join-Path $candidateDirectory $packageAsset.name) -ErrorAction Stop
+          if ($releaseIndex.Length -ne $releaseSize -or $package.Length -ne $packageSize) {
+            throw "Downloaded asset size did not match GitHub metadata for release $candidateTag."
+          }
+          $validationArgs = @(
+            'scripts/validate_squirrel_delta_base.py',
+            '--current', $env:CURRENT_VERSION,
+            '--package', $package.FullName,
+            '--releases', $releaseIndex.FullName,
+            '--expected-source', $candidateTag,
+            '--channel', $env:CURRENT_CHANNEL
+          )
+          if (-not [string]::IsNullOrWhiteSpace([string]$packageAsset.digest)) {
+            $validationArgs += @('--package-sha256', [string]$packageAsset.digest)
+          }
+          if (-not [string]::IsNullOrWhiteSpace([string]$releaseAsset.digest)) {
+            $validationArgs += @('--releases-sha256', [string]$releaseAsset.digest)
+          }
+          $validation = & python @validationArgs 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release $candidateTag failed matched Squirrel feed validation: $validation"
+          }
+          $selectedPackage = $package
+          $selectedReleases = $releaseIndex
+          $selectedPackageDigest = [string]$packageAsset.digest
+          $selectedReleasesDigest = [string]$releaseAsset.digest
+          $selectedSourceTag = $candidateTag
+          Write-Host "Previous Squirrel feed selected for delta: $($package.Name) + RELEASES ($validation)"
+          break releaseSearch
         }
-        if ($selected) {
-          "PREVIOUS_PACKAGE=$($selected.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        if ($selectedPackage -and $selectedReleases) {
+          "PREVIOUS_PACKAGE=$($selectedPackage.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_RELEASES=$($selectedReleases.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_PACKAGE_SHA256=$selectedPackageDigest" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_RELEASES_SHA256=$selectedReleasesDigest" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_SOURCE_TAG=$selectedSourceTag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_CHANNEL=$env:CURRENT_CHANNEL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         } else {
           Write-Host 'No prior release available; this is a full-only first release.'
           "PREVIOUS_PACKAGE=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_RELEASES=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_PACKAGE_SHA256=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_RELEASES_SHA256=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_SOURCE_TAG=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PREVIOUS_CHANNEL=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         }
 
     - name: Windows - Create unsigned Squirrel.Windows release
@@ -142,18 +226,32 @@ jobs:
         -InputDirectory "$PWD/installer/dist/amulet"
         -OutputDirectory "$PWD/installer/dist/squirrel"
         -PreviousPackagePath "$env:PREVIOUS_PACKAGE"
+        -PreviousReleasesPath "$env:PREVIOUS_RELEASES"
+        -PreviousPackageSha256 "$env:PREVIOUS_PACKAGE_SHA256"
+        -PreviousReleasesSha256 "$env:PREVIOUS_RELEASES_SHA256"
+        -PreviousSourceTag "$env:PREVIOUS_SOURCE_TAG"
+        -PreviousChannel "$env:PREVIOUS_CHANNEL"
 
     - name: Verify unsigned installer contract
       shell: pwsh
       run: |
         $releaseDir = Join-Path $PWD "installer/dist/squirrel/Amulet-$env:BUILD_VERSION-Windows-${{ matrix.cfg.architecture }}"
         $required = @('Setup.exe', 'RELEASES', "Amulet-$env:BUILD_VERSION-full.nupkg")
+        if (-not [string]::IsNullOrWhiteSpace($env:PREVIOUS_PACKAGE)) {
+          $required += "Amulet-$env:BUILD_VERSION-delta.nupkg"
+        }
         foreach ($name in $required) {
           $path = Join-Path $releaseDir $name
           if (-not (Test-Path -LiteralPath $path)) { throw "Expected Squirrel artifact was not produced: $path" }
         }
         $releaseIndex = Get-Content (Join-Path $releaseDir 'RELEASES') -Raw
         if ($releaseIndex -notmatch [regex]::Escape("Amulet-$env:BUILD_VERSION-full.nupkg")) { throw 'RELEASES does not reference the full package' }
+        $releaseNames = @($releaseIndex -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { ($_ -split '\s+')[1] })
+        $expectedReleaseNames = @("Amulet-$env:BUILD_VERSION-full.nupkg")
+        $difference = @(Compare-Object -ReferenceObject $expectedReleaseNames -DifferenceObject $releaseNames)
+        if ($difference.Count -ne 0) {
+          throw "RELEASES must advertise only the current full package: $($releaseNames -join ', ')"
+        }
         Get-ChildItem $releaseDir -File -Include '*.exe', '*.dll' | ForEach-Object {
           $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName
           if ($signature.Status -ne 'NotSigned') { throw "Unsigned policy violated for $($_.Name): $($signature.Status)" }
@@ -207,8 +305,10 @@ jobs:
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
-          RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || '' }}
-          RELEASE_TAG_FALLBACK: 0.10.0-dev.${{ github.run_number }}
+          RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || inputs.release_tag || '' }}
+          RELEASE_TAG_FALLBACK: ${{ needs.deploy.outputs.source_tag }}
+          RELEASE_TAG_EXPECTED_SOURCE: ${{ needs.deploy.outputs.source_tag }}
+          RELEASE_TAG_EXPECTED_VERSION: ${{ needs.deploy.outputs.build_version }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
           RUN_SHA: ${{ github.sha }}

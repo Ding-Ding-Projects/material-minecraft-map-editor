@@ -16,8 +16,9 @@ set "PYTHON_CMD=%PYTHON_EXE% %PYTHON_ARGS%"
 %PYTHON_CMD% -m pip install --user pyinstaller~=6.18 || (echo [installer] PyInstaller bootstrap failed.& exit /b 1)
 if exist "%~dp0installer\dist" rmdir /s /q "%~dp0installer\dist"
 %PYTHON_CMD% -m PyInstaller -y --distpath "%~dp0installer\dist" "%~dp0installer\Amulet.spec" || (echo [installer] PyInstaller build failed.& exit /b 1)
-for /f "delims=" %%V in ('%PYTHON_CMD% "%~dp0scripts\normalize_squirrel_version.py" --raw 0.10.0-dev-local --fallback 0.10.0-dev-local') do set "BUILD_VERSION=%%V"
-if not defined BUILD_VERSION (echo [installer] Could not resolve a Squirrel version.& exit /b 1)
+rem This label is local-only and is never a release tag. Public builds resolve
+rem and validate their canonical source/package identity in build-windows.yml.
+set "BUILD_VERSION=0.10.0-dev-local"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0installer\build-squirrel.ps1" -Version "%BUILD_VERSION%" -Architecture x64 -InputDirectory "%~dp0installer\dist\amulet" -OutputDirectory "%~dp0installer\dist\squirrel" || exit /b 1
 set "RELEASE_DIR=%~dp0installer\dist\squirrel\Amulet-%BUILD_VERSION%-Windows-x64"
 if not exist "%RELEASE_DIR%\Setup.exe" (echo [installer] Setup.exe was not produced.& exit /b 1)

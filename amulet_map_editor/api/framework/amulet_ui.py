@@ -8,6 +8,7 @@ import sys
 import os
 import subprocess
 import threading
+import time
 
 from amulet.api.errors import LoaderNoneMatched
 from amulet_map_editor.api.wx.ui.select_world import open_level_from_dialog
@@ -43,10 +44,12 @@ from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
 from amulet_map_editor.api.wx.ui.notification_toast import NotificationToast
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
 from .squirrel_update import (
+    build_restart_command,
     check_for_update,
     find_update_exe,
     stage_update,
     SquirrelUpdateState,
+    validate_release_notes_url,
 )
 
 log = logging.getLogger(__name__)
@@ -130,19 +133,43 @@ class AmuletUI(wx.Frame):
         self._shell_sizer.Add(self._command_bar, 0, wx.EXPAND)
         self._update_banner = wx.Panel(self._shell)
         self._update_banner.SetName("Update notification")
-        self._update_banner_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self._update_banner_sizer = wx.BoxSizer(wx.VERTICAL)
+        self._update_banner_actions_sizer = wx.BoxSizer(wx.VERTICAL)
         self._update_banner_text = wx.StaticText(self._update_banner)
         self._update_banner_text.SetName("Update notification message")
         self._update_banner_text.Wrap(620)
         self._update_banner_sizer.Add(
-            self._update_banner_text, 1, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12
+            self._update_banner_text, 0, wx.EXPAND | wx.BOTTOM, 8
         )
-        self._update_banner_action = wx.Button(self._update_banner)
-        self._update_banner_action.SetName("Update notification primary action")
-        self._update_banner_sizer.Add(self._update_banner_action, 0, wx.RIGHT, 8)
-        self._update_banner_later = wx.Button(self._update_banner, label="Later")
-        self._update_banner_later.SetName("Update notification later action")
-        self._update_banner_sizer.Add(self._update_banner_later, 0)
+        self._update_banner_action = MaterialButton(
+            self._update_banner,
+            "Update action",
+            variant="filled",
+            name="Update notification primary action",
+        )
+        self._update_banner_actions_sizer.Add(
+            self._update_banner_action, 0, wx.ALIGN_RIGHT | wx.BOTTOM, 4
+        )
+        self._update_banner_release_notes = MaterialButton(
+            self._update_banner,
+            "Release notes",
+            variant="text",
+            name="Update notification release notes",
+        )
+        self._update_banner_release_notes.Hide()
+        self._update_banner_actions_sizer.Add(
+            self._update_banner_release_notes, 0, wx.ALIGN_RIGHT | wx.BOTTOM, 4
+        )
+        self._update_banner_later = MaterialButton(
+            self._update_banner,
+            "Later",
+            variant="text",
+            name="Update notification later action",
+        )
+        self._update_banner_actions_sizer.Add(
+            self._update_banner_later, 0, wx.ALIGN_RIGHT
+        )
+        self._update_banner_sizer.Add(self._update_banner_actions_sizer, 0, wx.EXPAND)
         self._update_banner.SetSizer(self._update_banner_sizer)
         self._update_banner.Hide()
         self._shell_sizer.Add(self._update_banner, 0, wx.EXPAND | wx.ALL, 8)
@@ -179,6 +206,9 @@ class AmuletUI(wx.Frame):
         self._update_thread = None
         self._update_stage_thread = None
         self._update_state = SquirrelUpdateState("unknown")
+        self._update_state_generation = 0
+        self._update_restart_generation: int | None = None
+        self._update_restart_process: subprocess.Popen | None = None
         # The narrator is opt-in and defaults to a no-op backend, so wiring the
         # event boundary never makes startup depend on an installed voice.
         self._narrator = tts_narrator.Narrator()
@@ -194,6 +224,9 @@ class AmuletUI(wx.Frame):
         self._scheduled_timer = wx.CallLater(1000, self._refresh_scheduled_runtime)
         self._notification_toasts: list[NotificationToast] = []
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
+        self._update_banner_release_notes.Bind(
+            wx.EVT_BUTTON, self._open_update_release_notes
+        )
         self._update_banner_later.Bind(wx.EVT_BUTTON, self._hide_update_banner)
         self.CreateStatusBar()
         wx.CallLater(1000, self._check_for_updates_async)
@@ -489,6 +522,8 @@ class AmuletUI(wx.Frame):
         """Keep the side rail compact while preserving the editor viewport."""
 
         self._apply_tab_rail()
+        self._update_banner_text.Wrap(max(240, event.GetSize().width - 48))
+        self._update_banner.Layout()
         event.Skip()
 
     def _open_command_palette(self, _event=None) -> None:
@@ -514,11 +549,25 @@ class AmuletUI(wx.Frame):
 
     def _check_for_updates_async(self, _event=None) -> None:
         """Check without blocking startup or the active editing surface."""
+        if (
+            self._update_restart_generation is not None
+            or self._update_state.status == "ready_to_restart"
+            or (
+                self._update_stage_thread is not None
+                and self._update_stage_thread.is_alive()
+            )
+        ):
+            return
         if self._update_thread is not None and self._update_thread.is_alive():
             return
+        self._update_state_generation += 1
+        generation = self._update_state_generation
         self.SetStatusText("Checking for updates…")
         self._update_thread = threading.Thread(
-            target=self._update_worker, name="amulet-update-check", daemon=True
+            target=self._update_worker,
+            args=(generation,),
+            name="amulet-update-check",
+            daemon=True,
         )
         self._update_thread.start()
 
@@ -531,9 +580,9 @@ class AmuletUI(wx.Frame):
             UPDATE_CHECK_INTERVAL_MS, self._periodic_update_check
         )
 
-    def _update_worker(self) -> None:
+    def _update_worker(self, generation: int) -> None:
         state = check_for_update()
-        wx.CallAfter(self._show_update_state, state)
+        wx.CallAfter(self._show_update_state, state, generation)
 
     def _stage_update_async(self, _event=None) -> None:
         """Stage a discovered update without interrupting active editing."""
@@ -546,48 +595,135 @@ class AmuletUI(wx.Frame):
         ):
             return
         self.SetStatusText("Downloading update in the background…")
+        self._update_state_generation += 1
+        generation = self._update_state_generation
         feed_url = self._update_state.feed_url
+        version = self._update_state.version
+        release_notes_url = self._update_state.release_notes_url
         self._update_stage_thread = threading.Thread(
             target=self._stage_update_worker,
-            args=(feed_url,),
+            args=(feed_url, version, release_notes_url, generation),
             name="amulet-update-stage",
             daemon=True,
         )
         self._update_stage_thread.start()
 
-    def _stage_update_worker(self, feed_url: str | None) -> None:
+    def _stage_update_worker(
+        self,
+        feed_url: str | None,
+        version: str | None,
+        release_notes_url: str | None,
+        generation: int,
+    ) -> None:
         if not feed_url:
             state = SquirrelUpdateState("failed", detail="Update feed is missing")
         else:
-            state = stage_update(feed_url)
-        wx.CallAfter(self._show_update_state, state)
+            state = stage_update(
+                feed_url,
+                version=version,
+                release_notes_url=release_notes_url,
+            )
+        wx.CallAfter(self._show_update_state, state, generation)
+
+    def _open_update_release_notes(self, _event=None) -> None:
+        """Open only the immutable release URL carried by the selected feed."""
+
+        release_notes_url = self._update_state.release_notes_url
+        if not release_notes_url:
+            self.SetStatusText("Release notes are unavailable for this update")
+            return
+        try:
+            release_notes_url = validate_release_notes_url(release_notes_url)
+        except ValueError as exc:
+            self.SetStatusText(f"Release notes URL was rejected: {exc}")
+            return
+        if not wx.LaunchDefaultBrowser(release_notes_url):
+            self.SetStatusText("Could not open the release notes")
 
     def _restart_to_install_update(self, _event=None) -> None:
         """Restart only after Squirrel has reported a ready staged update."""
-        if self._update_state.status != "ready_to_restart":
+        ready_state = self._update_state
+        generation = self._update_state_generation
+        if ready_state.status != "ready_to_restart":
             self.SetStatusText("Stage an update before restarting")
             return
-        if any(
-            not page.can_close() for page in self._level_notebook._open_worlds.values()
-        ):
+        if self._update_restart_generation is not None:
+            return
+        if not self._level_notebook.begin_preapproved_app_close(generation):
             self.SetStatusText(
                 "Save or close unsaved work before installing the update"
             )
             return
         updater = find_update_exe()
         if updater is None:
+            self._level_notebook.cancel_preapproved_app_close(generation)
             self.SetStatusText("Update restart unavailable in this installation")
             return
+        self._update_restart_generation = generation
         try:
-            subprocess.Popen([str(updater), "--restart"], close_fds=True)
-        except OSError as exc:
+            process = subprocess.Popen(build_restart_command(updater), close_fds=True)
+        except (OSError, ValueError) as exc:
+            self._update_restart_generation = None
+            self._level_notebook.cancel_preapproved_app_close(generation)
             self.SetStatusText(f"Could not restart for update: {exc}")
             return
-        self._hide_update_banner()
-        self.Close()
+        self._update_restart_process = process
+        # Give Update.exe a bounded handoff window before the parent exits.
+        time.sleep(0.5)
+        exit_code = process.poll()
+        if exit_code is not None:
+            self._update_restart_process = None
+            self._update_restart_generation = None
+            self._level_notebook.cancel_preapproved_app_close(generation)
+            self.SetStatusText(
+                "Could not restart for update: Update.exe exited during the "
+                f"handoff with code {exit_code}; the update remains ready"
+            )
+            return
+        if (
+            self._update_restart_generation != generation
+            or self._update_state_generation != generation
+            or self._update_state is not ready_state
+        ):
+            try:
+                process.terminate()
+            except OSError:
+                pass
+            self._update_restart_process = None
+            self._update_restart_generation = None
+            self._level_notebook.cancel_preapproved_app_close(generation)
+            self.SetStatusText("Update restart state changed; try again")
+            return
+        if self.Close() is False:
+            try:
+                process.terminate()
+            except OSError:
+                pass
+            self._update_restart_process = None
+            self._update_restart_generation = None
+            self._level_notebook.cancel_preapproved_app_close(generation)
+            self.SetStatusText("Update restart was cancelled; the update remains ready")
 
     def _on_app_close(self, event: wx.CloseEvent) -> None:
         """Stop the refresh timer before the notebook applies close protection."""
+        generation = self._update_restart_generation
+        if not self._level_notebook.on_app_close(
+            event, preapproved_generation=generation
+        ):
+            if generation is not None:
+                process = self._update_restart_process
+                if process is not None and process.poll() is None:
+                    try:
+                        process.terminate()
+                    except OSError:
+                        pass
+                self._update_restart_process = None
+                self._update_restart_generation = None
+                self._level_notebook.cancel_preapproved_app_close(generation)
+                self.SetStatusText(
+                    "Update restart was cancelled; the update remains ready"
+                )
+            return
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
         if self._scheduled_timer is not None and self._scheduled_timer.IsRunning():
@@ -596,7 +732,6 @@ class AmuletUI(wx.Frame):
         self._narrator.close()
         if self._dim_sum_toast is not None:
             self._dim_sum_toast.dismiss()
-        self._level_notebook.on_app_close(event)
 
     def _update_primary_action(self, _event=None) -> None:
         if self._update_state.status == "available":
@@ -618,6 +753,17 @@ class AmuletUI(wx.Frame):
         action_label, later_label = update_copy.action_labels(state.status)
         self._update_banner_action.SetLabel(action_label)
         self._update_banner_later.SetLabel(later_label)
+        self._update_banner_release_notes.SetLabel(update_copy.release_notes_label())
+        release_notes_url = state.release_notes_url
+        try:
+            if release_notes_url:
+                validate_release_notes_url(release_notes_url)
+        except ValueError:
+            release_notes_url = None
+        self._update_banner_release_notes.Show(release_notes_url is not None)
+        self._update_banner_release_notes.SetToolTip(
+            "Open the immutable GitHub release notes for this update."
+        )
         if state.status == "available":
             self._update_banner_action.SetToolTip(
                 "Download the unsigned update in the background."
@@ -631,15 +777,28 @@ class AmuletUI(wx.Frame):
         self._update_banner.Show()
         self._shell.Layout()
 
-    def _show_update_state(self, state: SquirrelUpdateState) -> None:
+    def _show_update_state(
+        self, state: SquirrelUpdateState, generation: int | None = None
+    ) -> None:
         """Render a persistent, non-modal status message for update state."""
+        if self._update_restart_generation is not None:
+            return
+        if generation is not None and generation != self._update_state_generation:
+            return
         self._update_state = state
         if state.status in {"available", "ready_to_restart", "failed"}:
             self._render_update_banner(state)
             title, body = update_copy.update_copy(
                 state.status, version=state.version, detail=state.detail
             )
-            notification_key = (state.status, state.version, state.detail, title, body)
+            notification_key = (
+                state.status,
+                state.version,
+                state.release_notes_url,
+                state.detail,
+                title,
+                body,
+            )
             if notification_key != self._last_update_notification_key:
                 notifications.add(
                     (
@@ -667,7 +826,7 @@ class AmuletUI(wx.Frame):
             )
         elif state.status == "ready_to_restart":
             self.SetStatusText(
-                "Update ready (unsigned) — choose Restart to install update"
+                f"Update {state.version or 'new version'} ready (unsigned) — choose Restart to install update"
             )
         elif state.status == "failed":
             self.SetStatusText(f"Update check failed: {state.detail or 'offline'}")
@@ -697,6 +856,10 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
         self._open_worlds = {}
         self._tab_workspace = TabWorkspace("main-window")
         self._owner_frame = None
+        self._preapproved_app_close: (
+            tuple[int, tuple[CLOSEABLE_PAGE_TYPE, ...]] | None
+        ) = None
+        self._active_preapproved_close_generation: int | None = None
 
     def init(self):
         self._add_world_tab(self._main_menu, lang.get("main_menu.tab_name"))
@@ -767,7 +930,17 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
         """Handle the page closing."""
         page: CLOSEABLE_PAGE_TYPE = self.GetPage(evt.GetSelection())
         if page is not self._main_menu:
-            if page.can_disable() and page.can_close():
+            preapproved = False
+            if (
+                self._preapproved_app_close is not None
+                and self._active_preapproved_close_generation
+                == self._preapproved_app_close[0]
+            ):
+                preapproved = any(
+                    page is approved_page
+                    for approved_page in self._preapproved_app_close[1]
+                )
+            if preapproved or (page.can_disable() and page.can_close()):
                 path = page.path
                 page.disable()
                 page.close()
@@ -803,9 +976,55 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
         if self._owner_frame is not None:
             self._owner_frame._tab_rail.sync()
 
-    def on_app_close(self, evt: wx.CloseEvent):
-        for path, page in list(self._open_worlds.items()):
-            self.close_level(path)
+    def begin_preapproved_app_close(self, generation: int) -> bool:
+        """Ask each open page once and retain an exact close transaction."""
+
+        if self._preapproved_app_close is not None:
+            return False
+        pages = tuple(self._open_worlds.values())
+        for page in pages:
+            if not page.can_disable() or not page.can_close():
+                return False
+        self._preapproved_app_close = generation, pages
+        return True
+
+    def cancel_preapproved_app_close(self, generation: int) -> None:
+        if (
+            self._preapproved_app_close is not None
+            and self._preapproved_app_close[0] == generation
+        ):
+            self._preapproved_app_close = None
+            self._active_preapproved_close_generation = None
+
+    def on_app_close(
+        self,
+        evt: wx.CloseEvent,
+        *,
+        preapproved_generation: int | None = None,
+    ) -> bool:
+        preapproved = self._preapproved_app_close
+        if preapproved_generation is not None:
+            current_pages = tuple(self._open_worlds.values())
+            if (
+                preapproved is None
+                or preapproved[0] != preapproved_generation
+                or len(current_pages) != len(preapproved[1])
+                or any(
+                    current is not approved
+                    for current, approved in zip(current_pages, preapproved[1])
+                )
+            ):
+                self.cancel_preapproved_app_close(preapproved_generation)
+                evt.Veto()
+                return False
+            self._active_preapproved_close_generation = preapproved_generation
+        try:
+            for path, page in list(self._open_worlds.items()):
+                self.close_level(path)
+        finally:
+            if preapproved_generation is not None:
+                self._active_preapproved_close_generation = None
+                self._preapproved_app_close = None
         if self.GetPageCount() > 1:
             notify(
                 self,
@@ -813,8 +1032,10 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
                 lang.get("app.world_still_used"),
                 severity="warning",
             )
+            return False
         else:
             evt.Skip()
+            return True
 
     def extend_menu(self, menu_dict: dict) -> dict:
         return self.GetCurrentPage().menu(menu_dict)

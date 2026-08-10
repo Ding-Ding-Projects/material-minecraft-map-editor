@@ -1,32 +1,35 @@
-"""Normalize a release-event tag without evaluating event data as shell code."""
+"""Validate a canonical release tag against the built Squirrel identity."""
 
 from __future__ import annotations
 
 import os
-import re
+
+try:
+    from scripts.normalize_squirrel_version import resolve_squirrel_version
+except ModuleNotFoundError:  # Direct ``python scripts/...`` execution.
+    from normalize_squirrel_version import resolve_squirrel_version
 
 
-_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
+def normalize_release_tag(
+    raw: str | None,
+    fallback: str,
+    *,
+    expected_source: str | None = None,
+    expected_version: str | None = None,
+) -> str:
+    """Return the exact canonical source tag that produced the built package.
 
-
-def normalize_release_tag(raw: str | None, fallback: str) -> str:
-    """Return a bounded GitHub release tag, or the deterministic fallback.
-
-    The workflow supplies both values through environment variables.  A
-    ``refs/tags/`` prefix is accepted because event integrations sometimes
-    provide the fully-qualified ref, but the release API receives only the
-    tag name.  Unsupported values fail closed instead of becoming shell
-    syntax or an accidental release target.
+    The fallback is used only when no event/manual tag was supplied. Aliases,
+    unsupported channels, and any source/package identity mismatch fail closed
+    before a release API call can publish assets the updater will reject.
     """
 
-    candidate = (raw or "").strip()
-    if candidate.startswith("refs/tags/"):
-        candidate = candidate[len("refs/tags/") :]
-    if not candidate:
-        candidate = fallback.strip()
-    if not _TAG.fullmatch(candidate):
-        raise ValueError("release tag contains unsupported characters or is too long")
-    return candidate
+    resolution = resolve_squirrel_version(raw, fallback)
+    if expected_source is not None and resolution.source != expected_source:
+        raise ValueError("release tag did not match the built canonical source tag")
+    if expected_version is not None and resolution.version != expected_version:
+        raise ValueError("release tag would collide with a different package identity")
+    return resolution.source
 
 
 def main() -> None:
@@ -34,6 +37,8 @@ def main() -> None:
         normalize_release_tag(
             os.environ.get("RELEASE_TAG_INPUT"),
             os.environ.get("RELEASE_TAG_FALLBACK", ""),
+            expected_source=os.environ.get("RELEASE_TAG_EXPECTED_SOURCE") or None,
+            expected_version=os.environ.get("RELEASE_TAG_EXPECTED_VERSION") or None,
         )
     )
 
