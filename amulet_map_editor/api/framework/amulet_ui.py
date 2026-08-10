@@ -26,7 +26,8 @@ from amulet_map_editor.api import (
     scheduled_runtime,
 )
 from . import update_copy
-from amulet_map_editor.api.wx.components import MaterialButton
+from amulet_map_editor.api.material_menu import MaterialMenuItem
+from amulet_map_editor.api.wx.components import MaterialButton, MaterialMenu
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.modeless import show_modeless_dialog
 from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
@@ -129,7 +130,7 @@ class AmuletUI(wx.Frame):
         self._command_bar._material3_surface_role = "surface_container"
         self._command_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._command_bar.SetSizer(self._command_bar_sizer)
-        self._command_menus: list[wx.Menu] = []
+        self._command_menus: list[MaterialMenu] = []
         self._shell_sizer.Add(self._command_bar, 0, wx.EXPAND)
         self._update_banner = wx.Panel(self._shell)
         self._update_banner.SetName("Update notification")
@@ -225,6 +226,7 @@ class AmuletUI(wx.Frame):
         self._scheduled_runtime = scheduled_runtime.ScheduledRuntimeController(
             on_state=self._apply_scheduled_runtime_state
         )
+        self._scheduled_refresh_thread: threading.Thread | None = None
         self._scheduled_timer = wx.CallLater(1000, self._refresh_scheduled_runtime)
         self._notification_toasts: list[NotificationToast] = []
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
@@ -265,23 +267,35 @@ class AmuletUI(wx.Frame):
         self._shell.Layout()
 
     def _refresh_scheduled_runtime(self) -> None:
+        """Refresh scheduled values without ever overlapping worker threads."""
         if self.IsBeingDeleted():
+            return
+        self._scheduled_timer = wx.CallLater(
+            5 * 60 * 1000, self._refresh_scheduled_runtime
+        )
+        if (
+            self._scheduled_refresh_thread is not None
+            and self._scheduled_refresh_thread.is_alive()
+        ):
             return
         prefs = school_mode.presentation_preferences(preferences.load())
         base = {
             key: getattr(prefs, key)
             for key in ("language_mode", "theme", "density", "accent")
         }
-        threading.Thread(
-            target=self._scheduled_runtime.refresh,
+        self._scheduled_refresh_thread = threading.Thread(
+            target=self._scheduled_refresh_worker,
             args=(base,),
             name="amulet-scheduled-settings",
             daemon=True,
-        ).start()
-        self._scheduled_timer = wx.CallLater(
-            5 * 60 * 1000, self._refresh_scheduled_runtime
         )
+        self._scheduled_refresh_thread.start()
 
+    def _scheduled_refresh_worker(self, base: dict[str, object]) -> None:
+        try:
+            self._scheduled_runtime.refresh(base)
+        except Exception:  # keep a scheduled preference error off the UI thread
+            log.exception("Scheduled settings refresh failed")
     def _apply_scheduled_runtime_state(
         self, state: scheduled_runtime.RuntimeScheduleState
     ) -> None:
@@ -389,11 +403,8 @@ class AmuletUI(wx.Frame):
         self._level_notebook.close_level(path)
 
     def create_menu(self):
-        """
-        Create the UI menu.
-
-        Adds the top level menu items then extends it from the active page
-        """
+        """Build the app-owned, searchable Material 3 command menus."""
+        # BEGIN CODEX MATERIAL 3 COMMAND MENU
         menu_dict = {}
         menu_dict.setdefault(lang.get("menu_bar.file.menu_name"), {}).setdefault(
             "system", {}
@@ -401,7 +412,6 @@ class AmuletUI(wx.Frame):
             lang.get("menu_bar.file.open_world"),
             lambda evt: open_level_from_dialog(self),
         )
-        # menu_dict.setdefault(lang.get('menu_bar.file.menu_name'), {}).setdefault('system', {}).setdefault('Create World', lambda: self.world.save())
         menu_dict.setdefault(lang.get("menu_bar.file.menu_name"), {}).setdefault(
             "exit", {}
         ).setdefault(lang.get("menu_bar.file.quit"), lambda evt: self.Close())
@@ -424,39 +434,40 @@ class AmuletUI(wx.Frame):
         for old_menu in self._command_menus:
             old_menu.Destroy()
         self._command_menus.clear()
+
         for menu_name, menu_data in menu_dict.items():
-            menu = wx.Menu()
-            separator = False
-            for menu_section in menu_data.values():
-                if separator:
-                    menu.AppendSeparator()
-                separator = True
+            items: list[MaterialMenuItem] = []
+            for section_name, menu_section in menu_data.items():
+                if not isinstance(menu_section, dict):
+                    continue
+                section_label = str(section_name).replace("_", " ").strip().title()
                 for menu_item_name, menu_item_options in menu_section.items():
                     callback = None
-                    menu_item_description = None
-                    wx_id = None
+                    description = ""
+                    wx_id = wx.ID_ANY
                     if callable(menu_item_options):
                         callback = menu_item_options
                     elif isinstance(menu_item_options, tuple):
                         if len(menu_item_options) >= 1:
                             callback = menu_item_options[0]
                         if len(menu_item_options) >= 2:
-                            menu_item_description = menu_item_options[1]
-                        if len(menu_item_options) >= 3:
-                            wx_id = menu_item_options[2]
-                    else:
+                            description = str(menu_item_options[1] or "")
+                        if len(menu_item_options) >= 3 and menu_item_options[2]:
+                            wx_id = int(menu_item_options[2])
+                    if not callable(callback):
                         continue
-
-                    if not menu_item_description:
-                        menu_item_description = ""
-                    if not wx_id:
-                        wx_id = wx.ID_ANY
-
-                    menu_item: wx.MenuItem = menu.Append(
-                        wx_id, menu_item_name, menu_item_description
+                    items.append(
+                        MaterialMenuItem(
+                            label=str(menu_item_name),
+                            callback=callback,
+                            description=description,
+                            identifier=int(wx_id),
+                            section=section_label,
+                        )
                     )
-                    menu.Bind(wx.EVT_MENU, callback, menu_item)
-            label = menu_name.replace("&", "")
+
+            label = str(menu_name).replace("&", "")
+            popup = MaterialMenu(self._command_bar, title=label, items=items)
             button = MaterialButton(
                 self._command_bar,
                 label,
@@ -466,15 +477,13 @@ class AmuletUI(wx.Frame):
             button.SetMinSize(wx.Size(max(72, button.GetBestSize().width), 40))
             button.Bind(
                 wx.EVT_BUTTON,
-                lambda _event, control=button, popup=menu: control.PopupMenu(
-                    popup, wx.Point(0, control.GetClientSize().height)
-                ),
+                lambda _event, control=button, menu=popup: menu.show_for(control),
             )
             self._command_bar_sizer.Add(button, 0, wx.LEFT | wx.RIGHT, 2)
-            self._command_menus.append(menu)
+            self._command_menus.append(popup)
         apply_material3(self._command_bar)
         self._command_bar.Layout()
-
+        # END CODEX MATERIAL 3 COMMAND MENU
     def _open_preferences(self, _event=None) -> None:
         dialog = PreferencesDialog(self)
         dialog.CentreOnParent()
@@ -1002,10 +1011,7 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
                 if old_page is not None:
                     old_page.disable()
 
-            if self.GetCurrentPage() is self._main_menu:
-                self.apply_tab_workspace()
-            else:
-                self.apply_tab_workspace()
+            self.apply_tab_workspace()
 
         if self.GetCurrentPage() is not None:
             self.GetCurrentPage().enable()
