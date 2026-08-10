@@ -1,0 +1,94 @@
+name: Pages
+
+# Publishes the Material 3 site to GitHub Pages through the repository's own
+# supported packaging path, so the published bundle and the one the `Material 3
+# site` workflow archives are produced by the same script and the same
+# validators rather than resembling each other.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/site/**'
+      - 'scripts/prepare_site_bundle.py'
+      - 'scripts/verify_site_release_manifest.py'
+      - 'scripts/verify_site_offline_assets.py'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A deployment is not idempotent: a newer push must queue behind a publish that
+# is already in flight rather than cancel it half-way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate dependency-free site source
+        shell: bash
+        run: |
+          set -euo pipefail
+          checked=0
+          while IFS= read -r script; do
+            node --check "$script"
+            echo "checked $script"
+            checked=$((checked + 1))
+          done < <(find docs/site -type f -name '*.js' | sort)
+          if [ "$checked" -eq 0 ]; then
+            echo "no site scripts found -- the bundle layout changed" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          HTMLParser().feed(Path("docs/site/index.html").read_text(encoding="utf-8"))
+          print("HTML parsed successfully")
+          PY
+          python3 scripts/verify_site_offline_assets.py docs/site
+
+      - name: Prepare the published bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Every asset reference in the site is relative, so a project-site
+          # subpath needs no rewriting and './' stays correct at any root.
+          python3 scripts/prepare_site_bundle.py \
+            --source docs/site \
+            --output build/site \
+            --base-url "./"
+          python3 scripts/verify_site_release_manifest.py build/site
+          python3 scripts/verify_site_offline_assets.py build/site
+          # These describe the owner-hosted Nginx route and are not served content.
+          rm -f build/site/Dockerfile build/site/docker-compose.yml
+          # Tell Pages not to preprocess the bundle it was handed.
+          touch build/site/.nojekyll
+          ls -la build/site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the published bundle
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

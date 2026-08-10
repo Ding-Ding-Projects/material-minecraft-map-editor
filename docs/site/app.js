@@ -1,54 +1,831 @@
-const tabs=[...document.querySelectorAll('.nav-tab')];
-const pages=[...document.querySelectorAll('.page-section')];
-function showTab(name){tabs.forEach(t=>{const active=t.dataset.tab===name;t.classList.toggle('is-active',active);t.setAttribute('aria-selected',String(active));t.tabIndex=active?0:-1});pages.forEach(p=>{const active=p.dataset.page===name;p.hidden=!active;p.classList.toggle('is-visible',active)});history.replaceState(null,'',`#${name}`);document.querySelector(`#${name}`)?.focus({preventScroll:true})}
-tabs.forEach(tab=>tab.addEventListener('click',()=>showTab(tab.dataset.tab)));
-tabs.forEach((tab,index)=>tab.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let next=index;if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;if(event.key==='ArrowRight')next=(index+1)%tabs.length;if(event.key==='Home')next=0;if(event.key==='End')next=tabs.length-1;tabs[next].focus();showTab(tabs[next].dataset.tab)}));
-document.querySelectorAll('[data-tab-link]').forEach(link=>link.addEventListener('click',()=>showTab(link.dataset.tabLink)));
-const initial=location.hash.slice(1);if(tabs.some(t=>t.dataset.tab===initial))showTab(initial);
-function safePublicationUrl(value,releaseTag,assetName){try{const url=new URL(value);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)return null;if(!url.pathname.endsWith('/'+assetName)||!url.pathname.includes('/download/'+releaseTag+'/'))return null;return url.href}catch(_error){return null}}
-function verifiedManifest(manifest){if(manifest?.schemaVersion!==1||manifest.verified!==true||!/^[0-9a-f]{40}$/i.test(String(manifest.commit||'')))return false;const tag=String(manifest.releaseTag||'');if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(tag))return false;return ['Setup.exe','RELEASES','full.nupkg'].every(key=>{const asset=manifest.assets?.[key];if(!asset||typeof asset.sha256!=='string'||!/^[0-9a-f]{64}$/i.test(asset.sha256))return false;const name=key==='full.nupkg'?String(asset.name||''):key;return key==='full.nupkg'?name.endsWith('-full.nupkg')&&safePublicationUrl(asset.url,tag,name)!==null:asset.name===key&&safePublicationUrl(asset.url,tag,key)!==null})}
-async function loadPublicationManifest(){const releaseDownload=document.querySelector('#release-download');const releaseEyebrow=document.querySelector('#release-eyebrow');const releaseTitle=document.querySelector('#release-title');const releaseCopy=document.querySelector('#release-copy');try{const configResponse=await fetch(new URL('site-config.json',document.baseURI),{cache:'no-store'});if(!configResponse.ok)throw new Error('site config unavailable');const config=await configResponse.json();const base=new URL(config.baseUrl||'./',document.baseURI);document.documentElement.dataset.baseUrl=base.href;const manifestUrl=new URL(config.releaseManifest||'./release-manifest.json',base);const response=await fetch(manifestUrl,{cache:'no-store'});if(!response.ok)throw new Error('release manifest unavailable');const manifest=await response.json();if(!verifiedManifest(manifest))throw new Error('release assets are not verified');const tag=String(manifest.releaseTag||'');const asset=manifest.assets['Setup.exe'];const url=safePublicationUrl(asset.url,tag,'Setup.exe');if(!url)throw new Error('immutable Setup.exe asset is not verified');releaseEyebrow&&(releaseEyebrow.textContent=`VERIFIED WINDOWS BUILD · ${tag}`);releaseTitle&&(releaseTitle.textContent=localized('release',settings.language?.value||'english'));releaseCopy&&(releaseCopy.textContent='This immutable unsigned Squirrel.Windows asset is backed by the verified release manifest. The operating system may show an unknown-publisher warning because signing is intentionally disabled.');if(releaseDownload){releaseDownload.hidden=false;releaseDownload.href=url;releaseDownload.removeAttribute('data-tab-link');releaseDownload.target='_blank';releaseDownload.rel='noreferrer';releaseDownload.textContent='Download Setup.exe · Windows x64 ↗'}}catch(_error){if(releaseDownload)releaseDownload.hidden=true}}
-loadPublicationManifest();
-const search=document.querySelector('#feature-search');const cards=[...document.querySelectorAll('.feature-card')];const empty=document.querySelector('#feature-empty');const regexToggle=document.querySelector('#feature-regex');const pattern=document.querySelector('#feature-pattern');const flags=document.querySelector('#feature-flags');const sample=document.querySelector('#feature-sample');const feedback=document.querySelector('#regex-feedback');const captures=document.querySelector('#regex-captures');
-function escaped(value){return String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
-function safeRegExp(raw,sourceFlags='i'){const value=String(raw||'');if(value.length>256)throw new Error('Pattern is limited to 256 characters');if(!/^[dgimsuvy]*$/.test(sourceFlags))throw new Error('Unsupported regular-expression flag');if(/\([^()]*[+*][^()]*\)[+*{]/.test(value))throw new Error('Nested quantifiers are disabled');return new RegExp(value||'(?!)',sourceFlags)}
-function buildMatcher(raw,regex,sourceFlags='i'){const value=String(raw||'');if(value.length>256)throw new Error('Pattern is limited to 256 characters');return safeRegExp(regex?value:escaped(value),sourceFlags)}
-function buildFeatureMatcher(){const regex=Boolean(regexToggle?.checked);const raw=(regex?pattern?.value:search?.value)||'';return {raw,matcher:buildMatcher(raw,regex,regex?(flags?.value||'i'):'i')}}
-function filterFeatures(){let query;try{query=buildFeatureMatcher();if(feedback)feedback.textContent=regexToggle?.checked?'Valid JavaScript regular expression':'Plain-text mode';if(captures){const sampleValue=sample?.value||'';const match=query.raw?query.matcher.exec(sampleValue):null;captures.textContent=match?.length>1?`Captures: ${match.slice(1).join(' · ')}`:'No capture groups in sample'}}catch(error){if(feedback)feedback.textContent='Invalid pattern: '+error.message;captures&&(captures.textContent='');cards.forEach(card=>card.hidden=true);if(empty)empty.hidden=false;return}let count=0;cards.forEach(card=>{query.matcher.lastIndex=0;const match=!query.raw||query.matcher.test(card.dataset.search+' '+card.textContent);card.hidden=!match;if(match)count++});if(empty)empty.hidden=count!==0}
-search?.addEventListener('input',()=>{if(regexToggle&&!regexToggle.checked)pattern.value=search.value;filterFeatures()});regexToggle?.addEventListener('change',()=>{pattern.value=search.value;filterFeatures()});pattern?.addEventListener('input',filterFeatures);flags?.addEventListener('change',filterFeatures);sample?.addEventListener('input',filterFeatures);
-document.addEventListener('keydown',e=>{const active=document.activeElement;const typing=active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName);if(e.key==='/'&&!typing){e.preventDefault();showTab('features');search?.focus()}if(e.key==='Escape'&&document.activeElement===search){search.value='';search.dispatchEvent(new Event('input'));search.blur()}});
+/* Integrator for the Material Minecraft World Editor site.
+ *
+ * Loads last, and owns only the wiring no single module can: pushing the stored
+ * settings onto the document, gating the download behind a verified manifest,
+ * driving the shared context menu, and the page-level affordances (skip link,
+ * tab links, footer inventory).
+ *
+ * Nothing here assumes a sibling module loaded. A page missing one script should
+ * lose that one feature, not stop rendering, so every lookup is guarded.
+ */
+(function () {
+  "use strict";
 
-const settings={language:document.querySelector('#site-language'),funnyEn:document.querySelector('#funny-en'),funnyYue:document.querySelector('#funny-yue'),theme:document.querySelector('#site-theme'),density:document.querySelector('#site-density'),accent:document.querySelector('#site-accent'),accentHex:document.querySelector('#site-accent-hex'),accentRgb:document.querySelector('#site-accent-rgb'),accentHsl:document.querySelector('#site-accent-hsl'),accentHue:document.querySelector('#site-accent-hue'),font:document.querySelector('#site-font'),scale:document.querySelector('#site-scale')};
-const settingsKey='amulet-site-settings-v1';
-const languageCopy={
-  english:{home:'Home',features:'Features',guides:'Guides',community:'Community',settings:'Settings',source:'View source ↗',install:'Open the install guide',explore:'Explore features →',release:'Install the unsigned Squirrel package',close:'Close',reset:'Reset site settings'},
-  cantonese:{home:'首頁',features:'功能',guides:'指南',community:'社群',settings:'設定',source:'睇原始碼 ↗',install:'開啟安裝指南',explore:'探索功能 →',release:'安裝未簽署 Squirrel 套件',close:'關閉',reset:'重設網站設定'}
-};
-function localized(key,language){const en=languageCopy.english[key]||key;const yue=languageCopy.cantonese[key]||en;return language==='bilingual'?`${en} · ${yue}`:language==='cantonese'?yue:en}
-function applyLanguage(language){const mode=language==='cantonese'||language==='bilingual'?language:'english';document.documentElement.lang=mode==='cantonese'?'zh-Hant':'en';const keys=['home','features','guides','community','settings'];tabs.forEach(tab=>{const key=tab.dataset.tab;if(keys.includes(key))tab.textContent=localized(key,mode)});document.querySelector('.top-app-bar .button')?.replaceChildren(document.createTextNode(localized('source',mode)));document.querySelector('[data-tab-link="guides"]')?.replaceChildren(document.createTextNode(localized('install',mode)));document.querySelector('[data-tab-link="features"]')?.replaceChildren(document.createTextNode(localized('explore',mode)));document.querySelector('#release-title')?.replaceChildren(document.createTextNode(localized('release',mode)));document.querySelector('#reset-site-settings')?.replaceChildren(document.createTextNode(localized('reset',mode)));document.querySelector('#command-palette .button')?.replaceChildren(document.createTextNode(localized('close',mode)));document.querySelectorAll('.nav-tab').forEach(tab=>tab.setAttribute('aria-label',localized(tab.dataset.tab,mode)))}
-function normaliseHex(value){const candidate=String(value||'').trim();return /^#[0-9a-f]{6}$/i.test(candidate)?candidate.toLowerCase():null}
-function hexRgb(hex){const raw=hex.slice(1);return [0,2,4].map(index=>parseInt(raw.slice(index,index+2),16))}
-function rgbHex(rgb){return '#'+rgb.map(channel=>Math.max(0,Math.min(255,Math.round(channel))).toString(16).padStart(2,'0')).join('')}
-function rgbHsl(rgb){const values=rgb.map(channel=>channel/255);const max=Math.max(...values),min=Math.min(...values);const delta=max-min;let hue=0;const light=(max+min)/2;let saturation=0;if(delta){saturation=delta/(1-Math.abs(2*light-1));if(max===values[0])hue=60*(((values[1]-values[2])/delta)%6);else if(max===values[1])hue=60*((values[2]-values[0])/delta+2);else hue=60*((values[0]-values[1])/delta+4)}return [Math.round((hue+360)%360),Math.round(saturation*100),Math.round(light*100)]}
-function hslRgb(hsl){const [h,s,l]=[hsl[0]/360,hsl[1]/100,hsl[2]/100];const chroma=(1-Math.abs(2*l-1))*s;const x=chroma*(1-Math.abs((h*6)%2-1));const m=l-chroma/2;const sectors=h<1/6?[chroma,x,0]:h<2/6?[x,chroma,0]:h<3/6?[0,chroma,x]:h<4/6?[0,x,chroma]:h<5/6?[x,0,chroma]:[chroma,0,x];return sectors.map(channel=>(channel+m)*255)}
-function parseRgb(value){const match=String(value||'').match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);return match?match.slice(1,4).map(Number).every(channel=>channel<=255)?match.slice(1,4).map(Number):null:null}
-function parseHsl(value){const match=String(value||'').match(/^hsla?\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\s*\)$/i);return match?match.slice(1,4).map(Number).every((channel,index)=>channel<=(index?100:360))?match.slice(1,4).map(Number):null:null}
-function syncAccentFields(hex){const rgb=hexRgb(hex);const hsl=rgbHsl(rgb);if(settings.accent&&settings.accent.value!==hex)settings.accent.value=hex;if(settings.accentHex)settings.accentHex.value=hex;if(settings.accentRgb)settings.accentRgb.value=`rgb(${rgb.join(', ')})`;if(settings.accentHsl)settings.accentHsl.value=`hsl(${hsl[0]}, ${hsl[1]}%, ${hsl[2]}%)`;if(settings.accentHue)settings.accentHue.value=String(hsl[0]);document.querySelector('#site-accent-hue-value')?.replaceChildren(`${hsl[0]}°`)}
-function contrastRatio(hex){const raw=hex.slice(1);const channels=[0,2,4].map(index=>parseInt(raw.slice(index,index+2),16)/255).map(channel=>channel<=.03928?channel/12.92:((channel+.055)/1.055)**2.4);const luminance=.2126*channels[0]+.7152*channels[1]+.0722*channels[2];const surface=.96;return ((Math.max(luminance,surface)+.05)/(Math.min(luminance,surface)+.05)).toFixed(2)}
-function applySettings(){const accent=normaliseHex(settings.accentHex?.value)||normaliseHex(settings.accent?.value)||'#4d5f92';const value={language:settings.language?.value||'english',funnyEn:Number(settings.funnyEn?.value||1),funnyYue:Number(settings.funnyYue?.value||1),theme:settings.theme?.value||'light',density:settings.density?.value||'comfortable',accent,font:settings.font?.value||'system-ui',scale:Number(settings.scale?.value||100)};syncAccentFields(value.accent);document.documentElement.classList.toggle('dark',value.theme==='dark');document.documentElement.dataset.density=value.density;document.documentElement.style.setProperty('--primary',value.accent);document.documentElement.style.setProperty('--accent',value.accent);document.documentElement.style.setProperty('--ui-scale',String(value.scale/100));document.documentElement.style.setProperty('--site-font',value.font);document.querySelector('#accent-contrast')?.replaceChildren(`Contrast against surface: ${contrastRatio(value.accent)}:1`);document.querySelector('#site-scale-value')?.replaceChildren(`${value.scale}%`);document.querySelector('#funny-en-value')?.replaceChildren(String(value.funnyEn));document.querySelector('#funny-yue-value')?.replaceChildren(String(value.funnyYue));applyLanguage(value.language);const copy=document.querySelector('#settings-copy');if(copy){const en=value.funnyEn>=4?'Preferences apply immediately; the interface may now crack a tiny joke while keeping every fact exact.':'Preferences persist in this browser and apply immediately; facts and links stay exact.';const yue=value.funnyYue>=4?'設定即時生效，介面可以講少少笑話，但資料一樣準確。':'設定會保存在此瀏覽器並即時生效，資料同連結保持準確。';copy.textContent=value.language==='bilingual'?`${en} · ${yue}`:value.language==='cantonese'?yue:en}localStorage.setItem(settingsKey,JSON.stringify(value));return value}
-function loadSettings(){try{const saved=JSON.parse(localStorage.getItem(settingsKey)||'null');if(saved){for(const [key,control] of Object.entries(settings)){const value=saved[key];if(control&&value!==undefined)control.value=String(value)}}}catch(_error){}applySettings()}
-settings.accentHex?.addEventListener('input',()=>{if(normaliseHex(settings.accentHex.value))applySettings()});settings.accent?.addEventListener('input',()=>{applySettings()});settings.accentRgb?.addEventListener('change',()=>{const rgb=parseRgb(settings.accentRgb.value);if(rgb){settings.accentHex.value=rgbHex(rgb);applySettings()}});settings.accentHsl?.addEventListener('change',()=>{const hsl=parseHsl(settings.accentHsl.value);if(hsl){settings.accentHex.value=rgbHex(hslRgb(hsl));applySettings()}});settings.accentHue?.addEventListener('input',()=>{const current=rgbHsl(hexRgb(normaliseHex(settings.accentHex.value)||'#4d5f92'));current[0]=Number(settings.accentHue.value);settings.accentHex.value=rgbHex(hslRgb(current));applySettings()});Object.values(settings).forEach(control=>{if(control&&![settings.accent,settings.accentHex,settings.accentRgb,settings.accentHsl,settings.accentHue].includes(control))control.addEventListener('input',applySettings)});Object.values(settings).forEach(control=>control?.addEventListener('change',applySettings));document.querySelector('#reset-site-settings')?.addEventListener('click',()=>{Object.assign(settings.language,{value:'english'});Object.assign(settings.funnyEn,{value:'1'});Object.assign(settings.funnyYue,{value:'1'});Object.assign(settings.theme,{value:'light'});Object.assign(settings.density,{value:'comfortable'});Object.assign(settings.accent,{value:'#4d5f92'});Object.assign(settings.accentHex,{value:'#4d5f92'});Object.assign(settings.font,{value:'system-ui'});Object.assign(settings.scale,{value:'100'});applySettings()});loadSettings();
-const settingsSearch=document.querySelector('#settings-search');const settingsPattern=document.querySelector('#settings-pattern');const settingsToggle=document.querySelector('#settings-regex');const settingsFlags=document.querySelector('#settings-flags');const settingsFeedback=document.querySelector('#settings-feedback');const settingCards=[...document.querySelectorAll('.setting-card')];const settingsEmpty=document.querySelector('#settings-empty');
-function filterSettings(){const regex=Boolean(settingsToggle?.checked);const raw=(regex?settingsPattern?.value:settingsSearch?.value)||'';let matcher;try{matcher=buildMatcher(raw,regex,regex?(settingsFlags?.value||'i'):'i');if(settingsFeedback)settingsFeedback.textContent=regex?'Valid pattern':'Plain-text mode'}catch(error){if(settingsFeedback)settingsFeedback.textContent='Invalid pattern: '+error.message;settingCards.forEach(card=>card.hidden=true);if(settingsEmpty)settingsEmpty.hidden=false;return}let count=0;settingCards.forEach(card=>{matcher.lastIndex=0;const match=!raw||matcher.test(card.dataset.search+' '+card.textContent);card.hidden=!match;if(match)count++});if(settingsEmpty)settingsEmpty.hidden=count!==0}
-settingsSearch?.addEventListener('input',()=>{if(settingsToggle&&!settingsToggle.checked)settingsPattern.value=settingsSearch.value;filterSettings()});settingsToggle?.addEventListener('change',()=>{settingsPattern.value=settingsSearch.value;filterSettings()});settingsPattern?.addEventListener('input',filterSettings);settingsFlags?.addEventListener('change',filterSettings);
+  var doc = document;
+  var root = doc.documentElement;
 
-const palette=document.querySelector('#command-palette');const paletteSearch=document.querySelector('#palette-search');const palettePattern=document.querySelector('#palette-pattern');const paletteRegex=document.querySelector('#palette-regex');const paletteFlags=document.querySelector('#palette-flags');const paletteFeedback=document.querySelector('#palette-feedback');const paletteResults=document.querySelector('#palette-results');
-const paletteItems=[['Home','Open home page','home','#home'],['Features','Browse the complete feature inventory','features','#features'],['Guides','Open installation and workflow guides','guides','#guides'],['Community','Open community links','community','#community'],['Settings','Edit language, funny levels, theme, density, and accent','settings','#settings'],['Reset site settings','Restore persisted site preferences','settings','#reset-site-settings']];
-document.querySelectorAll('#feature-grid .feature-card').forEach((card,index)=>{const title=card.querySelector('h2')?.textContent?.trim()||`Feature ${index+1}`;paletteItems.push([title,card.querySelector('p')?.textContent?.trim()||'Open feature details','features',`#feature-grid .feature-card:nth-of-type(${index+1})`])});
-document.querySelectorAll('#settings-grid .setting-card').forEach((card,index)=>{const title=card.querySelector('span')?.textContent?.trim()||`Setting ${index+1}`;paletteItems.push([title,card.querySelector('.setting-help')?.textContent?.trim()||'Open setting','settings',`#settings-grid .setting-card:nth-of-type(${index+1})`])});
-let paletteActiveIndex=0;
-function renderPalette(){const regex=Boolean(paletteRegex?.checked);const raw=(regex?palettePattern?.value:paletteSearch?.value)||'';let matcher;try{matcher=buildMatcher(raw,regex,regex?(paletteFlags?.value||'i'):'i');if(paletteFeedback)paletteFeedback.textContent=regex?'Valid pattern':'Plain-text mode'}catch(error){if(paletteFeedback)paletteFeedback.textContent='Invalid pattern: '+error.message;paletteResults.replaceChildren();return}const matches=paletteItems.filter(item=>{matcher.lastIndex=0;return !raw||matcher.test(item[0]+' '+item[1])});paletteActiveIndex=Math.min(paletteActiveIndex,Math.max(0,matches.length-1));const buttons=matches.map((item,index)=>{const button=document.createElement('button');button.type='button';button.id=`palette-result-${index}`;button.className='palette-result';button.setAttribute('role','option');button.setAttribute('aria-selected',String(index===paletteActiveIndex));const text=document.createElement('span');const strong=document.createElement('strong');strong.textContent=item[0];const small=document.createElement('small');small.textContent=item[1];text.append(strong,document.createElement('br'),small);button.append(text);button.insertAdjacentText('beforeend','↗');button.addEventListener('click',()=>{if(item[0]==='Reset site settings')document.querySelector('#reset-site-settings')?.click();showTab(item[2]);const target=document.querySelector(item[3]);target?.scrollIntoView({block:'center'});target?.focus({preventScroll:true});palette.close()});return button});paletteResults.replaceChildren(...buttons);paletteResults.setAttribute('aria-activedescendant',buttons[paletteActiveIndex]?.id||'')}
-function openPalette(){if(!palette)return;palette.showModal();renderPalette();paletteSearch?.focus()}
-paletteSearch?.addEventListener('input',()=>{if(paletteRegex&&!paletteRegex.checked)palettePattern.value=paletteSearch.value;renderPalette()});paletteRegex?.addEventListener('change',()=>{palettePattern.value=paletteSearch.value;renderPalette()});palettePattern?.addEventListener('input',renderPalette);paletteFlags?.addEventListener('change',renderPalette);
-paletteSearch?.addEventListener('keydown',event=>{const buttons=[...paletteResults.querySelectorAll('.palette-result')];if(!buttons.length)return;if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();if(event.key==='ArrowDown')paletteActiveIndex=(paletteActiveIndex+1)%buttons.length;if(event.key==='ArrowUp')paletteActiveIndex=(paletteActiveIndex+buttons.length-1)%buttons.length;if(event.key==='Home')paletteActiveIndex=0;if(event.key==='End')paletteActiveIndex=buttons.length-1;renderPalette();paletteResults.querySelectorAll('.palette-result')[paletteActiveIndex]?.scrollIntoView({block:'nearest'});}if(event.key==='Enter'){event.preventDefault();buttons[paletteActiveIndex]?.click()}});
-document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='f'){e.preventDefault();openPalette()}});
+  // Enough of the runtime to keep this file working when site-core.js is absent.
+  var site = window.AmuletSite || {
+    data: window.AMULET_SITE_DATA || {},
+    lang: {
+      mode: function () {
+        return "english";
+      },
+      t: function (en) {
+        return en;
+      },
+      funny: function () {
+        return 1;
+      },
+      emoji: function () {
+        return "";
+      },
+    },
+    settings: {
+      all: function () {
+        return {};
+      },
+      get: function () {
+        return undefined;
+      },
+      reset: function () {},
+      onChange: function () {},
+    },
+    showTab: function () {},
+    notify: function () {},
+    ready: function (fn) {
+      if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", fn);
+      else fn();
+    },
+  };
+
+  function byId(id) {
+    return doc.getElementById(id);
+  }
+
+  function t(en, yue) {
+    return site.lang.t(en, yue);
+  }
+
+  function notify(title, body) {
+    try {
+      site.notify(title, body);
+    } catch (error) {
+      /* a refused notification is not a reason to abandon the action */
+    }
+  }
+
+  // ------------------------------------------------------------------- copy
+  // The fact sentence is byte-identical at every funny level and in both
+  // languages; only the lead in front of it changes voice.
+  var HERO_FACTS_EN =
+    "Open Minecraft worlds outside the game to inspect terrain, select precise regions, " +
+    "move builds between worlds, run block and biome operations, import or export structures, " +
+    "delete or regenerate chunks, and convert world data. Java Edition 1.12+ and Bedrock " +
+    "Edition 1.7+, on a Material Design 3 shell.";
+  var HERO_FACTS_YUE =
+    "喺遊戲以外開啟 Minecraft 世界，檢視地形、精準選取範圍、將建築搬去另一個世界、" +
+    "執行方塊同生態系操作、匯入或匯出結構、刪除或重新生成區塊，以及轉換世界資料。" +
+    "支援 Java Edition 1.12+ 同 Bedrock Edition 1.7+，行 Material Design 3 外殼。";
+  var HERO_LEAD_EN = [
+    "",
+    "In plain terms: ",
+    "No launcher, no guesswork, no mods required. ",
+    "Your world, up on the workbench instead of under your feet. ",
+    "Pop the world open like a geode, then put every block back exactly where you meant it. ",
+  ];
+  var HERO_LEAD_YUE = [
+    "",
+    "簡單講：",
+    "唔使開遊戲，唔使估，唔使裝模組。",
+    "將個世界搬上工作枱，唔使企喺上面慢慢挖。",
+    "好似劈開水晶石咁劈開個世界，再逐粒方塊擺返啱位。",
+  ];
+
+  var SETTINGS_FACTS_EN =
+    "Preferences persist in this browser and apply immediately. Funny levels style the " +
+    "surrounding copy; facts and links stay exact.";
+  var SETTINGS_FACTS_YUE =
+    "偏好設定會保存喺呢個瀏覽器並即時生效。搞笑程度只影響周圍嘅文字語氣；資料同連結一律保持準確。";
+  var SETTINGS_LEAD_EN = [
+    "",
+    "Every control here is wired to something real. ",
+    "Nothing on this page is a painted-on switch. ",
+    "Turn every knob you can find; none of them are decorative. ",
+    "Twist every dial until the site looks like yours — it will still tell you the truth. ",
+  ];
+  var SETTINGS_LEAD_YUE = [
+    "",
+    "呢度每個控制項都真係駁咗線。",
+    "呢一頁冇一個掣係擺設。",
+    "見到掣就扭，冇一個係畫上去嘅。",
+    "扭到成個網站似返你自己，佢照舊照直講事實。",
+  ];
+
+  function voiced(leads, facts, level, glyph) {
+    var index = Math.max(1, Math.min(5, Number(level) || 1)) - 1;
+    var decoration = index >= 3 ? site.lang.emoji(glyph) : "";
+    return decoration + (leads[index] || "") + facts;
+  }
+
+  function applyVoice() {
+    var hero = byId("hero-copy");
+    if (hero) {
+      hero.textContent = t(
+        voiced(HERO_LEAD_EN, HERO_FACTS_EN, site.lang.funny("en"), "🧱"),
+        voiced(HERO_LEAD_YUE, HERO_FACTS_YUE, site.lang.funny("yue"), "🧱")
+      );
+    }
+    var settingsCopy = byId("settings-copy");
+    if (settingsCopy) {
+      settingsCopy.textContent = t(
+        voiced(SETTINGS_LEAD_EN, SETTINGS_FACTS_EN, site.lang.funny("en"), "🎛"),
+        voiced(SETTINGS_LEAD_YUE, SETTINGS_FACTS_YUE, site.lang.funny("yue"), "🎛")
+      );
+    }
+  }
+
+  // --------------------------------------------------------------- settings
+  var THEME_QUERY =
+    typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-color-scheme: dark)")
+      : null;
+
+  function resolvedTheme(value) {
+    if (value === "dark" || value === "light") return value;
+    // "system" is not a third appearance; it is a subscription to the OS one.
+    return THEME_QUERY && THEME_QUERY.matches ? "dark" : "light";
+  }
+
+  function cssFont(value) {
+    var family = String(value == null ? "" : value).trim();
+    if (!family) return "system-ui";
+    // An unquoted family containing a space is not a valid font-family token, so
+    // a stored "Segoe UI" would silently fall through to the next stack entry.
+    if (/\s/.test(family) && !/["',]/.test(family)) return '"' + family + '"';
+    return family;
+  }
+
+  function applyBrand(all) {
+    var brand = String(all.brand == null ? "" : all.brand).trim();
+    if (!brand) brand = "Material Minecraft World Editor";
+    var label = byId("brand-label");
+    var footerBrand = byId("footer-brand");
+    if (label) label.textContent = brand;
+    if (footerBrand) footerBrand.textContent = brand;
+    doc.title = brand + " · " + t("Shape worlds, keep the wonder", "塑造世界，保留驚喜");
+    var link = label && label.closest ? label.closest(".brand") : null;
+    if (link) link.setAttribute("aria-label", t(brand + " home", brand + " 首頁"));
+  }
+
+  function applySettings() {
+    var all = site.settings.all ? site.settings.all() : {};
+
+    var theme = resolvedTheme(all.theme);
+    root.setAttribute("data-theme", theme);
+    // The shipped stylesheet still keys its dark palette off a class. The
+    // attribute is the contract; the class keeps that stylesheet working.
+    if (root.classList) root.classList.toggle("dark", theme === "dark");
+    root.style.colorScheme = theme;
+
+    root.setAttribute("data-density", String(all.density || "comfortable"));
+
+    if (/^#[0-9a-fA-F]{6}$/.test(String(all.accent || ""))) {
+      root.style.setProperty("--primary", String(all.accent).toLowerCase());
+    }
+
+    var scale = Number(all.scale);
+    if (isFinite(scale) && scale > 0) {
+      root.style.setProperty("--ui-scale", String(scale / 100));
+    }
+
+    root.style.setProperty("--site-font", cssFont(all.font));
+
+    if (all.reducedMotion) root.setAttribute("data-reduced-motion", "true");
+    else root.removeAttribute("data-reduced-motion");
+
+    root.lang = site.lang.mode() === "cantonese" ? "zh-Hant" : "en";
+
+    applyBrand(all);
+    applyVoice();
+    applyReleaseCopy();
+    applyFooterCount();
+  }
+
+  // ------------------------------------------------------------ footer count
+  function counted(value, one, many) {
+    return value + " " + (value === 1 ? one : many);
+  }
+
+  function applyFooterCount() {
+    var node = byId("footer-count");
+    if (!node) return;
+    var data = window.AMULET_SITE_DATA || site.data || {};
+    var features = Array.isArray(data.features) ? data.features.length : 0;
+    var categories = Array.isArray(data.categories) ? data.categories.length : 0;
+    var commands = Array.isArray(data.commands) ? data.commands.length : 0;
+    var shots = Array.isArray(data.shots) ? data.shots.length : 0;
+    node.textContent = t(
+      counted(features, "documented feature", "documented features") +
+        " · " +
+        counted(categories, "category", "categories") +
+        " · " +
+        counted(commands, "build command", "build commands") +
+        " · " +
+        counted(shots, "verified capture", "verified captures"),
+      features +
+        " 項功能文件 · " +
+        categories +
+        " 個分類 · " +
+        commands +
+        " 個建置指令 · " +
+        shots +
+        " 張已核實截圖"
+    );
+  }
+
+  // ----------------------------------------------------------- release gate
+  // safePublicationUrl and verifiedManifest are carried over unchanged: a
+  // committed test asserts both by name, and the whole point of the gate is that
+  // its acceptance rule never quietly loosens.
+  function safePublicationUrl(value, releaseTag, assetName) {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return null;
+      if (!url.pathname.endsWith('/' + assetName) || !url.pathname.includes('/download/' + releaseTag + '/')) return null;
+      return url.href;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function verifiedManifest(manifest) {
+    if (manifest?.schemaVersion !== 1 || manifest.verified !== true || !/^[0-9a-f]{40}$/i.test(String(manifest.commit || ''))) return false;
+    const tag = String(manifest.releaseTag || '');
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(tag)) return false;
+    return ['Setup.exe','RELEASES','full.nupkg'].every(key => {
+      const asset = manifest.assets?.[key];
+      if (!asset || typeof asset.sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(asset.sha256)) return false;
+      const name = key === 'full.nupkg' ? String(asset.name || '') : key;
+      return key === 'full.nupkg'
+        ? name.endsWith('-full.nupkg') && safePublicationUrl(asset.url, tag, name) !== null
+        : asset.name === key && safePublicationUrl(asset.url, tag, key) !== null;
+    });
+  }
+
+  var releaseState = null;
+
+  function revealDownload(button, url, label) {
+    if (!button) return;
+    button.href = url;
+    button.target = "_blank";
+    button.rel = "noreferrer";
+    // Verified, this button leaves the site; it must stop acting as a tab link.
+    button.removeAttribute("data-tab-link");
+    button.textContent = label + " ↗";
+    button.hidden = false;
+  }
+
+  function applyReleaseCopy() {
+    var heroButton = byId("hero-download");
+    var cardButton = byId("release-download");
+    if (!releaseState) {
+      if (heroButton) heroButton.hidden = true;
+      if (cardButton) cardButton.hidden = true;
+      return;
+    }
+
+    var tag = releaseState.tag;
+    var eyebrow = byId("release-eyebrow");
+    var title = byId("release-title");
+    var copy = byId("release-copy");
+    if (eyebrow) {
+      eyebrow.textContent = t(
+        "VERIFIED WINDOWS BUILD · " + tag,
+        "已核實 WINDOWS 版本 · " + tag
+      );
+    }
+    if (title) {
+      title.textContent = t("Verified installer · " + tag, "已核實安裝檔 · " + tag);
+    }
+    if (copy) {
+      copy.textContent = t(
+        "The local release manifest records tag " +
+          tag +
+          " with a SHA-256 digest for Setup.exe, RELEASES, and the full .nupkg. The installer " +
+          "is an unsigned Squirrel.Windows package, so Windows may warn about an unknown publisher.",
+        "本機發佈清單記錄咗版本 " +
+          tag +
+          "，連 Setup.exe、RELEASES 同完整 .nupkg 嘅 SHA-256 雜湊值。安裝檔係未簽署嘅 " +
+          "Squirrel.Windows 套件，所以 Windows 可能會顯示不明發佈者警告。"
+      );
+    }
+    revealDownload(
+      heroButton,
+      releaseState.url,
+      t("Download " + tag + " · Setup.exe", "下載 " + tag + " · Setup.exe")
+    );
+    revealDownload(
+      cardButton,
+      releaseState.url,
+      t("Download Setup.exe · " + tag, "下載 Setup.exe · " + tag)
+    );
+  }
+
+  function loadPublicationManifest() {
+    if (typeof window.fetch !== "function") return;
+    var options = { cache: "no-store" };
+    window
+      .fetch(new URL("site-config.json", doc.baseURI), options)
+      .then(function (response) {
+        if (!response.ok) throw new Error("site config unavailable");
+        return response.json();
+      })
+      .then(function (config) {
+        var base = new URL((config && config.baseUrl) || "./", doc.baseURI);
+        root.dataset.baseUrl = base.href;
+        var manifestUrl = new URL(
+          (config && config.releaseManifest) || "./release-manifest.json",
+          base
+        );
+        return window.fetch(manifestUrl, options);
+      })
+      .then(function (response) {
+        if (!response.ok) throw new Error("release manifest unavailable");
+        return response.json();
+      })
+      .then(function (manifest) {
+        if (!verifiedManifest(manifest)) throw new Error("release assets are not verified");
+        var tag = String(manifest.releaseTag || "");
+        var url = safePublicationUrl(manifest.assets["Setup.exe"].url, tag, "Setup.exe");
+        if (!url) throw new Error("immutable Setup.exe asset is not verified");
+        releaseState = { tag: tag, url: url };
+        applyReleaseCopy();
+      })
+      .catch(function () {
+        // Nothing proven, so nothing offered: the authored pending copy stands.
+        releaseState = null;
+        applyReleaseCopy();
+      });
+  }
+
+  // ------------------------------------------------------------ context menu
+  var menu = null;
+  var menuOpener = null;
+  var menuPainted = false;
+  var menuNeedsOwnPaint = false;
+
+  function menuElement() {
+    if (!menu) menu = byId("context-menu");
+    return menu;
+  }
+
+  function menuItemNodes() {
+    if (!menu) return [];
+    return Array.prototype.slice.call(menu.querySelectorAll('[role="menuitem"]'));
+  }
+
+  function focusItem(index) {
+    var nodes = menuItemNodes();
+    if (!nodes.length) return;
+    var target = nodes[(index + nodes.length) % nodes.length];
+    if (target) target.focus();
+  }
+
+  function currentItemIndex() {
+    var nodes = menuItemNodes();
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i] === doc.activeElement) return i;
+    }
+    return -1;
+  }
+
+  function onMenuKey(event) {
+    if (!menu || menu.hidden) return;
+    var key = event.key;
+    if (key === "Escape") {
+      event.preventDefault();
+      closeMenu(true);
+      return;
+    }
+    if (key === "Tab") {
+      // Focus is restored first, so Tab continues from the opener as expected.
+      closeMenu(true);
+      return;
+    }
+    if (key === "ArrowDown" || key === "ArrowUp" || key === "Home" || key === "End") {
+      event.preventDefault();
+      var nodes = menuItemNodes();
+      if (!nodes.length) return;
+      if (key === "Home") focusItem(0);
+      else if (key === "End") focusItem(nodes.length - 1);
+      else focusItem(currentItemIndex() + (key === "ArrowDown" ? 1 : -1));
+    }
+  }
+
+  function onOutsidePointer(event) {
+    if (!menu || menu.hidden) return;
+    if (!menu.contains(event.target)) closeMenu(false);
+  }
+
+  function onViewportChange(event) {
+    if (!menu || menu.hidden) return;
+    if (event && event.target && menu.contains(event.target)) return;
+    closeMenu(false);
+  }
+
+  function closeMenu(restoreFocus) {
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    while (menu.firstChild) menu.removeChild(menu.firstChild);
+    doc.removeEventListener("pointerdown", onOutsidePointer, true);
+    doc.removeEventListener("keydown", onMenuKey, true);
+    window.removeEventListener("resize", onViewportChange, true);
+    window.removeEventListener("scroll", onViewportChange, true);
+    var opener = menuOpener;
+    menuOpener = null;
+    if (restoreFocus !== false && opener && typeof opener.focus === "function") {
+      try {
+        opener.focus();
+      } catch (error) {
+        /* a detached opener simply cannot take focus back */
+      }
+    }
+  }
+
+  function normalizeItem(item) {
+    if (!item) return null;
+    if (item === "-" || item.separator === true || item.type === "separator") {
+      return { separator: true };
+    }
+    var label = item.label || item.text || item.title || item.name;
+    var run = item.onSelect || item.action || item.run || item.onClick || item.select;
+    if (!label) return null;
+    // An enabled item that cannot act is exactly the decorative control this
+    // site refuses to ship, so it is dropped rather than drawn.
+    if (!item.disabled && typeof run !== "function") return null;
+    return {
+      label: String(label),
+      shortcut: String(item.shortcut || item.keys || item.accelerator || ""),
+      disabled: Boolean(item.disabled),
+      reason: String(item.disabledReason || item.reason || ""),
+      run: typeof run === "function" ? run : null,
+    };
+  }
+
+  function tidySeparators(items) {
+    var out = [];
+    items.forEach(function (item) {
+      if (item.separator && (!out.length || out[out.length - 1].separator)) return;
+      out.push(item);
+    });
+    while (out.length && out[out.length - 1].separator) out.pop();
+    return out;
+  }
+
+  function paintItem(node) {
+    node.style.display = "flex";
+    node.style.alignItems = "center";
+    node.style.justifyContent = "space-between";
+    node.style.gap = "24px";
+    node.style.width = "100%";
+    node.style.minHeight = "40px";
+    node.style.padding = "0 12px";
+    node.style.border = "0";
+    node.style.borderRadius = "8px";
+    node.style.background = "transparent";
+    node.style.color = "inherit";
+    node.style.font = "inherit";
+    node.style.textAlign = "left";
+    node.style.cursor = "pointer";
+  }
+
+  function buildItemNode(item) {
+    if (item.separator) {
+      var rule = doc.createElement("div");
+      rule.className = "menu-separator";
+      rule.setAttribute("role", "separator");
+      if (menuNeedsOwnPaint) {
+        rule.style.height = "1px";
+        rule.style.margin = "4px 8px";
+        rule.style.background = "var(--outline-variant, #c7c6d0)";
+      }
+      return rule;
+    }
+
+    var button = doc.createElement("button");
+    button.type = "button";
+    button.className = "menu-item";
+    button.setAttribute("role", "menuitem");
+    button.tabIndex = -1;
+
+    var label = doc.createElement("span");
+    label.className = "menu-label";
+    label.textContent = item.label;
+    button.appendChild(label);
+
+    if (item.shortcut) {
+      var keys = doc.createElement("span");
+      keys.className = "menu-shortcut";
+      // The accessible name below already carries the keys; announcing the
+      // visible copy as well would read them out twice.
+      keys.setAttribute("aria-hidden", "true");
+      keys.textContent = item.shortcut;
+      if (menuNeedsOwnPaint) {
+        keys.style.marginLeft = "auto";
+        keys.style.opacity = ".72";
+        keys.style.fontVariantNumeric = "tabular-nums";
+      }
+      button.appendChild(keys);
+    }
+
+    var name = item.label + (item.shortcut ? " (" + item.shortcut + ")" : "");
+    if (item.disabled) {
+      // Kept focusable so keyboard users can read why it is unavailable.
+      button.setAttribute("aria-disabled", "true");
+      if (item.reason) {
+        name += " — " + item.reason;
+        button.title = item.reason;
+      }
+      if (menuNeedsOwnPaint) button.style.opacity = ".55";
+    }
+    button.setAttribute("aria-label", name);
+
+    if (menuNeedsOwnPaint) paintItem(button);
+
+    button.addEventListener("click", function () {
+      if (item.disabled) return;
+      closeMenu(true);
+      try {
+        item.run();
+      } catch (error) {
+        notify(
+          t("That action failed", "呢個動作失敗咗"),
+          String((error && error.message) || error)
+        );
+      }
+    });
+    return button;
+  }
+
+  function ensureMenuSurface() {
+    if (menuPainted) return;
+    menuPainted = true;
+    var computed = window.getComputedStyle ? window.getComputedStyle(menu) : null;
+    var painted = computed ? computed.backgroundColor : "";
+    menuNeedsOwnPaint =
+      !painted || painted === "transparent" || /rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(painted);
+    // A stylesheet that stacks this menu deliberately knows the rest of the
+    // page's layers; only supply a value when it left none.
+    if (!computed || !computed.zIndex || computed.zIndex === "auto") menu.style.zIndex = "90";
+    if (!menuNeedsOwnPaint) return;
+    // An overlay that renders transparent puts the page's own text straight
+    // through its labels, so it paints itself when the stylesheet has not.
+    menu.style.background = "var(--surface-container-high, #e9e7ee)";
+    menu.style.color = "var(--on-surface, #1a1b20)";
+    menu.style.border = "1px solid var(--outline-variant, #c7c6d0)";
+    menu.style.borderRadius = "12px";
+    menu.style.padding = "6px";
+    menu.style.minWidth = "240px";
+    menu.style.boxShadow = "0 12px 32px rgba(0, 0, 0, .28)";
+  }
+
+  function pointerPoint(event) {
+    var x = event && typeof event.clientX === "number" ? event.clientX : -1;
+    var y = event && typeof event.clientY === "number" ? event.clientY : -1;
+    if (x > 0 || y > 0) return { x: x, y: y };
+    // The context-menu key reports no pointer, so anchor on the element instead.
+    var anchor =
+      event && event.target && event.target.getBoundingClientRect ? event.target : menuOpener;
+    if (anchor && anchor.getBoundingClientRect) {
+      var box = anchor.getBoundingClientRect();
+      return { x: box.left, y: box.bottom };
+    }
+    return { x: 16, y: 16 };
+  }
+
+  function boundMenuHeight(margin) {
+    menu.style.maxHeight = "";
+    menu.style.overflowY = "";
+    var limit = window.innerHeight - margin * 2;
+    var computed = window.getComputedStyle ? window.getComputedStyle(menu) : null;
+    var declared = computed ? parseFloat(computed.maxHeight) : NaN;
+    // Never tighten a stylesheet's own cap; only supply one when the overlay
+    // would otherwise run off the bottom of the screen with nothing to scroll.
+    if (!isFinite(declared) || declared > limit) {
+      menu.style.maxHeight = limit + "px";
+      menu.style.overflowY = "auto";
+    }
+  }
+
+  function positionMenu(event) {
+    var margin = 8;
+    // The offsets below are viewport coordinates from the pointer, which only
+    // stay true under fixed positioning once the page has been scrolled.
+    menu.style.position = "fixed";
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    boundMenuHeight(margin);
+    var rect = menu.getBoundingClientRect();
+    var point = pointerPoint(event);
+    var left = Math.min(point.x, window.innerWidth - rect.width - margin);
+    var top = Math.min(point.y, window.innerHeight - rect.height - margin);
+    menu.style.left = Math.max(margin, left) + "px";
+    menu.style.top = Math.max(margin, top) + "px";
+  }
+
+  function openerFor(event) {
+    var active = doc.activeElement;
+    if (active && active !== doc.body && active !== root) return active;
+    var target = event && event.target;
+    if (target && target.closest) {
+      var focusable = target.closest("a[href], button, input, select, textarea, [tabindex]");
+      if (focusable) return focusable;
+    }
+    return null;
+  }
+
+  function openContextMenu(items, event, label) {
+    // A caller that swaps the arguments should not silently lose its menu.
+    if (Array.isArray(event) && !Array.isArray(items)) {
+      var swap = items;
+      items = event;
+      event = swap;
+    }
+    if (!menuElement() || !Array.isArray(items)) return null;
+
+    var prepared = tidySeparators(
+      items
+        .map(normalizeItem)
+        .filter(function (item) {
+          return Boolean(item);
+        })
+    );
+    if (!prepared.length) return null;
+
+    if (event && typeof event.preventDefault === "function") event.preventDefault();
+    closeMenu(false);
+    menuOpener = openerFor(event);
+
+    menu.hidden = false;
+    ensureMenuSurface();
+    menu.setAttribute("aria-label", String(label || t("Context menu", "右鍵選單")));
+    prepared.forEach(function (item) {
+      menu.appendChild(buildItemNode(item));
+    });
+    positionMenu(event);
+
+    doc.addEventListener("pointerdown", onOutsidePointer, true);
+    doc.addEventListener("keydown", onMenuKey, true);
+    window.addEventListener("resize", onViewportChange, true);
+    window.addEventListener("scroll", onViewportChange, true);
+    focusItem(0);
+
+    return {
+      close: function () {
+        closeMenu(true);
+      },
+    };
+  }
+
+  // ------------------------------------------------- default background menu
+  function paletteOpener() {
+    if (typeof site.openPalette === "function") {
+      return function () {
+        site.openPalette();
+      };
+    }
+    var trigger = byId("palette-open");
+    if (!trigger) return null;
+    return function () {
+      trigger.click();
+    };
+  }
+
+  function resetSiteSettings() {
+    var owned = byId("reset-site-settings");
+    // The settings surface owns whatever confirmation and history a reset needs,
+    // so route through its own control when it exists instead of duplicating it.
+    if (owned) {
+      owned.click();
+      return;
+    }
+    site.settings.reset();
+    notify(
+      t("Site settings reset", "網站設定已重設"),
+      t(
+        "Language, funny levels, theme, density, accent, font, scale, and brand are back to " +
+          "the values this site ships with.",
+        "語言、搞笑程度、主題、密度、主色、字型、縮放同名稱全部回復到本網站出廠設定。"
+      )
+    );
+  }
+
+  function backgroundMenuItems() {
+    var items = [];
+    var openPalette = paletteOpener();
+    if (openPalette) {
+      items.push({
+        label: t("Open command palette", "開啟指令面板"),
+        shortcut: "Ctrl+Shift+F",
+        onSelect: openPalette,
+      });
+    }
+    var bell = byId("notif-open");
+    if (bell) {
+      items.push({
+        label: t("Open notification history", "開啟通知記錄"),
+        onSelect: function () {
+          bell.click();
+        },
+      });
+    }
+    if (byId("settings") && typeof site.showTab === "function") {
+      items.push({
+        label: t("Go to settings", "前往設定"),
+        onSelect: function () {
+          site.showTab("settings");
+        },
+      });
+    }
+    if (site.settings && typeof site.settings.reset === "function") {
+      items.push({ separator: true });
+      items.push({
+        label: t("Reset site settings", "重設網站設定"),
+        onSelect: resetSiteSettings,
+      });
+    }
+    return items;
+  }
+
+  function wireBackgroundMenu() {
+    doc.addEventListener("contextmenu", function (event) {
+      if (event.defaultPrevented) return; // another surface already claimed it
+      var target = event.target;
+      if (target && target.isContentEditable) return;
+      if (target && target.closest && target.closest("input, textarea, select")) return;
+      // With text selected the browser's own menu can copy it; this one cannot.
+      if (window.getSelection && String(window.getSelection())) return;
+      var items = backgroundMenuItems();
+      if (!items.length) return;
+      openContextMenu(items, event);
+    });
+  }
+
+  // ------------------------------------------------- page-level affordances
+  function wireSkipLink() {
+    var link = doc.querySelector(".skip-link");
+    var main = byId("main");
+    if (!link || !main) return;
+    if (!main.hasAttribute("tabindex")) main.setAttribute("tabindex", "-1");
+    link.addEventListener("click", function (event) {
+      // Default navigation would push #main into the hash the tab strip routes on.
+      event.preventDefault();
+      main.focus();
+    });
+  }
+
+  function wireTabLinks() {
+    doc.addEventListener("click", function (event) {
+      var target = event.target;
+      var link = target && target.closest ? target.closest("[data-tab-link]") : null;
+      if (!link) return;
+      var id = link.getAttribute("data-tab-link");
+      if (!id || typeof site.showTab !== "function") return;
+      if (link.tagName === "A") event.preventDefault();
+      site.showTab(id);
+    });
+  }
+
+  function wirePaletteShortcut() {
+    doc.addEventListener("keydown", function (event) {
+      // The palette module owns this key whenever it claims it; this is only the
+      // fallback that keeps the advertised shortcut honest when it does not.
+      if (event.defaultPrevented) return;
+      if (!event.ctrlKey || !event.shiftKey || event.altKey) return;
+      if (String(event.key).toLowerCase() !== "f") return;
+      var openPalette = paletteOpener();
+      if (!openPalette) return;
+      event.preventDefault();
+      openPalette();
+    });
+  }
+
+  function wireSystemTheme() {
+    if (!THEME_QUERY) return;
+    var follow = function () {
+      if (String(site.settings.get("theme")) === "system") applySettings();
+    };
+    if (typeof THEME_QUERY.addEventListener === "function") {
+      THEME_QUERY.addEventListener("change", follow);
+    } else if (typeof THEME_QUERY.addListener === "function") {
+      THEME_QUERY.addListener(follow);
+    }
+  }
+
+  // Published before ready so a module booting ahead of this one still gets the
+  // real menu rather than the core's no-op placeholder.
+  if (window.AmuletSite) window.AmuletSite.contextMenu = openContextMenu;
+
+  site.ready(function () {
+    menuElement();
+    if (typeof site.settings.onChange === "function") site.settings.onChange(applySettings);
+    wireSystemTheme();
+    applySettings();
+    wireSkipLink();
+    wireTabLinks();
+    wireBackgroundMenu();
+    wirePaletteShortcut();
+    loadPublicationManifest();
+  });
+})();
