@@ -32,6 +32,7 @@ from amulet_map_editor.api.studio.widgets import (
     draw_focus_ring,
     elide,
     invoke,
+    paint_context,
     point_size,
 )
 
@@ -128,12 +129,16 @@ def hud_backdrop(window: wx.Window) -> wx.Colour:
     return sky_colour(0.5)
 
 
-def hud_paint_context(window: wx.Window) -> Tuple[wx.DC, wx.GCDC]:
-    """Clear a heads-up control against the sky and return its contexts."""
-    dc = wx.AutoBufferedPaintDC(window)
-    dc.SetBackground(wx.Brush(hud_backdrop(window)))
-    dc.Clear()
-    return dc, wx.GCDC(dc)
+def hud_paint_context(window: wx.Window) -> Tuple[wx.DC, wx.DC]:
+    """Clear a heads-up control against the sky and return its contexts.
+
+    This defers to :func:`widgets.paint_context` rather than building its own
+    device context, because the device context type is not a free choice:
+    ``wx.GCDC`` rejects a ``wx.AutoBufferedPaintDC`` on wxPython 4.3.1 and the
+    resulting ``TypeError`` fires inside ``EVT_PAINT``, leaving the control
+    unpainted.  One helper means one place that has to be right.
+    """
+    return paint_context(window, hud_backdrop(window))
 
 
 class HudChip(wx.Control):
@@ -1222,9 +1227,9 @@ class ViewportHost(wx.Panel):
 
     def _on_paint(self, _event: wx.PaintEvent) -> None:
         width, height = self.GetClientSize()
-        dc = wx.AutoBufferedPaintDC(self)
-        dc.SetBackground(wx.Brush(sky_colour(0.5)))
-        dc.Clear()
+        # The shared helper picks a device context this wx build will actually
+        # wrap; constructing one here is how a paint handler starts raising.
+        dc, gcdc = paint_context(self, sky_colour(0.5))
         if width <= 0 or height <= 0:
             return
         if self.has_canvas():
@@ -1232,7 +1237,6 @@ class ViewportHost(wx.Panel):
             # under it would only flash through during a resize.
             return
         self._paint_sky(dc, width, height)
-        gcdc = wx.GCDC(dc)
         self._paint_grid(gcdc, width, height)
         if self.slice_visible:
             self._paint_slice(gcdc, width)
