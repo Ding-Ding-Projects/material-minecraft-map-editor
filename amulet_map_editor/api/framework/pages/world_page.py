@@ -21,6 +21,9 @@ _extensions: List[Tuple[str, Type[BaseProgram]]] = []
 _fixed_extensions: List[Tuple[str, Type[BaseProgram]]] = [
     (lang.get("program_about.tab_name"), AboutProgram)
 ]
+_editor_extension_module = f"{programs.__name__}.edit"
+_editor_extension_import_error: Optional[Tuple[ImportError, str]] = None
+_editor_extension_import_error_notified = False
 
 log = logging.getLogger(__name__)
 
@@ -45,10 +48,14 @@ def load_extension(
     module_name: str,
 ) -> Optional[Tuple[str, Union[Type[BaseProgram], Type[wx.Window]]]]:
     # load module and confirm that all required attributes are defined
+    global _editor_extension_import_error
     try:
         module = importlib.import_module(module_name)
-    except ImportError:
-        log.warning(f"Failed to import {module_name}.\n{traceback.format_exc()}")
+    except ImportError as error:
+        exception_details = traceback.format_exc()
+        log.warning(f"Failed to import {module_name}.\n{exception_details}")
+        if module_name == _editor_extension_module:
+            _editor_extension_import_error = error, exception_details
     else:
         if hasattr(module, "export"):
             export = getattr(module, "export")
@@ -61,6 +68,25 @@ def load_extension(
                     and issubclass(ui, wx.Window)
                 ):
                     return name, ui
+
+
+def _notify_editor_extension_import_error(parent: wx.Window) -> None:
+    """Surface the optional editor's original import error once per app session."""
+    global _editor_extension_import_error_notified
+    if (
+        _editor_extension_import_error is None
+        or _editor_extension_import_error_notified
+    ):
+        return
+
+    error, exception_details = _editor_extension_import_error
+    _editor_extension_import_error_notified = True
+    notify_exception(
+        parent,
+        "Editor unavailable",
+        str(error),
+        exception_details,
+    )
 
 
 class WorldPageUI(wx.Notebook, BasePageUI):
@@ -100,6 +126,7 @@ class WorldPageUI(wx.Notebook, BasePageUI):
     def _load_extensions(self):
         """Load and create instances of each of the extensions"""
         load_extensions()
+        _notify_editor_extension_import_error(self)
         select = True
         for extension_name, extension in _extensions:
             try:

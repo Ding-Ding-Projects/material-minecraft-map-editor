@@ -26,8 +26,9 @@ from amulet_map_editor.api import (
     scheduled_runtime,
 )
 from . import update_copy
+from amulet_map_editor.api.material_menu import MaterialMenuItem
 from amulet_map_editor.api.process import no_window_kwargs
-from amulet_map_editor.api.wx.components import MaterialButton
+from amulet_map_editor.api.wx.components import MaterialButton, MaterialMenu
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.modeless import show_modeless_dialog
 from amulet_map_editor.api.wx.title_bar import MaterialTitleBar
@@ -130,7 +131,7 @@ class AmuletUI(wx.Frame):
         self._command_bar._material3_surface_role = "surface_container"
         self._command_bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._command_bar.SetSizer(self._command_bar_sizer)
-        self._command_menus: list[wx.Menu] = []
+        self._command_menus: list[MaterialMenu] = []
         self._shell_sizer.Add(self._command_bar, 0, wx.EXPAND)
         self._update_banner = wx.Panel(self._shell)
         self._update_banner.SetName("Update notification")
@@ -207,6 +208,13 @@ class AmuletUI(wx.Frame):
         self._update_thread = None
         self._update_stage_thread = None
         self._update_state = SquirrelUpdateState("unknown")
+        # Update workers may finish while a close attempt is awaiting unsaved-
+        # work confirmation. Accepted closes invalidate their generation before
+        # teardown; vetoed closes reconcile the deferred current result.
+        self._update_worker_lock = threading.RLock()
+        self._is_closing = False
+        self._closing_update_generation: int | None = None
+        self._pending_update_state: tuple[SquirrelUpdateState, int] | None = None
         self._update_state_generation = 0
         self._update_restart_generation: int | None = None
         self._update_restart_process: subprocess.Popen | None = None
@@ -222,6 +230,7 @@ class AmuletUI(wx.Frame):
         self._scheduled_runtime = scheduled_runtime.ScheduledRuntimeController(
             on_state=self._apply_scheduled_runtime_state
         )
+        self._scheduled_refresh_thread: threading.Thread | None = None
         self._scheduled_timer = wx.CallLater(1000, self._refresh_scheduled_runtime)
         self._notification_toasts: list[NotificationToast] = []
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
@@ -262,22 +271,35 @@ class AmuletUI(wx.Frame):
         self._shell.Layout()
 
     def _refresh_scheduled_runtime(self) -> None:
+        """Refresh scheduled values without ever overlapping worker threads."""
         if self.IsBeingDeleted():
+            return
+        self._scheduled_timer = wx.CallLater(
+            5 * 60 * 1000, self._refresh_scheduled_runtime
+        )
+        if (
+            self._scheduled_refresh_thread is not None
+            and self._scheduled_refresh_thread.is_alive()
+        ):
             return
         prefs = school_mode.presentation_preferences(preferences.load())
         base = {
             key: getattr(prefs, key)
             for key in ("language_mode", "theme", "density", "accent")
         }
-        threading.Thread(
-            target=self._scheduled_runtime.refresh,
+        self._scheduled_refresh_thread = threading.Thread(
+            target=self._scheduled_refresh_worker,
             args=(base,),
             name="amulet-scheduled-settings",
             daemon=True,
-        ).start()
-        self._scheduled_timer = wx.CallLater(
-            5 * 60 * 1000, self._refresh_scheduled_runtime
         )
+        self._scheduled_refresh_thread.start()
+
+    def _scheduled_refresh_worker(self, base: dict[str, object]) -> None:
+        try:
+            self._scheduled_runtime.refresh(base)
+        except Exception:  # keep a scheduled preference error off the UI thread
+            log.exception("Scheduled settings refresh failed")
 
     def _apply_scheduled_runtime_state(
         self, state: scheduled_runtime.RuntimeScheduleState
@@ -386,11 +408,8 @@ class AmuletUI(wx.Frame):
         self._level_notebook.close_level(path)
 
     def create_menu(self):
-        """
-        Create the UI menu.
-
-        Adds the top level menu items then extends it from the active page
-        """
+        """Build the app-owned, searchable Material 3 command menus."""
+        # BEGIN CODEX MATERIAL 3 COMMAND MENU
         menu_dict = {}
         menu_dict.setdefault(lang.get("menu_bar.file.menu_name"), {}).setdefault(
             "system", {}
@@ -398,7 +417,6 @@ class AmuletUI(wx.Frame):
             lang.get("menu_bar.file.open_world"),
             lambda evt: open_level_from_dialog(self),
         )
-        # menu_dict.setdefault(lang.get('menu_bar.file.menu_name'), {}).setdefault('system', {}).setdefault('Create World', lambda: self.world.save())
         menu_dict.setdefault(lang.get("menu_bar.file.menu_name"), {}).setdefault(
             "exit", {}
         ).setdefault(lang.get("menu_bar.file.quit"), lambda evt: self.Close())
@@ -421,39 +439,40 @@ class AmuletUI(wx.Frame):
         for old_menu in self._command_menus:
             old_menu.Destroy()
         self._command_menus.clear()
+
         for menu_name, menu_data in menu_dict.items():
-            menu = wx.Menu()
-            separator = False
-            for menu_section in menu_data.values():
-                if separator:
-                    menu.AppendSeparator()
-                separator = True
+            items: list[MaterialMenuItem] = []
+            for section_name, menu_section in menu_data.items():
+                if not isinstance(menu_section, dict):
+                    continue
+                section_label = str(section_name).replace("_", " ").strip().title()
                 for menu_item_name, menu_item_options in menu_section.items():
                     callback = None
-                    menu_item_description = None
-                    wx_id = None
+                    description = ""
+                    wx_id = wx.ID_ANY
                     if callable(menu_item_options):
                         callback = menu_item_options
                     elif isinstance(menu_item_options, tuple):
                         if len(menu_item_options) >= 1:
                             callback = menu_item_options[0]
                         if len(menu_item_options) >= 2:
-                            menu_item_description = menu_item_options[1]
-                        if len(menu_item_options) >= 3:
-                            wx_id = menu_item_options[2]
-                    else:
+                            description = str(menu_item_options[1] or "")
+                        if len(menu_item_options) >= 3 and menu_item_options[2]:
+                            wx_id = int(menu_item_options[2])
+                    if not callable(callback):
                         continue
-
-                    if not menu_item_description:
-                        menu_item_description = ""
-                    if not wx_id:
-                        wx_id = wx.ID_ANY
-
-                    menu_item: wx.MenuItem = menu.Append(
-                        wx_id, menu_item_name, menu_item_description
+                    items.append(
+                        MaterialMenuItem(
+                            label=str(menu_item_name),
+                            callback=callback,
+                            description=description,
+                            identifier=int(wx_id),
+                            section=section_label,
+                        )
                     )
-                    menu.Bind(wx.EVT_MENU, callback, menu_item)
-            label = menu_name.replace("&", "")
+
+            label = str(menu_name).replace("&", "")
+            popup = MaterialMenu(self._command_bar, title=label, items=items)
             button = MaterialButton(
                 self._command_bar,
                 label,
@@ -463,14 +482,13 @@ class AmuletUI(wx.Frame):
             button.SetMinSize(wx.Size(max(72, button.GetBestSize().width), 40))
             button.Bind(
                 wx.EVT_BUTTON,
-                lambda _event, control=button, popup=menu: control.PopupMenu(
-                    popup, wx.Point(0, control.GetClientSize().height)
-                ),
+                lambda _event, control=button, menu=popup: menu.show_for(control),
             )
             self._command_bar_sizer.Add(button, 0, wx.LEFT | wx.RIGHT, 2)
-            self._command_menus.append(menu)
+            self._command_menus.append(popup)
         apply_material3(self._command_bar)
         self._command_bar.Layout()
+        # END CODEX MATERIAL 3 COMMAND MENU
 
     def _open_preferences(self, _event=None) -> None:
         dialog = PreferencesDialog(self)
@@ -549,8 +567,48 @@ class AmuletUI(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def _update_generation_is_active(self, generation: int) -> bool:
+        """Return whether an update result can still reach this frame.
+
+        A close attempt temporarily reserves its current generation so a worker
+        that completes while unsaved-work protection is deciding can be
+        reconciled if that close is vetoed. Accepted close teardown clears the
+        reservation before destroying controls.
+        """
+
+        with self._update_worker_lock:
+            return generation == self._update_state_generation or (
+                self._is_closing and generation == self._closing_update_generation
+            )
+
+    def _resume_update_after_close_veto(
+        self,
+    ) -> tuple[SquirrelUpdateState, int] | None:
+        """Restore the pending worker generation after a close veto."""
+
+        with self._update_worker_lock:
+            closing_generation = self._closing_update_generation
+            pending_state = self._pending_update_state
+            self._is_closing = False
+            self._closing_update_generation = None
+            self._pending_update_state = None
+            if closing_generation is not None:
+                self._update_state_generation = closing_generation
+            if pending_state is not None and pending_state[1] == closing_generation:
+                return pending_state
+            return None
+
+    def _discard_pending_update_after_accepted_close(self) -> None:
+        """Keep update callbacks suppressed after a close starts teardown."""
+
+        with self._update_worker_lock:
+            self._closing_update_generation = None
+            self._pending_update_state = None
+
     def _check_for_updates_async(self, _event=None) -> None:
         """Check without blocking startup or the active editing surface."""
+        if self._is_closing or self.IsBeingDeleted():
+            return
         if (
             self._update_restart_generation is not None
             or self._update_state.status == "ready_to_restart"
@@ -582,12 +640,33 @@ class AmuletUI(wx.Frame):
             UPDATE_CHECK_INTERVAL_MS, self._periodic_update_check
         )
 
+    def _queue_update_state(self, state: SquirrelUpdateState, generation: int) -> None:
+        """Return a worker result to wx without reviving accepted teardown."""
+
+        if self._update_generation_is_active(generation):
+            wx.CallAfter(self._deliver_update_state, state, generation)
+
+    def _deliver_update_state(
+        self, state: SquirrelUpdateState, generation: int
+    ) -> None:
+        """Deliver a worker result or retain it across a vetoed close."""
+
+        if self.IsBeingDeleted():
+            return
+        with self._update_worker_lock:
+            if self._is_closing:
+                if generation == self._closing_update_generation:
+                    self._pending_update_state = state, generation
+                return
+        self._show_update_state(state, generation)
+
     def _update_worker(self, generation: int) -> None:
-        state = check_for_update()
-        wx.CallAfter(self._show_update_state, state, generation)
+        self._queue_update_state(check_for_update(), generation)
 
     def _stage_update_async(self, _event=None) -> None:
         """Stage a discovered update without interrupting active editing."""
+        if self._is_closing or self.IsBeingDeleted():
+            return
         if self._update_state.status != "available":
             self.SetStatusText("No update is ready to stage; check for updates first")
             return
@@ -625,7 +704,7 @@ class AmuletUI(wx.Frame):
                 version=version,
                 release_notes_url=release_notes_url,
             )
-        wx.CallAfter(self._show_update_state, state, generation)
+        self._queue_update_state(state, generation)
 
     def _open_update_release_notes(self, _event=None) -> None:
         """Open only the immutable release URL carried by the selected feed."""
@@ -713,11 +792,24 @@ class AmuletUI(wx.Frame):
             self.SetStatusText("Update restart was cancelled; the update remains ready")
 
     def _on_app_close(self, event: wx.CloseEvent) -> None:
-        """Stop the refresh timer before the notebook applies close protection."""
+        """Invalidate async update work before wx begins destroying this frame."""
+        if self._is_closing:
+            # Consume a re-entrant EVT_CLOSE so it cannot skip past the
+            # in-flight notebook transaction and its unsaved-world protection.
+            # A forced shutdown cannot be vetoed, but it must never be skipped
+            # from this handler as a second independent close transaction.
+            if event.CanVeto():
+                event.Veto()
+            return
+        with self._update_worker_lock:
+            self._is_closing = True
+            self._closing_update_generation = self._update_state_generation
+            self._update_state_generation += 1
         generation = self._update_restart_generation
         if not self._level_notebook.on_app_close(
             event, preapproved_generation=generation
         ):
+            pending_state = self._resume_update_after_close_veto()
             if generation is not None:
                 process = self._update_restart_process
                 if process is not None and process.poll() is None:
@@ -731,7 +823,10 @@ class AmuletUI(wx.Frame):
                 self.SetStatusText(
                     "Update restart was cancelled; the update remains ready"
                 )
+            if pending_state is not None:
+                self._show_update_state(*pending_state)
             return
+        self._discard_pending_update_after_accepted_close()
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
         if self._scheduled_timer is not None and self._scheduled_timer.IsRunning():
@@ -789,9 +884,11 @@ class AmuletUI(wx.Frame):
         self, state: SquirrelUpdateState, generation: int | None = None
     ) -> None:
         """Render a persistent, non-modal status message for update state."""
+        if self._is_closing or self.IsBeingDeleted():
+            return
         if self._update_restart_generation is not None:
             return
-        if generation is not None and generation != self._update_state_generation:
+        if generation is not None and not self._update_generation_is_active(generation):
             return
         self._update_state = state
         if state.status in {"available", "ready_to_restart", "failed"}:
@@ -808,16 +905,18 @@ class AmuletUI(wx.Frame):
                 body,
             )
             if notification_key != self._last_update_notification_key:
-                notifications.add(
-                    (
+                notify(
+                    self,
+                    title,
+                    body,
+                    severity=(
                         "error"
                         if state.status == "failed"
                         else (
                             "success" if state.status == "ready_to_restart" else "info"
                         )
                     ),
-                    title,
-                    body,
+                    details=(state.detail or "") if state.status == "failed" else "",
                 )
                 tts_narrator.announce_event(
                     self._narrator,
@@ -974,10 +1073,7 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
                 if old_page is not None:
                     old_page.disable()
 
-            if self.GetCurrentPage() is self._main_menu:
-                self.apply_tab_workspace()
-            else:
-                self.apply_tab_workspace()
+            self.apply_tab_workspace()
 
         if self.GetCurrentPage() is not None:
             self.GetCurrentPage().enable()

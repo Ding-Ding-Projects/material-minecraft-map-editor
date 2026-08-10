@@ -133,6 +133,7 @@ class OperationThread(Thread):
 
     def run(self) -> None:
         t = time.time()
+        obj: Any = None
         try:
             obj = self._operation()
             if isinstance(obj, GeneratorType):
@@ -152,6 +153,15 @@ class OperationThread(Thread):
                     self.out = e.value
         except BaseException as e:
             self.error = e
+        finally:
+            if isinstance(obj, GeneratorType):
+                try:
+                    obj.close()
+                except BaseException as e:
+                    if self.error is None:
+                        self.error = e
+                    else:
+                        log.exception("Exception while closing operation generator")
         time.sleep(max(0.2 - time.time() + t, 0))
 
 
@@ -199,6 +209,9 @@ class EditCanvas(BaseEditCanvas):
     def _on_close(self, _):
         close_level(self.world.level_path)
 
+    def can_close(self) -> bool:
+        return not self._operation_running
+
     @property
     def tools(self):
         return self._tool_sizer.tools
@@ -225,10 +238,11 @@ class EditCanvas(BaseEditCanvas):
         title: str | None = None,
         msg="Running Operation",
         throw_exceptions=False,
+        rollback_on_error: Optional[Callable[[], bool]] = None,
     ) -> Any:
         title = preferences.load().display_name if title is None else title
         try:
-            out = self._run_operation(operation, title, msg, True)
+            out = self._run_operation(operation, title, msg, True, rollback_on_error)
         except BaseException as e:
             if throw_exceptions:
                 raise e
@@ -248,6 +262,7 @@ class EditCanvas(BaseEditCanvas):
         title: str,
         msg: str,
         cancelable: bool,
+        rollback_on_error: Optional[Callable[[], bool]] = None,
     ) -> Any:
         with self._edit_lock:
             if self._operation_running:
@@ -257,71 +272,97 @@ class EditCanvas(BaseEditCanvas):
                 )
             self._operation_running = True
 
-            self.renderer.disable_threads()
+            try:
+                self.renderer.disable_threads()
 
-            style = (
-                wx.PD_APP_MODAL
-                | wx.PD_ELAPSED_TIME
-                | wx.PD_REMAINING_TIME
-                | wx.PD_AUTO_HIDE
-                | (wx.PD_CAN_ABORT * cancelable)
-            )
-            dialog = wx.ProgressDialog(
-                title,
-                msg,
-                maximum=10_000,
-                parent=self,
-                style=style,
-            )
-            dialog.Fit()
+                style = (
+                    wx.PD_APP_MODAL
+                    | wx.PD_ELAPSED_TIME
+                    | wx.PD_REMAINING_TIME
+                    | wx.PD_AUTO_HIDE
+                    | (wx.PD_CAN_ABORT * cancelable)
+                )
+                dialog = wx.ProgressDialog(
+                    title,
+                    msg,
+                    maximum=10_000,
+                    parent=self,
+                    style=style,
+                )
+                dialog.Fit()
 
-            # Set up a thread to run the actual operation
-            op = OperationThread(operation, msg)
-            # run the operation
-            op.start()
-            while op.is_alive():
-                op.join(0.1)
-                dialog.Update(max(0, min(int(op.progress * 10_000), 9999)), op.message)
+                # Set up a thread to run the actual operation
+                op = OperationThread(operation, msg)
+                # run the operation
+                op.start()
+                while op.is_alive():
+                    op.join(0.1)
+                    dialog.Update(
+                        max(0, min(int(op.progress * 10_000), 9999)), op.message
+                    )
+                    wx.Yield()
+                    if dialog.WasCancelled():
+                        op.stop = True
+
+                dialog.Destroy()
                 wx.Yield()
-                if dialog.WasCancelled():
-                    op.stop = True
 
-            dialog.Destroy()
-            wx.Yield()
+                if op.error is not None:
+                    if rollback_on_error is None:
+                        should_rollback = True
+                    else:
+                        try:
+                            should_rollback = bool(rollback_on_error())
+                        except BaseException as rollback_error:
+                            tb = "".join(
+                                traceback.format_exception(
+                                    type(rollback_error),
+                                    rollback_error,
+                                    rollback_error.__traceback__,
+                                )
+                            )
+                            log.error(tb)
+                            notify_exception(
+                                self,
+                                "Exception while deciding whether to rollback operation",
+                                str(rollback_error),
+                                tb,
+                            )
+                            should_rollback = False
+                    if should_rollback:
+                        self.world.restore_last_undo_point()
 
-            if op.error is not None:
-                # If there is any kind of error restore the last undo point
-                self.world.restore_last_undo_point()
-
-                if isinstance(op.error, BaseLoudException):
-                    msg = str(op.error)
-                    if isinstance(op.error, OperationError):
-                        msg = f"Error running operation: {msg}"
-                    log.info(msg)
-                    notify(self, "Operation failed", msg, severity="error")
-                elif isinstance(op.error, BaseSilentException):
-                    pass
-                elif isinstance(op.error, BaseException):
-                    tb = "".join(
-                        traceback.format_exception(
-                            type(op.error), op.error, op.error.__traceback__
+                    if isinstance(op.error, BaseLoudException):
+                        msg = str(op.error)
+                        if isinstance(op.error, OperationError):
+                            msg = f"Error running operation: {msg}"
+                        log.info(msg)
+                        notify(self, "Operation failed", msg, severity="error")
+                    elif isinstance(op.error, BaseSilentException):
+                        pass
+                    elif isinstance(op.error, BaseException):
+                        tb = "".join(
+                            traceback.format_exception(
+                                type(op.error), op.error, op.error.__traceback__
+                            )
                         )
-                    )
-                    log.error(tb)
-                    notify_exception(
-                        self,
-                        "Exception while running operation",
-                        str(op.error),
-                        tb,
-                    )
-                    self.world.restore_last_undo_point()
+                        log.error(tb)
+                        notify_exception(
+                            self,
+                            "Exception while running operation",
+                            str(op.error),
+                            tb,
+                        )
 
-            self.renderer.enable_threads()
-            self.renderer.render_world.rebuild_changed()
-            self._operation_running = False
-            if op.error is not None:
-                raise op.error
-            return op.out
+                if op.error is not None:
+                    raise op.error
+                return op.out
+            finally:
+                try:
+                    self.renderer.enable_threads()
+                    self.renderer.render_world.rebuild_changed()
+                finally:
+                    self._operation_running = False
 
     def create_undo_point(self, world=True, non_world=True):
         self.world.create_undo_point(world, non_world)

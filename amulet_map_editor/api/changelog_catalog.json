@@ -1,8 +1,200 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "13b9432caba590991aa572be9f34ead5c7d3651f",
+  "source_revision": "31600ae0678efc08a4360f50ee27867d86174233",
   "entries": [
+    {
+      "version": "0.10.0-dev.471",
+      "released_on": "2026-08-10",
+      "commit_sha": "8b877c4de1bcf795a15c77d7470ecb5ed409c1a2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Align Material frame contract with adopted sizers",
+          "commit_sha": "8b877c4de1bcf795a15c77d7470ecb5ed409c1a2"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.470",
+      "released_on": "2026-08-10",
+      "commit_sha": "b17f0c29e55771777c327e7b925de804324f5f9d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Harden close and extraction safety",
+          "commit_sha": "b17f0c29e55771777c327e7b925de804324f5f9d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.467",
+      "released_on": "2026-08-10",
+      "commit_sha": "6753c888af5e636447cac130c6ad83384081ef19",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Ignore updater callbacks during closing",
+          "commit_sha": "6753c888af5e636447cac130c6ad83384081ef19"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.466",
+      "released_on": "2026-08-10",
+      "commit_sha": "684c9f2be1e72188314a3f9f9cfbb8e2a484476f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Harden startup logging fallbacks",
+          "commit_sha": "684c9f2be1e72188314a3f9f9cfbb8e2a484476f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.462",
+      "released_on": "2026-08-10",
+      "commit_sha": "5eadee53651a1dd73c031df6286f0af119e98c16",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Report unavailable editor OpenGL support",
+          "commit_sha": "5eadee53651a1dd73c031df6286f0af119e98c16"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.461",
+      "released_on": "2026-08-10",
+      "commit_sha": "5635ddaf7077b1da5bb58ece0a6e54bf1e4803f4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Protect chunk sources during open and close",
+          "commit_sha": "5635ddaf7077b1da5bb58ece0a6e54bf1e4803f4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.460",
+      "released_on": "2026-08-10",
+      "commit_sha": "842743cf82c4b483060f048c137dab3636bde704",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Reflow Material buttons after label changes",
+          "commit_sha": "842743cf82c4b483060f048c137dab3636bde704"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.457",
+      "released_on": "2026-08-09",
+      "commit_sha": "dfbb41395e6e5e7b896312b4fe009f5f99ce5a3b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Protect chunk imports from locked source worlds",
+          "commit_sha": "dfbb41395e6e5e7b896312b4fe009f5f99ce5a3b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.456",
+      "released_on": "2026-08-09",
+      "commit_sha": "f0bbb77941fdbcf47f9418850f887eb41fe90be3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Prevent recursive Material button sizing",
+          "commit_sha": "f0bbb77941fdbcf47f9418850f887eb41fe90be3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.453",
+      "released_on": "2026-08-09",
+      "commit_sha": "affa661e4a032cfddcf48641dd327f5f89e27121",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Normalize updater notices before persistence",
+          "commit_sha": "affa661e4a032cfddcf48641dd327f5f89e27121"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.452",
+      "released_on": "2026-08-09",
+      "commit_sha": "e43312bb14e87673810135effcebe81c95c45f61",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep optional crash diagnostics out of startup",
+          "commit_sha": "e43312bb14e87673810135effcebe81c95c45f61"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.450",
+      "released_on": "2026-08-09",
+      "commit_sha": "9dbb4159effc66e10bac2e83749234c256c4191f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Guard deferred Material callbacks during teardown",
+          "commit_sha": "9dbb4159effc66e10bac2e83749234c256c4191f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.446",
+      "released_on": "2026-08-09",
+      "commit_sha": "418cd86a6a2dad7df0137bc0c27921eff5f7df28",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Normalize repository Python formatting",
+          "commit_sha": "418cd86a6a2dad7df0137bc0c27921eff5f7df28"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.445",
+      "released_on": "2026-08-09",
+      "commit_sha": "192829e8a78ea127f1e3f449061acb728092802c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Restore lazy Material styling callbacks",
+          "commit_sha": "192829e8a78ea127f1e3f449061acb728092802c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.443",
+      "released_on": "2026-08-09",
+      "commit_sha": "13b9432caba590991aa572be9f34ead5c7d3651f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Defer Windows world location discovery",
+          "commit_sha": "13b9432caba590991aa572be9f34ead5c7d3651f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.442",
+      "released_on": "2026-08-09",
+      "commit_sha": "4a83e51a343c4abb203ce71b85f19f462eae5f1e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Preserve OpenGL import failures on Windows",
+          "commit_sha": "4a83e51a343c4abb203ce71b85f19f462eae5f1e"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.440",
       "released_on": "2026-08-09",

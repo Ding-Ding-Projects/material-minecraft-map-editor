@@ -25,6 +25,13 @@ class ChangelogTestCase(unittest.TestCase):
         cls.catalog = load_bundled_catalog()
 
     def test_catalog_covers_every_reachable_release_tag(self):
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        ).stdout.strip()
         tags = subprocess.run(
             ["git", "tag", "--merged", "HEAD", "--format=%(refname:strip=2)"],
             check=True,
@@ -32,8 +39,22 @@ class ChangelogTestCase(unittest.TestCase):
             text=True,
             encoding="utf-8",
         ).stdout.splitlines()
-        self.assertEqual(set(tags), {entry.version for entry in self.catalog.entries})
-        self.assertEqual(len(tags), len(self.catalog.entries))
+        source_snapshot_tags = {
+            tag
+            for tag in tags
+            if subprocess.run(
+                ["git", "rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}"],
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            ).stdout.strip()
+            != head
+        }
+        self.assertEqual(
+            source_snapshot_tags, {entry.version for entry in self.catalog.entries}
+        )
+        self.assertEqual(len(source_snapshot_tags), len(self.catalog.entries))
 
     def test_every_commit_link_resolves_to_a_reachable_local_commit(self):
         result = subprocess.run(

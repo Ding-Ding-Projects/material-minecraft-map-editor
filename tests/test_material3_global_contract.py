@@ -8,8 +8,8 @@ def test_app_themes_lazily_created_windows():
         encoding="utf-8"
     )
     assert "self.Bind(wx.EVT_WINDOW_CREATE, self._on_window_create)" in source
-    assert "wx.CallAfter(apply_material3, window)" in source
-    assert "wx.CallLater(100, apply_material3, window)" in source
+    assert "apply_material3_deferred" in source
+    assert "apply_material3_deferred(window)" in source
 
 
 def test_material3_consumes_persisted_appearance_tokens():
@@ -53,7 +53,7 @@ def test_secondary_frames_receive_the_same_material_chrome():
         encoding="utf-8"
     )
     assert "_ensure_material_frame_chrome" in source
-    assert "wx.Frame.SetSizer(window, outer)" in source
+    assert "wx.Frame.SetSizer(window, outer, deleteOld=False)" in source
     assert 'hasattr(window, "_title_bar")' in source
 
 

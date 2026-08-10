@@ -1,0 +1,48 @@
+{
+  "artifact": "material-minecraft-map-editor-m3-completion-kit",
+  "artifact_type": "deterministic full-worktree materializer and implementation overlay",
+  "generated_date": "2026-08-10",
+  "target": {
+    "repository": "Ding-Ding-Projects/material-minecraft-map-editor",
+    "branch": "0.10",
+    "commit": "684c9f2be1e72188314a3f9f9cfbb8e2a484476f",
+    "release": "0.10.0-dev.466",
+    "work_branch": "codex/m3-completion"
+  },
+  "implementation": {
+    "replacement_files": [
+      "amulet_map_editor/api/wx/material3.py",
+      "amulet_map_editor/api/wx/components.py"
+    ],
+    "new_files": [
+      "amulet_map_editor/api/material_menu.py",
+      "tests/test_material_menu.py",
+      "tests/test_m3_completion_contract.py",
+      "scripts/validate-m3-completion.py",
+      "docs/features/material-menu/README.md"
+    ],
+    "structural_patch": [
+      "amulet_map_editor/api/framework/amulet_ui.py",
+      "tests/test_material3_global_contract.py"
+    ]
+  },
+  "source_boundary": {
+    "source_inspection": "Public GitHub source, design handoff, roadmap, tests, and release metadata were inspected at the pinned revision.",
+    "checkout_transfer": "The artifact container could not resolve github.com/codeload.github.com, so a complete upstream checkout could not be copied into /mnt/data.",
+    "materialization": "bootstrap.py/bootstrap.ps1 clone the exact commit, apply complete changed/new source files, run gates, and package the resulting full worktree on a GitHub-connected machine."
+  },
+  "validation_environment": {
+    "python": "3.13.5",
+    "pytest": "9.0.2",
+    "platform": "Linux 6.18.35 x86_64 glibc 2.41",
+    "native_wx_runtime": false,
+    "windows_runtime": false,
+    "real_world_open_edit_save": false
+  },
+  "claims": {
+    "static_source_and_headless_tests": true,
+    "synthetic_materializer_end_to_end": true,
+    "native_release_ready": false,
+    "all_possible_bugs_certified_fixed": false
+  }
+}

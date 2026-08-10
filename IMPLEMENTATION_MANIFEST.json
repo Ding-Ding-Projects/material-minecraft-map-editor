@@ -1,0 +1,139 @@
+{
+  "artifact": "material-minecraft-map-editor-m3-completion-kit",
+  "file_count": 21,
+  "files": [
+    {
+      "bytes": 2788,
+      "path": "ACCEPTANCE_MATRIX.md",
+      "role": "handoff documentation",
+      "sha256": "d17a3d9153cc577d0c33f22f5a162c2f5a15e639bcce9ecacc4f04b5eb4830f5"
+    },
+    {
+      "bytes": 4179,
+      "path": "BUG_AUDIT.md",
+      "role": "handoff documentation",
+      "sha256": "817dfb661dfc78662ad273ddad8cb7cbddb1cc48305535902e1f61cda84065ab"
+    },
+    {
+      "bytes": 8422,
+      "path": "CODEX_HANDOFF_M3_COMPLETION.md",
+      "role": "handoff documentation",
+      "sha256": "f66df69fec90a8ef5c9484ae479ffd95852c2fa27e951de682b95dc1feefa41d"
+    },
+    {
+      "bytes": 1537,
+      "path": "CODEX_PROMPT.md",
+      "role": "handoff documentation",
+      "sha256": "57683c693d63e35af94b30fad9bffed196b230c00d658dc5c13ead7316a3ee1e"
+    },
+    {
+      "bytes": 1936,
+      "path": "KIT_PROVENANCE.json",
+      "role": "provenance metadata",
+      "sha256": "859bcc11ad4e6408905668ed76b66a1aa9711d575aa7582d4fc9164afa6c4e39"
+    },
+    {
+      "bytes": 3336,
+      "path": "RECOMMENDED_CHANGES.md",
+      "role": "handoff documentation",
+      "sha256": "68365b27d4e467507c33009bc560ada9560a753eba8368ca2cccc1b7c0b01f9c"
+    },
+    {
+      "bytes": 2797,
+      "path": "START_HERE.md",
+      "role": "handoff documentation",
+      "sha256": "c61b55e951c27ba906b4898f868c9e1aa1d9d4d27a150cae8c878be1d3300ca8"
+    },
+    {
+      "bytes": 3151,
+      "path": "VALIDATION_REPORT.md",
+      "role": "handoff documentation",
+      "sha256": "3c3318e05bf97b5a4204519e9195c3efe292c4cde655c3869ac3a32e9808c60c"
+    },
+    {
+      "bytes": 1157,
+      "path": "bootstrap.ps1",
+      "role": "full-worktree materializer",
+      "sha256": "d937be9ddb7a0fd361575c24f8d39123465257534d6e1ab8d77c7cae4f79acf9"
+    },
+    {
+      "bytes": 9018,
+      "path": "bootstrap.py",
+      "role": "full-worktree materializer",
+      "sha256": "61450a3d0c56d8d589ef389a05024e6025d732b8ed3cf633cbcd56bbf7e805a5"
+    },
+    {
+      "bytes": 127,
+      "path": "bootstrap.sh",
+      "role": "full-worktree materializer",
+      "sha256": "4e950b34dff4e0578814171b5b267c58b0189e2505f2234eb6e414fce19c6409"
+    },
+    {
+      "bytes": 5934,
+      "path": "overlay/amulet_map_editor/api/material_menu.py",
+      "role": "implementation source",
+      "sha256": "8b60174bb8bc6912fbe78e22499a06cadcbd64638af620fbbf0bbc0158184c27"
+    },
+    {
+      "bytes": 28767,
+      "path": "overlay/amulet_map_editor/api/wx/components.py",
+      "role": "implementation source",
+      "sha256": "5c706bdb790a759fb57d4a8200b121526ed03b1719bff59a2502000adb9dd7b9"
+    },
+    {
+      "bytes": 26230,
+      "path": "overlay/amulet_map_editor/api/wx/material3.py",
+      "role": "implementation source",
+      "sha256": "12bd8838e29e411408700d99eb2ebd9b2440ca7214c21818a3c2b655f5aa2a14"
+    },
+    {
+      "bytes": 1600,
+      "path": "overlay/docs/features/material-menu/README.md",
+      "role": "feature contract documentation",
+      "sha256": "a2047e9939d0b5e17a6b910317a014f901576eeae80892faa5a8609bf5435156"
+    },
+    {
+      "bytes": 5787,
+      "path": "overlay/scripts/validate-m3-completion.py",
+      "role": "materialized-worktree validator",
+      "sha256": "f239bb56fe11f74b6c4f9082b0cccbd5070a49627e06870c55862e3e1398c3ea"
+    },
+    {
+      "bytes": 3873,
+      "path": "overlay/tests/test_m3_completion_contract.py",
+      "role": "regression test",
+      "sha256": "ea531ba611c99d8d8aa95f31eb5e1e85610691a7a9f2d4b4d8964cb752b15665"
+    },
+    {
+      "bytes": 2600,
+      "path": "overlay/tests/test_material_menu.py",
+      "role": "regression test",
+      "sha256": "813736209f77a99317495064011c792b752b7c3f76dae86932a9b001d1e01437"
+    },
+    {
+      "bytes": 2597,
+      "path": "package_completed_codebase.py",
+      "role": "validation and packaging tooling",
+      "sha256": "62f3cabfcf3f07f3a0dca9d22a04ae5e83459f7568b599a95fefd60b1f4368e7"
+    },
+    {
+      "bytes": 11890,
+      "path": "patches/apply_completion.py",
+      "role": "fail-closed integration patch",
+      "sha256": "a497fe1b4a2414372fc1d0ab934dd7575fdc53dd9b99f8588ddf0d171430303e"
+    },
+    {
+      "bytes": 7915,
+      "path": "run_static_checks.py",
+      "role": "validation and packaging tooling",
+      "sha256": "b769e3994150440c3075fed738796cdf88aaa9fac5d35dec87db03ca6f309803"
+    }
+  ],
+  "generated_date": "2026-08-10",
+  "schema_version": 1,
+  "target": {
+    "branch": "0.10",
+    "commit": "684c9f2be1e72188314a3f9f9cfbb8e2a484476f",
+    "repository": "Ding-Ding-Projects/material-minecraft-map-editor"
+  }
+}

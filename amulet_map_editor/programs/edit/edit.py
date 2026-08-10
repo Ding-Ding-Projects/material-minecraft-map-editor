@@ -179,7 +179,7 @@ class EditExtension(wx.Panel, BaseProgram):
             return False
         elif self._canvas is None:
             return True
-        elif self._canvas.is_closeable():
+        elif self._canvas.can_close() and self._canvas.is_closeable():
             return self._check_close_world()
         else:
             log.info(
