@@ -83,6 +83,13 @@ class MaterialButton(wx.Control):
         self.SetName(label)
         self.InvalidateBestSize()
         self.SetMinSize(self.DoGetBestSize())
+        parent = self.GetParent()
+        if (
+            not self.IsBeingDeleted()
+            and parent is not None
+            and not parent.IsBeingDeleted()
+        ):
+            parent.Layout()
         self.Refresh()
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
