@@ -16,13 +16,17 @@ class RegexBuilderDialog(wx.Dialog):
         regex_enabled: bool = False,
         flags: int = 0,
     ):
-        super().__init__(parent, title="Search pattern", style=wx.NO_BORDER | wx.RESIZE_BORDER)
+        super().__init__(
+            parent, title="Search pattern", style=wx.NO_BORDER | wx.RESIZE_BORDER
+        )
         self.pattern = pattern
         self.regex_enabled = regex_enabled
         self.flags = flags
 
         root = wx.BoxSizer(wx.VERTICAL)
-        root.Add(wx.StaticText(self, label="Pattern"), 0, wx.LEFT | wx.RIGHT | wx.TOP, 16)
+        root.Add(
+            wx.StaticText(self, label="Pattern"), 0, wx.LEFT | wx.RIGHT | wx.TOP, 16
+        )
         self.pattern_input = wx.TextCtrl(self, value=pattern, style=wx.TE_PROCESS_ENTER)
         root.Add(self.pattern_input, 0, wx.ALL | wx.EXPAND, 8)
         self.regex_toggle = wx.CheckBox(self, label="Use regular expression")
@@ -31,7 +35,12 @@ class RegexBuilderDialog(wx.Dialog):
         self.ignore_case = wx.CheckBox(self, label="Ignore case")
         self.ignore_case.SetValue(bool(flags & 0x02))
         root.Add(self.ignore_case, 0, wx.LEFT | wx.RIGHT | wx.TOP, 8)
-        root.Add(wx.StaticText(self, label="Sample text (optional)"), 0, wx.LEFT | wx.RIGHT | wx.TOP, 16)
+        root.Add(
+            wx.StaticText(self, label="Sample text (optional)"),
+            0,
+            wx.LEFT | wx.RIGHT | wx.TOP,
+            16,
+        )
         self.sample = wx.TextCtrl(self, style=wx.TE_MULTILINE)
         root.Add(self.sample, 1, wx.ALL | wx.EXPAND, 8)
         self.validation = wx.StaticText(self, label="Type a pattern to validate it.")

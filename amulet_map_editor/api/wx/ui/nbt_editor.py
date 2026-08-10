@@ -313,9 +313,7 @@ class EditTagDialog(wx.Frame):
         tag_type_panel = simple.SimplePanel(main_panel)
         button_panel = simple.SimplePanel(main_panel, sizer_dir=wx.HORIZONTAL)
 
-        name_label = wx.StaticText(
-            name_panel, label=_copy("name", self._language_mode)
-        )
+        name_label = wx.StaticText(name_panel, label=_copy("name", self._language_mode))
         self.name_field = wx.TextCtrl(name_panel)
 
         if tag_name == "" and not create:

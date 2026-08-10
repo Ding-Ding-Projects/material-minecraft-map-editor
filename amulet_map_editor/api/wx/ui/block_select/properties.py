@@ -25,6 +25,7 @@ def _copy(key: str, mode: str) -> str:
         return f"{english} · {cantonese}"
     return english
 
+
 (
     PropertiesChangeEvent,
     EVT_PROPERTIES_CHANGE,

@@ -9,5 +9,8 @@ def test_preferences_search_has_adjacent_regex_builder():
     end = source.index("    def _validate_regex", start)
     block = source[start:end]
     assert 'self.regex_button = wx.Button(page, label="Regex…")' in block
-    assert 'self.regex_button.Bind(wx.EVT_BUTTON, self._open_search_regex_builder)' in block
+    assert (
+        "self.regex_button.Bind(wx.EVT_BUTTON, self._open_search_regex_builder)"
+        in block
+    )
     assert "def _open_search_regex_builder" in block

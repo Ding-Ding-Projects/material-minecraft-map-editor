@@ -19,6 +19,7 @@ def _copy(key: str, mode: str) -> str:
         return f"{english} · {cantonese}"
     return english
 
+
 (
     PlatformChangeEvent,
     EVT_PLATFORM_CHANGE,
@@ -50,7 +51,7 @@ class PlatformSelect(wx.Panel):
         allow_universal: bool = True,
         allow_vanilla: bool = True,
         allowed_platforms: Tuple[PlatformType, ...] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(parent, style=wx.BORDER_SIMPLE)
         self._language_mode = preferences.load().language_mode
@@ -127,7 +128,7 @@ class VersionSelect(PlatformSelect):
         show_force_blockstate: bool = True,
         allow_numerical: bool = True,
         allow_blockstate: bool = True,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(parent, translation_manager, platform, **kwargs)
         self._allow_numerical = allow_numerical

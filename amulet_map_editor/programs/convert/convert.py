@@ -179,13 +179,13 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
         self.convert_button.Enable()
         notify(
             self,
-            "Conversion finished"
-            if "Error during conversion" not in message
-            else "Conversion failed",
+            (
+                "Conversion finished"
+                if "Error during conversion" not in message
+                else "Conversion failed"
+            ),
             message,
-            severity="success"
-            if "Error during conversion" not in message
-            else "error",
+            severity="success" if "Error during conversion" not in message else "error",
         )
 
     def can_close(self):

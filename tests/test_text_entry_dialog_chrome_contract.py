@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 SIMPLE = Path("amulet_map_editor/api/wx/ui/simple.py").read_text(encoding="utf-8")
 KEY_CONFIG = Path("amulet_map_editor/api/wx/util/key_config.py").read_text(
     encoding="utf-8"

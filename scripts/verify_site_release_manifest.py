@@ -8,7 +8,6 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
-
 SHA256 = re.compile(r"^[0-9a-fA-F]{64}$")
 COMMIT = re.compile(r"^[0-9a-fA-F]{40}$")
 RELEASE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -31,7 +30,9 @@ def _validate_base_url(value: object) -> str:
     if parsed.scheme != "https" or not parsed.netloc:
         raise ValueError("site baseUrl must be ./ or an absolute HTTPS URL")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ValueError("site baseUrl must not contain credentials, query, or fragment")
+        raise ValueError(
+            "site baseUrl must not contain credentials, query, or fragment"
+        )
     if not value.endswith("/"):
         raise ValueError("site baseUrl must end with '/'")
     return value
@@ -43,7 +44,9 @@ def _validate_asset(key: str, asset: object, release_tag: str) -> None:
         raise ValueError(f"asset {key!r} must be an object")
     if key in ("Setup.exe", "RELEASES") and name != key:
         raise ValueError(f"asset {key!r} has a mismatched name")
-    if key == "full.nupkg" and (not isinstance(name, str) or not name.endswith("-full.nupkg")):
+    if key == "full.nupkg" and (
+        not isinstance(name, str) or not name.endswith("-full.nupkg")
+    ):
         raise ValueError("full.nupkg asset name must end with -full.nupkg")
     digest = asset.get("sha256")
     if not isinstance(digest, str) or not SHA256.fullmatch(digest):
@@ -55,7 +58,9 @@ def _validate_asset(key: str, asset: object, release_tag: str) -> None:
     if parsed.scheme != "https" or not parsed.netloc:
         raise ValueError(f"asset {key!r} URL must be absolute HTTPS")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ValueError(f"asset {key!r} URL must be immutable (no credentials/query/fragment)")
+        raise ValueError(
+            f"asset {key!r} URL must be immutable (no credentials/query/fragment)"
+        )
     if not parsed.path.endswith("/" + str(name)):
         raise ValueError(f"asset {key!r} URL must end with /{name}")
     if f"/download/{release_tag}/" not in parsed.path:
@@ -86,9 +91,13 @@ def validate_release_manifest(path: Path) -> dict:
         raise ValueError("release manifest assets must be an object")
     if not manifest["verified"]:
         if assets:
-            raise ValueError("unverified release manifest must not contain installer assets")
+            raise ValueError(
+                "unverified release manifest must not contain installer assets"
+            )
         if manifest.get("releaseTag") or manifest.get("commit"):
-            raise ValueError("unverified release manifest must not claim a release or commit")
+            raise ValueError(
+                "unverified release manifest must not claim a release or commit"
+            )
         return manifest
     release_tag = manifest.get("releaseTag")
     commit = manifest.get("commit")
@@ -97,7 +106,9 @@ def validate_release_manifest(path: Path) -> dict:
     if not isinstance(commit, str) or not COMMIT.fullmatch(commit):
         raise ValueError("verified release manifest has an invalid 40-character commit")
     if set(assets) != set(ASSET_KEYS):
-        raise ValueError("verified release manifest must contain Setup.exe, RELEASES, and full.nupkg")
+        raise ValueError(
+            "verified release manifest must contain Setup.exe, RELEASES, and full.nupkg"
+        )
     for key, asset in assets.items():
         _validate_asset(key, asset, release_tag)
     return manifest

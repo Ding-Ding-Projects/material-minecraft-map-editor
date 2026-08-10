@@ -9,7 +9,11 @@ def check_opengl(checked=False):
     except ImportError:
         import platform
 
-        if platform.system() == "Darwin" and platform.release() >= "20." and not checked:
+        if (
+            platform.system() == "Darwin"
+            and platform.release() >= "20."
+            and not checked
+        ):
             import ctypes.util
 
             real_find_library = ctypes.util.find_library

@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -16,6 +15,6 @@ def test_version_selector_uses_language_resources_and_m3_traversal():
         "apply_material3(self)",
         "version_select.en.platform",
         "version_select.zh.format",
-        "_copy(\"version\", self._language_mode)",
+        '_copy("version", self._language_mode)',
     ):
         assert marker in source + resources

@@ -57,7 +57,9 @@ class LocalHistoryDialog(wx.Dialog):
         root.Add(self.feedback, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_MULTIPLE_SEL)
         self.list.SetName("Local history events")
-        for index, label in enumerate(("Action", "Record", "Type", "Timestamp", "Event")):
+        for index, label in enumerate(
+            ("Action", "Record", "Type", "Timestamp", "Event")
+        ):
             self.list.InsertColumn(index, label)
         root.Add(self.list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
@@ -119,22 +121,29 @@ class LocalHistoryDialog(wx.Dialog):
         since = self.since.GetValue()
         until = self.until.GetValue()
         return (
-            datetime(
-                since.GetYear(), since.GetMonth() + 1, since.GetDay(), tzinfo=timezone.utc
-            )
-            if since.IsValid()
-            else None,
-            datetime(
-                until.GetYear(),
-                until.GetMonth() + 1,
-                until.GetDay(),
-                23,
-                59,
-                59,
-                tzinfo=timezone.utc,
-            )
-            if until.IsValid()
-            else None,
+            (
+                datetime(
+                    since.GetYear(),
+                    since.GetMonth() + 1,
+                    since.GetDay(),
+                    tzinfo=timezone.utc,
+                )
+                if since.IsValid()
+                else None
+            ),
+            (
+                datetime(
+                    until.GetYear(),
+                    until.GetMonth() + 1,
+                    until.GetDay(),
+                    23,
+                    59,
+                    59,
+                    tzinfo=timezone.utc,
+                )
+                if until.IsValid()
+                else None
+            ),
         )
 
     def _refresh(self, _event=None) -> None:
@@ -212,7 +221,9 @@ class LocalHistoryDialog(wx.Dialog):
         self._update_selection_actions()
 
     def _restore_selected(self, _event) -> None:
-        indices = [index for index in self._selected_indices() if index < len(self._events)]
+        indices = [
+            index for index in self._selected_indices() if index < len(self._events)
+        ]
         if not indices or self._store is None:
             return
         restored = 0
@@ -229,7 +240,12 @@ class LocalHistoryDialog(wx.Dialog):
     def _export_visible(self, _event) -> None:
         if self._store is None:
             return
-        target = choose_path(self, "Export local history", wildcard="JSON files (*.json)|*.json", save=True)
+        target = choose_path(
+            self,
+            "Export local history",
+            wildcard="JSON files (*.json)|*.json",
+            save=True,
+        )
         if target is None:
             return
         action = self.action.GetStringSelection()

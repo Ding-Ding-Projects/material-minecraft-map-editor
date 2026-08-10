@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 APP = Path("docs/site/app.js").read_text(encoding="utf-8")
 
 

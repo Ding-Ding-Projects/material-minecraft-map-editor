@@ -16,7 +16,10 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from amulet_map_editor.api.scheduled_settings import ScheduledValues, ScheduleValidationError
+from amulet_map_editor.api.scheduled_settings import (
+    ScheduledValues,
+    ScheduleValidationError,
+)
 
 SOURCE_VERSION = 1
 MAX_URL_LENGTH = 2048
@@ -42,13 +45,17 @@ class ScheduleSource:
     def __post_init__(self) -> None:
         if self.kind not in ALLOWED_KINDS:
             raise SourceValidationError("source kind is unsupported")
-        if not isinstance(self.refresh_seconds, int) or isinstance(self.refresh_seconds, bool):
+        if not isinstance(self.refresh_seconds, int) or isinstance(
+            self.refresh_seconds, bool
+        ):
             raise SourceValidationError("refresh_seconds must be an integer")
         if not 30 <= self.refresh_seconds <= 86_400:
             raise SourceValidationError("refresh_seconds must be between 30 and 86400")
         if self.kind == "local":
             if self.url or self.entity_id:
-                raise SourceValidationError("local sources cannot carry a URL or entity")
+                raise SourceValidationError(
+                    "local sources cannot carry a URL or entity"
+                )
             return
         validate_source_url(self.url)
         if self.kind == "home_assistant":
@@ -58,7 +65,13 @@ class ScheduleSource:
                 raise SourceValidationError("entity_id must look like domain.object")
 
     def as_dict(self) -> dict[str, Any]:
-        return {"version": SOURCE_VERSION, "kind": self.kind, "url": self.url, "entity_id": self.entity_id, "refresh_seconds": self.refresh_seconds}
+        return {
+            "version": SOURCE_VERSION,
+            "kind": self.kind,
+            "url": self.url,
+            "entity_id": self.entity_id,
+            "refresh_seconds": self.refresh_seconds,
+        }
 
 
 @dataclass(frozen=True)
@@ -80,7 +93,9 @@ def validate_source_url(url: str) -> str:
         raise SourceValidationError("source URL cannot contain a query or fragment")
     host = parsed.hostname.lower().rstrip(".")
     if parsed.scheme == "http" and host not in _LOOPBACK_HOSTS:
-        raise SourceValidationError("HTTP is allowed only for loopback development sources")
+        raise SourceValidationError(
+            "HTTP is allowed only for loopback development sources"
+        )
     return url.rstrip("/")
 
 
@@ -119,7 +134,13 @@ def _read_json(response) -> Mapping[str, Any]:
     return value
 
 
-def fetch_source(source: ScheduleSource, *, token: str | None = None, opener=None, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> SourceResult:
+def fetch_source(
+    source: ScheduleSource,
+    *,
+    token: str | None = None,
+    opener=None,
+    timeout: int = DEFAULT_TIMEOUT_SECONDS,
+) -> SourceResult:
     """Fetch one source without raising network or validation errors to UI."""
 
     try:
@@ -133,16 +154,35 @@ def fetch_source(source: ScheduleSource, *, token: str | None = None, opener=Non
                 headers["Authorization"] = f"Bearer {token}"
         request = Request(endpoint, headers=headers, method="GET")
         client = opener or build_opener(_NoRedirect())
-        response = client.open(request, timeout=min(DEFAULT_TIMEOUT_SECONDS, max(1, int(timeout))))
+        response = client.open(
+            request, timeout=min(DEFAULT_TIMEOUT_SECONDS, max(1, int(timeout)))
+        )
         payload = _read_json(response)
         if source.kind == "home_assistant":
             if payload.get("state") != "on":
                 return SourceResult(True, {}, "Home Assistant source is off")
             attributes = payload.get("attributes")
-            return SourceResult(True, validate_values(attributes if isinstance(attributes, Mapping) else {}))
+            return SourceResult(
+                True,
+                validate_values(attributes if isinstance(attributes, Mapping) else {}),
+            )
         return SourceResult(True, validate_values(payload))
-    except (SourceValidationError, HTTPError, URLError, OSError, ValueError, TypeError) as exc:
+    except (
+        SourceValidationError,
+        HTTPError,
+        URLError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
         return SourceResult(False, {}, str(exc)[:240])
 
 
-__all__ = ["ScheduleSource", "SourceResult", "SourceValidationError", "fetch_source", "validate_source_url", "validate_values"]
+__all__ = [
+    "ScheduleSource",
+    "SourceResult",
+    "SourceValidationError",
+    "fetch_source",
+    "validate_source_url",
+    "validate_values",
+]

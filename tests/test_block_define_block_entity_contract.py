@@ -1,9 +1,8 @@
 from pathlib import Path
 
-
-SOURCE = Path(
-    "amulet_map_editor/api/wx/ui/block_select/block_define.py"
-).read_text(encoding="utf-8")
+SOURCE = Path("amulet_map_editor/api/wx/ui/block_select/block_define.py").read_text(
+    encoding="utf-8"
+)
 
 
 def test_block_entity_is_preserved_instead_of_discarded():

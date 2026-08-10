@@ -1,9 +1,6 @@
 from pathlib import Path
 
-
-SOURCE = Path("amulet_map_editor/api/wx/ui/preferences.py").read_text(
-    encoding="utf-8"
-)
+SOURCE = Path("amulet_map_editor/api/wx/ui/preferences.py").read_text(encoding="utf-8")
 
 
 def test_font_search_has_adjacent_builder_and_bounds():

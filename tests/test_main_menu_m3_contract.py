@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 SOURCE = Path("amulet_map_editor/api/framework/pages/main_menu.py").read_text(
     encoding="utf-8"
 )

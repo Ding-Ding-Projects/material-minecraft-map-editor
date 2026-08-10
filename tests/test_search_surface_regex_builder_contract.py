@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 NOTIFICATIONS = Path("amulet_map_editor/api/wx/ui/notifications.py").read_text(
     encoding="utf-8"
 )

@@ -8,7 +8,10 @@ import threading
 from typing import Callable, Mapping
 
 from amulet_map_editor.api import scheduled_settings
-from amulet_map_editor.api.scheduled_refresh import RefreshResult, ScheduledRefreshCoordinator
+from amulet_map_editor.api.scheduled_refresh import (
+    RefreshResult,
+    ScheduledRefreshCoordinator,
+)
 from amulet_map_editor.api.scheduled_sources import ScheduleSource
 
 
@@ -42,7 +45,9 @@ def _set_state(state: RuntimeScheduleState) -> None:
 class ScheduledRuntimeController:
     """Resolve local rules and refresh active external rules without persistence."""
 
-    def __init__(self, *, on_state: Callable[[RuntimeScheduleState], None] | None = None):
+    def __init__(
+        self, *, on_state: Callable[[RuntimeScheduleState], None] | None = None
+    ):
         self._on_state = on_state
         self._coordinator = ScheduledRefreshCoordinator()
         self._lock = threading.RLock()
@@ -59,7 +64,9 @@ class ScheduledRuntimeController:
             return state
         moment = datetime.now().astimezone().replace(tzinfo=None)
         resolution = document.resolve(moment, base_values)
-        state = RuntimeScheduleState(dict(resolution.values), resolution.matched_rule_ids)
+        state = RuntimeScheduleState(
+            dict(resolution.values), resolution.matched_rule_ids
+        )
         _set_state(state)
         if self._on_state:
             self._on_state(state)
@@ -105,4 +112,9 @@ class ScheduledRuntimeController:
         self._coordinator.stop()
 
 
-__all__ = ["RuntimeScheduleState", "ScheduledRuntimeController", "current_values", "current_state"]
+__all__ = [
+    "RuntimeScheduleState",
+    "ScheduledRuntimeController",
+    "current_values",
+    "current_state",
+]

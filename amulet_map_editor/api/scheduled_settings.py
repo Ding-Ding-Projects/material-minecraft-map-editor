@@ -179,7 +179,12 @@ class ScheduleRule:
         # module, while this rule only needs its public source shape.
         from amulet_map_editor.api.scheduled_sources import ScheduleSource
 
-        raw_source = self.source or {"kind": "local", "url": "", "entity_id": "", "refresh_seconds": 300}
+        raw_source = self.source or {
+            "kind": "local",
+            "url": "",
+            "entity_id": "",
+            "refresh_seconds": 300,
+        }
         if not isinstance(raw_source, Mapping):
             raise ScheduleValidationError("source must be an object")
         try:

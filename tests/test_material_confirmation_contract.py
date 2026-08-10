@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 CONFIRM = Path("amulet_map_editor/api/wx/ui/confirm.py").read_text(encoding="utf-8")
 
 

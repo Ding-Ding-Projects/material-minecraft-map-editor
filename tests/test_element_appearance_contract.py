@@ -1,9 +1,10 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[1]
 MATERIAL3 = (ROOT / "amulet_map_editor/api/wx/material3.py").read_text(encoding="utf-8")
-EDITOR = (ROOT / "amulet_map_editor/api/wx/ui/element_appearance.py").read_text(encoding="utf-8")
+EDITOR = (ROOT / "amulet_map_editor/api/wx/ui/element_appearance.py").read_text(
+    encoding="utf-8"
+)
 
 
 def test_every_native_m3_control_gets_an_edit_and_reset_entry():

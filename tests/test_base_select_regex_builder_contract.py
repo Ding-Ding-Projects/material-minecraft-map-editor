@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 BASE = Path("amulet_map_editor/api/wx/ui/base_select.py").read_text(encoding="utf-8")
 DIALOG = Path("amulet_map_editor/api/wx/ui/regex_dialog.py").read_text(encoding="utf-8")
 

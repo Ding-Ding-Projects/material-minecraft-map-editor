@@ -37,11 +37,15 @@ class AppDisplayNameUIContractTestCase(unittest.TestCase):
             self.assertIn(stable_identifier, package_identity)
 
     def test_main_menu_masthead_uses_the_persisted_display_name(self):
-        source = (ROOT / "amulet_map_editor/api/framework/pages/main_menu.py").read_text(
-            encoding="utf-8"
+        source = (
+            ROOT / "amulet_map_editor/api/framework/pages/main_menu.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "from amulet_map_editor.api import image, lang, preferences", source
         )
-        self.assertIn("from amulet_map_editor.api import image, lang, preferences", source)
-        self.assertIn("self._amulet_name.SetLabel(preferences.load().display_name)", source)
+        self.assertIn(
+            "self._amulet_name.SetLabel(preferences.load().display_name)", source
+        )
 
 
 if __name__ == "__main__":

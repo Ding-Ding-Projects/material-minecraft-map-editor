@@ -1,9 +1,6 @@
 from pathlib import Path
 
-
-SOURCE = Path("amulet_map_editor/api/wx/ui/nbt_editor.py").read_text(
-    encoding="utf-8"
-)
+SOURCE = Path("amulet_map_editor/api/wx/ui/nbt_editor.py").read_text(encoding="utf-8")
 
 
 def test_nbt_editor_starts_borderless_for_shared_material_frame_chrome():

@@ -1,9 +1,6 @@
 from pathlib import Path
 
-
-SOURCE = Path("amulet_map_editor/api/wx/util/key_config.py").read_text(
-    encoding="utf-8"
-)
+SOURCE = Path("amulet_map_editor/api/wx/util/key_config.py").read_text(encoding="utf-8")
 
 
 def test_key_catcher_starts_borderless_and_uses_m3_helper():

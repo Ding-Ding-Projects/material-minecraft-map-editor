@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -16,6 +15,6 @@ def test_path_picker_uses_persisted_language_resources_and_m3_hook():
         "apply_material3(self)",
         "path.en.choose_folder",
         "path.zh.choose_folder",
-        "_copy(\"browse\", self._language_mode)",
+        '_copy("browse", self._language_mode)',
     ):
         assert marker in source + resources

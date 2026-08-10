@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 LEGAL = Path("amulet_map_editor/api/framework/pages/_legal.py").read_text(
     encoding="utf-8"
 )

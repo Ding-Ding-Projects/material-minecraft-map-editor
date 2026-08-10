@@ -514,11 +514,14 @@ class KeyConfig(wx.BoxSizer):
 
     def _modify_button(self, action):
         if self._choice.GetCurrentString() in self._fixed_keybinds:
-            if show_material_confirmation(
-                self._options,
-                lang.get("key_config.active_not_editable"),
-                style=wx.YES_NO,
-            ) == wx.ID_YES:
+            if (
+                show_material_confirmation(
+                    self._options,
+                    lang.get("key_config.active_not_editable"),
+                    style=wx.YES_NO,
+                )
+                == wx.ID_YES
+            ):
                 self._create_new_group()
             else:
                 return

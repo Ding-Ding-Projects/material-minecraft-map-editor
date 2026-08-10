@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 SOURCE = Path("amulet_map_editor/api/wx/material3.py").read_text(encoding="utf-8")
 
 

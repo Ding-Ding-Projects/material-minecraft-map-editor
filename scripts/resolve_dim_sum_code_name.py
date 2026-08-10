@@ -53,7 +53,9 @@ def resolve(
         tag = published.get(image_name)
         if tag:
             return en, zh, ASSET_URL.format(tag=tag, name=image_name)
-    raise RuntimeError("No unused catalog dish with a published public image asset was found")
+    raise RuntimeError(
+        "No unused catalog dish with a published public image asset was found"
+    )
 
 
 def main() -> int:

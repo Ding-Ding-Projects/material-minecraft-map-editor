@@ -1,14 +1,18 @@
 from pathlib import Path
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class CrossPlatformWorkflowContractTests(unittest.TestCase):
     def test_non_windows_release_lanes_are_not_active(self):
         workflows = ROOT / ".github" / "workflows"
-        for name in ("build-macos.yml", "build-debian.yml", "build-flatpak.yml", "build-docker.yml"):
+        for name in (
+            "build-macos.yml",
+            "build-debian.yml",
+            "build-flatpak.yml",
+            "build-docker.yml",
+        ):
             self.assertFalse((workflows / name).exists(), name)
 
     def test_linux_wayland_dependency_is_not_in_the_windows_delivery_contract(self):

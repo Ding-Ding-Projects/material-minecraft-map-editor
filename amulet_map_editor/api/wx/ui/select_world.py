@@ -218,6 +218,7 @@ def find_world_paths() -> None:
                     ),
                 )
 
+
 world_images: Dict[str, Tuple[int, wx.Bitmap, int]] = {}
 
 

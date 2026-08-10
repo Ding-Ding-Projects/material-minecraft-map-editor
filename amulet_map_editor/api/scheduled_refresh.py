@@ -6,7 +6,11 @@ from dataclasses import dataclass
 import threading
 from typing import Callable
 
-from amulet_map_editor.api.scheduled_sources import ScheduleSource, SourceResult, fetch_source
+from amulet_map_editor.api.scheduled_sources import (
+    ScheduleSource,
+    SourceResult,
+    fetch_source,
+)
 
 
 @dataclass(frozen=True)
@@ -35,7 +39,9 @@ class ScheduledRefreshCoordinator:
     ) -> RefreshResult:
         with self._lock:
             if self._stopped:
-                return RefreshResult(SourceResult(False, {}, "refresh is stopped"), False)
+                return RefreshResult(
+                    SourceResult(False, {}, "refresh is stopped"), False
+                )
             self._generation += 1
             generation = self._generation
         result = self._fetcher(source, token=token)
@@ -72,7 +78,9 @@ class ScheduledRefreshCoordinator:
                 with self._lock:
                     self._threads.discard(thread)
 
-        thread = threading.Thread(target=run, name="amulet-scheduled-refresh", daemon=True)
+        thread = threading.Thread(
+            target=run, name="amulet-scheduled-refresh", daemon=True
+        )
         with self._lock:
             if self._stopped:
                 return thread

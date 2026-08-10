@@ -21,6 +21,7 @@ def _copy(key: str, mode: str) -> str:
         return f"{english} · {cantonese}"
     return english
 
+
 (
     ItemNamespaceChangeEvent,
     EVT_ITEM_NAMESPACE_CHANGE,

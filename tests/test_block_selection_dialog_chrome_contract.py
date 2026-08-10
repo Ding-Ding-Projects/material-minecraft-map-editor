@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 FILES = (
     "amulet_map_editor/api/wx/ui/block_select/block_select.py",
     "amulet_map_editor/api/wx/ui/block_select/block_define.py",
