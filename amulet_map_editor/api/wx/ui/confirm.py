@@ -7,16 +7,19 @@ from typing import Iterator
 
 import wx
 
+from amulet_map_editor.api import preferences
 from amulet_map_editor.api.wx.material3 import apply_material3
 
 
 class MaterialConfirmDialog(wx.Dialog):
     """Small app-owned confirmation dialog with wx-compatible result IDs."""
 
-    def __init__(self, parent: wx.Window, message: str, style: int, title: str = "Amulet"):
+    def __init__(
+        self, parent: wx.Window, message: str, style: int, title: str | None = None
+    ):
         super().__init__(
             parent,
-            title=title,
+            title=preferences.load().display_name if title is None else title,
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         root = wx.BoxSizer(wx.VERTICAL)
@@ -46,7 +49,7 @@ class MaterialConfirmDialog(wx.Dialog):
 
 @contextmanager
 def material_confirmation(
-    parent: wx.Window, message: str, style: int, title: str = "Amulet"
+    parent: wx.Window, message: str, style: int, title: str | None = None
 ) -> Iterator[MaterialConfirmDialog]:
     """Yield an M3 confirmation dialog while preserving normal wx cleanup."""
 
@@ -55,7 +58,7 @@ def material_confirmation(
 
 
 def show_material_confirmation(
-    parent: wx.Window, message: str, style: int, title: str = "Amulet"
+    parent: wx.Window, message: str, style: int, title: str | None = None
 ) -> int:
     """Show a blocking decision and return wx.ID_YES/NO/CANCEL."""
 
