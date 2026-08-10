@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from amulet_map_editor.api import notification_copy, notifications
+
+
+log = logging.getLogger(__name__)
 
 
 def _escape_unsupported_controls(value: str, *, multiline: bool) -> str:
@@ -37,7 +41,7 @@ def notify(
     *,
     severity: str = "info",
     details: str = "",
-) -> notifications.Notification:
+) -> notifications.Notification | None:
     """Record an informational result without halting the active workflow."""
 
     full_body = str(body).strip() or notification_copy.notification_text(
@@ -64,7 +68,15 @@ def notify(
         available = max(0, notifications.MAX_TEXT_LENGTH - len(suffix))
         safe_body = safe_body[:available].rstrip() + suffix
     details = _bound_details(details)
-    item = notifications.add(severity, title, safe_body, details=details)
+    item: notifications.Notification | None = None
+    try:
+        item = notifications.add(severity, title, safe_body, details=details)
+    except Exception:
+        # A notification must not turn its caller's wx callback into an
+        # exception path when its optional durable-history store is unavailable.
+        log.exception(
+            "Could not persist notification history; showing an ephemeral notification"
+        )
     top = parent
     try:
         top = parent.GetTopLevelParent() or parent
@@ -72,20 +84,25 @@ def notify(
         pass
     try:
         top.SetStatusText(f"{title}: {safe_body}")
-    except AttributeError:
-        # Non-wx callers still get durable notification history.
+    except (AttributeError, RuntimeError):
+        # The parent may already be tearing down; an ephemeral fallback must
+        # stay best-effort just like the normal toast path.
         pass
     try:
         top.show_notification(title, safe_body, severity=severity)
-    except AttributeError:
-        # Non-shell wx owners retain the durable history/status fallback.
+    except (AttributeError, RuntimeError):
+        # Non-shell and closing wx owners retain the diagnostic fallback.
         pass
-    return item
+    if item is not None:
+        return item
+    # Do not fabricate a history record when persistence failed. The
+    # display/status work above remains explicitly ephemeral.
+    return None
 
 
 def notify_exception(
     parent: Any, title: str, error: str, traceback_text: str
-) -> notifications.Notification:
+) -> notifications.Notification | None:
     """Publish a non-blocking error while retaining bounded traceback text."""
 
     error = str(error).strip() or notification_copy.notification_text(

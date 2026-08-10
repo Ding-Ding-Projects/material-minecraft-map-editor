@@ -206,6 +206,10 @@ class AmuletUI(wx.Frame):
         self._update_thread = None
         self._update_stage_thread = None
         self._update_state = SquirrelUpdateState("unknown")
+        # Update workers may finish after wx starts destroying the frame. Every
+        # worker result is scoped to this generation, and closing invalidates
+        # the current generation before controls begin their teardown.
+        self._is_closing = False
         self._update_state_generation = 0
         self._update_restart_generation: int | None = None
         self._update_restart_process: subprocess.Popen | None = None
@@ -548,8 +552,15 @@ class AmuletUI(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def _update_generation_is_active(self, generation: int) -> bool:
+        """Return whether a queued update result still belongs to this frame."""
+
+        return not self._is_closing and generation == self._update_state_generation
+
     def _check_for_updates_async(self, _event=None) -> None:
         """Check without blocking startup or the active editing surface."""
+        if self._is_closing or self.IsBeingDeleted():
+            return
         if (
             self._update_restart_generation is not None
             or self._update_state.status == "ready_to_restart"
@@ -583,10 +594,13 @@ class AmuletUI(wx.Frame):
 
     def _update_worker(self, generation: int) -> None:
         state = check_for_update()
-        wx.CallAfter(self._show_update_state, state, generation)
+        if self._update_generation_is_active(generation):
+            wx.CallAfter(self._show_update_state, state, generation)
 
     def _stage_update_async(self, _event=None) -> None:
         """Stage a discovered update without interrupting active editing."""
+        if self._is_closing or self.IsBeingDeleted():
+            return
         if self._update_state.status != "available":
             self.SetStatusText("No update is ready to stage; check for updates first")
             return
@@ -624,7 +638,8 @@ class AmuletUI(wx.Frame):
                 version=version,
                 release_notes_url=release_notes_url,
             )
-        wx.CallAfter(self._show_update_state, state, generation)
+        if self._update_generation_is_active(generation):
+            wx.CallAfter(self._show_update_state, state, generation)
 
     def _open_update_release_notes(self, _event=None) -> None:
         """Open only the immutable release URL carried by the selected feed."""
@@ -706,11 +721,22 @@ class AmuletUI(wx.Frame):
             self.SetStatusText("Update restart was cancelled; the update remains ready")
 
     def _on_app_close(self, event: wx.CloseEvent) -> None:
-        """Stop the refresh timer before the notebook applies close protection."""
+        """Invalidate async update work before wx begins destroying this frame."""
+        if self._is_closing:
+            # Consume a re-entrant EVT_CLOSE so it cannot skip past the
+            # in-flight notebook transaction and its unsaved-world protection.
+            # A forced shutdown cannot be vetoed, but it must never be skipped
+            # from this handler as a second independent close transaction.
+            if event.CanVeto():
+                event.Veto()
+            return
+        self._is_closing = True
+        self._update_state_generation += 1
         generation = self._update_restart_generation
         if not self._level_notebook.on_app_close(
             event, preapproved_generation=generation
         ):
+            self._is_closing = False
             if generation is not None:
                 process = self._update_restart_process
                 if process is not None and process.poll() is None:
@@ -782,9 +808,14 @@ class AmuletUI(wx.Frame):
         self, state: SquirrelUpdateState, generation: int | None = None
     ) -> None:
         """Render a persistent, non-modal status message for update state."""
+        if self._is_closing or self.IsBeingDeleted():
+            return
         if self._update_restart_generation is not None:
             return
-        if generation is not None and generation != self._update_state_generation:
+        if (
+            generation is not None
+            and not self._update_generation_is_active(generation)
+        ):
             return
         self._update_state = state
         if state.status in {"available", "ready_to_restart", "failed"}:
