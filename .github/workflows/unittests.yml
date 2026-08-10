@@ -36,6 +36,13 @@ jobs:
         with:
           python-version: '3.11'
 
+      # The job proves the data model needs no DISPLAY, not that it needs no
+      # dependencies: amulet_map_editor/__init__.py imports platformdirs at
+      # module scope, so the bare runner has to be given it.
+      - name: Bootstrap import-time dependencies
+        run: |
+          python -m pip install --quiet platformdirs
+
       - name: Import the studio data modules without a display
         run: |
           python - <<'PY'
@@ -75,6 +82,56 @@ jobs:
         run: |
           python -m pip install --quiet pytest
           python -m pytest tests/test_no_console_window_contract.py -q
+
+      - name: Verify the surface registry is internally consistent
+        run: |
+          python - <<'PY'
+          import importlib
+          import sys
+
+          sys.path.insert(0, ".")
+          from amulet_map_editor.api.studio.spec import SECTION_KINDS
+
+          specs = {}
+          for name in (
+              "core",
+              "terrain_build",
+              "entities_data",
+              "analysis_worldgen",
+              "tools_panels",
+          ):
+              try:
+                  module = importlib.import_module(
+                      f"amulet_map_editor.api.studio.specs.{name}"
+                  )
+              except ModuleNotFoundError:
+                  print(f"specs.{name} is not present in this revision")
+                  continue
+              for key, value in module.SPECS.items():
+                  assert key not in specs, f"duplicate surface key: {key}"
+                  specs[key] = value
+
+          for key, spec in specs.items():
+              assert spec.key == key, f"{key}: spec.key disagrees with its registry key"
+              assert spec.sections, f"{key}: surface has no sections"
+              for section in spec.sections:
+                  assert (
+                      section.kind in SECTION_KINDS
+                  ), f"{key}: unknown section kind {section.kind}"
+
+          targets = {
+              action.surface
+              for spec in specs.values()
+              for action in spec.actions
+              if action.surface
+          }
+          handbuilt = {"nbt", "memory", "prefs", "regex", "history", "notifications",
+                       "changelog", "docs", "tabManager", "palette", "dimsum"}
+          missing = sorted(targets - set(specs) - handbuilt)
+          assert not missing, f"actions point at surfaces that do not exist: {missing}"
+          print(f"{len(specs)} surfaces, "
+                f"{sum(len(s.sections) for s in specs.values())} sections, consistent")
+          PY
 
   unittests:
     name: Test suite

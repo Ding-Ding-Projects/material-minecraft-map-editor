@@ -442,6 +442,12 @@ def font(
     result.SetPointSize(max(MIN_POINT_SIZE, round(point_size * prefs.ui_scale)))
     result.SetWeight(weight)
     if mono:
+        # The family is set first and the face second, and the order matters:
+        # setting the family afterwards replaces the resolved face with the
+        # platform's generic one, so a chosen monospaced face would be quietly
+        # thrown away.  The family stands in only when no candidate face is
+        # installed, which still yields a monospaced font rather than a
+        # proportional one.
         result.SetFamily(wx.FONTFAMILY_TELETYPE)
         face = _resolve_face(MONO_FONT_CANDIDATES)
     else:
