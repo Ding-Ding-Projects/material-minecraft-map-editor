@@ -1,8 +1,68 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "9c76c7ff986f5a02709bb30f91a6361cd9023fb3",
+  "source_revision": "13b9432caba590991aa572be9f34ead5c7d3651f",
   "entries": [
+    {
+      "version": "0.10.0-dev.440",
+      "released_on": "2026-08-09",
+      "commit_sha": "b3a33b8343b5836edb1a93b52d1cdde43e961390",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Use display names in confirmation dialogs",
+          "commit_sha": "b3a33b8343b5836edb1a93b52d1cdde43e961390"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.436",
+      "released_on": "2026-08-09",
+      "commit_sha": "d5eec95d33acbe51b59d4bd3a48eb2675af49bd9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Normalize display-name dialog formatting",
+          "commit_sha": "d5eec95d33acbe51b59d4bd3a48eb2675af49bd9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.434",
+      "released_on": "2026-08-09",
+      "commit_sha": "929efb9e6cfee359df93eb94ef675d038c84a21d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Localize renamed app identity",
+          "commit_sha": "929efb9e6cfee359df93eb94ef675d038c84a21d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.432",
+      "released_on": "2026-08-09",
+      "commit_sha": "c1e4408cab74bcfe7ba36122fb25081b0cf923cd",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Refresh generated release and display-name records",
+          "commit_sha": "c1e4408cab74bcfe7ba36122fb25081b0cf923cd"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.433",
+      "released_on": "2026-08-09",
+      "commit_sha": "c1e4408cab74bcfe7ba36122fb25081b0cf923cd",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Refresh generated release and display-name records",
+          "commit_sha": "c1e4408cab74bcfe7ba36122fb25081b0cf923cd"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.430",
       "released_on": "2026-08-09",

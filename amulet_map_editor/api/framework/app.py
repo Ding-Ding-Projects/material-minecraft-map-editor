@@ -5,7 +5,7 @@ import locale
 import logging
 import os
 
-from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.material3 import apply_material3_deferred
 
 # Disable OpenGL_accelerate logging
 logging.getLogger("OpenGL.acceleratesupport").setLevel(logging.CRITICAL)
@@ -66,12 +66,13 @@ class AmuletApp(wx.App):
 
         window = event.GetWindow()
         if window is not None and not getattr(window, "_material3_opt_out", False):
-            wx.CallAfter(apply_material3, window)
             # Dialog/frame constructors frequently install their sizer after
-            # EVT_WINDOW_CREATE. Retry once after layout construction so the
-            # shared title bar and role tokens cannot miss a lazily-built
-            # surface while remaining idempotent.
+            # EVT_WINDOW_CREATE. The deferred helper retries once after layout
+            # construction, but safely skips a wx wrapper destroyed before
+            # either callback reaches the event loop.
+            wx.CallAfter(apply_material3, window)
             wx.CallLater(100, apply_material3, window)
+            apply_material3_deferred(window)
         event.Skip()
 
     def InitLocale(self):
