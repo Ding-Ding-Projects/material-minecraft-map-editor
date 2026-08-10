@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import wraps
+import re
 from typing import Callable, Iterable, TypeVar
+import weakref
 
 import wx
 from amulet_map_editor.api import preferences, school_mode, scheduled_runtime
@@ -41,6 +43,26 @@ class Material3Tokens:
 
 TOKENS = Material3Tokens()
 _WindowFunc = TypeVar("_WindowFunc", bound=Callable[..., None])
+_WRAPPED_OBJECT_DELETED = re.compile(
+    r"^wrapped C/C\+\+ object(?: of type .+)? has been deleted$"
+)
+
+
+def _is_deleted_wrapped_object_error(error: RuntimeError) -> bool:
+    """Return whether wx reported its canonical destroyed-wrapper error."""
+
+    return bool(_WRAPPED_OBJECT_DELETED.fullmatch(str(error)))
+
+
+def _is_window_being_deleted(window: wx.Window) -> bool:
+    """Check a wx wrapper without masking errors unrelated to teardown."""
+
+    try:
+        return window.IsBeingDeleted()
+    except RuntimeError as error:
+        if _is_deleted_wrapped_object_error(error):
+            return True
+        raise
 
 
 def _ignore_destroyed_window(function: _WindowFunc) -> _WindowFunc:
@@ -49,15 +71,37 @@ def _ignore_destroyed_window(function: _WindowFunc) -> _WindowFunc:
     @wraps(function)
     def guarded(window: wx.Window, *args, **kwargs):
         try:
-            if window.IsBeingDeleted():
+            if _is_window_being_deleted(window):
                 return None
             return function(window, *args, **kwargs)
         except RuntimeError as error:
-            if "wrapped C/C++ object" in str(error) and "deleted" in str(error):
+            if _is_deleted_wrapped_object_error(error):
                 return None
             raise
 
     return guarded  # type: ignore[return-value]
+
+
+def apply_material3_deferred(window: wx.Window) -> None:
+    """Schedule immediate and delayed M3 passes without retaining ``window``.
+
+    ``EVT_WINDOW_CREATE`` fires before some frames and dialogs construct their
+    sizers and custom title chrome.  Retrying after the event queue and again
+    after layout completes preserves the existing M3 appearance for live
+    widgets.  A weak reference means queued callbacks cannot retain a wrapper
+    after wx begins destroying it.
+    """
+
+    window_ref = weakref.ref(window)
+
+    def apply_if_live() -> None:
+        target = window_ref()
+        if target is None or _is_window_being_deleted(target):
+            return
+        apply_material3(target)
+
+    wx.CallAfter(apply_if_live)
+    wx.CallLater(100, apply_if_live)
 
 
 def _blend_colour(
@@ -424,13 +468,19 @@ def apply_material3(window: wx.Window) -> None:
 
     _bind_element_appearance_menu(window)
     try:
-        __import__(
+        appearance = __import__(
             "amulet_map_editor.api.wx.ui.element_appearance",
             fromlist=["apply_override"],
-        ).apply_override(window)
-    except (ImportError, RuntimeError, TypeError, ValueError):
+        )
+    except ImportError:
         # The appearance editor is an optional UI layer; base M3 styling stays
         # available if a headless/import-only environment cannot load it.
         pass
+    else:
+        try:
+            appearance.apply_override(window)
+        except RuntimeError as error:
+            if not _is_deleted_wrapped_object_error(error):
+                raise
 
     window.Layout()

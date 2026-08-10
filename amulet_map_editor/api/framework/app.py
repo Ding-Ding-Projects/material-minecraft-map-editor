@@ -67,11 +67,9 @@ class AmuletApp(wx.App):
         window = event.GetWindow()
         if window is not None and not getattr(window, "_material3_opt_out", False):
             # Dialog/frame constructors frequently install their sizer after
-            # EVT_WINDOW_CREATE. The deferred helper retries once after layout
-            # construction, but safely skips a wx wrapper destroyed before
-            # either callback reaches the event loop.
-            wx.CallAfter(apply_material3, window)
-            wx.CallLater(100, apply_material3, window)
+            # EVT_WINDOW_CREATE. The deferred helper owns both styling passes,
+            # retrying after layout construction without retaining a wrapper
+            # that wx has started to destroy.
             apply_material3_deferred(window)
         event.Skip()
 
