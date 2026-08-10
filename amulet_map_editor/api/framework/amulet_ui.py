@@ -1,7 +1,7 @@
 from __future__ import annotations
 import wx
 from wx.lib.agw import flatnotebook
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 import traceback
 import logging
 import sys
@@ -102,10 +102,21 @@ wx.Image.SetDefaultLoadFlags(0)
 
 
 class AmuletUI(wx.Frame):
-    """This is the top level frame that Amulet exists within."""
+    """This is the top level frame that Amulet exists within.
+
+    The frame's content is the Amulet Studio shell: a title bar, the backstage
+    project screen, and the editing workspace.  The world notebook still exists
+    below it -- it owns world loading, per-page unsaved-work protection, and the
+    tab dock the tab manager edits -- and is handed to the workspace viewport
+    once a world is open, so the real renderer draws inside the new shell rather
+    than beside it.
+    """
 
     # The notebook to hold world pages
     _level_notebook: AmuletLevelNotebook
+
+    # The Studio shell, or None when this build could not construct one.
+    _studio: Optional[wx.Panel]
 
     def __init__(self, parent):
         title = self._format_display_title()
@@ -186,7 +197,19 @@ class AmuletUI(wx.Frame):
         self._tab_content_sizer.Add(self._level_notebook, 1, wx.EXPAND)
         self._tab_content.SetSizer(self._tab_content_sizer)
         self._level_notebook.init()
-        self._shell_sizer.Add(self._tab_content, 1, wx.EXPAND)
+        # The Studio is the frame's content. The notebook is kept because it
+        # owns world loading and unsaved-work protection, and is parked hidden
+        # until a world opens, at which point the workspace viewport hosts it.
+        # A build whose Studio package cannot be constructed still shows the
+        # notebook it has always shown rather than an empty window.
+        self._studio = self._create_studio()
+        if self._studio is None:
+            self._shell_sizer.Add(self._tab_content, 1, wx.EXPAND)
+        else:
+            self._title_bar.Hide()
+            self._command_bar.Hide()
+            self._tab_content.Hide()
+            self._shell_sizer.Add(self._studio, 1, wx.EXPAND)
         self._shell.SetSizer(self._shell_sizer)
         root_sizer = wx.BoxSizer(wx.VERTICAL)
         root_sizer.Add(self._shell, 1, wx.EXPAND)
@@ -196,14 +219,18 @@ class AmuletUI(wx.Frame):
         apply_material3(self)
         self._apply_tab_rail()
 
-        # Keep the global command palette reachable while any child has focus.
+        # Keep the global command palette reachable while any child has focus,
+        # and install every other real binding the Studio registry declares.
+        # The Studio binds its own handlers and returns the rows, because this
+        # frame owns the single table wx consults.
         self._palette_id = int(wx.NewIdRef())
-        self.SetAcceleratorTable(
-            wx.AcceleratorTable(
-                [(wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F"), self._palette_id)]
-            )
-        )
         self.Bind(wx.EVT_MENU, self._open_command_palette, id=self._palette_id)
+        accelerator_entries = [
+            (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F"), self._palette_id)
+        ]
+        if self._studio is not None:
+            accelerator_entries.extend(self._studio.install_accelerators())
+        self.SetAcceleratorTable(wx.AcceleratorTable(accelerator_entries))
 
         self._update_thread = None
         self._update_stage_thread = None
@@ -399,13 +426,119 @@ class AmuletUI(wx.Frame):
         self._title_bar.set_title(self.GetTitle())
         self._level_notebook._main_menu.refresh_display_identity()
 
+    def _create_studio(self) -> Optional[wx.Panel]:
+        """Build the Studio shell, or report why the notebook is showing instead.
+
+        Imported here rather than at module scope so a failure inside the
+        Studio package degrades to the previous shell, with the traceback in the
+        log, instead of preventing the application from starting at all.
+        """
+        try:
+            from amulet_map_editor.api.studio.shell import StudioShell
+
+            return StudioShell(self._shell, self)
+        except Exception:
+            log.exception(
+                "The Amulet Studio shell could not be created; "
+                "falling back to the world notebook"
+            )
+            return None
+
     def open_level(self, path: str):
         """Open a level. You should use the method in the app."""
         self._level_notebook.open_level(path)
+        self.sync_studio_project()
 
     def close_level(self, path: str):
         """Close a given level. You should use the method in the app."""
         self._level_notebook.close_level(path)
+        self.sync_studio_project()
+
+    def open_project_dialog(self) -> None:
+        """Open the world picker the Studio's Open project command asks for."""
+        open_level_from_dialog(self)
+
+    def open_preferences(self) -> None:
+        """Show options, through the frame's own call site.
+
+        The preferences dialog ends itself with ``EndModal`` and so has to be
+        shown modally.  The Studio surface index therefore asks the frame to
+        show it rather than opening a second, non-modal copy that would fail the
+        moment the user pressed Save.
+        """
+        self._open_preferences()
+
+    def open_local_history(self) -> None:
+        """Show the local version history, through the frame's own call site."""
+        self._open_local_history()
+
+    def open_tab_manager(self) -> None:
+        """Show the tab and group manager over this frame's real notebook."""
+        self._open_tab_manager()
+
+    def select_language(self) -> None:
+        """Show the language chooser the start page owns."""
+        self._level_notebook._main_menu._select_language(None)
+
+    def active_world_page(self) -> Optional[WorldPageUI]:
+        """Return the world page the user is working in, if there is one.
+
+        The selected tab answers first; when the start tab is selected while
+        worlds are still open, the most recently opened world is the project the
+        shell should still be showing.
+        """
+        page = self._level_notebook.GetCurrentPage()
+        if isinstance(page, WorldPageUI):
+            return page
+        open_worlds = list(self._level_notebook._open_worlds.values())
+        return open_worlds[-1] if open_worlds else None
+
+    def active_editor_program(self) -> Optional[wx.Window]:
+        """Return the selected program inside the active world page."""
+        page = self.active_world_page()
+        if page is None:
+            return None
+        try:
+            return page.GetPage(page.GetSelection())
+        except Exception:
+            # A world page whose selection is not a program is a legitimate
+            # state while a page is being built or torn down.
+            return None
+
+    def active_editor_canvas(self) -> Optional[wx.Window]:
+        """Return the 3D editor canvas of the active program, if it has one."""
+        return getattr(self.active_editor_program(), "_canvas", None)
+
+    def sync_studio_project(self) -> None:
+        """Tell the Studio which world is open and give it the renderer.
+
+        Called after every open, close, and tab change, so the shell's project
+        state is read from the notebook rather than assumed from whatever the
+        user last asked for.
+        """
+        studio = getattr(self, "_studio", None)
+        if studio is None or self.IsBeingDeleted():
+            return
+        page = self.active_world_page()
+        if page is None:
+            studio.detach_project()
+            return
+        studio.set_canvas(self._tab_content)
+        # The notebook now lives inside the Studio viewport, which the shared
+        # Material traversal deliberately does not enter; style it from here so
+        # the world pages keep the palette every other native surface uses.
+        apply_material3(self._tab_content)
+        if studio.project_open and studio.project_path == page.path:
+            return
+        studio.attach_project(page.world_name, page.path, self._world_platform(page))
+
+    @staticmethod
+    def _world_platform(page: WorldPageUI) -> str:
+        """Return the world's platform name, or an empty string when unknown."""
+        try:
+            return str(page.world.level_wrapper.platform)
+        except Exception:
+            return ""
 
     def create_menu(self):
         """Build the app-owned, searchable Material 3 command menus."""
@@ -547,6 +680,16 @@ class AmuletUI(wx.Frame):
         event.Skip()
 
     def _open_command_palette(self, _event=None) -> None:
+        """Open the palette over every command, surface, and setting.
+
+        The Studio palette covers the whole application, so it is the palette
+        this frame opens whenever the Studio shell exists.  The smaller list
+        below is what a build without the Studio falls back to, and is still
+        reachable from the command bar in exactly that case.
+        """
+        if self._studio is not None:
+            self._studio.open_palette()
+            return
         page = self._level_notebook.GetCurrentPage()
         commands = [
             ("Open world", lambda: open_level_from_dialog(self)),
@@ -721,6 +864,15 @@ class AmuletUI(wx.Frame):
         if not wx.LaunchDefaultBrowser(release_notes_url):
             self.SetStatusText("Could not open the release notes")
 
+    def restart_to_install_update(self) -> None:
+        """Install the staged update, for callers outside this frame.
+
+        The Studio's update command asks for this rather than reaching for the
+        handler behind the banner button, so both routes run the same
+        unsaved-work protection and the same Squirrel handoff.
+        """
+        self._restart_to_install_update()
+
     def _restart_to_install_update(self, _event=None) -> None:
         """Restart only after Squirrel has reported a ready staged update."""
         ready_state = self._update_state
@@ -891,6 +1043,12 @@ class AmuletUI(wx.Frame):
         if generation is not None and not self._update_generation_is_active(generation):
             return
         self._update_state = state
+        if self._studio is not None:
+            # The backstage reports only what this frame has actually observed,
+            # so it is told the state rather than checking the feed itself.
+            self._studio.set_update_state(
+                state.status, state.version or "", state.detail or ""
+            )
         if state.status in {"available", "ready_to_restart", "failed"}:
             self._render_update_banner(state)
             title, body = update_copy.update_copy(
@@ -1056,6 +1214,10 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
                 evt.Veto()
         if self._owner_frame is not None:
             wx.CallAfter(self._owner_frame._apply_tab_rail)
+            # Deferred as well: the page is still being closed here, so the
+            # project state is read once the notebook is settled rather than
+            # while it still lists a world that is on its way out.
+            wx.CallAfter(self._owner_frame.sync_studio_project)
 
     def _page_changing(self, evt: wx.BookCtrlEvent):
         old_selection_index = evt.GetOldSelection()
@@ -1079,6 +1241,7 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
             self.GetCurrentPage().enable()
         if self._owner_frame is not None:
             self._owner_frame._tab_rail.sync()
+            self._owner_frame.sync_studio_project()
 
     def begin_preapproved_app_close(self, generation: int) -> bool:
         """Ask each open page once and retain an exact close transaction."""

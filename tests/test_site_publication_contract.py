@@ -13,7 +13,6 @@ SITE = ROOT / "docs" / "site"
 sys.path.insert(0, str(ROOT / "scripts"))
 from verify_site_release_manifest import ASSET_KEYS, validate_bundle  # noqa: E402
 
-
 #: Hand-written on purpose. A rule that only checks the settings which happen to
 #: be present passes on a page that renders none of them, so the list is what
 #: makes a missing setting fail rather than quietly disappear. Add to it when a
@@ -63,6 +62,7 @@ class SitePublicationContractTests(unittest.TestCase):
             "provenance lines must come from AmuletSite.settings.provenance so "
             "they cannot drift from the value they describe",
         )
+
     def test_site_manifest_is_unverified_or_backed_by_a_real_commit(self):
         # The point of this guard is that the page never offers a download the
         # repository cannot prove. It used to say so by refusing any verified

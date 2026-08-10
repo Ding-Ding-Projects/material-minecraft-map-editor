@@ -1,3 +1,19 @@
+"""The legacy start page, kept as a thin shim in front of the backstage.
+
+Amulet Studio's backstage is the start screen now: it owns the template
+gallery, the searchable recent table, project information, conversion, the
+surface index, and the update state.  This page stays for one reason -- it is
+still the world notebook's first tab, so the notebook keeps a page when no
+world is open, the tab manager keeps something to manage, and a build whose
+Studio shell could not be created still starts somewhere usable.
+
+Everything a user does here is therefore handed to the backstage when one
+exists: opening a project switches to its Open destination, and selecting this
+tab shows the project screen rather than this card.  The card itself is the
+fallback for the no-Studio case, which is also the only case in which it is
+ever visible.
+"""
+
 import webbrowser
 import logging
 
@@ -61,9 +77,7 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         self._open_world_button = MaterialButton(
             self._start_card, "", variant="filled", name="Open world"
         )
-        self._open_world_button.Bind(
-            wx.EVT_BUTTON, lambda _: open_level_from_dialog(self)
-        )
+        self._open_world_button.Bind(wx.EVT_BUTTON, self._open_world)
         actions.Add(self._open_world_button, 0, wx.BOTTOM | wx.EXPAND, 10)
 
         self._user_manual_button = MaterialButton(
@@ -146,8 +160,36 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
     def _discord(_):
         webbrowser.open("https://www.amuletmc.com/discord")
 
+    def _studio_shell(self):
+        """Return the Studio shell hosting this frame, or ``None``.
+
+        Read from the frame on each call rather than cached: this page is
+        constructed before the shell is, so a value captured at build time would
+        be ``None`` forever and the shim would keep ignoring a backstage that
+        exists by the time anybody presses anything.
+        """
+        return getattr(self.GetTopLevelParent(), "_studio", None)
+
+    def _show_backstage(self, tab: str = "home") -> bool:
+        """Show a backstage destination, reporting whether one was there."""
+        shell = self._studio_shell()
+        if shell is None:
+            return False
+        shell.show_backstage(tab)
+        return True
+
+    def _open_world(self, _event) -> None:
+        """Open a world through the backstage, or through the picker directly."""
+        if self._show_backstage("open"):
+            return
+        open_level_from_dialog(self)
+
     def enable(self):
         self.GetTopLevelParent().create_menu()
+        # Selecting this tab means "no world is in front of me", which is what
+        # the backstage exists to answer. The card below is only ever shown by
+        # a build with no Studio shell.
+        self._show_backstage("home")
 
     def _select_language(self, evt):
         with LangSelectDialog(self) as dialog:

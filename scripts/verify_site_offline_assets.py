@@ -22,7 +22,10 @@ from typing import Iterable, List, Tuple
 _HTML_ASSET_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (
     ("script src", re.compile(r"<script\b[^>]*?\bsrc\s*=\s*[\"']([^\"']+)", re.I)),
     ("img src", re.compile(r"<img\b[^>]*?\bsrc\s*=\s*[\"']([^\"']+)", re.I)),
-    ("source src", re.compile(r"<source\b[^>]*?\bsrc(?:set)?\s*=\s*[\"']([^\"']+)", re.I)),
+    (
+        "source src",
+        re.compile(r"<source\b[^>]*?\bsrc(?:set)?\s*=\s*[\"']([^\"']+)", re.I),
+    ),
     ("iframe src", re.compile(r"<iframe\b[^>]*?\bsrc\s*=\s*[\"']([^\"']+)", re.I)),
     ("link href", re.compile(r"<link\b[^>]*?\bhref\s*=\s*[\"']([^\"']+)", re.I)),
 )
@@ -48,7 +51,9 @@ def _is_remote(reference: str) -> bool:
     return bool(_REMOTE.match(value))
 
 
-def _scan(text: str, patterns: Iterable[Tuple[str, "re.Pattern[str]"]]) -> List[Tuple[str, str]]:
+def _scan(
+    text: str, patterns: Iterable[Tuple[str, "re.Pattern[str]"]]
+) -> List[Tuple[str, str]]:
     found: List[Tuple[str, str]] = []
     for label, pattern in patterns:
         for match in pattern.finditer(text):
