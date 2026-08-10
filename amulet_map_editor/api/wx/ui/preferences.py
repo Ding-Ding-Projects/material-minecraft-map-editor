@@ -668,6 +668,7 @@ class PreferencesDialog(wx.Dialog):
             self._preset_search_flags = dialog.flags
         self._refresh_appearance_presets()
 
+
     @staticmethod
     def _installed_font_names() -> Tuple[str, ...]:
         try:
