@@ -1145,11 +1145,18 @@ class StudioShell(wx.Panel):
             return
         canvas = self._canvas()
         applied = False
+        # Why it did not move, not merely that it did not.  These were one flag,
+        # and the sentence attached to it said "No 3D editor is attached" -- so
+        # an editor that *was* attached and had just refused the switch reported
+        # a reason the user could see was false by looking at the viewport it
+        # was drawn in.
+        refused = False
         if canvas is not None:
             try:
                 canvas.dimension = target
                 applied = True
             except Exception:
+                refused = True
                 log.exception("The editor refused to switch to dimension %r", target)
         context.set_dimension(target)
         self._select_navigator_dimension(target)
@@ -1165,6 +1172,20 @@ class StudioShell(wx.Panel):
             if info.has_range:
                 detail += f" between y {info.min_y} and y {info.max_y}"
             detail += "."
+        if refused:
+            # The renderer is still showing the dimension it was showing, so
+            # saying "Editing <target>" would name a dimension the user is not
+            # looking at and cannot edit.
+            self.notify(
+                studio_label("The dimension did not change", "維度冇轉到"),
+                studio_text(
+                    f"The 3D editor refused to switch to {target}, so it is still "
+                    f"showing {self._dimension_name() or 'the previous dimension'}. "
+                    "The details are in the log."
+                ),
+                severity="error",
+            )
+            return
         self.notify(
             studio_label("Dimension", "維度"),
             studio_text(
@@ -1369,7 +1390,17 @@ class StudioShell(wx.Panel):
                 "The Import tool is asking for a structure file. The file you "
                 "choose is floated in the viewport for you to place."
             )
-        chosen = str(getattr(tool, "active_operation_id", "") or "")
+        # The *name* the chooser is showing, not the identifier behind it.  The
+        # identifier is a dotted module path, so this sentence read "The
+        # selected exporter is amulet_map_editor.programs.edit.plugins.
+        # operations.stock_plugins.export_operations.construction." -- a Python
+        # import path shown to somebody who picked "construction (.construction)"
+        # from a list.  ``active_operation_name`` exists for exactly this and
+        # says so in its own docstring; the identifier is kept as the fallback
+        # so a tool that has one and no name still names something.
+        chosen = str(getattr(tool, "active_operation_name", "") or "") or str(
+            getattr(tool, "active_operation_id", "") or ""
+        )
         return (
             f"The {name} tool is now showing, with the "
             f"{boxes} selected {'box' if boxes == 1 else 'boxes'} as its input"
@@ -1380,7 +1411,12 @@ class StudioShell(wx.Panel):
         """Run whatever operation the editor's Operation tool has selected."""
         active = getattr(tool, "_active_operation", None)
         runner = getattr(active, "_run_operation", None)
-        chosen = str(getattr(tool, "active_operation_id", "") or "")
+        # The visible name, for the same reason as in ``_tool_message``: this
+        # string is announced to the user, and the identifier behind it is a
+        # dotted module path rather than the words they chose from the list.
+        chosen = str(getattr(tool, "active_operation_name", "") or "") or str(
+            getattr(tool, "active_operation_id", "") or ""
+        )
         if not callable(runner):
             self.notify(
                 studio_label("Operations", "操作"),
@@ -1468,12 +1504,23 @@ class StudioShell(wx.Panel):
                 ),
             )
             return
-        if key in _MUTATING_COMMANDS and after[0] == before[0]:
+        # The evidence check and the report it guards are asked the *same*
+        # question, deliberately.  They were not: the guard asked only about
+        # ``_MUTATING_COMMANDS`` while the report below fired for a ``subject``
+        # as well, so ``runOperation`` -- the one command that hands the world
+        # to an arbitrary plugin -- walked straight past the check and
+        # announced that an operation recording no undo point had "finished".
+        # A plugin that silently did nothing, or one whose exception
+        # ``EditCanvas.run_operation`` swallowed, therefore reported success in
+        # exactly the shape the undo-depth evidence exists to prevent.  Two
+        # conditions phrased differently is how that drift happened, so there
+        # is now one.
+        if (key in _MUTATING_COMMANDS or subject) and after[0] == before[0]:
             self.notify(
                 studio_label(commands.label_for(key), ""),
                 studio_text(
-                    "The editor ran that but the world recorded no new undo point, "
-                    "so nothing in it changed."
+                    f"The editor ran {subject or 'that'} but the world recorded no "
+                    "new undo point, so nothing in it changed."
                 ),
                 severity="warning",
             )

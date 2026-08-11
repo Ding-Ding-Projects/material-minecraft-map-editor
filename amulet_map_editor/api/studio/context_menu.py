@@ -390,14 +390,49 @@ _MOVE_INTO_GROUP = _item(
 
 
 def _viewport_menu() -> Tuple[MenuItem, ...]:
-    """The design's ``ctxMenus.viewport``: nineteen rows, in its order."""
+    """The design's ``ctxMenus.viewport``: nineteen rows, in its order.
+
+    The rows backed by a 3D editor action print the key that editor is really
+    listening for, read through :func:`viewport_accelerator`.  They printed the
+    design's own text instead, and the design and the editor did not agree:
+    measured against the shipped key group, this menu offered ``Esc`` for
+    "Deselect active box" (really ``Ctrl+D``), ``P`` for "Toggle projection"
+    (really ``Tab``) and ``RMB`` for "Inspect block" (really ``Alt``).  A menu
+    is where a user learns a shortcut, so three of them were teaching keys that
+    do nothing -- and a user who has rebound any of them was being taught the
+    shipped default on top of that.
+
+    An action that cannot be read prints no accelerator at all, which is that
+    function's documented answer and the right one: a blank is a row you press
+    with the mouse, while a wrong key is a row that trains a habit.
+    """
     return (
-        _item("Inspect block", accel="RMB", surface="nbt"),
+        _item(
+            "Inspect block",
+            accel=viewport_accelerator("ACT_INSPECT_BLOCK"),
+            surface="nbt",
+        ),
         _item("Teleport camera here", accel="", surface="goto"),
-        _item("Add selection box here", accel="Ctrl+LMB", command="addBox"),
-        _item("Deselect active box", accel="Esc", command="deselectBox"),
-        _item("Deselect all boxes", accel="Ctrl+Shift+D", command="deselectAllBoxes"),
-        _item("Toggle projection", accel="P", command="projection"),
+        _item(
+            "Add selection box here",
+            accel=viewport_accelerator("ACT_BOX_CLICK_ADD"),
+            command="addBox",
+        ),
+        _item(
+            "Deselect active box",
+            accel=viewport_accelerator("ACT_DESELECT_BOX"),
+            command="deselectBox",
+        ),
+        _item(
+            "Deselect all boxes",
+            accel=viewport_accelerator("ACT_DESELECT_ALL_BOXES"),
+            command="deselectAllBoxes",
+        ),
+        _item(
+            "Toggle projection",
+            accel=viewport_accelerator("ACT_CHANGE_PROJECTION"),
+            command="projection",
+        ),
         _item("Measure from here", accel="", surface="measure"),
         _item("Layer slice at this height", accel="", surface="layerSlice"),
         _item("Light levels here", accel="", surface="lightOverlay"),
