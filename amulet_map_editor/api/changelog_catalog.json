@@ -1,8 +1,56 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "123eafce2b842b8f88a37b71586623b617a3f715",
+  "source_revision": "bea877b88aab55544fc62627fd4e98641cf73e6d",
   "entries": [
+    {
+      "version": "0.10.0-dev.553",
+      "released_on": "2026-08-11",
+      "commit_sha": "42ae66efc070384b112aca340d55db6e98737396",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Scale the two minimum sizes that were still written in device pixels",
+          "commit_sha": "42ae66efc070384b112aca340d55db6e98737396"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.552",
+      "released_on": "2026-08-11",
+      "commit_sha": "406717814d7af083c4ec694086168e3d62d4239e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop Windows stretching the interface on a scaled display",
+          "commit_sha": "406717814d7af083c4ec694086168e3d62d4239e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.550",
+      "released_on": "2026-08-10",
+      "commit_sha": "f87ba2131be24d16d574693f7beb0e98ebfc9907",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Close the design gaps, reach current Minecraft, and ship an example world",
+          "commit_sha": "f87ba2131be24d16d574693f7beb0e98ebfc9907"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.548",
+      "released_on": "2026-08-10",
+      "commit_sha": "123eafce2b842b8f88a37b71586623b617a3f715",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Show the rows in every right-click menu",
+          "commit_sha": "123eafce2b842b8f88a37b71586623b617a3f715"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.545",
       "released_on": "2026-08-10",

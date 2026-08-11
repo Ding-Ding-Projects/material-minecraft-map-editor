@@ -91,45 +91,153 @@ def test_the_shell_scales_with_the_display(app) -> None:
     assert at_150 == pytest.approx(at_100 * 1.5, abs=2)
 
 
-@pytest.mark.parametrize(
-    "module_name, class_name",
-    [
-        ("amulet_map_editor.api.wx.ui.path_dialog", "PathDialog"),
-        ("amulet_map_editor.api.wx.ui.preferences", "PreferencesDialog"),
-        ("amulet_map_editor.api.wx.ui.notifications", "NotificationCentreDialog"),
-        ("amulet_map_editor.api.wx.ui.local_history", "LocalHistoryDialog"),
-        ("amulet_map_editor.api.wx.ui.changelog", "ChangelogDialog"),
-    ],
-)
-def test_the_dialogs_construct(app, module_name: str, class_name: str) -> None:
-    """Each dialog must build without a name, attribute or signature error.
+# --------------------------------------------------------------------------
+# Every dialog, discovered rather than listed.
+#
+# The first version of this file listed the dialogs by hand and got three of
+# the five names wrong.  Each wrong name skipped, the run reported "4 passed,
+# 3 skipped", and three dialogs went unchecked while the file looked like it
+# was checking them.  A hand-written list is the right tool when the risk is a
+# surface being MISSING; here the risk is a surface being missed, so the list
+# is discovered and it is the discovery that gets guarded.
+# --------------------------------------------------------------------------
 
-    A dialog that raises on construction is a menu item that does nothing, and
-    a source-text test asserting the menu item exists will pass happily while
-    it does nothing.
-    """
+#: Below this, discovery has broken rather than the product having shrunk.
+#: A sweep that silently finds nothing passes every assertion in this file.
+MINIMUM_DISCOVERED_DIALOGS = 14
+
+#: Modules that genuinely cannot be imported in a bare test environment, with
+#: the reason.  Anything NOT listed here that fails to import is a finding.
+EXPECTED_UNIMPORTABLE = {
+    # Needs the Minecraft world-format libraries and their data files, which a
+    # source checkout has only after the optional data install.
+    "select_world",
+}
+
+
+def _argument_for(name: str, parent, made):
+    """Return a plausible real argument for a dialog's extra parameter."""
+    if name in ("message", "title", "label", "text"):
+        return "Smoke test"
+    if name == "style":
+        return wx.OK | wx.CANCEL
+    if name == "control":
+        widget = wx.Panel(parent)
+        made.append(widget)
+        return widget
+    if name == "notebook":
+        book = wx.Notebook(parent)
+        made.append(book)
+        return book
+    if name in ("commands", "items", "entries"):
+        return []
+    if name.endswith(("_callback", "_handler")) or name.startswith("on_"):
+        # A no-op that accepts anything. Construction must not invoke it, and
+        # if some dialog does call its callback during __init__, this returning
+        # quietly is still the right answer -- the test is about the
+        # constructor running, not about what the callback would have done.
+        return lambda *args, **kwargs: None
+    return None
+
+
+def _discover_dialogs():
+    """Return every wx.Dialog subclass defined under the UI package."""
     import importlib
+    import inspect
+    import pkgutil
 
-    try:
-        module = importlib.import_module(module_name)
-    except ImportError as error:  # pragma: no cover - module removed or renamed
-        pytest.skip(f"{module_name} is not importable here: {error}")
-    dialog_class = getattr(module, class_name, None)
-    if dialog_class is None:
-        pytest.skip(f"{module_name} no longer defines {class_name}")
+    import amulet_map_editor.api.wx.ui as ui_package
 
-    parent = wx.Frame(None)
-    try:
+    discovered = []
+    unimportable = {}
+    for module_info in pkgutil.iter_modules(ui_package.__path__):
         try:
-            dialog = dialog_class(parent)
-        except TypeError as error:
-            # A changed constructor signature is a real finding, but it is a
-            # different finding from a broken body, so say which this is.
-            pytest.skip(f"{class_name} needs arguments this smoke test lacks: {error}")
+            module = importlib.import_module(
+                f"amulet_map_editor.api.wx.ui.{module_info.name}"
+            )
+        except Exception as error:  # noqa: BLE001 - the reason is the finding
+            unimportable[module_info.name] = f"{type(error).__name__}: {error}"
+            continue
+        for attribute, value in vars(module).items():
+            if (
+                inspect.isclass(value)
+                and issubclass(value, wx.Dialog)
+                and value.__module__ == module.__name__
+            ):
+                discovered.append((module_info.name, attribute, value))
+    return sorted(discovered), unimportable
+
+
+def test_discovery_still_finds_the_dialogs(app) -> None:
+    """Guard the sweep itself, so it cannot quietly cover nothing."""
+    discovered, unimportable = _discover_dialogs()
+    assert len(discovered) >= MINIMUM_DISCOVERED_DIALOGS, (
+        f"Only {len(discovered)} dialogs were discovered. Either the product "
+        "lost some, or -- far more likely -- this sweep stopped working and "
+        "every construction test below is now passing on an empty list."
+    )
+    unexpected = set(unimportable) - EXPECTED_UNIMPORTABLE
+    assert not unexpected, (
+        "These UI modules could not be imported at all, which no source-text "
+        "test would notice:\n  "
+        + "\n  ".join(f"{name}: {unimportable[name]}" for name in sorted(unexpected))
+    )
+
+
+def test_every_discovered_dialog_constructs(app) -> None:
+    """Build each one. A dialog that raises here is a dead menu item.
+
+    Reported together rather than one assertion per dialog, so a run names
+    every broken dialog at once instead of stopping at the first.
+    """
+    discovered, _ = _discover_dialogs()
+    failures = []
+    for module_name, class_name, dialog_class in discovered:
+        import inspect
+
+        parent = wx.Frame(None)
+        made = []
         try:
-            assert dialog.GetSize().width > 0
-            assert dialog.GetSize().height > 0
+            parameters = list(
+                inspect.signature(dialog_class.__init__).parameters.values()
+            )
+            arguments = []
+            unsupported = None
+            for parameter in parameters[2:]:
+                if parameter.default is not parameter.empty:
+                    break
+                if parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD):
+                    continue
+                value = _argument_for(parameter.name, parent, made)
+                if value is None:
+                    unsupported = parameter.name
+                    break
+                arguments.append(value)
+            if unsupported is not None:
+                # Not a skip in disguise: an argument this test cannot invent
+                # is a real gap, and it is reported as one.
+                failures.append(
+                    f"{module_name}.{class_name}: needs an argument this smoke "
+                    f"test cannot supply ({unsupported!r}); give it a default "
+                    "or teach _argument_for about it"
+                )
+                continue
+            dialog = dialog_class(parent, *arguments)
+            try:
+                assert dialog.GetSize().width > 0
+                assert dialog.GetSize().height > 0
+            finally:
+                dialog.Destroy()
+        except Exception as error:  # noqa: BLE001 - the error IS the finding
+            failures.append(
+                f"{module_name}.{class_name}: {type(error).__name__}: {error}"
+            )
         finally:
-            dialog.Destroy()
-    finally:
-        parent.Destroy()
+            for widget in made:
+                try:
+                    widget.Destroy()
+                except RuntimeError:
+                    pass
+            parent.Destroy()
+
+    assert not failures, "Dialogs that do not construct:\n  " + "\n  ".join(failures)
