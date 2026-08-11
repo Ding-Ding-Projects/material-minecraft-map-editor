@@ -170,6 +170,56 @@ def _print_window(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> b
         return False
 
 
+#: ``WM_PRINTCLIENT`` and the parts of itself a control should draw.
+WM_PRINTCLIENT = 0x0318
+PRF_CLIENT = 0x00000004
+PRF_ERASEBKGND = 0x00000008
+PRF_CHILDREN = 0x00000010
+
+
+def _print_client(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> bool:
+    """Ask a native child control to draw itself with ``WM_PRINTCLIENT``.
+
+    ``PrintWindow`` is documented for top-level windows and routinely returns
+    zero for a child control, which is why every native ``StaticText``,
+    ``TextCtrl``, ``CheckBox`` and ``Slider`` in this interface fell past it to
+    the surface read and arrived blank.  Sending ``WM_PRINTCLIENT`` directly is
+    the route that works on children: the control draws into the device context
+    it is handed, with no compositor and no window ever being visible.
+
+    This is the last route that asks the control anything.  Whatever is left
+    after it genuinely cannot be photographed without putting the window on a
+    screen.
+    """
+    if not _IS_WINDOWS:
+        return False
+    size = window.GetClientSize()
+    if size.width < 1 or size.height < 1:
+        return False
+    try:
+        scratch = wx.Bitmap(size)
+        scratch_dc = wx.MemoryDC(scratch)
+        try:
+            # Fill first: a control that honours PRF_CLIENT but not
+            # PRF_ERASEBKGND draws its text onto whatever the bitmap held,
+            # which is uninitialised memory rather than a background.
+            scratch_dc.SetBackground(wx.Brush(window.GetBackgroundColour()))
+            scratch_dc.Clear()
+            _user32.SendMessageW(
+                window.GetHandle(),
+                WM_PRINTCLIENT,
+                scratch_dc.GetHandle(),
+                PRF_CLIENT | PRF_ERASEBKGND | PRF_CHILDREN,
+            )
+        finally:
+            scratch_dc.SelectObject(wx.NullBitmap)
+        target.DrawBitmap(scratch, origin.x, origin.y, True)
+        return True
+    except Exception:
+        log.debug("WM_PRINTCLIENT failed for %s", window.GetName(), exc_info=True)
+        return False
+
+
 def _render_to(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> bool:
     """Ask ``window`` to draw its own appearance into ``target`` at ``origin``.
 
@@ -266,6 +316,8 @@ def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> str
     if _render_via_paint(window, target, origin):
         return "render"
     if _print_window(window, target, origin):
+        return "print"
+    if _print_client(window, target, origin):
         return "print"
     try:
         source = wx.ClientDC(window)
