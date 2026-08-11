@@ -21,12 +21,12 @@ from typing import Dict
 from amulet_map_editor.api.studio.spec import (
     Action,
     Check,
+    Commit,
     Field,
     RangeDef,
     Row,
     Select,
     Spec,
-    SwatchDef,
     sec,
     tex_section,
 )
@@ -862,373 +862,8 @@ _INSPECTOR = Spec(
     ),
     actions=(
         Action("Open NBT editor", "tonal", surface="nbt"),
-        Action("Pin to this target", "outlined"),
-        Action("Dock to the properties pane", "outlined"),
-    ),
-)
-
-_WORLD_INFO = Spec(
-    key="worldInfo",
-    eyebrow="Panels",
-    title="World info",
-    width=740,
-    confirm="Save world info",
-    intro=(
-        "World identity, size on disk, time, and weather, read from level.dat "
-        "and the region files rather than guessed. Editing anything here "
-        "rewrites level.dat and is recorded as its own revision."
-    ),
-    sections=(
-        sec("", "search", hint="Search world properties"),
-        sec(
-            "Identity",
-            "list",
-            rows=[
-                Row("World name", "1.17 Height", "level.dat"),
-                Row(
-                    "Folder",
-                    "%APPDATA%\\.minecraft\\saves\\1-17-height",
-                    "path",
-                ),
-                Row("Platform", "bedrock 1.17.0.1", "format"),
-                Row("Data version", "2730", "version"),
-                Row("Seed", "-4172144997902289642", "seed"),
-                Row("Last played", "10 Aug 2026, 09:41", "time"),
-            ],
-        ),
-        sec(
-            "Size on disk",
-            "list",
-            rows=[
-                Row("Region files", "184 files · 1.62 GB", "region"),
-                Row("Entity files", "184 files · 96.4 MB", "entities"),
-                Row("Player data", "3 files · 412 KB", "playerdata"),
-                Row(
-                    "Project repository",
-                    "1,284 revisions · 240 MB beside the world, never inside it",
-                    "isolated",
-                ),
-            ],
-        ),
-        sec(
-            "Dimensions",
-            "list",
-            rows=[
-                Row(
-                    "minecraft:overworld",
-                    "y -64 to 320 · 168 chunks loaded",
-                    "dimension",
-                ),
-                Row(
-                    "minecraft:the_nether",
-                    "y 0 to 128 · 0 chunks loaded",
-                    "dimension",
-                ),
-                Row(
-                    "minecraft:the_end",
-                    "y 0 to 256 · 0 chunks loaded",
-                    "dimension",
-                ),
-            ],
-        ),
-        sec(
-            "Time and weather",
-            "selects",
-            selects=[
-                Select(
-                    "Time of day",
-                    (
-                        "Dawn (0)",
-                        "Noon (6000)",
-                        "Dusk (12000)",
-                        "Midnight (18000)",
-                        "Custom tick",
-                    ),
-                    "Noon (6000)",
-                ),
-                Select("Weather", ("Clear", "Rain", "Thunder")),
-                Select(
-                    "Difficulty",
-                    ("Peaceful", "Easy", "Normal", "Hard"),
-                    "Normal",
-                ),
-            ],
-        ),
-        sec(
-            "Spawn",
-            "fields",
-            fields=[
-                Field("Spawn x", "64"),
-                Field("Spawn y", "72"),
-                Field("Spawn z", "-32"),
-                Field("World name", "1.17 Height"),
-            ],
-        ),
-        sec(
-            "Flags",
-            "checks",
-            checks=[
-                Check(
-                    "Hardcore",
-                    "Death is permanent for every player in this world.",
-                ),
-                Check(
-                    "Allow commands",
-                    "Cheats are enabled for the world.",
-                    True,
-                ),
-                Check(
-                    "Difficulty locked",
-                    "The difficulty cannot be changed from inside the game.",
-                ),
-                Check(
-                    "Keep the folder read-only",
-                    "Amulet opens the world but refuses every write.",
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "Sizes are measured from the files on disk. A world open in "
-                "Minecraft is reported as locked instead of edited, because two "
-                "writers would corrupt the region files."
-            ),
-        ),
-    ),
-    actions=(
-        Action("Edit level.dat", "tonal", surface="levelDat"),
-        Action("Game rules", "outlined", surface="gamerules"),
-        Action("Project history", "outlined", surface="history"),
-    ),
-)
-
-_PLAYER_PANEL = Spec(
-    key="playerPanel",
-    eyebrow="Panels",
-    title="Players",
-    width=760,
-    confirm="Save player",
-    intro=(
-        "Every player folder in the world, with position, dimension, health, and "
-        "the inventory behind it. Skins are read from the local install cache; "
-        "nothing is downloaded."
-    ),
-    sections=(
-        sec("", "search", hint="Search players by name or UUID"),
-        sec(
-            "Players",
-            "list",
-            rows=[
-                Row(
-                    "Ana",
-                    "412.5, 71.0, 188.5 · minecraft:overworld · survival",
-                    "selected",
-                ),
-                Row(
-                    "Devi",
-                    "-118.0, 63.0, 402.5 · minecraft:overworld · creative",
-                    "player",
-                ),
-                Row(
-                    "Singleplayer",
-                    "66.4, 118.1, -43.1 · minecraft:the_nether · spectator",
-                    "local",
-                ),
-            ],
-        ),
-        sec(
-            "Selected player",
-            "list",
-            rows=[
-                Row("UUID", "6f1c8b2e-40a7-4d19-9a2c-3d61f0aea904", "id"),
-                Row("Health", "20.0 / 20.0", "state"),
-                Row("Food", "17 · saturation 4.2", "state"),
-                Row("Experience", "level 34 · 12,482 points", "state"),
-                Row("Spawn point", "64, 72, -32 · minecraft:overworld", "spawn"),
-                Row("Inventory", "27 of 41 slots used", "items"),
-                Row("Ender chest", "6 of 27 slots used", "items"),
-                Row("Last death", "-204, 41, 512 · minecraft:overworld", "recorded"),
-            ],
-        ),
-        sec(
-            "Position",
-            "fields",
-            fields=[
-                Field("x", "412.5"),
-                Field("y", "71.0"),
-                Field("z", "188.5"),
-                Field("Yaw", "-134.5"),
-                Field("Pitch", "18.0"),
-            ],
-        ),
-        sec(
-            "State",
-            "selects",
-            selects=[
-                Select(
-                    "Game mode",
-                    ("Survival", "Creative", "Adventure", "Spectator"),
-                    "Survival",
-                ),
-                Select(
-                    "Dimension",
-                    (
-                        "minecraft:overworld",
-                        "minecraft:the_nether",
-                        "minecraft:the_end",
-                    ),
-                    "minecraft:overworld",
-                ),
-            ],
-        ),
-        sec(
-            "Flags",
-            "checks",
-            checks=[
-                Check("Flying", "The player is airborne when the world loads."),
-                Check("Invulnerable", "Damage is ignored."),
-                Check(
-                    "Clear the recorded death location",
-                    "Removes LastDeathLocation so no compass points at it.",
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "Moving a player outside the world border or below the height "
-                "limit is written exactly as typed and reported, rather than "
-                "quietly clamped."
-            ),
-        ),
-    ),
-    actions=(
-        Action("Open inventory", "tonal", surface="inventoryEditor"),
-        Action("Player data", "outlined", surface="playerData"),
-        Action("Open NBT editor", "outlined", surface="nbt"),
-        Action("Delete player data", "danger"),
-    ),
-)
-
-_INVENTORY_EDITOR = Spec(
-    key="inventoryEditor",
-    eyebrow="Panels",
-    title="Inventory editor",
-    width=780,
-    confirm="Save inventory",
-    intro=(
-        "Slot-by-slot editing for any container: a player, a chest, a shulker "
-        "box, or a pending import. This is the same slot grid the NBT editor "
-        "shows for an Items list, so an edit made here reads identically there."
-    ),
-    sections=(
-        sec("", "search", hint="Search slots by item id or count"),
-        sec(
-            "Container",
-            "selects",
-            selects=[
-                Select(
-                    "Container",
-                    (
-                        "Player: Ana",
-                        "Chest at 412, 71, 188",
-                        "Barrel at 88, 65, 24",
-                        "Shulker box in slot 4",
-                        "Ender chest: Ana",
-                    ),
-                    "Player: Ana",
-                ),
-                Select(
-                    "Layout",
-                    (
-                        "Player inventory (41 slots)",
-                        "Chest (27 slots)",
-                        "Double chest (54 slots)",
-                        "Hotbar only (9 slots)",
-                    ),
-                    "Player inventory (41 slots)",
-                ),
-            ],
-        ),
-        sec(
-            "Slots",
-            "list",
-            rows=[
-                Row(
-                    "Slot 0 · hotbar",
-                    "minecraft:diamond_pickaxe · Efficiency V, Unbreaking III",
-                    "1",
-                ),
-                Row("Slot 1 · hotbar", "minecraft:bread", "32"),
-                Row("Slot 2 · hotbar", "minecraft:torch", "64"),
-                Row("Slot 3 · hotbar", "empty", "—"),
-                Row("Slot 4 · hotbar", "minecraft:filled_map · map #12", "1"),
-                Row("Slot 9 · main", "minecraft:coal", "64"),
-                Row("Slot 10 · main", "minecraft:iron_ingot", "48"),
-                Row("Slot 11 · main", "minecraft:gold_ingot", "12"),
-                Row("Slot 100 · boots", "empty", "—"),
-                Row("Slot 103 · helmet", "empty", "—"),
-                Row("Slot -106 · offhand", "minecraft:chest", "1"),
-            ],
-        ),
-        sec(
-            "Selected slot",
-            "fields",
-            fields=[
-                Field("Item id", "minecraft:diamond_pickaxe"),
-                Field("Count", "1"),
-                Field("Slot", "0"),
-                Field("Damage", "42"),
-                Field("Custom name", "", "Leave empty for the default name"),
-            ],
-        ),
-        tex_section("minecraft:diamond_pickaxe", "inventory-slot-texture"),
-        sec(
-            "Enchantments",
-            "list",
-            rows=[
-                Row("minecraft:efficiency", "level 5", "enchantment"),
-                Row("minecraft:unbreaking", "level 3", "enchantment"),
-                Row("minecraft:mending", "level 1", "enchantment"),
-            ],
-        ),
-        sec(
-            "Rules",
-            "checks",
-            checks=[
-                Check(
-                    "Keep enchantments when the item id changes",
-                    "Off drops tags the new item cannot carry.",
-                ),
-                Check(
-                    "Clamp the count to the item's stack size",
-                    "Off writes the count exactly as typed.",
-                ),
-                Check(
-                    "Write empty slots as absent entries",
-                    "Matches what the game itself writes.",
-                    True,
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "A count above the item's stack size is written exactly as "
-                "typed, because some worlds rely on it. The clamp option is off "
-                "by default and says so here rather than surprising you later."
-            ),
-        ),
-    ),
-    actions=(
-        Action("Open NBT editor", "tonal", surface="nbt"),
-        Action("Item types", "outlined", surface="itemTypeList"),
-        Action("Copy container", "outlined"),
-        Action("Clear container", "danger"),
+        Action("Dock left", "outlined"),
+        Action("Float panel", "outlined"),
     ),
 )
 
@@ -1236,426 +871,42 @@ _PENDING_IMPORTS = Spec(
     key="pendingImports",
     eyebrow="Panels",
     title="Pending imports",
-    width=760,
+    width=740,
     confirm="Confirm all",
     intro=(
-        "Objects that have been placed in the world but not written to it. Each "
-        "one keeps its own transform until you confirm or discard it, so a "
-        "placement can be nudged for as long as you like."
+        "Everything lifted, cloned, generated, or imported waits here until "
+        "confirmed. Each entry keeps its own position, rotation, and scale."
     ),
     sections=(
-        sec("", "search", hint="Search pending imports by name or size"),
         sec(
-            "Queue",
+            "Imports",
             "list",
             rows=[
                 Row(
                     "spawn-arch",
-                    "24×18×24 at -2, 98, -49 · rotation 90° · scale 1×",
-                    "moving",
+                    "24×18×24 at 66, 118, -43 · rotation 90° · scale 1×",
+                    "pending",
                 ),
                 Row(
                     "market-row",
-                    "48×12×32 at 412, 71, 188 · rotation 0° · scale 1×",
-                    "placed",
+                    "48×22×16 at 412, 71, 188 · rotation 0° · scale 1×",
+                    "pending",
                 ),
                 Row(
-                    "tree-lsystem-5",
-                    "17×26×17 at 96, 64, -12 · generated by the L-system plugin",
-                    "generated",
+                    "generated tree",
+                    "9×14×9 at 240, 94, 72 · from L-system",
+                    "pending",
                 ),
             ],
         ),
         sec(
-            "Selected object",
-            "selects",
-            selects=[
-                Select("Rotation", ("0°", "90°", "180°", "270°", "Free"), "90°"),
-                Select("Mirror", ("None", "East–west", "North–south", "Vertical")),
-                Select("Scale", ("1×", "2×", "0.5×", "Custom")),
-            ],
-        ),
-        sec(
-            "Placement",
+            "Selected import",
             "fields",
             fields=[
-                Field("x", "-2"),
-                Field("y", "98"),
-                Field("z", "-49"),
-                Field("Nudge step", "1"),
-            ],
-        ),
-        sec(
-            "Contents",
-            "checks",
-            checks=[
-                Check(
-                    "Write air from the object",
-                    "Air in the object clears whatever it lands on.",
-                ),
-                Check(
-                    "Write entities",
-                    "Mobs, item frames, and vehicles come with the object.",
-                    True,
-                ),
-                Check("Write biomes", "Biome data is written with the blocks."),
-                Check(
-                    "Keep the object after writing",
-                    "Leaves it in the queue so it can be stamped again.",
-                ),
-            ],
-        ),
-        sec(
-            "Progress",
-            "progress",
-            hint="Writing confirmed objects into the world",
-            progress_label="0 of 3",
-            progress_fraction=0.0,
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "Nothing in this queue has touched the world yet. Discarding a "
-                "pending import loses the placement only; the structure it came "
-                "from is still in the library."
-            ),
-        ),
-    ),
-    actions=(
-        Action("Move tool", "outlined", surface="moveTool"),
-        Action("Library", "outlined", surface="libraryPanel"),
-        Action("Nudge by one block", "outlined"),
-        Action("Discard selected", "danger"),
-    ),
-)
-
-_LIBRARY_PANEL = Spec(
-    key="libraryPanel",
-    eyebrow="Panels",
-    title="Schematic library",
-    width=780,
-    confirm="Import selected",
-    intro=(
-        "Folders of saved structures with a preview, a size, and the format each "
-        "one was written in. Importing places the structure as a pending import "
-        "first, so nothing is written until you confirm it."
-    ),
-    sections=(
-        sec("", "search", hint="Search the library by name, folder, or format"),
-        sec(
-            "Source",
-            "selects",
-            selects=[
-                Select(
-                    "Folder",
-                    ("All folders", "builds", "redstone", "terrain", "imported"),
-                    "All folders",
-                ),
-                Select(
-                    "Format",
-                    (
-                        "Any",
-                        ".construction",
-                        ".schem",
-                        ".schematic",
-                        ".mcstructure",
-                        ".nbt",
-                    ),
-                    "Any",
-                ),
-                Select(
-                    "Sort by",
-                    ("Name", "Newest first", "Largest first", "Folder"),
-                    "Newest first",
-                ),
-            ],
-        ),
-        sec(
-            "Structures",
-            "list",
-            rows=[
-                Row(
-                    "spawn-arch.construction",
-                    "24×18×24 · 8,208 blocks · builds · saved 09 Aug 2026, 20:14",
-                    ".construction",
-                ),
-                Row(
-                    "market-row.schem",
-                    "48×12×32 · 18,432 blocks · builds",
-                    ".schem",
-                ),
-                Row(
-                    "sorter-4x.schematic",
-                    "12×9×14 · 1,512 blocks · redstone",
-                    ".schematic",
-                ),
-                Row(
-                    "hillside.mcstructure",
-                    "64×40×64 · bedrock export · terrain",
-                    ".mcstructure",
-                ),
-                Row(
-                    "debug-1-14.nbt",
-                    "16×16×16 · vanilla structure block · imported",
-                    ".nbt",
-                ),
-            ],
-        ),
-        tex_section(
-            "minecraft:stone_bricks",
-            "library-preview-texture",
-            "The preview tile is generated from the structure's most common "
-            "block. It is a placeholder, not the game texture; load a resource "
-            "pack or drop a PNG to show the real one.",
-        ),
-        sec(
-            "Selected structure",
-            "fields",
-            fields=[
-                Field("Name", "spawn-arch"),
-                Field("Folder", "builds"),
-                Field("Saved", "09 Aug 2026, 20:14"),
-                Field(
-                    "Library root",
-                    "%LOCALAPPDATA%\\Amulet\\library",
-                    "Choose the folder that holds your structures",
-                ),
-            ],
-        ),
-        sec(
-            "Import",
-            "checks",
-            checks=[
-                Check(
-                    "Place at the camera instead of the saved position",
-                    "Off restores the coordinates the structure was saved at.",
-                    True,
-                ),
-                Check(
-                    "Convert blocks to the open world's version",
-                    "Off imports the raw palette and reports anything unknown.",
-                    True,
-                ),
-                Check(
-                    "Include entities saved with the structure",
-                    "Mobs and item frames come with it.",
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "The library is a folder on this machine. Nothing is uploaded "
-                "and nothing is downloaded; deleting a structure here deletes "
-                "the file."
-            ),
-        ),
-    ),
-    actions=(
-        Action("Export selection to library", "tonal"),
-        Action("New folder", "outlined"),
-        Action("Reveal in file browser", "outlined"),
-        Action("Delete structure", "danger"),
-    ),
-)
-
-_LOG_VIEW = Spec(
-    key="logView",
-    eyebrow="Diagnostics",
-    title="Log",
-    width=800,
-    confirm="Close",
-    intro=(
-        "The application log for this session, filterable by level and source. "
-        "The log file stays on this machine; copying it into an issue is "
-        "something you do deliberately."
-    ),
-    sections=(
-        sec("", "search", hint="Search log messages"),
-        sec(
-            "Filter",
-            "selects",
-            selects=[
-                Select(
-                    "Level",
-                    ("All", "Debug", "Info", "Warning", "Error", "Critical"),
-                    "Info",
-                ),
-                Select(
-                    "Source",
-                    (
-                        "All",
-                        "amulet.api",
-                        "amulet_map_editor.programs",
-                        "renderer",
-                        "plugins",
-                        "operations",
-                    ),
-                    "All",
-                ),
-                Select("Order", ("Newest first", "Oldest first"), "Newest first"),
-            ],
-        ),
-        sec(
-            "Entries",
-            "list",
-            rows=[
-                Row(
-                    "09:41:12 INFO",
-                    "Applied Fill to 12 chunks · committed a91f0c7",
-                    "operations",
-                ),
-                Row(
-                    "09:41:12 INFO",
-                    "Recorded revision a91f0c7 in the project repository",
-                    "history",
-                ),
-                Row(
-                    "09:38:04 WARNING",
-                    "Chunk 25, 11 holds an unknown block state "
-                    "minecraft:cave_vines_body[age=25]",
-                    "amulet.api",
-                ),
-                Row(
-                    "09:37:55 ERROR",
-                    "plugins/loot_tables.py failed to import: "
-                    "ModuleNotFoundError: No module named 'yaml'",
-                    "plugins",
-                ),
-                Row(
-                    "09:36:40 INFO",
-                    "Texture atlas built for bedrock 1.17.0.1 in 4.2 s",
-                    "renderer",
-                ),
-                Row(
-                    "09:36:12 DEBUG",
-                    "OpenGL 4.6 context created · 1,904 block models loaded",
-                    "renderer",
-                ),
-                Row(
-                    "09:36:02 INFO",
-                    "Opened 1.17 Height · bedrock 1.17.0.1 · 168 chunks indexed",
-                    "amulet.api",
-                ),
-            ],
-        ),
-        sec(
-            "File",
-            "fields",
-            fields=[
-                Field(
-                    "Log file",
-                    "%LOCALAPPDATA%\\Amulet\\logs\\amulet-2026-08-10.log",
-                ),
-                Field("Rotation", "10 files · 5 MB each"),
-            ],
-        ),
-        sec(
-            "View",
-            "checks",
-            checks=[
-                Check(
-                    "Follow new entries",
-                    "Scrolls to the newest line as it arrives.",
-                    True,
-                ),
-                Check(
-                    "Include debug entries",
-                    "Debug lines are written to the file either way.",
-                ),
-                Check("Wrap long lines", "Off keeps one entry per row."),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "World paths and player names can appear in log lines. Read an "
-                "export before attaching it to a public issue."
-            ),
-        ),
-    ),
-    actions=(
-        Action("Copy selected", "outlined"),
-        Action("Export log", "outlined"),
-        Action("Open log folder", "outlined"),
-        Action("Error report", "outlined", surface="errorReport"),
-        Action("Clear log view", "danger"),
-    ),
-)
-
-_PROFILER = Spec(
-    key="profiler",
-    eyebrow="Diagnostics",
-    title="Profiler",
-    width=780,
-    confirm="Close",
-    intro=(
-        "Frame time and chunk-loading samples for the running session. Sampling "
-        "is off until you start it, so it never costs anything you did not ask "
-        "for."
-    ),
-    sections=(
-        sec(
-            "Sampling",
-            "progress",
-            hint="Collecting frame samples",
-            progress_label="240 of 600 frames",
-            progress_fraction=0.4,
-        ),
-        sec(
-            "Frame time",
-            "list",
-            rows=[
-                Row("Median frame", "8.4 ms · 119 frames per second", "good"),
-                Row("95th percentile", "16.9 ms · 59 frames per second", "watch"),
-                Row("Worst frame", "62.1 ms during a chunk mesh upload", "spike"),
-                Row("Draw calls", "1,842 per frame", "1842"),
-                Row("Triangles", "3.1 million per frame", "3.1M"),
-                Row("Dropped frames", "4 of 240 sampled", "4"),
-            ],
-        ),
-        sec(
-            "Chunk loading",
-            "list",
-            rows=[
-                Row("Chunks decoded", "168 chunks · median 11.2 ms each", "168"),
-                Row("Mesh build", "median 18.6 ms per chunk", "18.6 ms"),
-                Row("Upload to GPU", "median 3.1 ms per chunk", "3.1 ms"),
-                Row("Queue depth", "12 chunks waiting to mesh", "12"),
-                Row("Worker threads", "4 of 8 cores in use", "4"),
-            ],
-        ),
-        sec(
-            "Operations",
-            "list",
-            rows=[
-                Row("Fill (last run)", "2.8 s over 12 chunks", "operation"),
-                Row("Relight (last run)", "6.1 s over 38 chunks", "operation"),
-                Row("Repository commit", "0.4 s per revision", "history"),
-            ],
-        ),
-        sec(
-            "Sampling",
-            "selects",
-            selects=[
-                Select(
-                    "Sample",
-                    (
-                        "Frame time",
-                        "Chunk loading",
-                        "Operations",
-                        "Everything",
-                    ),
-                    "Frame time",
-                ),
-                Select(
-                    "Duration",
-                    ("600 frames", "10 seconds", "60 seconds", "Until stopped"),
-                    "600 frames",
-                ),
+                Field("x", "66"),
+                Field("y", "118"),
+                Field("z", "-43"),
+                Field("Rotation", "90"),
             ],
         ),
         sec(
@@ -1663,848 +914,406 @@ _PROFILER = Spec(
             "checks",
             checks=[
                 Check(
-                    "Record while the camera is still",
-                    "Off samples only while the view is moving.",
-                    True,
+                    "Import air",
+                    "Air in the import overwrites existing blocks.",
                 ),
                 Check(
-                    "Include Python operation time",
-                    "Adds plugin and operation timings to the samples.",
+                    "Import entities",
+                    "Entities stored with the structure are placed too.",
                 ),
                 Check(
-                    "Write samples to the log",
-                    "Off keeps the samples in memory until exported.",
+                    "Draw a wireframe for each pending import",
+                    "Shows placement before confirming.",
                 ),
             ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "Samples stay in memory unless you export them. The export is a "
-                "plain CSV with one row per sample, readable anywhere."
-            ),
         ),
     ),
     actions=(
-        Action("Start sampling", "tonal"),
-        Action("Stop", "outlined"),
-        Action("Export CSV", "outlined"),
-        Action("Render layers", "outlined", surface="renderLayers"),
-        Action("Clear samples", "danger"),
+        Action("Confirm selected", "tonal"),
+        Action("Discard selected", "danger"),
+        Action("Discard all", "danger"),
     ),
 )
 
-_PYTHON_CONSOLE = Spec(
-    key="pythonConsole",
-    eyebrow="Diagnostics",
-    title="Python console",
-    width=800,
-    confirm="Close",
+_PLAYER_PANEL = Spec(
+    key="playerPanel",
+    eyebrow="Panels",
+    title="Players",
+    width=720,
+    confirm="Save player",
     intro=(
-        "An embedded console bound to the open world. Anything it can do, an "
-        "operation script can do; the console is for trying it once before "
-        "writing it down."
+        "Every player stored in the world, with position, dimension, game mode, "
+        "and inventory, and a skin preview when one is available."
     ),
     sections=(
         sec(
-            "Session",
-            "code",
-            code=(
-                ">>> world.level_wrapper.platform\n"
-                "'bedrock'\n"
-                ">>> selection.volume\n"
-                "578\n"
-                ">>> sum(1 for _ in world.all_chunk_coords('minecraft:overworld'))\n"
-                "168\n"
-                ">>> world.get_version_block(412, 71, 188, 'minecraft:overworld',\n"
-                "...                         ('bedrock', (1, 17, 0)))\n"
-                "(Block(minecraft:chest[facing=north]), BlockEntity(minecraft:chest))"
-            ),
-        ),
-        sec(
-            "Bindings",
-            "fields",
-            fields=[
-                Field("world", "the open Amulet level"),
-                Field("selection", "the current selection group"),
-                Field("dimension", "minecraft:overworld"),
-                Field("options", "the dict an operation would receive"),
+            "Players",
+            "list",
+            rows=[
+                Row("6f1c…a904", "overworld · creative · level 34", "select"),
+                Row("b28d…41ff", "overworld · survival · level 12", "select"),
+                Row(
+                    "Singleplayer (level.dat)",
+                    "Stored in level.dat rather than playerdata",
+                    "select",
+                ),
             ],
         ),
         sec(
-            "Run",
+            "Skin",
+            "texture",
+            hint=(
+                "Skins resolve from the local skin cache. The tile is a "
+                "placeholder until a skin file is available."
+            ),
+            block_id="skins/6f1ca904.png",
+            slot_id="player-skin-slot",
+            faces=("head", "body", "legs"),
+        ),
+        sec(
+            "Move",
+            "fields",
+            fields=[
+                Field("x", "66.40"),
+                Field("y", "118.13"),
+                Field("z", "-43.12"),
+                Field("Dimension", "overworld"),
+            ],
+        ),
+    ),
+    actions=(
+        Action("Move player to camera", "tonal"),
+        Action("Open inventory", "outlined", surface="inventoryEditor"),
+        Action("Player data", "outlined", surface="playerData"),
+    ),
+)
+
+_WORLD_INFO = Spec(
+    key="worldInfo",
+    eyebrow="Panels",
+    title="World info",
+    width=700,
+    confirm="Save world info",
+    sections=(
+        sec(
+            "Identity",
+            "fields",
+            fields=[
+                Field("Level name", "1.17 Height"),
+                Field("Seed", "1471929"),
+                Field("Platform", "bedrock"),
+                Field("Data version", "1.17.0.1"),
+            ],
+        ),
+        sec(
+            "Size on disk",
+            "list",
+            rows=[
+                Row("Region files", "18 files · 142 MiB", "142 MiB"),
+                Row(
+                    "Chunks",
+                    "812 in overworld, 146 in nether, 24 in end",
+                    "982",
+                ),
+                Row("Player data", "2 players", "2"),
+                Row("Dimensions", "overworld, the_nether, the_end", "3"),
+            ],
+        ),
+        sec(
+            "Time and weather",
+            "ranges",
+            ranges=[
+                RangeDef("Day time (ticks)", 6000, 0, 24000),
+                RangeDef("Rain time (ticks)", 12000, 0, 180000),
+            ],
+        ),
+    ),
+    actions=(
+        Action("Open level.dat", "outlined", surface="levelDat"),
+        Action("Game rules", "outlined", surface="gamerules"),
+    ),
+)
+
+_INVENTORY_EDITOR = Spec(
+    key="inventoryEditor",
+    eyebrow="Panels",
+    title="Inventory editor",
+    width=760,
+    confirm="Save inventory",
+    intro=(
+        "Edit any container or player inventory slot by slot. Item types come "
+        "from the loaded version's item list."
+    ),
+    sections=(
+        sec(
+            "Container",
             "selects",
             selects=[
                 Select(
-                    "Interpreter",
+                    "Inventory",
                     (
-                        "Bundled Python 3.11",
-                        "Bundled Python 3.11 with the plugins folder on the path",
+                        "Player hotbar",
+                        "Player main",
+                        "Ender chest",
+                        "Armour",
+                        "Chest at 412, 71, 188",
                     ),
-                    "Bundled Python 3.11",
                 ),
                 Select(
-                    "On error",
+                    "Item type",
                     (
-                        "Show the traceback here",
-                        "Show the traceback and open the error report",
+                        "minecraft:diamond_pickaxe",
+                        "minecraft:oak_planks",
+                        "minecraft:torch",
+                        "minecraft:bread",
+                        "minecraft:filled_map",
                     ),
-                    "Show the traceback here",
                 ),
             ],
         ),
+        tex_section(
+            "minecraft:oak_planks",
+            "inventory-item-texture",
+            "The selected item's texture shows here. The tile is a generated "
+            "placeholder until a resource pack is loaded.",
+        ),
         sec(
-            "Safety",
-            "checks",
-            checks=[
-                Check(
-                    "Record every statement in the log",
-                    "The log keeps what was run and when.",
-                    True,
-                ),
-                Check(
-                    "Commit a revision after a statement writes to the world",
-                    "Keeps console edits inside the same unlimited undo depth.",
-                    True,
-                ),
-                Check(
-                    "Ask before a statement writes to the world",
-                    "Off lets a write run as soon as you press Run.",
-                    True,
-                ),
+            "Slot",
+            "fields",
+            fields=[
+                Field("Slot", "0"),
+                Field("Count", "1"),
+                Field("Damage", "240"),
+                Field("Custom name", "Ana's Pick"),
             ],
         ),
         sec(
-            "",
-            "note",
-            hint=(
-                "The console runs locally with the editor's own permissions and "
-                "has no network access. A statement that writes blocks is a real "
-                "edit, undoable through the project repository like any other."
-            ),
+            "Enchantments",
+            "chips",
+            chips=[
+                "efficiency V",
+                "unbreaking III",
+                "fortune III",
+                "mending I",
+                "＋ add",
+            ],
         ),
     ),
     actions=(
-        Action("Run selection", "tonal"),
-        Action("Operation console", "outlined", surface="scriptConsole"),
-        Action("Open log", "outlined", surface="logView"),
-        Action("Clear session", "danger"),
-    ),
-)
-
-_ERROR_REPORT = Spec(
-    key="errorReport",
-    eyebrow="Diagnostics",
-    title="Error report",
-    width=780,
-    confirm="Close",
-    intro=(
-        "The last unhandled error, with the traceback exactly as Python raised "
-        "it. The report stays on this machine: nothing is sent anywhere unless "
-        "you export it and attach it yourself."
-    ),
-    sections=(
-        sec(
-            "Error",
-            "list",
-            rows=[
-                Row("Type", "ModuleNotFoundError", "error"),
-                Row("Message", "No module named 'yaml'", "message"),
-                Row("Raised", "10 Aug 2026, 09:37:55", "time"),
-                Row("While", "Loading plugin plugins/loot_tables.py", "context"),
-                Row("Build", "0.10.0-dev.414 · unsigned by policy", "version"),
-                Row("World open", "1.17 Height · bedrock 1.17.0.1", "world"),
-            ],
-        ),
-        sec(
-            "Traceback",
-            "code",
-            code=(
-                "Traceback (most recent call last):\n"
-                '  File "amulet_map_editor/api/plugins/loader.py", line 118, '
-                "in load_plugin\n"
-                "    module = importlib.import_module(module_name)\n"
-                '  File "importlib/__init__.py", line 126, in import_module\n'
-                "    return _bootstrap._gcd_import(name[level:], package, level)\n"
-                '  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import\n'
-                '  File "plugins/loot_tables.py", line 4, in <module>\n'
-                "    import yaml\n"
-                "ModuleNotFoundError: No module named 'yaml'"
-            ),
-        ),
-        sec(
-            "Environment",
-            "list",
-            rows=[
-                Row("Python", "3.11.9 · 64-bit", "runtime"),
-                Row("wxPython", "4.2.1 msw (phoenix)", "toolkit"),
-                Row("OpenGL", "4.6.0 · vendor driver 552.22", "renderer"),
-                Row("Operating system", "Windows 11 · build 26200", "os"),
-                Row("Display scale", "150% · 2560 × 1440", "display"),
-            ],
-        ),
-        sec(
-            "Include in the export",
-            "checks",
-            checks=[
-                Check(
-                    "The session log",
-                    "Adds amulet-2026-08-10.log to the exported file.",
-                    True,
-                ),
-                Check(
-                    "The world path",
-                    "Off replaces the path with the world name only.",
-                ),
-                Check(
-                    "The open project name",
-                    "Off exports the report without naming the project.",
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "This report is written to disk beside the log and never leaves "
-                "the machine on its own. Read what an export contains before "
-                "attaching it to a public issue."
-            ),
-        ),
-    ),
-    actions=(
-        Action("Copy report", "tonal"),
-        Action("Export report", "outlined"),
-        Action("Open log", "outlined", surface="logView"),
-        Action("Plugins", "outlined", surface="pluginsDialog"),
-        Action("Clear report", "danger"),
+        Action("Clear slot", "danger"),
+        Action("Fill stack", "tonal"),
+        Action("Open NBT editor", "outlined", surface="nbt"),
     ),
 )
 
 _ITEM_TYPE_LIST = Spec(
     key="itemTypeList",
-    eyebrow="Extend",
+    eyebrow="Pickers",
     title="Item types",
-    width=760,
+    width=720,
     confirm="Use this item",
     intro=(
-        "Every item the loaded version defines, with the tile the pickers will "
-        "show for it. Tiles are generated placeholders until an install and a "
-        "resource pack are both loaded."
+        "Every item type in the loaded version, searchable, with the internal "
+        "id and its texture."
     ),
     sections=(
         sec("", "search", hint="Search item names and ids"),
-        sec(
-            "Source",
-            "selects",
-            selects=[
-                Select(
-                    "Platform and version",
-                    ("bedrock 1.17.0.1", "java 1.20.4"),
-                    "bedrock 1.17.0.1",
-                ),
-                Select("Namespace", ("minecraft", "amulet"), "minecraft"),
-                Select(
-                    "Group",
-                    (
-                        "All items",
-                        "Block items",
-                        "Tools and weapons",
-                        "Food",
-                        "Maps and books",
-                        "Spawn eggs",
-                        "Materials",
-                    ),
-                    "All items",
-                ),
-            ],
-        ),
         sec(
             "Items",
             "list",
             rows=[
                 Row(
                     "minecraft:diamond_pickaxe",
-                    "Tool · stack size 1 · durability 1,561",
-                    "tool",
+                    "Tools · max damage 1561",
+                    "pick",
                 ),
-                Row("minecraft:bread", "Food · stack size 64 · restores 5", "food"),
+                Row("minecraft:oak_planks", "Building · stacks to 64", "pick"),
+                Row("minecraft:torch", "Decoration · stacks to 64", "pick"),
                 Row(
                     "minecraft:filled_map",
-                    "Map · stack size 1 · scale 1:8",
-                    "map",
+                    "Miscellaneous · stacks to 1",
+                    "pick",
                 ),
-                Row("minecraft:coal", "Fuel · stack size 64", "material"),
-                Row("minecraft:iron_ingot", "Material · stack size 64", "material"),
-                Row("minecraft:gold_ingot", "Material · stack size 64", "material"),
-                Row("minecraft:chest", "Block item · stack size 64", "block"),
-                Row("minecraft:torch", "Block item · stack size 64", "block"),
             ],
         ),
-        tex_section("minecraft:diamond_pickaxe", "item-type-texture"),
-        sec(
-            "Selected item",
-            "fields",
-            fields=[
-                Field("Item id", "minecraft:diamond_pickaxe"),
-                Field("Count", "1"),
-                Field("Damage", "0"),
-                Field("Custom name", "", "Leave empty for the default name"),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "An item the loaded version does not define can still be typed "
-                "in. It is written exactly as typed and listed as unknown here, "
-                "rather than being silently dropped."
-            ),
-        ),
+        tex_section("minecraft:oak_planks", "itemtype-texture"),
     ),
-    actions=(
-        Action("Add to inventory", "tonal", surface="inventoryEditor"),
-        Action("Configure definitions", "outlined", surface="configureBlocks"),
-        Action("Minecraft installs", "outlined", surface="minecraftInstalls"),
-    ),
+    actions=(Action("Configure item list…", "outlined", surface="configureBlocks"),),
 )
 
 _CONFIGURE_BLOCKS = Spec(
     key="configureBlocks",
-    eyebrow="Extend",
-    title="Configure blocks and items",
-    width=800,
+    eyebrow="Pickers",
+    title="Configure blocks",
+    width=740,
     confirm="Save definitions",
     intro=(
-        "Amulet's own definitions map a block or item to a colour, a model, and "
-        "the properties the pickers offer. Editing one here changes every picker "
-        "in the editor, and every placeholder tile drawn from it."
+        "Override display names, textures, and grouping for block types the "
+        "loaded version does not describe, including modded ids."
     ),
     sections=(
-        sec("", "search", hint="Search definitions by id, model, or colour"),
-        sec(
-            "Set",
-            "selects",
-            selects=[
-                Select(
-                    "Definition set",
-                    ("Bundled defaults", "User overrides", "Project overrides"),
-                    "User overrides",
-                ),
-                Select(
-                    "Applies to",
-                    ("Blocks", "Items", "Biomes", "Entities"),
-                    "Blocks",
-                ),
-                Select(
-                    "Platform and version",
-                    ("bedrock 1.17.0.1", "java 1.20.4"),
-                    "bedrock 1.17.0.1",
-                ),
-            ],
-        ),
+        sec("", "search", hint="Search block definitions"),
         sec(
             "Definitions",
             "list",
             rows=[
                 Row(
-                    "minecraft:deepslate",
-                    "Colour #4A4A4F · model cube_column · property axis",
-                    "override",
-                ),
-                Row(
-                    "minecraft:sculk",
-                    "Colour #0F2A2E · model cube_all · no properties",
-                    "default",
-                ),
-                Row(
-                    "minecraft:copper_block",
-                    "Colour #C07248 · model cube_all · oxidation stages linked",
-                    "override",
-                ),
-                Row(
-                    "minecraft:sea_lantern",
-                    "Colour #9FD3C4 · model cube_all · emits light 15",
-                    "default",
-                ),
-                Row(
                     "amulet:unknown_block",
-                    "Colour #8A8A8A · model cube_all · fallback for anything "
-                    "undefined",
-                    "fallback",
+                    "Placeholder from a failed read · shown in magenta",
+                    "override",
                 ),
-            ],
-        ),
-        sec(
-            "Colour",
-            "swatches",
-            hint="#4A4A4F · used for the placeholder tile and the biome map",
-            swatches=[
-                SwatchDef("Deepslate", "#4A4A4F"),
-                SwatchDef("Sculk", "#0F2A2E"),
-                SwatchDef("Copper block", "#C07248"),
-                SwatchDef("Sea lantern", "#9FD3C4"),
-                SwatchDef("Unknown fallback", "#8A8A8A"),
+                Row(
+                    "minecraft:cave_air",
+                    "Hidden by default in the render",
+                    "hidden",
+                ),
+                Row(
+                    "modded:brass_casing",
+                    "Custom display name and texture",
+                    "custom",
+                ),
             ],
         ),
         sec(
             "Selected definition",
             "fields",
             fields=[
-                Field("Namespaced id", "minecraft:deepslate"),
-                Field("Model", "cube_column"),
-                Field("Properties", "axis=x|y|z"),
-                Field("Emitted light", "0"),
+                Field("Internal id", "modded:brass_casing"),
+                Field("Display name", "Brass Casing"),
+                Field("Group", "Modded"),
+                Field("Render as", "full cube"),
             ],
-        ),
-        tex_section("minecraft:deepslate", "definition-texture"),
-        sec(
-            "Rules",
-            "checks",
-            checks=[
-                Check(
-                    "Fall back to the bundled definition when an override is "
-                    "incomplete",
-                    "Off leaves the missing field empty and reports it.",
-                    True,
-                ),
-                Check(
-                    "Warn when a definition names a block the loaded version "
-                    "does not have",
-                    "The warning names the id and the version it was checked "
-                    "against.",
-                    True,
-                ),
-                Check(
-                    "Apply project overrides before user overrides",
-                    "Off gives your own overrides the final say.",
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "Overrides are stored as plain JSON, per user and per project, "
-                "so a bad edit is undone by deleting the file. The bundled "
-                "defaults are never written to."
-            ),
-        ),
-    ),
-    actions=(
-        Action("New override", "tonal"),
-        Action("Item types", "outlined", surface="itemTypeList"),
-        Action("Block picker", "outlined", surface="blockSelect"),
-        Action("Reset to bundled", "danger"),
-    ),
-)
-
-_MINECRAFT_INSTALLS = Spec(
-    key="minecraftInstalls",
-    eyebrow="Resources",
-    title="Minecraft installs",
-    width=800,
-    confirm="Use this install",
-    intro=(
-        "Installs found on this machine supply block models, textures, and the "
-        "version data the handlers need. The list is what is already on disk; "
-        "nothing is downloaded from here."
-    ),
-    sections=(
-        sec("", "search", hint="Search installs, versions, and resource packs"),
-        sec(
-            "Installs",
-            "list",
-            rows=[
-                Row(
-                    "Minecraft Launcher (Java)",
-                    "%APPDATA%\\.minecraft · versions 1.20.4, 1.19.2, 1.16.5",
-                    "found",
-                ),
-                Row(
-                    "Minecraft for Windows (Bedrock)",
-                    "%LOCALAPPDATA%\\Packages\\Microsoft.MinecraftUWP · 1.17.0.1",
-                    "found",
-                ),
-                Row(
-                    "Server folder",
-                    "D:\\minecraft\\servers\\andesite · 1.20.4 server jar",
-                    "added",
-                ),
-                Row(
-                    "Bundled definitions",
-                    "Shipped with Amulet · no textures, colours only",
-                    "always available",
-                ),
-            ],
-        ),
-        sec(
-            "Active",
-            "selects",
-            selects=[
-                Select(
-                    "Install",
-                    (
-                        "Minecraft Launcher (Java)",
-                        "Minecraft for Windows (Bedrock)",
-                        "Server folder",
-                        "Bundled definitions only",
-                    ),
-                    "Minecraft for Windows (Bedrock)",
-                ),
-                Select(
-                    "Version",
-                    ("bedrock 1.17.0.1", "1.20.4", "1.19.2", "1.16.5"),
-                    "bedrock 1.17.0.1",
-                ),
-            ],
-        ),
-        sec(
-            "Resource packs",
-            "list",
-            rows=[
-                Row(
-                    "Vanilla (from the install)",
-                    "bedrock 1.17.0.1 · 1,512 block textures",
-                    "loaded",
-                ),
-                Row(
-                    "Faithful 32x",
-                    "resourcepacks\\Faithful32.zip · 1,880 block textures",
-                    "loaded",
-                ),
-                Row(
-                    "Java vanilla 1.20.4",
-                    "cached from an earlier session · 1,904 block textures",
-                    "cached",
-                ),
-                Row(
-                    "Andesite overlay",
-                    "resourcepacks\\andesite-overlay.zip · 42 block textures",
-                    "off",
-                ),
-            ],
-        ),
-        sec(
-            "Texture atlas",
-            "progress",
-            hint="Creating the texture atlas for the active version",
-            progress_label="100%",
-            progress_fraction=1.0,
         ),
         tex_section(
             "minecraft:copper_block",
-            "install-atlas-texture",
-            "Until an install and a resource pack are both loaded, every tile in "
-            "the editor is a generated placeholder like this one.",
-        ),
-        sec(
-            "Paths",
-            "fields",
-            fields=[
-                Field(
-                    "Install root",
-                    "%APPDATA%\\.minecraft",
-                    "Choose the folder holding versions and resourcepacks",
-                ),
-                Field(
-                    "Resource pack folder",
-                    "%APPDATA%\\.minecraft\\resourcepacks",
-                    "Choose a folder of .zip resource packs",
-                ),
-                Field("Atlas cache", "%LOCALAPPDATA%\\Amulet\\atlas"),
-            ],
-        ),
-        sec(
-            "Loading",
-            "checks",
-            checks=[
-                Check(
-                    "Load resource packs in the order listed",
-                    "The last pack listed wins for a texture two packs both " "define.",
-                    True,
-                ),
-                Check(
-                    "Rebuild the atlas when a pack file changes",
-                    "Off rebuilds only when you ask.",
-                    True,
-                ),
-                Check(
-                    "Fall back to placeholder tiles for missing textures",
-                    "Off leaves the tile blank and reports the missing texture.",
-                    True,
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "A pack missing a texture leaves a placeholder tile and names "
-                "the texture that was missing, rather than drawing something "
-                "else in its place."
-            ),
+            "configure-block-texture",
+            "Assign a texture for this definition. Drop a PNG to use the real one.",
         ),
     ),
     actions=(
-        Action("Add install folder", "tonal"),
-        Action("Rescan this machine", "outlined"),
-        Action("Rebuild atlas", "outlined"),
-        Action("Render layers", "outlined", surface="renderLayers"),
-        Action("Remove install", "danger"),
+        Action("Add definition", "tonal"),
+        Action("Reset definition", "danger"),
+        Action("Export definitions", "outlined"),
     ),
 )
 
-_PLUGINS_DIALOG = Spec(
-    key="pluginsDialog",
-    eyebrow="Plugins",
-    title="Plugins",
-    width=800,
-    confirm="Close",
+_RENDER_LAYERS = Spec(
+    key="renderLayers",
+    eyebrow="View",
+    title="Render layers",
+    width=640,
+    confirm="Apply layers",
     intro=(
-        "Tools, generators, and operations loaded from the plugins folder. A "
-        "plugin that fails to import stays in the list with its exact error, "
-        "instead of quietly disappearing."
+        "Each layer can be drawn or hidden independently, so a crowded world "
+        "stays readable."
     ),
     sections=(
-        sec("", "search", hint="Search plugins by name, kind, path, or error"),
         sec(
-            "Filter",
-            "selects",
-            selects=[
-                Select(
-                    "Kind",
-                    ("All", "Tools", "Generators", "Operations", "Commands"),
-                    "All",
-                ),
-                Select(
-                    "State",
-                    ("All", "Loaded", "Disabled", "Failed"),
-                    "All",
-                ),
-                Select("Source", ("All", "Bundled", "User", "Project"), "All"),
-            ],
-        ),
-        sec(
-            "Installed",
-            "list",
-            rows=[
-                Row(
-                    "Shape brush",
-                    "Tool · bundled · plugins/shape_brush.py · API 0.10",
-                    "loaded",
-                ),
-                Row(
-                    "L-system tree",
-                    "Generator · bundled · plugins/generators/lsystem.py",
-                    "loaded",
-                ),
-                Row(
-                    "Cave system",
-                    "Generator · bundled · plugins/generators/caves.py",
-                    "loaded",
-                ),
-                Row(
-                    "Rail tunnel builder",
-                    "Tool · user · plugins/rail_tunnel.py · API 0.10",
-                    "loaded",
-                ),
-                Row(
-                    "Structure locator",
-                    "Command · bundled · plugins/commands/locate.py",
-                    "loaded",
-                ),
-                Row(
-                    "Chunk pruner",
-                    "Operation · user · plugins/chunk_pruner.py",
-                    "disabled",
-                ),
-                Row(
-                    "Loot table audit",
-                    "Operation · user · plugins/loot_tables.py",
-                    "failed",
-                ),
-            ],
-        ),
-        sec(
-            "Import error",
-            "code",
-            code=(
-                "plugins/loot_tables.py\n"
-                "  line 4: import yaml\n"
-                "ModuleNotFoundError: No module named 'yaml'\n"
-                "\n"
-                "The plugin is listed as failed and is not loaded. Installing\n"
-                "PyYAML into the bundled interpreter, or removing the import,\n"
-                "is what fixes it."
-            ),
-        ),
-        sec(
-            "Selected plugin",
-            "fields",
-            fields=[
-                Field("Name", "Loot table audit"),
-                Field("Kind", "Operation"),
-                Field("Path", "plugins/loot_tables.py"),
-                Field("API version", "0.10"),
-            ],
-        ),
-        sec(
-            "Loading",
+            "Layers",
             "checks",
             checks=[
+                Check("Blocks", "Terrain and built blocks."),
+                Check("Items", "Dropped item entities."),
+                Check("TileEntities", "Chests, signs, spawners."),
                 Check(
-                    "Load user plugins at startup",
-                    "Off loads bundled plugins only until you ask for more.",
-                    True,
+                    "TileEntityLocations",
+                    "Markers where block entities sit.",
                 ),
+                Check("CommandBlockColors", "Command blocks tinted by type."),
+                Check("CommandBlockLocations", "Markers for command blocks."),
+                Check("ItemFrames", "Item frames and their contents."),
+                Check("TileTicks", "Scheduled tick markers."),
+                Check("MonsterLocations", "Markers for hostile entities."),
+                Check("ChunkSections", "Section boundaries."),
+                Check("HeightMap", "Stored heightmap overlay."),
                 Check(
-                    "Reload a plugin when its file changes",
-                    "Useful while writing one; slower on a large folder.",
-                ),
-                Check(
-                    "Keep a failed plugin listed until it loads",
-                    "Off hides the failure, which is how one gets forgotten.",
-                    True,
+                    "Places Where Creepers Can Spawn",
+                    "Spawnable surface overlay.",
                 ),
             ],
         ),
         sec(
-            "",
-            "note",
-            hint=(
-                "Plugins run with the editor's own permissions and can write to "
-                "the world. Read a plugin you did not write before enabling it."
-            ),
+            "Presets",
+            "chips",
+            chips=[
+                "Default visible",
+                "Blocks only",
+                "Everything",
+                "Data overlays",
+                "Spawn checking",
+            ],
         ),
     ),
-    actions=(
-        Action("Reload plugins", "tonal"),
-        Action("Open plugins folder", "outlined"),
-        Action("Enable selected", "outlined"),
-        Action("Error report", "outlined", surface="errorReport"),
-        Action("Disable selected", "danger"),
-    ),
+    actions=(Action("Reset to defaults", "outlined"),),
 )
 
 _VIEW_CONTROLS = Spec(
     key="viewControls",
     eyebrow="View",
     title="View settings",
-    width=740,
+    width=700,
     confirm="Apply view",
     intro=(
-        "Camera, projection, and the overlays drawn on top of the world. "
-        "Nothing on this surface changes world data, and every setting is "
-        "restored the next time the project opens."
+        "Four view types share one world: fly camera, overhead, isometric, and "
+        "a four-up split. Each keeps its own camera."
     ),
     sections=(
-        sec("", "search", hint="Search view settings"),
         sec(
-            "Camera",
+            "View",
             "selects",
             selects=[
                 Select(
                     "View type",
                     (
-                        "3D perspective",
-                        "Top-down",
-                        "Front elevation",
-                        "Side elevation",
+                        "Camera (fly)",
+                        "Overhead",
+                        "Isometric",
                         "Four-up split",
+                        "Cutaway",
+                        "Schematic view",
                     ),
-                    "3D perspective",
                 ),
                 Select(
-                    "Projection",
-                    ("Perspective", "Orthographic"),
-                    "Perspective",
-                ),
-                Select(
-                    "Controls",
-                    ("Fly", "Orbit the selection", "Pan and zoom"),
-                    "Fly",
+                    "Control scheme",
+                    (
+                        "Hold right mouse to look",
+                        "Click to capture mouse",
+                        "Arrow keys only",
+                    ),
                 ),
             ],
         ),
         sec(
-            "Position",
-            "fields",
-            fields=[
-                Field("x", "66.40"),
-                Field("y", "118.13"),
-                Field("z", "-43.12"),
-                Field("Yaw", "-134.5"),
-                Field("Pitch", "18.0"),
-            ],
-        ),
-        sec(
-            "Feel",
+            "Camera",
             "ranges",
             ranges=[
                 RangeDef("Field of view", 70, 30, 110),
-                RangeDef("Move speed", 12, 1, 64),
-                RangeDef("Render distance (chunks)", 8, 2, 32),
-                RangeDef("Mouse sensitivity", 50, 1, 100),
+                RangeDef("View distance (chunks)", 12, 2, 32),
+                RangeDef("Movement speed (blocks/s)", 12, 1, 60),
             ],
         ),
         sec(
             "Overlays",
             "checks",
             checks=[
+                Check("Compass", "North indicator in the corner."),
+                Check("World ruler", "Coordinate ruler along the edges."),
+                Check("Minimap", "Overhead minimap panel."),
+                Check("Chunk grid", "Section and chunk boundaries."),
                 Check(
-                    "Selection outline",
-                    "The selection boxes and their drag handles.",
-                    True,
-                ),
-                Check("Chunk grid", "A 16-block grid on chunk boundaries."),
-                Check(
-                    "World border",
-                    "The border wall and its warning distance.",
-                    True,
+                    "Work plane",
+                    "The fixed plane brushes and shapes snap to.",
                 ),
                 Check(
-                    "Coordinate axes at the origin",
-                    "Three coloured lines through 0, 0, 0.",
-                ),
-                Check(
-                    "Compass and coordinate readout",
-                    "The heads-up display in the viewport corner.",
-                    True,
+                    "Sky and lightmap",
+                    "Sky gradient and light-based shading.",
                 ),
             ],
-        ),
-        sec(
-            "Background",
-            "selects",
-            selects=[
-                Select(
-                    "Sky",
-                    ("Gradient", "Flat colour", "Void black"),
-                    "Gradient",
-                ),
-                Select(
-                    "Fog",
-                    ("Off", "Distance fog", "Match the render distance"),
-                    "Match the render distance",
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "Render distance is the single biggest frame-rate control here. "
-                "The profiler shows what each change actually bought."
-            ),
         ),
     ),
     actions=(
+        Action("Render layers…", "outlined", surface="renderLayers"),
         Action("Reset camera", "outlined"),
-        Action("Four-up split", "outlined", surface="fourUpView"),
-        Action("Render layers", "outlined", surface="renderLayers"),
-        Action("Teleport", "outlined", surface="goto"),
     ),
 )
 
@@ -2512,242 +1321,84 @@ _FOUR_UP_VIEW = Spec(
     key="fourUpView",
     eyebrow="View",
     title="Four-up split",
-    width=740,
+    width=660,
     confirm="Apply layout",
     intro=(
-        "Shows the camera view together with an overhead and two elevations, so "
-        "a build can be lined up from every side without flying around it."
+        "Shows camera, overhead, and two side views at once, with one shared "
+        "selection across all four panes."
     ),
     sections=(
         sec(
-            "Layout",
+            "Panes",
             "selects",
             selects=[
                 Select(
-                    "Split",
-                    (
-                        "2 × 2",
-                        "Camera large, three small",
-                        "Two columns",
-                        "Two rows",
-                    ),
-                    "2 × 2",
-                ),
-                Select(
                     "Top left",
                     (
-                        "3D perspective",
-                        "Top-down",
-                        "Front elevation",
-                        "Side elevation",
+                        "Camera (fly)",
+                        "Overhead",
+                        "North elevation",
+                        "East elevation",
+                        "Isometric",
                     ),
-                    "3D perspective",
                 ),
                 Select(
                     "Top right",
                     (
-                        "3D perspective",
-                        "Top-down",
-                        "Front elevation",
-                        "Side elevation",
+                        "Overhead",
+                        "Camera (fly)",
+                        "Isometric",
+                        "North elevation",
                     ),
-                    "Top-down",
                 ),
                 Select(
                     "Bottom left",
                     (
-                        "3D perspective",
-                        "Top-down",
-                        "Front elevation",
-                        "Side elevation",
+                        "North elevation",
+                        "East elevation",
+                        "Overhead",
+                        "Camera (fly)",
                     ),
-                    "Front elevation",
                 ),
                 Select(
                     "Bottom right",
                     (
-                        "3D perspective",
-                        "Top-down",
-                        "Front elevation",
-                        "Side elevation",
+                        "East elevation",
+                        "Isometric",
+                        "Camera (fly)",
+                        "Overhead",
                     ),
-                    "Side elevation",
                 ),
             ],
         ),
         sec(
-            "Panes",
-            "list",
-            rows=[
-                Row("Top left", "3D perspective · 66.4, 118.1, -43.1", "camera"),
-                Row("Top right", "Top-down · y 118 · 24 blocks across", "ortho"),
-                Row("Bottom left", "Front elevation · z -43", "ortho"),
-                Row("Bottom right", "Side elevation · x 66", "ortho"),
-            ],
-        ),
-        sec(
-            "Dividers",
-            "ranges",
-            ranges=[
-                RangeDef("Vertical divider (%)", 50, 10, 90),
-                RangeDef("Horizontal divider (%)", 50, 10, 90),
-                RangeDef("Orthographic zoom (blocks across)", 24, 4, 128),
-            ],
-        ),
-        sec(
-            "Linking",
+            "Sync",
             "checks",
             checks=[
                 Check(
-                    "Link camera position across panes",
-                    "Moving in one pane moves the others to match.",
-                    True,
+                    "Share the selection across panes",
+                    "Editing in one pane updates the others.",
                 ),
+                Check("Lock zoom together", "All panes zoom as one."),
                 Check(
-                    "Link the selection highlight",
-                    "The selection is drawn in every pane.",
-                    True,
-                ),
-                Check(
-                    "Draw the camera frustum in the flat panes",
-                    "Shows where the 3D pane is looking.",
-                ),
-                Check(
-                    "Render every pane at full detail",
-                    "Off draws the three small panes at half render distance to "
-                    "keep the frame rate up.",
+                    "Show the ruler in orthographic panes",
+                    "Coordinates along each edge.",
                 ),
             ],
         ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "Four panes cost roughly twice the frame time of one. Pane "
-                "detail is the first thing to turn down on a slow machine."
-            ),
-        ),
     ),
-    actions=(
-        Action("Single pane", "outlined"),
-        Action("View settings", "outlined", surface="viewControls"),
-        Action("Profiler", "outlined", surface="profiler"),
-    ),
+    actions=(Action("Single pane", "outlined"),),
 )
 
 _CUTAWAY_VIEW = Spec(
     key="cutawayView",
     eyebrow="View",
     title="Cutaway",
-    width=720,
+    width=620,
     confirm="Apply cutaway",
     intro=(
-        "Clips the world along a plane or a slab so you can see inside a build "
-        "without deleting anything. This is a view setting: no block is changed "
-        "and operations still see the whole world."
-    ),
-    sections=(
-        sec(
-            "Clip",
-            "selects",
-            selects=[
-                Select(
-                    "Mode",
-                    (
-                        "Off",
-                        "Single plane",
-                        "Slab between two planes",
-                        "Box around the selection",
-                    ),
-                    "Slab between two planes",
-                ),
-                Select(
-                    "Axis",
-                    (
-                        "Y (horizontal slice)",
-                        "X (east–west)",
-                        "Z (north–south)",
-                        "Camera facing",
-                    ),
-                    "Y (horizontal slice)",
-                ),
-                Select(
-                    "Hidden side",
-                    ("Hide in front of the plane", "Hide behind the plane"),
-                    "Hide in front of the plane",
-                ),
-            ],
-        ),
-        sec(
-            "Planes",
-            "ranges",
-            ranges=[
-                RangeDef("Near plane (y)", 118, -64, 320),
-                RangeDef("Far plane (y)", 132, -64, 320),
-                RangeDef("Slab thickness", 14, 1, 128),
-                RangeDef("Edge fade", 0, 0, 16),
-            ],
-        ),
-        sec(
-            "Readout",
-            "fields",
-            fields=[
-                Field("Visible range", "y 118 to y 132"),
-                Field("Blocks hidden", "1,284,096"),
-                Field("Chunks affected", "168"),
-            ],
-        ),
-        sec(
-            "Contents",
-            "checks",
-            checks=[
-                Check(
-                    "Keep entities visible through the cut",
-                    "Off hides entities outside the visible range too.",
-                ),
-                Check(
-                    "Draw a bright edge where blocks are cut",
-                    "Makes the cut face readable against dark terrain.",
-                    True,
-                ),
-                Check(
-                    "Clip the selection highlight too",
-                    "Off keeps the whole selection outline visible.",
-                ),
-                Check(
-                    "Follow the camera height",
-                    "The plane tracks the camera's y as you fly.",
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "Cutaway hides blocks from the renderer only. Selections, "
-                "operations, exports, and the analysis table still count every "
-                "hidden block."
-            ),
-        ),
-    ),
-    actions=(
-        Action("Slice at camera height", "tonal"),
-        Action("Layer slice", "outlined", surface="layerSlice"),
-        Action("View settings", "outlined", surface="viewControls"),
-        Action("Clear cutaway", "outlined"),
-    ),
-)
-
-_WORK_PLANE = Spec(
-    key="workPlane",
-    eyebrow="View",
-    title="Work plane",
-    width=700,
-    confirm="Apply work plane",
-    intro=(
-        "A fixed plane that brushes and placement snap to, so a stroke stays "
-        "flat instead of following whatever surface happens to be under the "
-        "cursor."
+        "Clips the world along a plane so interiors and caves are visible "
+        "without deleting anything."
     ),
     sections=(
         sec(
@@ -2757,205 +1408,513 @@ _WORK_PLANE = Spec(
                 Select(
                     "Axis",
                     (
-                        "Y (horizontal)",
+                        "Y (horizontal slice)",
                         "X (east–west)",
                         "Z (north–south)",
-                        "Camera facing",
                     ),
-                    "Y (horizontal)",
                 ),
-                Select(
-                    "Origin",
-                    (
-                        "Fixed height",
-                        "Camera height",
-                        "Selection floor",
-                        "Last clicked block",
-                    ),
-                    "Fixed height",
-                ),
+                Select("Side kept", ("Below the plane", "Above the plane")),
             ],
         ),
         sec(
             "Position",
             "ranges",
             ranges=[
-                RangeDef("Height", 98, -64, 320),
-                RangeDef("Grid spacing", 16, 1, 64),
-                RangeDef("Grid opacity (%)", 40, 0, 100),
+                RangeDef("Plane position", 98, -64, 320),
+                RangeDef("Fade above the cut", 40, 0, 100),
             ],
-        ),
-        sec(
-            "Snapping",
-            "fields",
-            fields=[
-                Field("Snap step", "1"),
-                Field("Offset from the plane", "0"),
-                Field("Plane at", "y 98 · minecraft:overworld"),
-            ],
-        ),
-        sec(
-            "Behaviour",
-            "checks",
-            checks=[
-                Check(
-                    "Snap the brush to the plane",
-                    "The brush paints on the plane instead of the surface under "
-                    "the cursor.",
-                    True,
-                ),
-                Check(
-                    "Snap the selection handles to the plane",
-                    "Dragging a handle keeps it on the plane.",
-                ),
-                Check(
-                    "Draw the plane grid in the viewport",
-                    "Off keeps the plane active but invisible.",
-                    True,
-                ),
-                Check(
-                    "Clamp placement to the world height limits",
-                    "A plane outside -64 to 320 places nothing and says so.",
-                    True,
-                ),
-            ],
-        ),
-        sec(
-            "",
-            "note",
-            hint=(
-                "The work plane is a placement aid. It never writes blocks on "
-                "its own, and turning it off leaves everything already placed "
-                "exactly where it is."
-            ),
         ),
     ),
     actions=(
-        Action("Set from camera", "tonal"),
-        Action("Set from selection floor", "outlined"),
-        Action("Brush settings", "outlined", surface="brushSettings"),
-        Action("Clear work plane", "outlined"),
+        Action("Follow the camera", "outlined"),
+        Action("Reset", "outlined"),
     ),
 )
 
-_RENDER_LAYERS = Spec(
-    key="renderLayers",
+_WORK_PLANE = Spec(
+    key="workPlane",
     eyebrow="View",
-    title="Render layers",
-    width=720,
-    confirm="Apply layers",
+    title="Work plane",
+    width=600,
+    confirm="Set work plane",
     intro=(
-        "Each layer draws independently, so hiding one costs nothing and reveals "
-        "what is behind it. A hidden layer is skipped rather than drawn "
-        "transparent, and hiding a layer never changes world data."
+        "A fixed plane brushes and shapes snap to, so edits land at a chosen "
+        "height even over empty air."
     ),
     sections=(
-        sec("", "search", hint="Search render layers"),
         sec(
-            "Layers",
+            "Plane",
+            "selects",
+            selects=[
+                Select("Axis", ("Y (height)", "X", "Z")),
+                Select("Snap", ("Whole blocks", "Half blocks", "Free")),
+            ],
+        ),
+        sec("Position", "ranges", ranges=[RangeDef("Height", 98, -64, 320)]),
+        sec(
+            "Options",
             "checks",
             checks=[
                 Check(
-                    "Terrain",
-                    "Solid and transparent blocks. Hiding it leaves entities and "
-                    "overlays visible.",
-                    True,
+                    "Draw the plane in the viewport",
+                    "A translucent grid at the plane height.",
                 ),
                 Check(
-                    "Water",
-                    "Water and other fluid surfaces, drawn after terrain so they "
-                    "blend correctly.",
-                    True,
-                ),
-                Check(
-                    "Entities",
-                    "Mobs, vehicles, item frames, and dropped items.",
-                    True,
-                ),
-                Check(
-                    "Block entities",
-                    "Chests, signs, banners, and other blocks carrying their own "
-                    "data.",
-                    True,
-                ),
-                Check(
-                    "Selection",
-                    "The selection boxes and their drag handles.",
-                    True,
-                ),
-                Check(
-                    "Chunk grid",
-                    "A 16-block grid drawn on chunk boundaries.",
-                ),
-                Check(
-                    "Sky box",
-                    "The sky gradient and the horizon behind the world.",
-                    True,
-                ),
-                Check(
-                    "Biome overlay",
-                    "Tints each column by its biome colour.",
-                ),
-                Check(
-                    "Light overlay",
-                    "Shades every block by its block light and sky light.",
-                ),
-                Check(
-                    "Structure bounds",
-                    "Bounding boxes for generated structures such as mineshafts "
-                    "and villages.",
-                ),
-                Check(
-                    "Pending imports",
-                    "Objects placed but not yet written to the world.",
-                    True,
-                ),
-                Check(
-                    "World border",
-                    "The border wall and its warning distance.",
+                    "Restrict edits to the plane",
+                    "Tools refuse to write off-plane.",
                 ),
             ],
         ),
+    ),
+    actions=(Action("Set from cursor", "tonal"),),
+)
+
+_LIBRARY_PANEL = Spec(
+    key="libraryPanel",
+    eyebrow="Panels",
+    title="Library",
+    width=760,
+    confirm="Import selected",
+    intro=(
+        "The schematic library holds saved selections and downloaded "
+        "structures, with folders, search, and a preview of each entry."
+    ),
+    sections=(
+        sec("", "search", hint="Search the library"),
         sec(
-            "Detail",
-            "ranges",
-            ranges=[
-                RangeDef("Render distance (chunks)", 8, 2, 32),
-                RangeDef("Entity distance (chunks)", 6, 1, 32),
-                RangeDef("Overlay opacity (%)", 60, 0, 100),
-            ],
-        ),
-        sec(
-            "Cost",
+            "Entries",
             "list",
             rows=[
-                Row("Terrain", "1,842 draw calls · 3.1 M triangles", "heaviest"),
-                Row("Water", "212 draw calls · sorted per frame", "moderate"),
-                Row("Entities", "312 draw calls · 96 K triangles", "moderate"),
-                Row("Light overlay", "recomputed on every chunk change", "costly"),
-                Row("Biome overlay", "one texture per chunk column", "cheap"),
-                Row("Chunk grid", "1 draw call", "free"),
+                Row(
+                    "spawn-arch.schematic",
+                    "24×18×24 · saved 10 Aug 2026",
+                    "import",
+                ),
+                Row(
+                    "market-row.schematic",
+                    "48×22×16 · saved 09 Aug 2026",
+                    "import",
+                ),
+                Row(
+                    "downloads/castle.schematic",
+                    "96×48×96 · imported file",
+                    "import",
+                ),
+            ],
+        ),
+        sec(
+            "Preview",
+            "texture",
+            hint=(
+                "The library renders each entry in a small schematic view. The "
+                "tile is a placeholder until that render is available."
+            ),
+            block_id="spawn-arch.schematic",
+            slot_id="library-preview-slot",
+            faces=("top", "front", "side"),
+        ),
+        sec(
+            "Folders",
+            "chips",
+            chips=[
+                "All",
+                "Saved selections",
+                "downloads",
+                "spawn",
+                "town",
+                "＋ new folder",
+            ],
+        ),
+    ),
+    actions=(
+        Action("Save selection to library", "tonal"),
+        Action("Reveal in folder", "outlined"),
+        Action("Delete entry", "danger"),
+    ),
+)
+
+_PLUGINS_DIALOG = Spec(
+    key="pluginsDialog",
+    eyebrow="Extensibility",
+    title="Plugins",
+    width=740,
+    confirm="Close",
+    intro=(
+        "Plugins add tools, generators, and commands. Each is enabled "
+        "independently and reports its own load errors."
+    ),
+    sections=(
+        sec("", "search", hint="Search plugins"),
+        sec(
+            "Installed",
+            "list",
+            rows=[
+                Row("L-system generator", "Generator plugin · enabled", "on"),
+                Row("Fill selection", "Command plugin · enabled", "on"),
+                Row("Swap palette", "Command plugin · enabled", "on"),
+                Row(
+                    "broken_plugin.py",
+                    "Import error on line 12 · not registered",
+                    "failed",
+                ),
+            ],
+        ),
+        sec(
+            "Folders",
+            "list",
+            rows=[
+                Row(
+                    "Project plugins",
+                    "operations/ inside the project",
+                    "scanned",
+                ),
+                Row("User plugins", "%APPDATA%\\Amulet\\plugins", "scanned"),
             ],
         ),
         sec(
             "",
             "note",
             hint=(
-                "Hiding the light overlay is usually the quickest way to get "
-                "frames back, because it is the only layer recomputed whenever a "
-                "block changes."
+                "A plugin that fails to import reports the exact error and is "
+                "not registered. The rest keep working."
             ),
         ),
     ),
     actions=(
-        Action("Show every layer", "outlined"),
-        Action("Hide overlays only", "outlined"),
-        Action("View settings", "outlined", surface="viewControls"),
-        Action("Profiler", "outlined", surface="profiler"),
+        Action("Reload plugins", "tonal"),
+        Action("Open plugins folder", "outlined"),
+        Action("Operation console", "outlined", surface="scriptConsole"),
     ),
 )
 
-#: Every tool, find-and-replace, panel, and view surface this module owns.
+_MINECRAFT_INSTALLS = Spec(
+    key="minecraftInstalls",
+    eyebrow="Resources",
+    title="Minecraft installs",
+    width=740,
+    confirm="Use this install",
+    intro=(
+        "Amulet reads block models, textures, and item lists from a real game "
+        "install or resource pack. Versions are listed as found on disk."
+    ),
+    sections=(
+        sec(
+            "Installs",
+            "list",
+            rows=[
+                Row(
+                    "Official launcher",
+                    "%APPDATA%\\.minecraft · 14 versions",
+                    "found",
+                ),
+                Row("Bedrock UWP", "Package data folder · 1 version", "found"),
+                Row("Custom folder", "Not configured", "add"),
+            ],
+        ),
+        sec(
+            "Versions",
+            "selects",
+            selects=[
+                Select(
+                    "Version",
+                    ("1.20.4", "1.17.1", "1.12.2", "bedrock 1.17.0.1"),
+                ),
+                Select(
+                    "Resource pack",
+                    (
+                        "Vanilla",
+                        "Faithful (installed)",
+                        "Custom folder",
+                        "None (placeholder swatches)",
+                    ),
+                ),
+            ],
+        ),
+        sec(
+            "Texture atlas",
+            "progress",
+            hint="Building the texture atlas",
+            progress_label="100%",
+            progress_fraction=1.0,
+        ),
+        sec(
+            "",
+            "note",
+            hint=(
+                "Without an install or resource pack, blocks render as "
+                "generated placeholder swatches rather than pretending to be "
+                "game textures."
+            ),
+        ),
+    ),
+    actions=(
+        Action("Add install folder…", "tonal"),
+        Action("Rebuild atlas", "outlined"),
+    ),
+)
+
+_UNDO_HISTORY = Spec(
+    key="undoHistory",
+    eyebrow="History",
+    title="Undo history",
+    width=700,
+    confirm="Close",
+    intro=(
+        "The full undo stack for this session, backed by the project's Git "
+        "repository, so depth is unlimited and any point is reachable."
+    ),
+    sections=(
+        sec(
+            "Stack",
+            "commits",
+            commits=[
+                Commit(
+                    "Fill selection with deepslate",
+                    "a91f0c7 · 10 Aug 2026, 09:41 · 12 chunks",
+                    head=True,
+                ),
+                Commit(
+                    "Move box 1 to -2, 98, -49",
+                    "5d3e118 · 10 Aug 2026, 09:22 · 1 box",
+                ),
+                Commit(
+                    "Paste spawn arch structure",
+                    "c72ba40 · 10 Aug 2026, 08:58 · 384 blocks",
+                ),
+                Commit(
+                    "Delete unselected chunks",
+                    "1e6f9d2 · 09 Aug 2026, 21:14 · 96 chunks",
+                ),
+                Commit(
+                    "Import Debug 1.14 chunk backup",
+                    "7ab4c05 · 09 Aug 2026, 20:02 · 48 chunks",
+                ),
+                Commit(
+                    "Initial project commit",
+                    "0004aa1 · 09 Aug 2026, 19:40 · world snapshot",
+                ),
+            ],
+        ),
+        sec(
+            "Depth",
+            "list",
+            rows=[
+                Row("Undo available", "1,284 steps", "unlimited"),
+                Row("Redo available", "0 steps", "0"),
+                Row(
+                    "Storage",
+                    "Append-only Git repository beside the project",
+                    "local",
+                ),
+            ],
+        ),
+    ),
+    actions=(
+        Action("Jump to selected", "tonal"),
+        Action("Project history", "outlined", surface="history"),
+    ),
+)
+
+#: The log lines the diagnostics log shows, transcribed verbatim so the reader
+#: sees the real mix of levels and sources rather than a tidied sample.
+_LOG_LINES = """INFO  worldloader  Opened 1.17 Height (bedrock 1.17.0.1)
+INFO  renderer     Texture atlas built in 812 ms
+WARN  plugins      broken_plugin.py: ImportError on line 12
+INFO  renderer     812 chunks queued, 812 drawn
+ERROR worldloader  chunk 7,-13: malformed compression header"""
+
+_LOG_VIEW = Spec(
+    key="logView",
+    eyebrow="Diagnostics",
+    title="Log",
+    width=780,
+    confirm="Close",
+    sections=(
+        sec("", "search", hint="Search log lines"),
+        sec(
+            "Level",
+            "selects",
+            selects=[
+                Select(
+                    "Minimum level",
+                    ("DEBUG", "INFO", "WARNING", "ERROR"),
+                ),
+                Select(
+                    "Source",
+                    ("All", "renderer", "worldloader", "plugins", "updater"),
+                ),
+            ],
+        ),
+        sec("Lines", "code", code=_LOG_LINES),
+    ),
+    actions=(
+        Action("Copy log", "outlined"),
+        Action("Save log…", "outlined"),
+        Action("Clear", "danger"),
+    ),
+)
+
+_PROFILER = Spec(
+    key="profiler",
+    eyebrow="Diagnostics",
+    title="Profiler",
+    width=740,
+    confirm="Close",
+    intro=(
+        "Samples frame time and world-loading work so a slow world can be "
+        "diagnosed rather than guessed at."
+    ),
+    sections=(
+        sec(
+            "Frame",
+            "list",
+            rows=[
+                Row("Frame time", "16.4 ms average over 600 frames", "60 fps"),
+                Row("Chunk meshing", "6.2 ms per frame", "38%"),
+                Row("Draw calls", "1,412", "1412"),
+                Row("Chunk loader queue", "0 pending", "idle"),
+            ],
+        ),
+        sec(
+            "Sampling",
+            "checks",
+            checks=[
+                Check("Sample every frame", "Higher overhead, finer detail."),
+                Check("Record to file", "Writes a profile beside the project."),
+            ],
+        ),
+    ),
+    actions=(
+        Action("Start sampling", "tonal"),
+        Action("Export profile", "outlined"),
+        Action("Tick load report", "outlined", surface="tickLoad"),
+    ),
+)
+
+#: The console session shown in the Python console, transcribed verbatim so the
+#: prompt, the results, and the blank-free spacing read as a real session.
+_PYTHON_SESSION = """>>> session.world.level_name
+'1.17 Height'
+>>> len(session.selection.selection_boxes)
+3
+>>> session.selection.volume
+576"""
+
+_PYTHON_CONSOLE = Spec(
+    key="pythonConsole",
+    eyebrow="Diagnostics",
+    title="Python console",
+    width=760,
+    confirm="Close",
+    intro=(
+        "An embedded interactive console with the editor session in scope, for "
+        "inspecting objects and running one-off edits."
+    ),
+    sections=(
+        sec("Session", "code", code=_PYTHON_SESSION),
+        sec(
+            "In scope",
+            "list",
+            rows=[
+                Row("session", "The active editor session", "object"),
+                Row("session.world", "The open world", "object"),
+                Row("session.selection", "Current selection boxes", "object"),
+                Row("session.undo", "The undo stack", "object"),
+            ],
+        ),
+    ),
+    actions=(Action("Clear console", "outlined"),),
+)
+
+#: The traceback the error report shows, transcribed verbatim: a real failure
+#: from the chunk loader rather than an invented one.
+_ERROR_TRACEBACK = """Traceback (most recent call last):
+  File "worldloader.py", line 214, in load_chunk
+    raise ChunkFormatError(offset)
+ChunkFormatError: malformed compression header at 0x1A400"""
+
+_ERROR_REPORT = Spec(
+    key="errorReport",
+    eyebrow="Diagnostics",
+    title="Unexpected error",
+    width=680,
+    confirm="Close",
+    intro=(
+        "An error report is written locally with the traceback and the last "
+        "log lines. Nothing is sent anywhere unless you choose to send it."
+    ),
+    sections=(
+        sec("Traceback", "code", code=_ERROR_TRACEBACK),
+        sec(
+            "Report",
+            "checks",
+            checks=[
+                Check(
+                    "Include the last 200 log lines",
+                    "Helps reproduce the failure.",
+                ),
+                Check(
+                    "Include the world path",
+                    "Off by default; the path may be private.",
+                ),
+            ],
+        ),
+        sec(
+            "",
+            "note",
+            hint=(
+                "Reports stay on this machine by default. Sending is an "
+                "explicit action, never automatic."
+            ),
+        ),
+    ),
+    actions=(
+        Action("Open report folder", "outlined"),
+        Action("Copy traceback", "outlined"),
+        Action("Validate and repair", "tonal", surface="validateRepair"),
+    ),
+)
+
+_ABOUT = Spec(
+    key="about",
+    eyebrow="Currently opened world",
+    title="About",
+    width=640,
+    confirm="Close",
+    intro=(
+        "Choose from the options on the left what you would like to do. You "
+        "can switch between these at any time."
+    ),
+    sections=(
+        sec(
+            "World",
+            "list",
+            rows=[
+                Row("1.17 Height", "bedrock 1.17.0.1", "open"),
+                Row("Support", "Java 1.12+ and Bedrock 1.7+", "metadata"),
+                Row(
+                    "Build",
+                    "0.10.0-dev.414+2.gb3cbec1c (source)",
+                    "version",
+                ),
+            ],
+        ),
+        sec(
+            "",
+            "note",
+            hint=(
+                "Back up every world before editing it. Close the world in "
+                "Minecraft and any other editor first."
+            ),
+        ),
+    ),
+    actions=(
+        Action("User guide", "outlined"),
+        Action("Third party licenses", "outlined", surface="licenses"),
+    ),
+)
+
+
 SPECS: Dict[str, Spec] = {
     spec.key: spec
     for spec in (
@@ -2974,24 +1933,26 @@ SPECS: Dict[str, Spec] = {
         _ANALYZE_TOOL,
         _IMPORT_MAP,
         _INSPECTOR,
-        _WORLD_INFO,
-        _PLAYER_PANEL,
-        _INVENTORY_EDITOR,
         _PENDING_IMPORTS,
-        _LIBRARY_PANEL,
-        _LOG_VIEW,
-        _PROFILER,
-        _PYTHON_CONSOLE,
-        _ERROR_REPORT,
+        _PLAYER_PANEL,
+        _WORLD_INFO,
+        _INVENTORY_EDITOR,
         _ITEM_TYPE_LIST,
         _CONFIGURE_BLOCKS,
-        _MINECRAFT_INSTALLS,
-        _PLUGINS_DIALOG,
+        _RENDER_LAYERS,
         _VIEW_CONTROLS,
         _FOUR_UP_VIEW,
         _CUTAWAY_VIEW,
         _WORK_PLANE,
-        _RENDER_LAYERS,
+        _LIBRARY_PANEL,
+        _PLUGINS_DIALOG,
+        _MINECRAFT_INSTALLS,
+        _UNDO_HISTORY,
+        _LOG_VIEW,
+        _PROFILER,
+        _PYTHON_CONSOLE,
+        _ERROR_REPORT,
+        _ABOUT,
     )
 }
 

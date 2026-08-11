@@ -1850,6 +1850,10 @@ class SpecDialog(wx.Dialog):
     def _do_reset(self, action: Action) -> None:
         """Clear the window's searches and read the world again from disk."""
         ctx = self.world()
+        # The window search lives in the header, which a rebuild never touches,
+        # so clearing the state alone would leave the old query still typed in
+        # the field it no longer applies to.
+        self.search_bar.set_query("", notify=False)
         self.window_search.reset()
         for state in self._section_states.values():
             state.reset()

@@ -44,11 +44,13 @@ class NotificationHistoryDialog(wx.Dialog):
         search_row.Add(self.regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         root.Add(search_row, 0, wx.EXPAND | wx.ALL, 12)
 
-        self.list = wx.ListCtrl(self, # Multiple selection is wx.ListCtrl's default. The style flag that
+        self.list = wx.ListCtrl(
+            self,  # Multiple selection is wx.ListCtrl's default. The style flag that
             # used to be named here does not exist in wxPython, so the
             # lookup raised AttributeError before this window could be
             # built at all. The opposite flag is wx.LC_SINGLE_SEL.
-            style=wx.LC_REPORT)
+            style=wx.LC_REPORT,
+        )
         self.list.SetName("Notification history list")
         for index, label in enumerate(
             (

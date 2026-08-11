@@ -378,9 +378,7 @@ def _chunks(
         yield cx, cz, chunk
 
 
-def _nothing_read(
-    spec: Spec, ctx: WorldContext, record: Scan, subject: str
-) -> Section:
+def _nothing_read(spec: Spec, ctx: WorldContext, record: Scan, subject: str) -> Section:
     """Return the honest empty block for a pass that found no chunks at all."""
     if not record.available:
         why = (
@@ -1938,8 +1936,10 @@ def _bind_world_border(spec: Spec, ctx: WorldContext) -> Spec:
     if diameter is not None and centre_x is not None and centre_z is not None:
         half = diameter / 2.0
         summary = (
-            f"The border runs from {centre_x - half:g}, {centre_z - half:g} to "
-            f"{centre_x + half:g}, {centre_z + half:g}. "
+            f"The border runs from {_number_text(centre_x - half)}, "
+            f"{_number_text(centre_z - half)} to "
+            f"{_number_text(centre_x + half)}, "
+            f"{_number_text(centre_z + half)}. "
         )
     lerp_target = _number(data, "BorderSizeLerpTarget")
     if lerp_target is not None and diameter is not None and lerp_target != diameter:

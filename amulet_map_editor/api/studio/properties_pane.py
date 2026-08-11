@@ -1,12 +1,29 @@
 """The workspace properties pane: what is selected, what changed, and why.
 
-Three tabs share one column.  **Properties** reads the current selection back
-out of the open world -- its bounds, its volume, the dimension it sits in, how
-many chunks it covers, and the block the editor's pointer is on.  **History**
-lists the project's own local-history events and restores one, which appends a
-new event rather than rewinding: the state you restored from stays in the list
-and stays restorable in its turn.  **Notes** is a real note stored with the
-project, not a scratch box that empties when the window closes.
+Three tabs share one column, and a fourth appears while an editing tool is
+running.  **Properties** reads the current selection back out of the open world
+-- its bounds, its volume, the dimension it sits in, how many chunks it covers,
+and the block the editor's pointer is on.  **History** lists the project's own
+local-history events and restores one, which appends a new event rather than
+rewinding: the state you restored from stays in the list and stays restorable
+in its turn.  **Notes** is a real note stored with the project, not a scratch
+box that empties when the window closes.
+
+**Tool** is where an editing tool's options live.  Clone, Move, Select block,
+Edit chunk, Generate, Paste, Import and Export are in-canvas tools with their
+handles drawn over the world, so their options belong beside the viewport
+rather than in a window floating on top of it: the tool starts, the world stays
+visible, and this column shows what it is holding.  For Clone and Move that is
+a live pending object, and the tab shows its position, rotation and scale as
+editable values, a nudge control for each axis, the keys the viewport moves it
+with, and the two ways out -- confirm it into the world, or cancel and write
+nothing.  Every value here is read from and written to the tool's own inputs
+through :mod:`amulet_map_editor.api.studio.editor_tools`, because those are the
+numbers its confirm actually pastes.
+
+A tool this build does not implement is named as such, with what is missing,
+and is given no fields at all: an editable box that writes nothing is worse
+than an empty tab, because it looks like it worked.
 
 Nothing here is held between refreshes.  Every row is read at the moment it is
 drawn, and the pane subscribes to the world context so the moment a world
@@ -28,8 +45,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import wx
 
 from amulet_map_editor.api import config, local_history
-from amulet_map_editor.api.studio import context, tokens
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio import context, editor_tools, tokens
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.search import SearchState
 from amulet_map_editor.api.studio.status_bar import (
     clear_container,
@@ -44,8 +61,11 @@ from amulet_map_editor.api.studio.status_bar import (
 from amulet_map_editor.api.studio.widgets import (
     SearchBar,
     SectionLabel,
+    Stepper,
     StudioButton,
+    VectorField,
     elide,
+    format_number,
     invoke,
     paint_context,
     point_size,
@@ -70,6 +90,37 @@ PANE_TABS: Tuple[Tuple[str, str], ...] = (
     ("properties", "Properties"),
     ("history", "History"),
     ("notes", "Notes"),
+)
+
+#: The tab an editing tool's options live on.  It is not in :data:`PANE_TABS`
+#: because it is only there while a tool is running: a pill leading to "no tool
+#: is active" on every project that has never started one is a tab that costs
+#: width and answers nothing.  Its label stays "Tool" rather than becoming the
+#: tool's own name so the strip cannot grow wide enough to clip; which tool it
+#: is showing is in the pill's accessible name and in the tab's first heading.
+TOOL_TAB: Tuple[str, str] = ("tool", "Tool")
+
+#: Every tab key and the name its search reports itself under.
+TAB_LABELS: Dict[str, str] = dict(PANE_TABS + (TOOL_TAB,))
+
+#: How far one press of a nudge control moves a pending object, in blocks.
+DEFAULT_NUDGE_STEP = 1
+MAX_NUDGE_STEP = 512
+
+#: How wide one component of a coordinate is in this column, in design pixels.
+#: Three of them plus the gaps between fit inside :data:`MIN_PANEL_WIDTH`, so a
+#: coordinate stays whole when the pane is dragged to its narrowest.
+VECTOR_BOX_WIDTH = 60
+
+#: The value box of the nudge stepper, narrowed from the shared default for the
+#: same reason.  Its accessible name carries the unit the suffix would have.
+NUDGE_FIELD_WIDTH = 64
+
+#: What the Tool tab says with no tool running.
+NO_TOOL_ACTIVE = studio_text(
+    "No editing tool is running. Start one from the Tools ribbon tab and its "
+    "options will appear here, beside the world rather than over it.",
+    "而家冇編輯工具喺度行緊。喺工具嗰版開一個，佢啲設定就會喺呢度出，喺世界隔籬而唔係遮住個世界。",
 )
 
 _MEDIUM = getattr(wx, "FONTWEIGHT_MEDIUM", wx.FONTWEIGHT_NORMAL)
@@ -490,6 +541,21 @@ class PropertyRow(wx.Control):
             max(label_height, value_height) + tokens.scaled(self.PADDING_Y) * 2,
         )
 
+    def set_value(self, value: str) -> None:
+        """Replace the value without rebuilding the row around it.
+
+        A live row is re-read several times a second while a tool is running,
+        and rebuilding the whole tab that often would take the keyboard out of
+        whatever field the user was typing in.
+        """
+        text = str(value)
+        if text == self.value:
+            return
+        self.value = text
+        self.SetName(f"{self.label}: {self.value}")
+        self.SetToolTip(f"{self.label}: {self.value}")
+        self.Refresh()
+
     def refresh_theme(self) -> None:
         """Re-measure for the live density and repaint."""
         self.InvalidateBestSize()
@@ -712,6 +778,17 @@ class PropertiesPane(wx.Panel):
         self._note_key = self.active_project_key()
         self._live_revisions: List[ProjectRevision] = []
         self._history_available = True
+        #: The tool this pane is showing the options for, and what activating
+        #: it actually did.  ``None`` means no tool has been started.
+        self.activation: Optional[editor_tools.Activation] = None
+        self.nudge_step = DEFAULT_NUDGE_STEP
+        self._tool_rows: Dict[str, PropertyRow] = {}
+        self._tool_fields: Dict[str, VectorField] = {}
+        self._tool_timer: Optional[wx.Timer] = None
+        #: The width the current contents were wrapped for.  Wrapping is done
+        #: once per build, so a pane the user has narrowed keeps paragraphs
+        #: wider than the column until it is built again.
+        self._built_width = 0
         self.SetName("Properties pane")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
 
@@ -741,12 +818,16 @@ class PropertiesPane(wx.Panel):
         )
         self.tab_buttons: Dict[str, TabPill] = {}
         tab_row = wx.BoxSizer(wx.HORIZONTAL)
-        for key, label in PANE_TABS:
+        for key, label in PANE_TABS + (TOOL_TAB,):
             pill = TabPill(
                 self, key, label, selected=key == self.tab, on_click=self.set_tab
             )
             self.tab_buttons[key] = pill
             tab_row.Add(pill, 0, wx.RIGHT, tokens.scaled(2))
+        # The tool pill is hidden rather than absent so the strip's layout is
+        # the one it will have when a tool starts, and showing it is a single
+        # state change rather than a rebuild of the header.
+        self.tab_buttons[TOOL_TAB[0]].Hide()
         self.search = SearchBar(
             self,
             "Search these properties",
@@ -754,8 +835,15 @@ class PropertiesPane(wx.Panel):
             on_change=self._on_search,
             compact=True,
         )
-        self.scroller = wx.ScrolledWindow(self, style=wx.VSCROLL | wx.TAB_TRAVERSAL)
-        self.scroller.SetScrollRate(0, tokens.scaled(12))
+        self.scroller = wx.ScrolledWindow(
+            self, style=wx.VSCROLL | wx.HSCROLL | wx.TAB_TRAVERSAL
+        )
+        # Horizontal scrolling is enabled rather than suppressed.  A control
+        # whose smallest honest width is wider than the pane the user has
+        # dragged narrow has to go somewhere, and a scrollbar says so; with the
+        # rate at zero the same content is silently cut off at the right edge
+        # instead, taking each row's value with it.
+        self.scroller.SetScrollRate(tokens.scaled(12), tokens.scaled(12))
         self.scroller.SetName("Properties pane contents")
         self.body = wx.BoxSizer(wx.VERTICAL)
         self.scroller.SetSizer(self.body)
@@ -834,9 +922,15 @@ class PropertiesPane(wx.Panel):
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+        self.Bind(wx.EVT_SIZE, self._on_resize)
         self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
         self.scroller.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
         context.subscribe(self._on_world_context)
+        # This pane is where a tool's options are shown, so it says so once and
+        # every route into a tool -- ribbon, palette, context menu, keyboard --
+        # lands here rather than each of them knowing about this class.
+        editor_tools.set_host(self)
+        editor_tools.install_surface_routes()
         self._apply_theme()
         self.refresh_history()
         self.rebuild()
@@ -891,6 +985,9 @@ class PropertiesPane(wx.Panel):
     def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
         if event.GetEventObject() is self:
             context.unsubscribe(self._on_world_context)
+            self._stop_tool_timer()
+            if editor_tools.host() is self:
+                editor_tools.set_host(None)
         event.Skip()
 
     # -- content -------------------------------------------------------------
@@ -943,16 +1040,30 @@ class PropertiesPane(wx.Panel):
         self.rebuild()
 
     def set_tab(self, key: str) -> None:
-        """Open one of the three tabs."""
+        """Open one of the pane's tabs."""
         if key not in self.tab_buttons:
             return
         self.tab = key
         for name, pill in self.tab_buttons.items():
             pill.set_selected(name == key)
-        self.search_state.label = dict(PANE_TABS)[key]
+        self.search_state.label = TAB_LABELS.get(key, key)
         if key == "history":
             self.refresh_history(reread=True)
         self.rebuild()
+
+    def _note_width(self) -> int:
+        """Return how wide a wrapped paragraph may be, inside the scrollbar.
+
+        The pane's own width is the wrong measurement: the scrolling area is
+        narrower by whatever its vertical scrollbar takes, and a paragraph
+        wrapped to the pane sets a minimum wider than the column it is in --
+        which pushes every row in the tab out past the right edge, values
+        first.
+        """
+        width = self.scroller.GetClientSize().width
+        if width <= 0:
+            width = self.GetClientSize().width - tokens.scaled(32)
+        return max(tokens.scaled(140), width - tokens.scaled(10))
 
     def _set_empty_note(self, text: str) -> None:
         """Show one wrapped empty-state line, or none at all.
@@ -967,9 +1078,7 @@ class PropertiesPane(wx.Panel):
             f"Properties pane state: {message}" if message else "Properties pane state"
         )
         if message:
-            self.empty_note.Wrap(
-                max(tokens.scaled(160), self.GetClientSize().width - tokens.scaled(32))
-            )
+            self.empty_note.Wrap(self._note_width())
         self.empty_note.Show(bool(message))
 
     def rebuild(self) -> None:
@@ -989,6 +1098,10 @@ class PropertiesPane(wx.Panel):
         self.notes_status.Show(self.tab == "notes")
         gap = tokens.scaled(tokens.SPACE_SM - 1)
         self._set_empty_note("")
+        # The live rows and fields belong to the tree that was just cleared, so
+        # the timer must not be holding references to them when it next fires.
+        self._tool_rows = {}
+        self._tool_fields = {}
 
         if self.tab == "properties":
             sections = self.visible_sections()
@@ -1012,7 +1125,11 @@ class PropertiesPane(wx.Panel):
                         gap,
                     )
                 self.body.AddSpacer(tokens.scaled(tokens.SPACE_SM))
-            if not sections:
+            # The count of rows actually drawn decides this, not the count of
+            # sections: an owner that pushed three empty sections would leave
+            # the tab blank with no explanation on it, which reads as a pane
+            # that failed to load rather than one with nothing to report.
+            if not kept and not state.is_active():
                 self._set_empty_note(NO_WORLD_PROPERTIES)
                 self.body.Add(self.empty_note, 0, wx.EXPAND | wx.BOTTOM, gap)
             self.status_label.SetLabel(
@@ -1030,7 +1147,7 @@ class PropertiesPane(wx.Panel):
                     wx.EXPAND | wx.BOTTOM,
                     gap,
                 )
-            if not revisions:
+            if not matched and not state.is_active():
                 self._set_empty_note(self._history_note())
                 self.body.Add(self.empty_note, 0, wx.EXPAND | wx.BOTTOM, gap)
             self.status_label.SetLabel(
@@ -1038,6 +1155,8 @@ class PropertiesPane(wx.Panel):
                 if state.is_active()
                 else (f"{len(matched)} revisions · newest first" if matched else "")
             )
+        elif self.tab == "tool":
+            self._build_tool_tab(gap)
         else:
             self.body.Add(self.notes_field, 0, wx.EXPAND | wx.BOTTOM, gap)
             self.body.Add(self.notes_status, 0, wx.EXPAND | wx.BOTTOM, gap)
@@ -1058,8 +1177,14 @@ class PropertiesPane(wx.Panel):
                 else ""
             )
 
+        self._built_width = self.GetClientSize().width
         self.status_label.Show(bool(self.status_label.GetLabel()))
         if self.status_label.GetLabel():
+            # Wrapped for the same reason the notes are: a one-line status
+            # sentence sets a minimum wider than the column and pushes every
+            # row in the tab out past the right edge with it.  Each branch
+            # above sets the label first, so this never wraps a wrapped string.
+            self.status_label.Wrap(self._note_width())
             self.body.Add(self.status_label, 0, wx.EXPAND | wx.TOP, gap)
         label, _handler = self._action_for_tab()
         self.action_button.SetLabel(label)
@@ -1077,9 +1202,574 @@ class PropertiesPane(wx.Panel):
             return NO_PROJECT_HISTORY
         return NO_REVISIONS_YET
 
+    # -- editing tools -------------------------------------------------------
+    def activate_tool(self, key: str) -> editor_tools.Activation:
+        """Start the editor tool one surface key names and show its options.
+
+        The tool starts in the canvas with its handles over the world; this
+        pane shows what it is holding.  The result is returned as well as shown
+        so a caller can react to a tool that refused to start.
+        """
+        return editor_tools.activate(key, self)
+
+    def show_tool_activation(self, activation: editor_tools.Activation) -> None:
+        """Show one tool's options, including a tool that could not start.
+
+        A refusal opens the tab too.  It is the only place that says why, and
+        sending the user back to a tab about something else after pressing a
+        tool would leave the press looking like it did nothing at all.
+        """
+        self.activation = activation
+        pill = self.tab_buttons.get(TOOL_TAB[0])
+        if pill is not None:
+            pill.Show()
+            pill.SetName(f"Tool options: {activation.label}, tab")
+            pill.SetToolTip(f"Options for the {activation.label} tool")
+        self.set_tab(TOOL_TAB[0])
+        self.Layout()
+
+    def clear_tool(self) -> None:
+        """Take the Tool tab away, because no tool is running any more."""
+        self.activation = None
+        self._stop_tool_timer()
+        pill = self.tab_buttons.get(TOOL_TAB[0])
+        if pill is not None:
+            pill.Hide()
+        if self.tab == TOOL_TAB[0]:
+            self.set_tab("properties")
+        else:
+            self.rebuild()
+        self.Layout()
+
+    def _tool_label(self, text: str) -> None:
+        """Add one heading to the Tool tab."""
+        self.body.Add(
+            SectionLabel(self.scroller, text),
+            0,
+            wx.EXPAND | wx.BOTTOM,
+            tokens.scaled(tokens.SPACE_SM),
+        )
+
+    def _tool_row(self, label: str, value: str, gap: int, *, live: str = "") -> None:
+        """Add one label-and-value row, remembering the ones that change."""
+        row = PropertyRow(self.scroller, label, value)
+        if live:
+            self._tool_rows[live] = row
+        self.body.Add(row, 0, wx.EXPAND | wx.BOTTOM, gap)
+
+    def _tool_note(self, text: str, gap: int) -> None:
+        """Add one wrapped paragraph of explanation to the Tool tab."""
+        message = single_line(text)
+        if not message:
+            return
+        note = wx.StaticText(self.scroller, label=message)
+        note.SetName(message)
+        palette = tokens.palette()
+        note.SetForegroundColour(palette.on_surface_variant)
+        note.SetFont(tokens.font(self, point_size(11)))
+        note.Wrap(self._note_width())
+        self.body.Add(note, 0, wx.EXPAND | wx.BOTTOM, gap)
+
+    def _tool_vector(
+        self,
+        name: str,
+        axes: Sequence[str],
+        values: Sequence[str],
+        handler: Callable[[Tuple[str, ...]], None],
+        gap: int,
+    ) -> None:
+        """Add one three-component editable value bound to the live tool.
+
+        The shared coordinate control is sized for a 680px window, where three
+        160px boxes and a camera button fit side by side.  This column is 308px
+        and may be dragged down to 240, so each box is given a width that keeps
+        all three inside the narrowest supported pane; the sizer hands them the
+        slack back at the full width.  Left alone, the control is a third wider
+        than the pane and the last axis is simply not on screen.
+        """
+        field = VectorField(
+            self.scroller,
+            [(axis, value) for axis, value in zip(axes, values)],
+            on_change=handler,
+        )
+        for box in field.boxes:
+            box.SetMinSize(wx.Size(tokens.scaled(VECTOR_BOX_WIDTH), tokens.scaled(30)))
+        # The camera button belongs to a coordinate, and rotation and scale are
+        # not coordinates; the position field gets a full-width button of its
+        # own below instead, which also states what it does rather than drawing
+        # a glyph the width here cannot afford.
+        field.pick_button.Hide()
+        field.InvalidateBestSize()
+        self._tool_fields[name] = field
+        self.body.Add(field, 0, wx.EXPAND | wx.BOTTOM, gap)
+
+    def _build_tool_tab(self, gap: int) -> None:
+        """Draw the running tool's own options, or say why there are none."""
+        activation = self.activation
+        if activation is None:
+            self._stop_tool_timer()
+            self._set_empty_note(NO_TOOL_ACTIVE)
+            self.body.Add(self.empty_note, 0, wx.EXPAND | wx.BOTTOM, gap)
+            self.status_label.SetLabel("")
+            return
+
+        self._tool_label(activation.label)
+        if not activation.ok:
+            # Nothing editable is drawn for a tool that did not start: a field
+            # that writes nowhere is the one thing worse than an empty tab.
+            self._stop_tool_timer()
+            self._tool_row("Editor tool", activation.tool or "none in this build", gap)
+            self._tool_note(studio_text(activation.message), gap)
+            if activation.missing and activation.missing != activation.message:
+                self._tool_note(studio_text(activation.missing), gap)
+            self.status_label.SetLabel(
+                single_line(
+                    studio_text(
+                        f"{activation.label} did not start.",
+                        f"{activation.label} 開唔到。",
+                    )
+                )
+            )
+            return
+
+        running = editor_tools.active_tool_name()
+        self._tool_row("Editor tool", activation.tool, gap)
+        self._tool_row(
+            "State",
+            (
+                f"running as {running}"
+                if running == activation.tool
+                else f"the canvas reports {running or 'no tool'}"
+            ),
+            gap,
+            live="state",
+        )
+        # ``detail`` is what was true at the moment the tool started, so it is
+        # deliberately not shown here: the rows below are re-read live, and a
+        # stale sentence beside a live row is the one that gets believed.
+        self._tool_note(studio_text(activation.message), gap)
+        if activation.missing:
+            self._tool_note(studio_text(activation.missing), gap)
+
+        if activation.kind == "pending":
+            self._build_pending_controls(gap)
+        elif activation.kind == "selection":
+            self._build_selection_readout(gap)
+        else:
+            self._tool_note(
+                studio_text(
+                    f"The {activation.tool} tool's own controls are on its panel "
+                    "in the viewport, over the world it is acting on.",
+                    f"{activation.tool} 工具嘅控制係喺畫面嗰個面板度，就喺佢改緊嘅世界上面。",
+                ),
+                gap,
+            )
+            self._stop_tool_timer()
+
+        for note in activation.notes:
+            self._tool_note(studio_text(note), gap)
+        self.status_label.SetLabel(
+            single_line(
+                studio_text(
+                    "The search filters the Properties and History tabs.",
+                    "個搜尋係篩「屬性」同「歷史」嗰兩版。",
+                )
+            )
+            if self.search_state.is_active()
+            else ""
+        )
+
+    def _build_selection_readout(self, gap: int) -> None:
+        """Show what the Select tool currently has, read from the canvas."""
+        self._stop_tool_timer()
+        selection = editor_tools.selection_state()
+        self._tool_label(studio_label("Selection"))
+        if not selection.readable:
+            self._tool_note(
+                studio_text(
+                    "The editor's selection could not be read, so there is "
+                    "nothing to report about it.",
+                    "讀唔到編輯器嘅選取範圍，所以講唔到佢有咩。",
+                ),
+                gap,
+            )
+            return
+        if selection.empty:
+            self._tool_note(
+                studio_text(
+                    "Nothing is selected yet. Drag in the viewport to place the "
+                    "two corners of a box.",
+                    "而家未揀到嘢。喺畫面度拖一拖，擺低個框嘅兩隻角。",
+                ),
+                gap,
+            )
+            return
+        self._tool_row("Boxes", f"{selection.boxes}", gap)
+        self._tool_row(
+            "Minimum", ", ".join(str(value) for value in selection.minimum), gap
+        )
+        self._tool_row(
+            "Maximum", ", ".join(str(value) for value in selection.maximum), gap
+        )
+        self._tool_row("Volume", f"{selection.volume:,} blocks", gap)
+        self._tool_note(
+            studio_text(
+                "The per-corner nudge controls belong to the tool and are on "
+                "its panel in the viewport.",
+                "逐隻角微調嗰啲掣係工具本身嘅，喺畫面嗰個面板度。",
+            ),
+            gap,
+        )
+
+    def _build_pending_controls(self, gap: int) -> None:
+        """Show the pending object, and every way of moving it.
+
+        This is the answer to "how do I move the thing I just dragged out":
+        it is a live object the paste tool is holding, its position is an
+        editable value here, each axis has a nudge control, the viewport keys
+        that move it are named, and confirming writes it into the world while
+        cancelling writes nothing.
+        """
+        pending = editor_tools.pending_object()
+        if pending is None:
+            self._stop_tool_timer()
+            self._tool_note(
+                studio_text(
+                    "The paste tool is not holding anything any more, so there "
+                    "is nothing to place.",
+                    "貼上工具而家冇揸住嘢，所以冇嘢可以擺。",
+                ),
+                gap,
+            )
+            return
+
+        self._tool_label(studio_label("Pending object"))
+        if pending.size:
+            self._tool_row("Size in blocks", pending.size, gap)
+        self._tool_row(
+            "Following the pointer",
+            "yes" if pending.following else "no",
+            gap,
+            live="following",
+        )
+        self._tool_row(
+            "Drawn in the viewport",
+            "yes" if pending.drawn else "no",
+            gap,
+            live="drawn",
+        )
+        if pending.following:
+            self.body.Add(
+                StudioButton(
+                    self.scroller,
+                    studio_label("Drop it here", "擺低喺呢度"),
+                    variant="tonal",
+                    on_click=self._drop_pending,
+                    hint=single_line(
+                        studio_text(
+                            "Stop the copy tracking the pointer and leave it "
+                            "where it is. Clicking in the viewport does the same.",
+                            "唔好再跟住個滑鼠，就咁擺低。喺畫面度撳一下都係一樣。",
+                        )
+                    ),
+                    name="Drop the pending object where it is",
+                ),
+                0,
+                wx.EXPAND | wx.BOTTOM,
+                gap,
+            )
+
+        self._tool_label(studio_label("Position"))
+        self._tool_vector(
+            "location",
+            ("x", "y", "z"),
+            [str(value) for value in pending.location],
+            self._on_location_typed,
+            gap,
+        )
+        if editor_tools.camera_location() is not None:
+            self.body.Add(
+                StudioButton(
+                    self.scroller,
+                    studio_label("Bring it to the camera", "拉埋嚟鏡頭度"),
+                    variant="outlined",
+                    on_click=self._pending_to_camera,
+                    hint=single_line(
+                        studio_text(
+                            "Put the copy at the block the camera is standing on.",
+                            "將個複製擺去鏡頭而家企嗰格。",
+                        )
+                    ),
+                    name="Move the pending object to the camera position",
+                ),
+                0,
+                wx.EXPAND | wx.BOTTOM,
+                gap,
+            )
+        self._build_nudge_controls(gap)
+
+        self._tool_label(studio_label("Rotation"))
+        self._tool_vector(
+            "rotation",
+            ("x", "y", "z"),
+            [format_number(value) for value in pending.rotation],
+            self._on_rotation_typed,
+            gap,
+        )
+        self._tool_note(
+            studio_text(
+                "Degrees around each axis.",
+                "每條軸嘅角度。",
+            ),
+            gap,
+        )
+
+        self._tool_label(studio_label("Scale"))
+        self._tool_vector(
+            "scale",
+            ("x", "y", "z"),
+            [format_number(value) for value in pending.scale],
+            self._on_scale_typed,
+            gap,
+        )
+
+        self.body.Add(
+            StudioButton(
+                self.scroller,
+                studio_label("Cancel", "取消"),
+                variant="outlined",
+                on_click=self._cancel_pending,
+                hint=single_line(
+                    studio_text(
+                        "Drop the pending object without writing anything.",
+                        "唔寫入世界，直接放棄嗰嚿嘢。",
+                    )
+                ),
+                name="Cancel the pending placement",
+            ),
+            0,
+            wx.EXPAND | wx.BOTTOM,
+            gap,
+        )
+        self._tool_note(
+            studio_text(
+                "Confirm writes the copy into the world and keeps holding it, "
+                "so it can be nudged and confirmed again for a repeat.",
+                "撳確認會將呢個複製寫入世界，而且仲會揸住佢，可以再郁再確認，做多一份。",
+            ),
+            gap,
+        )
+        self._start_tool_timer()
+
+    def _build_nudge_controls(self, gap: int) -> None:
+        """Add a per-axis nudge for the pending object, and name the real keys."""
+        self._tool_label(studio_label("Nudge step, in blocks"))
+        step = Stepper(
+            self.scroller,
+            self.nudge_step,
+            1,
+            MAX_NUDGE_STEP,
+            on_change=self._on_step_change,
+        )
+        # The unit is in the heading above and in the accessible name rather
+        # than in a suffix repeated after both bounds, which is what pushes the
+        # control past the width of this column.
+        step.FIELD = NUDGE_FIELD_WIDTH
+        step.InvalidateBestSize()
+        step.SetMinSize(step.DoGetBestSize())
+        step.SetName("Nudge step, in blocks")
+        self.body.Add(step, 0, wx.EXPAND | wx.BOTTOM, gap)
+        for axis, name in enumerate(("x", "y", "z")):
+            row = wx.BoxSizer(wx.HORIZONTAL)
+            for delta, glyph in ((-1, "−"), (1, "+")):
+                row.Add(
+                    StudioButton(
+                        self.scroller,
+                        f"{glyph}{name.upper()}",
+                        variant="outlined",
+                        height=32,
+                        on_click=lambda a=axis, d=delta: self._nudge(a, d),
+                        hint=(
+                            f"Move the pending object {'back' if delta < 0 else 'along'}"
+                            f" the {name} axis by the step above"
+                        ),
+                        name=f"Nudge {name} by {'minus ' if delta < 0 else ''}the step",
+                    ),
+                    1,
+                    wx.RIGHT,
+                    tokens.scaled(4),
+                )
+            self.body.Add(row, 0, wx.EXPAND | wx.BOTTOM, gap)
+        sentence = editor_tools.movement_sentence()
+        if sentence:
+            self._tool_note(sentence, gap)
+
+    # -- what the tool controls do -------------------------------------------
+    def _numbers(self, values: Sequence[str]) -> Optional[Tuple[float, float, float]]:
+        """Return three typed values as numbers, or ``None`` while half-typed.
+
+        A field holding ``-`` or an empty box is a value in the middle of being
+        typed, not a value of zero, and writing zero into the world's live
+        preview on the way to ``-12`` would move the object twice.
+        """
+        try:
+            numbers = tuple(float(str(value).strip()) for value in values)
+        except (TypeError, ValueError):
+            return None
+        return numbers if len(numbers) == 3 else None
+
+    def _on_location_typed(self, values: Tuple[str, ...]) -> None:
+        numbers = self._numbers(values)
+        if numbers is None:
+            return
+        editor_tools.set_pending_location(numbers)
+        self._refresh_tool_live(fields=False)
+
+    def _on_rotation_typed(self, values: Tuple[str, ...]) -> None:
+        numbers = self._numbers(values)
+        if numbers is not None:
+            editor_tools.set_pending_rotation(numbers)
+
+    def _on_scale_typed(self, values: Tuple[str, ...]) -> None:
+        numbers = self._numbers(values)
+        if numbers is not None:
+            editor_tools.set_pending_scale(numbers)
+
+    def _on_step_change(self, value: float) -> None:
+        self.nudge_step = max(1, min(MAX_NUDGE_STEP, int(round(float(value)))))
+
+    def _nudge(self, axis: int, direction: int) -> None:
+        """Move the pending object one step along an axis."""
+        moved = editor_tools.nudge_pending(axis, direction * self.nudge_step)
+        if moved is None:
+            self._report_tool_gone()
+            return
+        self._refresh_tool_live()
+
+    def _pending_to_camera(self) -> None:
+        """Put the pending object where the camera is standing."""
+        location = editor_tools.camera_location()
+        if location is None or not editor_tools.set_pending_location(location):
+            self._report_tool_gone()
+            return
+        self._refresh_tool_live()
+
+    def _drop_pending(self) -> None:
+        """Stop the pending object following the pointer."""
+        if not editor_tools.stop_following():
+            self._report_tool_gone()
+            return
+        self.rebuild()
+
+    def _confirm_pending(self) -> None:
+        """Write the pending object into the world."""
+        if not editor_tools.confirm_pending():
+            self._report_tool_gone()
+            return
+        self.refresh_history(reread=True)
+        self.rebuild()
+
+    def _cancel_pending(self) -> None:
+        """Drop the pending object without writing anything."""
+        editor_tools.cancel_pending()
+        self.clear_tool()
+
+    def _report_tool_gone(self) -> None:
+        """Say that the tool stopped holding the object, and stop showing it."""
+        log.debug("The editor is no longer holding a pending object")
+        self.clear_tool()
+
+    # -- keeping the tool tab live -------------------------------------------
+    def _start_tool_timer(self) -> None:
+        """Re-read the pending object often enough to look live.
+
+        The object follows the pointer, so its position changes without this
+        pane being told; a value that is only correct until the mouse moves is
+        worse than none, because the number on screen looks authoritative.
+        """
+        if self._tool_timer is None:
+            self._tool_timer = wx.Timer(self)
+            self.Bind(wx.EVT_TIMER, self._on_tool_timer, self._tool_timer)
+        if not self._tool_timer.IsRunning():
+            self._tool_timer.Start(300)
+
+    def _stop_tool_timer(self) -> None:
+        """Stop re-reading the tool, because nothing on screen is reading it."""
+        if self._tool_timer is not None and self._tool_timer.IsRunning():
+            self._tool_timer.Stop()
+
+    def _on_tool_timer(self, _event: wx.TimerEvent) -> None:
+        self._refresh_tool_live()
+
+    def _refresh_tool_live(self, *, fields: bool = True) -> None:
+        """Update the live rows and values in place, without a rebuild."""
+        if self.tab != TOOL_TAB[0] or self.activation is None:
+            self._stop_tool_timer()
+            return
+        pending = editor_tools.pending_object()
+        if pending is None:
+            self._stop_tool_timer()
+            self.rebuild()
+            return
+        running = editor_tools.active_tool_name()
+        values = {
+            "state": (
+                f"running as {running}"
+                if running == self.activation.tool
+                else f"the canvas reports {running or 'no tool'}"
+            ),
+            "following": "yes" if pending.following else "no",
+            "drawn": "yes" if pending.drawn else "no",
+        }
+        for key, value in values.items():
+            row = self._tool_rows.get(key)
+            if row is None:
+                continue
+            try:
+                row.set_value(value)
+            except RuntimeError:  # pragma: no cover - the row has been replaced
+                self._tool_rows.pop(key, None)
+        if not fields:
+            return
+        live = {
+            "location": [str(value) for value in pending.location],
+            "rotation": [format_number(value) for value in pending.rotation],
+            "scale": [format_number(value) for value in pending.scale],
+        }
+        focused = wx.Window.FindFocus()
+        for key, texts in live.items():
+            field = self._tool_fields.get(key)
+            if field is None:
+                continue
+            try:
+                # A field the user is typing in is left alone: overwriting it
+                # mid-keystroke would fight whoever is holding the keyboard.
+                if focused is not None and field.IsDescendant(focused):
+                    continue
+                if list(field.values()) != texts:
+                    field.set_values(texts)
+            except RuntimeError:  # pragma: no cover - the field was replaced
+                self._tool_fields.pop(key, None)
+
     # -- actions -------------------------------------------------------------
     def _action_for_tab(self) -> Tuple[str, Callable[[], None]]:
         """Return the primary action for the open tab: its label and its work."""
+        if self.tab == TOOL_TAB[0]:
+            activation = self.activation
+            # Confirm is the primary action only while there is genuinely
+            # something pending to write; on any other tool the pane keeps its
+            # ordinary action rather than offering a confirm that would do
+            # nothing.
+            if (
+                activation is not None
+                and activation.ok
+                and activation.kind == "pending"
+                and editor_tools.pending_object() is not None
+            ):
+                return (
+                    studio_label("Confirm placement", "確認擺位"),
+                    self._confirm_pending,
+                )
         if self.tab == "history":
             return (
                 studio_text("Open project history", "開項目歷史"),
@@ -1203,6 +1893,26 @@ class PropertiesPane(wx.Panel):
     def _on_search(self, _state: SearchState) -> None:
         self.rebuild()
 
+    def _on_resize(self, event: wx.SizeEvent) -> None:
+        """Re-lay the tab when the sash has changed the column's width.
+
+        Only a real width change triggers it, and only after the size event has
+        finished: rebuilding from inside the event is how a layout pass ends up
+        calling itself.
+        """
+        event.Skip()
+        if abs(self.GetClientSize().width - self._built_width) >= tokens.scaled(8):
+            wx.CallAfter(self._rebuild_for_width)
+
+    def _rebuild_for_width(self) -> None:
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:  # pragma: no cover - the pane has already gone
+            return
+        if abs(self.GetClientSize().width - self._built_width) >= tokens.scaled(8):
+            self.rebuild()
+
     def _on_context_menu(self, event: wx.ContextMenuEvent) -> None:
         position = event.GetPosition()
         if position == wx.DefaultPosition:
@@ -1247,17 +1957,24 @@ class PropertiesPane(wx.Panel):
 
 
 __all__ = [
+    "DEFAULT_NUDGE_STEP",
     "DEFAULT_REVISIONS",
     "DEFAULT_SECTIONS",
     "MAX_NOTE_LENGTH",
+    "MAX_NUDGE_STEP",
     "MIN_PANEL_WIDTH",
+    "NUDGE_FIELD_WIDTH",
     "NOTES_CONFIG_ID",
     "NO_HISTORY_AVAILABLE",
     "NO_PROJECT_HISTORY",
     "NO_REVISIONS_YET",
+    "NO_TOOL_ACTIVE",
     "NO_WORLD_PROPERTIES",
     "PANEL_WIDTH",
     "PANE_TABS",
+    "TAB_LABELS",
+    "TOOL_TAB",
+    "VECTOR_BOX_WIDTH",
     "ProjectRevision",
     "PropertiesPane",
     "PropertyRow",

@@ -119,6 +119,7 @@ REQUIRED_SURFACES = {
         "layerSlice",
     ),
     "Panels and views": (
+        "undoHistory",
         "inspector",
         "pendingImports",
         "playerPanel",

@@ -2,7 +2,13 @@ import json
 import re
 import subprocess
 import sys
+import sys
 import unittest
+
+sys.path.insert(
+    0, str(__import__("pathlib").Path(__file__).resolve().parents[1] / "scripts")
+)
+from generate_changelog import sanitise_subject
 from datetime import date
 
 from amulet_map_editor.api.changelog import (
@@ -112,7 +118,7 @@ class ChangelogTestCase(unittest.TestCase):
                 self.assertEqual(tagged_commits[entry.version], entry.commit_sha)
                 released_on, subject = facts[entry.commit_sha]
                 self.assertEqual(released_on, entry.released_on.isoformat())
-                self.assertEqual(subject, entry.changes[0].summary)
+                self.assertEqual(sanitise_subject(subject), entry.changes[0].summary)
 
     def test_date_action_and_plain_text_filters_compose(self):
         fixture = ChangelogCatalog.from_dict(

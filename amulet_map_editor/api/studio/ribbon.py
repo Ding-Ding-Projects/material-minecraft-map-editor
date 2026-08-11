@@ -89,6 +89,9 @@ class _TabButton(widgets.StudioButton):
     #: something to measure with.
     emphasis = "quiet"
     on_navigate: Optional[Callable[[int], None]] = None
+    #: Which ribbon tab this button opens, or empty for the backstage and
+    #: overflow buttons that are on the strip without being tabs.
+    tab_key = ""
 
     def __init__(
         self,
@@ -100,6 +103,7 @@ class _TabButton(widgets.StudioButton):
         emphasis: str = "quiet",
         name: str = "",
         hint: str = "",
+        tab_key: str = "",
     ) -> None:
         super().__init__(
             parent,
@@ -112,6 +116,7 @@ class _TabButton(widgets.StudioButton):
         )
         self.emphasis = emphasis
         self.on_navigate = on_navigate
+        self.tab_key = str(tab_key)
         self.InvalidateBestSize()
         self.SetInitialSize(self.DoGetBestSize())
 
@@ -124,15 +129,24 @@ class _TabButton(widgets.StudioButton):
             self.Refresh()
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(13), _MEDIUM))
-        padding = tokens.scaled(18 if self.emphasis == "filled" else 16)
-        lines = [line for line in self.GetLabel().split("\n") if line] or [" "]
-        width = max(dc.GetTextExtent(line)[0] for line in lines) + padding * 2
-        height = tokens.scaled(self.HEIGHT)
-        if len(lines) > 1:
-            height = max(height, dc.GetCharHeight() * len(lines) + tokens.scaled(10))
-        return wx.Size(width, height)
+        with widgets.measuring(self) as dc:
+            dc.SetFont(tokens.font(self, widgets.point_size(13), _MEDIUM))
+            padding = tokens.scaled(18 if self.emphasis == "filled" else 16)
+            lines = [line for line in self.GetLabel().split("\n") if line] or [" "]
+            width = (
+                max(dc.GetTextExtent(line)[0] for line in lines)
+                + widgets.TEXT_SLACK * 2
+                + padding * 2
+            )
+            # The design draws a 36px tab; a density or interface-scale change
+            # moves every other control in the shell and a tab that stayed at
+            # 36 would be the one that did not.
+            height = max(tokens.scaled(self.HEIGHT), tokens.control_height())
+            if len(lines) > 1:
+                height = max(
+                    height, dc.GetCharHeight() * len(lines) + tokens.scaled(10)
+                )
+            return wx.Size(width, height)
 
     def _tab_colours(
         self, palette: tokens.StudioPalette
@@ -177,6 +191,9 @@ class _TabButton(widgets.StudioButton):
             lines = [line for line in self.GetLabel().split("\n") if line] or [" "]
             available = max(0, width - tokens.scaled(12))
             rendered = [widgets.elide(dc, line, available) for line in lines]
+            widgets.note_elision(
+                self, "\n".join(lines), "\n".join(rendered), hint=self.hint
+            )
             line_height = dc.GetCharHeight()
             y = (height - line_height * len(rendered)) // 2
             for line in rendered:
@@ -242,15 +259,419 @@ class _RibbonTile(widgets.StudioButton):
         return base, palette.on_primary_container, border
 
 
+class _TabOverflowPopup(widgets.AnchoredPopup):
+    """The list of tabs the strip could not fit, with its own search.
+
+    A tab that does not fit is still a tab: it keeps its place in this list,
+    its accessible name, and its keyboard route to the panel it opens.  The
+    list carries the same search bar and anchored regex builder every other
+    list in the shell does, because a strip that has overflowed is exactly when
+    somebody wants to find a tab by name rather than by eye.
+    """
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        anchor: wx.Window,
+        buttons: List["_TabButton"],
+        active: Optional[str] = None,
+        *,
+        on_choose: Optional[Callable[["_TabButton"], None]] = None,
+    ) -> None:
+        # No height cap of its own: the popup already clamps itself to the
+        # display's work area and scrolls past that, and a cap chosen here
+        # would leave a row folded in half at the bottom of a list that had
+        # room to show it.
+        super().__init__(parent, anchor)
+        self.buttons = list(buttons)
+        self.active = active or ""
+        self.on_choose = on_choose
+        self.state = SearchState(label="Tabs that do not fit")
+        self.search = widgets.SearchBar(
+            self.header,
+            "Search the tabs in here",
+            self.state,
+            on_change=lambda _state: self._rebuild(),
+            compact=True,
+        )
+        header_sizer = wx.BoxSizer(wx.VERTICAL)
+        header_sizer.Add(self.search, 0, wx.EXPAND)
+        self.header.SetSizer(header_sizer)
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+        self._rebuild()
+
+    def _on_key(self, event: wx.KeyEvent) -> None:
+        """Escape closes the list; the arrow keys walk it."""
+        code = event.GetKeyCode()
+        rows = [
+            child
+            for child in self.content.GetChildren()
+            if isinstance(child, widgets._OptionRow)
+        ]
+        if code == wx.WXK_ESCAPE:
+            self.Dismiss()
+            return
+        if code in (wx.WXK_DOWN, wx.WXK_UP) and rows:
+            focused = self.FindFocus()
+            index = rows.index(focused) if focused in rows else -1
+            step = 1 if code == wx.WXK_DOWN else -1
+            rows[(index + step) % len(rows)].SetFocus()
+            return
+        if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and rows:
+            focused = self.FindFocus()
+            row = focused if focused in rows else rows[0]
+            row.activate()
+            return
+        event.Skip()
+
+    def _rebuild(self) -> None:
+        """Fill the list with the overflowed tabs matching the query."""
+        self.content.DestroyChildren()
+        self.content_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.content.SetSizer(self.content_sizer)
+        matches = [
+            button
+            for button in self.buttons
+            if self.state.matches(button.GetLabel().replace("\n", " "))
+        ]
+        if not matches:
+            empty = wx.StaticText(
+                self.content, label=self.state.describe_matches(0, "tab")
+            )
+            empty.SetForegroundColour(tokens.palette().on_surface_variant)
+            empty.SetFont(tokens.font(self, widgets.point_size(12)))
+            self.content_sizer.Add(empty, 0, wx.ALL, tokens.scaled(tokens.SPACE_SM))
+        for button in matches:
+            label = button.GetLabel().replace("\n", " · ")
+            row = widgets._OptionRow(
+                self.content,
+                label,
+                selected=bool(button.tab_key) and button.tab_key == self.active,
+                on_click=lambda _label, target=button: self._choose(target),
+            )
+            self.content_sizer.Add(row, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(2))
+        self.layout()
+
+    def _choose(self, button: "_TabButton") -> None:
+        self.Dismiss()
+        widgets.invoke(self.on_choose, button)
+
+
 class _TabStrip(wx.Panel, widgets._Themed):
-    """The container behind the tab buttons, painted in the container role."""
+    """The tab buttons, the command search, and the chevron, laid out by hand.
+
+    Seventeen tabs, a search field and a collapse control do not fit at every
+    width, and a ``wx.BoxSizer`` given less room than its children ask for does
+    not say so: it takes the shortfall out of whatever is at the end of the
+    row.  On this strip the end of the row is the search, so at 1024 pixels the
+    field was pushed past the right-hand edge and what survived of it read
+    "Reg" and "Plain-tex" -- a search bar cut in half by a tab strip that had
+    quietly claimed the space.
+
+    So the strip lays itself out.  The search and the chevron are placed from
+    the right-hand edge first, because they are the two controls that must
+    always be reachable; the tabs then take what is left, and the ones that do
+    not fit move into an overflow control that lists them by name.  A tab is
+    never merely clipped, and the tab currently showing is always on the strip
+    even when it would otherwise have overflowed -- nobody should have to open
+    a menu to see where they already are.
+    """
+
+    #: Gaps, transcribed from the design: after the backstage button, between
+    #: tabs, and around the trailing controls.
+    LEAD_GAP = tokens.SPACE_XS
+    TAB_GAP = 2
+    TRAIL_GAP = tokens.SPACE_XS
+    EDGE = tokens.SPACE_SM
+    VERTICAL_PAD = 4
 
     def __init__(self, parent: wx.Window) -> None:
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self._install("Ribbon tabs", listen=False)
+        self.leading: Optional[wx.Window] = None
+        self.tabs: List[_TabButton] = []
+        self.search: Optional[wx.Window] = None
+        self.chevron: Optional[wx.Window] = None
+        self.overflow: Optional[widgets.StudioButton] = None
+        self.search_stretch = 0
+        self._overflowed: List[_TabButton] = []
+        self._popup: Optional[_TabOverflowPopup] = None
+        #: Called with the tab button somebody picked out of the overflow list.
+        self.on_overflow_choice: Optional[Callable[["_TabButton"], None]] = None
+        #: Returns the key of the tab currently showing, so the strip can keep
+        #: it visible; the bar owns that state, not the strip.
+        self.active_key: Optional[Callable[[], str]] = None
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
+        self.Bind(wx.EVT_SIZE, self._on_size)
         self._apply_theme(self.palette())
+
+    # -- construction --------------------------------------------------------
+    def adopt(
+        self,
+        leading: wx.Window,
+        tabs: List["_TabButton"],
+        search: wx.Window,
+        chevron: wx.Window,
+        *,
+        search_stretch: int = 0,
+    ) -> None:
+        """Take the controls the bar built and create the overflow button.
+
+        ``search_stretch`` is how much wider than its floor the search field
+        would like to be.  Only the field inside the search bar is elastic --
+        the regex checkbox and the builder button are measured from their own
+        text and are never squeezed, because squeezing them is what turned
+        "Regex" into "Reg".
+        """
+        self.leading = leading
+        self.tabs = list(tabs)
+        self.search = search
+        self.chevron = chevron
+        self.search_stretch = max(0, int(search_stretch))
+        self.overflow = _TabButton(
+            self,
+            "More",
+            on_click=self.open_overflow,
+            emphasis="quiet",
+            name="More ribbon tabs",
+            hint="Show the ribbon tabs that do not fit at this width",
+        )
+        self.overflow.Hide()
+        self.InvalidateBestSize()
+
+    # -- geometry ------------------------------------------------------------
+    @staticmethod
+    def _wanted(window: Optional[wx.Window]) -> wx.Size:
+        return window.GetEffectiveMinSize() if window is not None else wx.Size(0, 0)
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        """Return the height the tallest control needs, and the narrowest the
+        strip may become before the search itself would start to clip.
+
+        The width is a floor rather than a wish: it is the backstage button,
+        the overflow control, the search at the smallest it is allowed to be,
+        and the chevron.  Everything above that floor is tabs.
+        """
+        heights = [
+            self._wanted(window).height
+            for window in (self.leading, self.search, self.chevron, self.overflow)
+        ]
+        heights.extend(self._wanted(tab).height for tab in self.tabs)
+        height = max([*heights, tokens.control_height()]) + tokens.scaled(
+            self.VERTICAL_PAD * 2
+        )
+        width = (
+            self._wanted(self.leading).width
+            + tokens.scaled(self.LEAD_GAP)
+            + self._wanted(self.overflow).width
+            + tokens.scaled(self.TAB_GAP)
+            + self._search_floor()
+            + tokens.scaled(self.TRAIL_GAP)
+            + self._wanted(self.chevron).width
+            + tokens.scaled(self.EDGE)
+        )
+        return wx.Size(width, height)
+
+    def _search_floor(self) -> int:
+        """Return the narrowest the whole search bar may be drawn."""
+        if self.search is None:
+            return 0
+        return self._wanted(self.search).width
+
+    def _search_preferred(self) -> int:
+        """Return the width the search bar would take if the strip had room."""
+        return self._search_floor() + self.search_stretch
+
+    def _on_size(self, event: wx.SizeEvent) -> None:
+        self.relayout()
+        event.Skip()
+
+    def relayout(self) -> None:
+        """Place every control, moving the tabs that do not fit into overflow.
+
+        Right-hand controls are placed first and tabs take the remainder, so a
+        narrow window loses tabs to a control that lists them rather than
+        losing the search off the edge of the window.
+        """
+        if self.search is None or self.chevron is None or self.leading is None:
+            return
+        width, height = self.GetClientSize()
+        if width <= 0 or height <= 0:
+            return
+        edge = tokens.scaled(self.EDGE)
+        trail_gap = tokens.scaled(self.TRAIL_GAP)
+        tab_gap = tokens.scaled(self.TAB_GAP)
+        lead_gap = tokens.scaled(self.LEAD_GAP)
+        pad = tokens.scaled(self.VERTICAL_PAD)
+
+        chevron_size = self._wanted(self.chevron)
+        search_size = self._wanted(self.search)
+        lead_size = self._wanted(self.leading)
+
+        # The chevron and the search keep the right-hand end, in that order.
+        chevron_x = max(0, width - edge - chevron_size.width)
+        self.chevron.SetSize(
+            chevron_x,
+            max(pad, (height - chevron_size.height) // 2),
+            chevron_size.width,
+            chevron_size.height,
+        )
+
+        # Tabs get what is left after the backstage button and the search.
+        # The search shrinks towards its floor before a single tab is dropped,
+        # because a tab that overflows is still reachable and a clipped search
+        # field is not.
+        floor = self._search_floor()
+        room_for_search = chevron_x - trail_gap - (lead_size.width + lead_gap)
+        search_width = max(0, min(self._search_preferred(), room_for_search))
+        if search_width < floor:
+            search_width = max(0, min(floor, max(0, chevron_x - trail_gap)))
+        search_x = max(0, chevron_x - trail_gap - search_width)
+        self.search.SetSize(
+            search_x,
+            max(pad, (height - search_size.height) // 2),
+            search_width,
+            search_size.height,
+        )
+
+        self.leading.SetSize(
+            0,
+            max(0, height - pad - lead_size.height),
+            lead_size.width,
+            lead_size.height,
+        )
+        cursor = lead_size.width + lead_gap
+        limit = search_x - trail_gap
+
+        active = ""
+        if self.active_key is not None:
+            active = str(widgets.invoke(self.active_key) or "")
+        active_tab = next(
+            (tab for tab in self.tabs if tab.tab_key and tab.tab_key == active), None
+        )
+
+        visible, overflowed = self._split(cursor, limit, tab_gap, active_tab)
+        self._overflowed = overflowed
+        for tab in overflowed:
+            tab.Hide()
+        x = cursor
+        for tab in visible:
+            size = self._wanted(tab)
+            tab.Show()
+            tab.SetSize(x, max(0, height - pad - size.height), size.width, size.height)
+            x += size.width + tab_gap
+        if self.overflow is not None:
+            if overflowed:
+                self.overflow.SetLabel(f"{len(overflowed)} more")
+                # ``SetLabel`` renames the control after itself, which would
+                # leave a screen reader announcing "12 more" with nothing to
+                # say what twelve more of.
+                self.overflow.SetName(
+                    f"{len(overflowed)} more ribbon tabs: "
+                    + ", ".join(tab.GetLabel().replace("\n", " ") for tab in overflowed)
+                )
+                overflow_size = self._wanted(self.overflow)
+                self.overflow.Show()
+                self.overflow.SetSize(
+                    min(x, max(cursor, limit - overflow_size.width)),
+                    max(0, height - pad - overflow_size.height),
+                    overflow_size.width,
+                    overflow_size.height,
+                )
+            else:
+                self.overflow.Hide()
+        self.Refresh()
+
+    def _split(
+        self,
+        start: int,
+        limit: int,
+        gap: int,
+        active: Optional["_TabButton"],
+    ) -> Tuple[List["_TabButton"], List["_TabButton"]]:
+        """Return the tabs that fit between ``start`` and ``limit``, and the rest.
+
+        The tab currently showing is kept on the strip whatever its position,
+        because a strip that hides the tab you are looking at reads as a bug
+        rather than as an overflow.  Room for the overflow control is reserved
+        as soon as a single tab has to move into it.
+        """
+        widths = {tab: self._wanted(tab).width for tab in self.tabs}
+        total = sum(width + gap for width in widths.values())
+        if start + total - gap <= limit:
+            return list(self.tabs), []
+
+        overflow_width = self._wanted(self.overflow).width + gap
+        room = limit - start - overflow_width
+
+        def prefix(reserved: int) -> Tuple[List[_TabButton], List[_TabButton]]:
+            """Return the longest run of tabs fitting in ``room - reserved``."""
+            visible: List[_TabButton] = []
+            overflowed: List[_TabButton] = []
+            used = 0
+            for tab in self.tabs:
+                if tab is active and reserved:
+                    continue
+                claim = widths[tab] + gap
+                if not overflowed and used + claim <= room - reserved:
+                    visible.append(tab)
+                    used += claim
+                else:
+                    overflowed.append(tab)
+            return visible, overflowed
+
+        # The natural order first.  Moving the active tab to the end of the run
+        # is only worth doing when it would otherwise be hidden: a strip that
+        # shuffles the tab you are looking at for no reason is its own kind of
+        # confusing.
+        visible, overflowed = prefix(0)
+        if active is None or active in visible:
+            return visible, overflowed
+        visible, overflowed = prefix(widths[active] + gap)
+        visible.append(active)
+        return visible, overflowed
+
+    # -- overflow ------------------------------------------------------------
+    def open_overflow(self) -> None:
+        """Show the tabs that did not fit, as a searchable anchored list."""
+        if not self._overflowed or self.overflow is None:
+            return
+        self.close_overflow()
+        active = ""
+        if self.active_key is not None:
+            active = str(widgets.invoke(self.active_key) or "")
+        popup = _TabOverflowPopup(
+            self,
+            self.overflow,
+            self._overflowed,
+            active,
+            on_choose=self._chose_overflow,
+        )
+        self._popup = popup
+        popup.on_dismiss = self._overflow_dismissed
+        popup.popup()
+        popup.search.SetFocus()
+
+    def _overflow_dismissed(self) -> None:
+        self._popup = None
+
+    def close_overflow(self) -> None:
+        """Dismiss the overflow list if one is open."""
+        popup, self._popup = self._popup, None
+        if popup is not None:
+            try:
+                popup.Dismiss()
+                popup.Destroy()
+            except RuntimeError:  # pragma: no cover - the popup has gone
+                pass
+
+    def _chose_overflow(self, button: "_TabButton") -> None:
+        widgets.invoke(self.on_overflow_choice, button)
+
+    def overflowed_labels(self) -> List[str]:
+        """Return the labels currently living in the overflow control."""
+        return [tab.GetLabel() for tab in self._overflowed]
 
     def _apply_theme(self, palette: tokens.StudioPalette) -> None:
         self.SetBackgroundColour(palette.surface_container)
@@ -389,8 +810,15 @@ class _GroupPanel(wx.Panel, widgets._Themed):
                         group.title, label, text
                     ),
                 )
+                # The design's width is a floor, not a cap.  A field whose
+                # floating label is longer than 132 pixels -- which "Offset Z"
+                # is in bilingual mode -- has that label painted into its own
+                # outline, where it cannot scroll and can only be cut.
+                best = field.GetBestSize()
                 field.SetMinSize(
-                    wx.Size(tokens.scaled(self.FIELD_WIDTH), field.GetBestSize().height)
+                    wx.Size(
+                        max(tokens.scaled(self.FIELD_WIDTH), best.width), best.height
+                    )
                 )
                 self.fields[definition.label] = field
                 grid.Add(field, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -414,11 +842,12 @@ class _GroupPanel(wx.Panel, widgets._Themed):
                         item, label
                     ),
                 )
-                choice.SetMinSize(
-                    wx.Size(
-                        tokens.scaled(self.SELECT_WIDTH), choice.GetBestSize().height
-                    )
-                )
+                # Same floor-not-cap rule: a dropdown narrower than the option
+                # it is showing elides the current choice, and the current
+                # choice is the one thing the closed control exists to say.
+                best = choice.GetBestSize()
+                dropdown_width = max(tokens.scaled(self.SELECT_WIDTH), best.width)
+                choice.SetMinSize(wx.Size(dropdown_width, best.height))
                 self.selects[definition.label] = choice
                 column.Add(choice, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(4))
             self.controls.Add(
@@ -497,7 +926,13 @@ class RibbonBar(wx.Panel, widgets._Themed):
     would clip the one line that says why a regular expression matched nothing.
     """
 
+    #: The design's width for the command search field, and the narrowest that
+    #: field may be drawn at before the strip stops taking room from it and
+    #: starts moving tabs into the overflow control instead.  A field at the
+    #: floor still shows a query being typed; a field at nothing shows a
+    #: half-eaten word, which is what a box sizer produced here.
     SEARCH_WIDTH = 200
+    SEARCH_MIN_FIELD = 110
     PANEL_TOP = 12
     PANEL_BOTTOM = 8
     CHEVRON_SIZE = 32
@@ -548,13 +983,6 @@ class RibbonBar(wx.Panel, widgets._Themed):
             hint="Leave the workspace and open the project screen",
         )
         self.tab_buttons: Dict[str, _TabButton] = {}
-        strip_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        strip_sizer.Add(
-            self.backstage_button,
-            0,
-            wx.ALIGN_BOTTOM | wx.RIGHT,
-            tokens.scaled(tokens.SPACE_XS),
-        )
         for tab in RIBBON_TABS:
             button = _TabButton(
                 self.strip,
@@ -563,10 +991,9 @@ class RibbonBar(wx.Panel, widgets._Themed):
                 on_navigate=lambda code, key=tab.key: self._navigate(key, code),
                 name=f"{tab.label} ribbon tab",
                 hint=f"Show the {tab.label} commands",
+                tab_key=tab.key,
             )
             self.tab_buttons[tab.key] = button
-            strip_sizer.Add(button, 0, wx.ALIGN_BOTTOM | wx.RIGHT, tokens.scaled(2))
-        strip_sizer.AddStretchSpacer()
         self.search = widgets.SearchBar(
             self.strip,
             "Search this tab's commands",
@@ -574,17 +1001,14 @@ class RibbonBar(wx.Panel, widgets._Themed):
             on_change=self._on_search,
             compact=True,
         )
+        # The design's width is what the field asks for, not a floor it is
+        # nailed to: the strip shrinks it towards ``SEARCH_MIN_FIELD`` when the
+        # window is narrow, and never past it.
         self.search.field.SetMinSize(
             wx.Size(
-                tokens.scaled(self.SEARCH_WIDTH),
+                tokens.scaled(self.SEARCH_MIN_FIELD),
                 self.search.field.GetBestSize().height,
             )
-        )
-        strip_sizer.Add(
-            self.search,
-            0,
-            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT | wx.TOP | wx.BOTTOM,
-            tokens.scaled(tokens.SPACE_XS),
         )
         self.chevron = widgets.StudioButton(
             self.strip,
@@ -596,13 +1020,17 @@ class RibbonBar(wx.Panel, widgets._Themed):
             height=self.CHEVRON_SIZE,
             min_width=self.CHEVRON_SIZE,
         )
-        strip_sizer.Add(
+        self.strip.adopt(
+            self.backstage_button,
+            [self.tab_buttons[tab.key] for tab in RIBBON_TABS],
+            self.search,
             self.chevron,
-            0,
-            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
-            tokens.scaled(tokens.SPACE_SM),
+            search_stretch=tokens.scaled(self.SEARCH_WIDTH)
+            - tokens.scaled(self.SEARCH_MIN_FIELD),
         )
-        self.strip.SetSizer(strip_sizer)
+        self.strip.active_key = lambda: self.active_tab
+        self.strip.on_overflow_choice = self._chose_overflow_tab
+        self.strip.SetMinSize(self.strip.DoGetBestSize())
 
         self.panel = _RibbonPanel(self)
         self.groups_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -699,6 +1127,17 @@ class RibbonBar(wx.Panel, widgets._Themed):
     def _refresh_tab_emphasis(self) -> None:
         for key, button in self.tab_buttons.items():
             button.set_emphasis("active" if key == self.active_tab else "quiet")
+        # An active tab is drawn wider than a quiet one, and the tab that is
+        # now active may have been in the overflow list a moment ago, so the
+        # strip is re-fitted rather than left holding last tab's arithmetic.
+        self.strip.relayout()
+
+    def _chose_overflow_tab(self, button: _TabButton) -> None:
+        """Open a tab somebody picked out of the strip's overflow list."""
+        widgets.invoke(button.on_click)
+        target = self.tab_buttons.get(button.tab_key)
+        if target is not None and target.IsShown():
+            target.SetFocus()
 
     # -- collapsing ----------------------------------------------------------
     def toggle_collapsed(self) -> None:
@@ -788,7 +1227,12 @@ class RibbonBar(wx.Panel, widgets._Themed):
             self.panel.SetMinSize(wx.Size(-1, content.height + bar))
         else:
             self.panel.SetMinSize(wx.Size(-1, 0))
+        self.strip.InvalidateBestSize()
+        self.strip.SetMinSize(self.strip.DoGetBestSize())
         self.Layout()
+        # The strip lays itself out, so it is re-fitted after the bar has told
+        # it how wide it now is rather than before.
+        self.strip.relayout()
         parent = self.GetParent()
         if parent is not None:
             parent.Layout()

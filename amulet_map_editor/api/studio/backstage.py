@@ -62,8 +62,16 @@ TABS: Tuple[str, ...] = ("home", "open", "info", "convert", "features", "account
 COMMAND_SAVE = "save"
 COMMAND_CLOSE_PROJECT = "close_project"
 COMMAND_EXPORT_SELECTION = "export_selection"
+#: The command that brings the user to the Convert page.  This view is that
+#: command's destination rather than one of its callers: the conversion runs
+#: here, so pressing Convert does not ask the shell to navigate anywhere.
 COMMAND_CONVERT = "convert_world"
 COMMAND_UPDATE_RESTART = "update_restart"
+
+#: The logger the conversion extension reports its own result through.  Its
+#: completion notification is raised from a worker thread, which wx refuses, so
+#: the log is the only place that result actually arrives.
+CONVERT_LOGGER = "amulet_map_editor.programs.convert.convert"
 
 #: Surface keys this view opens.  These match the shared surface index.
 SURFACE_PREFERENCES = "prefs"
@@ -282,6 +290,35 @@ def surface_export_text(
         lines.append(f"| `{cells[0]}` | {cells[1]} | {cells[2]} | {cells[3]} |")
     lines.append("")
     return "\n".join(lines)
+
+
+class _ConversionLog(logging.Handler):
+    """Collect what the conversion extension itself reported about a run.
+
+    The extension swallows its own exception, builds a message from it, and
+    then tries to raise a notification from its worker thread -- which wx
+    refuses, so that message never reaches the user.  It does reach the log
+    first, so the log is where the real verdict is read from.  Inventing a
+    verdict here instead would mean reporting a success this module never
+    observed.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.INFO)
+        self.records: List[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+    def verdict(self) -> Tuple[Optional[bool], str]:
+        """Return ``(succeeded, message)``; ``None`` when nothing was reported."""
+        for record in reversed(self.records):
+            if record.levelno >= logging.ERROR:
+                return False, record.getMessage()
+        for record in reversed(self.records):
+            if "Finished converting" in record.getMessage():
+                return True, record.getMessage()
+        return None, ""
 
 
 def _card_body(card: wx.Window, padding: int = 18) -> wx.BoxSizer:
@@ -2104,6 +2141,14 @@ class _SurfaceCard(_HoverControl):
 # ---------------------------------------------------------------------------
 # world discovery
 # ---------------------------------------------------------------------------
+#: ``select_world.find_world_paths`` clears and refills one module-level list
+#: in place, so two scans running at once can leave one of them reading a list
+#: the other has just emptied.  The symptom is a machine that plainly has a
+#: Minecraft installation being told it has none, on some runs and not others,
+#: which is worse than a slow scan.  One lock makes discovery a single reader.
+_DISCOVERY_LOCK = threading.Lock()
+
+
 def minecraft_save_roots() -> List[Tuple[str, Path]]:
     """Return the save directories this machine's installations actually have.
 
@@ -2117,14 +2162,16 @@ def minecraft_save_roots() -> List[Tuple[str, Path]]:
     """
     from amulet_map_editor.api.wx.ui import select_world
 
-    try:
-        select_world.find_world_paths()
-    except Exception:  # pragma: no cover - a profile this host cannot read
-        log.exception("The installed Minecraft directories could not be listed")
-        return []
+    with _DISCOVERY_LOCK:
+        try:
+            select_world.find_world_paths()
+            discovered = list(select_world.minecraft_world_paths)
+        except Exception:  # pragma: no cover - a profile this host cannot read
+            log.exception("The installed Minecraft directories could not be listed")
+            return []
     roots: List[Tuple[str, Path]] = []
     seen: List[Path] = []
-    for group, directory in select_world.minecraft_world_paths:
+    for group, directory in discovered:
         try:
             path = Path(directory).expanduser()
             if path in seen or not path.is_dir():
@@ -2602,6 +2649,7 @@ class BackstageView(wx.Panel):
         # The conversion the Convert page has running, if any.
         self._conversion: Optional[wx.Window] = None
         self._conversion_timer: Optional[wx.Timer] = None
+        self._conversion_log: Optional[_ConversionLog] = None
         self._convert_progress: Optional[_Text] = None
         self._convert_button: Optional[widgets.StudioButton] = None
 
@@ -3716,6 +3764,8 @@ class BackstageView(wx.Panel):
             log.debug("The Studio world context is unavailable", exc_info=True)
 
             class _Absent:
+                """Reads as "nothing is open", which is exactly what is known."""
+
                 open = False
                 name = ""
                 path = ""
@@ -3724,6 +3774,7 @@ class BackstageView(wx.Panel):
                 game_version = ""
                 seed = ""
                 size_on_disk = 0
+                level = None
                 dimension_info: Tuple = ()
 
                 @staticmethod
@@ -4228,13 +4279,29 @@ class BackstageView(wx.Panel):
             wx.CallAfter(self._show_convert_progress, chunk_index, chunk_total)
 
         extension._update_loading_bar = relay
+        # The extension's own tail raises when it tries to notify from its
+        # worker thread, which wx refuses. Swallowing that here keeps a real
+        # completion from being reported as a crashed thread; the verdict comes
+        # from the log the extension had already written by that point.
+        convert_method = extension._convert_method
+
+        def guarded() -> None:
+            try:
+                convert_method()
+            except Exception:  # noqa: BLE001 - the tail, not the conversion
+                log.debug(
+                    "The conversion extension raised after finishing", exc_info=True
+                )
+
+        extension._convert_method = guarded
+        self._conversion_log = _ConversionLog()
+        logging.getLogger(CONVERT_LOGGER).addHandler(self._conversion_log)
         self._conversion = extension
         if self._convert_button is not None:
             self._convert_button.Enable(False)
         if self._convert_error is not None:
             self._convert_error.set_text("")
         self._show_convert_progress(0, 0)
-        self._run(COMMAND_CONVERT)
         try:
             extension._convert_event(None)
         except Exception as error:  # noqa: BLE001 - starting the thread failed
@@ -4279,7 +4346,7 @@ class BackstageView(wx.Panel):
             return
 
     def _watch_conversion(self, _event: wx.TimerEvent) -> None:
-        """Notice when the conversion thread has finished, and tidy up."""
+        """Notice when the conversion thread has finished, and report its result."""
         extension = self._conversion
         if extension is None:
             self._finish_conversion()
@@ -4290,21 +4357,44 @@ class BackstageView(wx.Panel):
             running = False
         if running:
             return
+        succeeded, message = (
+            self._conversion_log.verdict()
+            if self._conversion_log is not None
+            else (None, "")
+        )
+        destination = self.convert_output
         self._finish_conversion()
+        if succeeded is True:
+            title, severity = "Conversion finished", "success"
+            body = message or f"The chunks were written into {destination}."
+        elif succeeded is False:
+            title, severity = "Conversion failed", "error"
+            body = message
+        else:
+            title, severity = "Conversion ended without a result", "warning"
+            body = (
+                "The conversion thread stopped without reporting either a "
+                f"success or a failure. Check {destination} before relying on it."
+            )
         if self._convert_progress is not None:
             try:
-                self._convert_progress.set_text(
-                    "The conversion thread has finished. Its result was reported "
-                    "as a notification; the destination world holds whatever it "
-                    "wrote."
+                self._convert_progress.set_text(f"{title}. {body}")
+                self._convert_progress.set_available_width(
+                    min(_px(860), self._available_width or _px(860))
                 )
+                if self.content is not None:
+                    self.content.Layout()
             except RuntimeError:  # pragma: no cover - the page has been rebuilt
                 pass
+        self._notify(title, body, severity=severity)
 
     def _finish_conversion(self) -> None:
         """Let go of the conversion, whatever its outcome was."""
         if self._conversion_timer is not None and self._conversion_timer.IsRunning():
             self._conversion_timer.Stop()
+        if self._conversion_log is not None:
+            logging.getLogger(CONVERT_LOGGER).removeHandler(self._conversion_log)
+            self._conversion_log = None
         extension, self._conversion = self._conversion, None
         if extension is not None:
             try:

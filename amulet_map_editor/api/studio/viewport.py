@@ -214,8 +214,16 @@ class HudChip(wx.Control):
         number was read from, or why there is no number.  It goes in the
         tooltip and the accessible name, because a chip has room for four words
         and the reason a reading is missing is usually longer than that.
+
+        Setting the same text twice does nothing at all.  These chips are
+        re-read twice a second over an OpenGL canvas, and repainting four of
+        them on every read whether or not anything changed is visible as a
+        flicker across the world.
         """
-        self._lines = [line for line in str(text).splitlines() if line.strip()] or [""]
+        lines = [line for line in str(text).splitlines() if line.strip()] or [""]
+        if lines == self._lines and str(detail) == self._detail:
+            return
+        self._lines = lines
         self._detail = str(detail)
         summary = " · ".join(self._lines)
         self.SetName(

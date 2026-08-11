@@ -686,6 +686,9 @@ class NavigatorPanel(wx.Panel):
         self.box_index = 0
         self.expanded: Set[str] = set()
         self.boxes_shown = True
+        #: Guards the report back to the owner in :meth:`apply_context`, so an
+        #: owner that rebuilds this panel in response cannot start a loop.
+        self._reporting = False
         self.search_state = SearchState(label="Navigator")
         self.SetName("Navigator")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
@@ -808,7 +811,15 @@ class NavigatorPanel(wx.Panel):
             wx.CallAfter(self.apply_context, ctx)
 
     def apply_context(self, ctx: Optional[context.WorldContext] = None) -> None:
-        """Re-read both lists from the world that is open right now."""
+        """Re-read both lists from the world that is open right now.
+
+        The owner is told afterwards, because surfaces outside this panel
+        mirror the same two facts -- the breadcrumb bar counts the selection,
+        the status bar names the dimension -- and a world that changed under
+        them without a word would leave them showing a count nobody could get
+        back to.  The report is guarded against re-entry so an owner that
+        rebuilds the panel in response cannot start a loop.
+        """
         try:
             if self.IsBeingDeleted():
                 return
@@ -816,6 +827,8 @@ class NavigatorPanel(wx.Panel):
             return
         if ctx is None:
             ctx = context.current()
+        previous_dimension = self.dimension_key
+        previous_boxes = list(self.boxes)
         self.world_open = bool(ctx.open)
         self.dimensions = list(dimension_entries(ctx))
         self.boxes = list(selection_boxes(ctx))
@@ -830,6 +843,16 @@ class NavigatorPanel(wx.Panel):
         else:
             self.box_index = 0
         self.rebuild()
+        if self._reporting:
+            return
+        self._reporting = True
+        try:
+            if self.dimension_key != previous_dimension:
+                invoke(self.on_dimension, self.dimension_key)
+            elif self.boxes != previous_boxes:
+                invoke(self.on_box, self.box_index)
+        finally:
+            self._reporting = False
 
     def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
         if event.GetEventObject() is self:

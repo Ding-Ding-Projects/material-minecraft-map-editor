@@ -236,7 +236,7 @@ _HOME = RibbonTab(
                     surface="moveTool",
                 ),
             ),
-            launcher="cloneTool",
+            launcher="operationOptions",
         ),
         RibbonGroup(
             "Editing",
@@ -294,7 +294,7 @@ _HOME = RibbonTab(
                     command="setDimension",
                 ),
             ),
-            launcher="viewControls",
+            launcher="controls",
         ),
         RibbonGroup(
             "Panes",
@@ -1293,7 +1293,7 @@ _VIEW = RibbonTab(
                     command="setDensity",
                 ),
             ),
-            launcher="prefs",
+            launcher="presets",
         ),
         RibbonGroup(
             "Show",
@@ -1590,7 +1590,7 @@ _AUTOMATE = RibbonTab(
                 _button("History", "⟲", "Version history", surface="history"),
                 _button("Release notes", "♧", "Release notes", surface="changelog"),
             ),
-            launcher="history",
+            launcher="notifications",
         ),
         RibbonGroup(
             "Memory",

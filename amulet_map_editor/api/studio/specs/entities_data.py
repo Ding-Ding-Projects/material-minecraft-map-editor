@@ -10,12 +10,20 @@ Keeping them here as data means the dialogs are one registry entry each instead
 of twenty near-identical window classes, and it keeps every user-visible string
 in one reviewable place.  Nothing in this module imports wx, so it loads
 headlessly and can be asserted on in tests.
+
+Anything version-dependent -- which mobs a world can hold, which game rules it
+has -- is gated through :mod:`amulet_map_editor.api.studio.minecraft`, which
+reads the installed libraries instead of carrying a version list.  Some
+``PyMCTranslate`` builds ship no entity registry at all, so a mob is gated on
+the block family it arrived with and every mob list says so rather than
+implying it was read from an entity database.
 """
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any, Dict, List, Tuple
 
+from amulet_map_editor.api.studio import minecraft
 from amulet_map_editor.api.studio.spec import (
     Action,
     Check,
@@ -26,6 +34,264 @@ from amulet_map_editor.api.studio.spec import (
     Spec,
     sec,
 )
+
+#: The modern mobs, each with the feature gate that decides whether this install
+#: -- and a given world -- can hold it.  The gate is a block family rather than
+#: the mob itself, because the block data is what can actually be asked.
+_MODERN_MOBS: Tuple[Tuple[str, str], ...] = (
+    ("minecraft:goat", "caves_and_cliffs"),
+    ("minecraft:axolotl", "caves_and_cliffs"),
+    ("minecraft:glow_squid", "caves_and_cliffs"),
+    ("minecraft:warden", "deep_dark"),
+    ("minecraft:allay", "mangrove_swamp"),
+    ("minecraft:frog", "mangrove_swamp"),
+    ("minecraft:tadpole", "mangrove_swamp"),
+    ("minecraft:camel", "archaeology"),
+    ("minecraft:sniffer", "archaeology"),
+    ("minecraft:armadillo", "trial_chambers"),
+    ("minecraft:breeze", "trial_chambers"),
+    ("minecraft:bogged", "trial_chambers"),
+    ("minecraft:creaking", "pale_garden"),
+    ("minecraft:happy_ghast", "happy_ghast"),
+    ("minecraft:copper_golem", "copper_golem"),
+)
+
+
+def _mob_rows() -> List[Row]:
+    """Return the modern mobs this install can represent, oldest gate first.
+
+    The detail names the gate rather than the mob's own release, because the
+    gate is what was actually checked; claiming a release date nothing here
+    read would be a number a reader has no way to verify.
+    """
+    rows = []
+    for entity_id, gate in _MODERN_MOBS:
+        if not minecraft.has_feature(gate):
+            continue
+        rows.append(
+            Row(
+                name=entity_id,
+                detail=(
+                    f"offered where the world has {minecraft.feature_label(gate)} · "
+                    f"{minecraft.feature_note(gate)}"
+                ),
+                tag="catalogue",
+            )
+        )
+    if not rows:
+        rows.append(
+            Row(
+                name="No mob catalogue could be built",
+                detail=minecraft.support_report(),
+                tag="unavailable",
+            )
+        )
+    return rows
+
+
+def _mob_chips() -> List[str]:
+    """Return the modern mobs as short chips for a spawn-analysis filter."""
+    labels = {
+        "minecraft:warden": "Warden",
+        "minecraft:allay": "Allay",
+        "minecraft:frog": "Frog",
+        "minecraft:camel": "Camel",
+        "minecraft:sniffer": "Sniffer",
+        "minecraft:breeze": "Breeze",
+        "minecraft:bogged": "Bogged",
+        "minecraft:armadillo": "Armadillo",
+        "minecraft:creaking": "Creaking",
+        "minecraft:happy_ghast": "Happy ghast",
+        "minecraft:copper_golem": "Copper golem",
+    }
+    return [
+        labels[entity_id]
+        for entity_id, gate in _MODERN_MOBS
+        if entity_id in labels and minecraft.has_feature(gate)
+    ]
+
+
+def _mob_chip_sections() -> Tuple[Any, ...]:
+    """Return the modern-mob filter, or the reason there is nothing to filter by.
+
+    A chips section with no chips is a titled empty rectangle that reads as a
+    rendering fault rather than as an answer, so an install that knows no modern
+    mob gets a sentence saying why instead of a blank row of nothing.
+    """
+    chips = _mob_chips()
+    if chips:
+        return (sec("Modern mobs", "chips", chips=chips),)
+    return (
+        sec(
+            "",
+            "note",
+            hint=(
+                "No modern mob can be offered here: " f"{minecraft.support_report()}"
+            ),
+        ),
+    )
+
+
+def _translation_coverage_rows() -> List[Row]:
+    """Report which modern blocks this install can actually place.
+
+    The editor can draw a swatch for any identifier, because the swatch is
+    generated from a colour rather than read from the game -- so a picker that
+    only shows swatches implies a capability nobody checked.  This asks the
+    installed translation data the real question, one representative block per
+    feature, and names anything it cannot represent rather than leaving a block
+    that would fail on write looking exactly like one that would not.
+    """
+    identifiers = sorted(
+        {
+            f"minecraft:{block}"
+            for feature in minecraft.FEATURES.values()
+            for block in feature.blocks
+        }
+    )
+    if not identifiers:
+        return [
+            Row(
+                name="No modern block could be checked",
+                detail=minecraft.support_report(),
+                tag="unavailable",
+            )
+        ]
+    missing = minecraft.unsupported_blocks(identifiers)
+    if not missing:
+        return [
+            Row(
+                name="Every modern block the editor offers can be placed",
+                detail=(
+                    f"{len(identifiers)} identifiers checked against the "
+                    "installed translation data"
+                ),
+                tag="ok",
+            )
+        ]
+    return [
+        Row(
+            name=identifier,
+            detail=(
+                "The installed translation data cannot represent this block, so "
+                "the editor will not offer to write it"
+            ),
+            tag="untranslatable",
+        )
+        for identifier in missing
+    ]
+
+
+def _rule(name: str, kind: str, default: str, scope: str = "Java and Bedrock") -> Row:
+    """Build one game-rule row.
+
+    The tag carries the *default*, not a value: no world is open on this
+    surface, and a bare ``true`` next to a rule name reads as this world's
+    setting.  An open world replaces every one of these with what it actually
+    stores.
+
+    ``scope`` is the rule's documented availability rather than something read
+    from the install -- game rules live in ``level.dat``, not in the block data
+    this module can question -- so the surface says as much beside the list.
+    """
+    return Row(name=name, detail=f"{kind} · {scope}", tag=f"default {default}")
+
+
+def _gated_rules(gate: str, *rules: Row) -> Tuple[Any, ...]:
+    """Return game-rule rows only where the install knows the feature they came with."""
+    return minecraft.gated(gate, *rules)
+
+
+def _gamerule_rows() -> List[Row]:
+    """Return the game rules a current world actually has, gated by era.
+
+    The rules that have existed since the feature was introduced are always
+    listed.  Each newer group is gated on the block family that shipped in the
+    same version, so a 1.12 world is never offered a rule it has no field for.
+    """
+    rows = [
+        _rule("announceAdvancements", "Boolean", "true", "Java only"),
+        _rule("commandBlockOutput", "Boolean", "true"),
+        _rule("disableRaids", "Boolean", "false", "Java only"),
+        _rule("doDaylightCycle", "Boolean", "true"),
+        _rule("doEntityDrops", "Boolean", "true"),
+        _rule("doFireTick", "Boolean", "true"),
+        _rule("doImmediateRespawn", "Boolean", "false"),
+        _rule("doInsomnia", "Boolean", "true"),
+        _rule("doLimitedCrafting", "Boolean", "false"),
+        _rule("doMobLoot", "Boolean", "true"),
+        _rule("doMobSpawning", "Boolean", "true"),
+        _rule("doPatrolSpawning", "Boolean", "true"),
+        _rule("doTileDrops", "Boolean", "true"),
+        _rule("doTraderSpawning", "Boolean", "true"),
+        _rule("doWeatherCycle", "Boolean", "true"),
+        _rule("drowningDamage", "Boolean", "true"),
+        _rule("fallDamage", "Boolean", "true"),
+        _rule("fireDamage", "Boolean", "true"),
+        _rule("forgiveDeadPlayers", "Boolean", "true"),
+        _rule("freezeDamage", "Boolean", "true"),
+        _rule("keepInventory", "Boolean", "false"),
+        _rule("logAdminCommands", "Boolean", "true", "Java only"),
+        _rule("maxCommandChainLength", "Integer", "65536"),
+        _rule("maxEntityCramming", "Integer", "24", "Java only"),
+        _rule("mobGriefing", "Boolean", "true"),
+        _rule("naturalRegeneration", "Boolean", "true"),
+        _rule("playersSleepingPercentage", "Integer", "100"),
+        _rule("pvp", "Boolean", "true", "Bedrock only"),
+        _rule("randomTickSpeed", "Integer", "3"),
+        _rule("reducedDebugInfo", "Boolean", "false", "Java only"),
+        _rule("sendCommandFeedback", "Boolean", "true"),
+        _rule("showCoordinates", "Boolean", "false", "Bedrock only"),
+        _rule("showDeathMessages", "Boolean", "true"),
+        _rule("spawnRadius", "Integer", "10"),
+        _rule("spectatorsGenerateChunks", "Boolean", "true", "Java only"),
+        _rule("universalAnger", "Boolean", "false", "Java only"),
+    ]
+    rows.extend(
+        _gated_rules(
+            "deep_dark", _rule("doWardenSpawning", "Boolean", "true", "Java only")
+        )
+    )
+    rows.extend(
+        _gated_rules(
+            "mangrove_swamp", _rule("doVinesSpread", "Boolean", "true", "Java only")
+        )
+    )
+    rows.extend(
+        _gated_rules(
+            "bamboo_wood",
+            _rule("blockExplosionDropDecay", "Boolean", "true", "Java only"),
+            _rule("mobExplosionDropDecay", "Boolean", "true", "Java only"),
+            _rule("tntExplosionDropDecay", "Boolean", "false"),
+            _rule("snowAccumulationHeight", "Integer", "1", "Java only"),
+        )
+    )
+    rows.extend(
+        _gated_rules(
+            "cherry_grove",
+            _rule("commandModificationBlockLimit", "Integer", "32768", "Java only"),
+            _rule("maxCommandForkCount", "Integer", "65536", "Java only"),
+            _rule("globalSoundEvents", "Boolean", "true", "Java only"),
+            _rule("waterSourceConversion", "Boolean", "true", "Java only"),
+            _rule("lavaSourceConversion", "Boolean", "false", "Java only"),
+        )
+    )
+    rows.extend(
+        _gated_rules(
+            "trial_chambers",
+            _rule("projectilesCanBreakBlocks", "Boolean", "true", "Java only"),
+            _rule("enderPearlsVanishOnDeath", "Boolean", "true", "Java only"),
+            _rule("spawnChunkRadius", "Integer", "2", "Java only"),
+        )
+    )
+    rows.extend(
+        _gated_rules(
+            "pale_garden", _rule("minecartMaxSpeed", "Integer", "8", "Java only")
+        )
+    )
+    rows.extend(_gated_rules("happy_ghast", _rule("locatorBar", "Boolean", "true")))
+    return rows
+
 
 SPECS: Dict[str, Spec] = {
     "entityBrowser": Spec(
@@ -51,6 +317,8 @@ SPECS: Dict[str, Spec] = {
                     "Vehicles",
                     "Block entities",
                     "Named only",
+                    *minecraft.gated("cherry_grove", "Display entities"),
+                    *minecraft.gated("mangrove_swamp", "Boats with chest"),
                 ],
             ),
             sec(
@@ -84,6 +352,9 @@ SPECS: Dict[str, Spec] = {
                     ),
                 ],
             ),
+            sec("Modern mob catalogue", "list", rows=_mob_rows()),
+            sec("", "note", hint=minecraft.entity_source_note()),
+            sec("", "note", hint=minecraft.support_report()),
         ),
         actions=(
             Action("Frame in viewport", "tonal"),
@@ -557,32 +828,21 @@ SPECS: Dict[str, Spec] = {
         confirm="Save game rules",
         sections=(
             sec("", "search", hint="Search game rules"),
-            sec(
-                "Rules",
-                "list",
-                rows=[
-                    Row(name="doDaylightCycle", detail="Boolean", tag="true"),
-                    Row(name="keepInventory", detail="Boolean", tag="false"),
-                    Row(name="mobGriefing", detail="Boolean", tag="false"),
-                    Row(name="randomTickSpeed", detail="Integer", tag="3"),
-                    Row(name="commandBlockOutput", detail="Boolean", tag="false"),
-                    Row(name="maxEntityCramming", detail="Integer", tag="24"),
-                    Row(name="doFireTick", detail="Boolean", tag="true"),
-                    Row(
-                        name="showCoordinates",
-                        detail="Boolean · Bedrock only",
-                        tag="true",
-                    ),
-                ],
-            ),
+            sec("Rules", "list", rows=_gamerule_rows()),
             sec(
                 "",
                 "note",
                 hint=(
-                    "Rules that do not exist on the world's platform are hidden "
-                    "rather than written with a default."
+                    "Rules that do not exist on the world's platform or version "
+                    "are hidden rather than written with a default. With no "
+                    "world open the value shown is the rule's own default and "
+                    "the platform beside it is the rule's documented "
+                    "availability, not something read from this install; "
+                    "opening a world replaces every row with what it actually "
+                    "stores."
                 ),
             ),
+            sec("", "note", hint=minecraft.support_report()),
         ),
         actions=(Action("Reset rule to default", "outlined"),),
     ),
@@ -742,6 +1002,8 @@ SPECS: Dict[str, Spec] = {
                     ),
                 ],
             ),
+            sec("Modern block coverage", "list", rows=_translation_coverage_rows()),
+            sec("", "note", hint=minecraft.support_report()),
         ),
         actions=(
             Action("Apply resolution", "tonal"),
@@ -1091,6 +1353,7 @@ SPECS: Dict[str, Spec] = {
                     ),
                 ],
             ),
+            *_mob_chip_sections(),
             sec(
                 "Spawn-proof",
                 "checks",
@@ -1105,6 +1368,7 @@ SPECS: Dict[str, Spec] = {
                     ),
                 ],
             ),
+            sec("", "note", hint=minecraft.entity_source_note()),
         ),
         actions=(
             Action("Apply spawn-proofing", "tonal"),

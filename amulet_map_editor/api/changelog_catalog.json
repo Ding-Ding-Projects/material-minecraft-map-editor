@@ -1,8 +1,68 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "678a4ea1d77b223a3f6e048a76a8b08fa54f95dc",
+  "source_revision": "123eafce2b842b8f88a37b71586623b617a3f715",
   "entries": [
+    {
+      "version": "0.10.0-dev.545",
+      "released_on": "2026-08-10",
+      "commit_sha": "583477e1191f0edbfbd83f7b66336df83e6e6b97",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Scrub private working vocabulary from the public website",
+          "commit_sha": "583477e1191f0edbfbd83f7b66336df83e6e6b97"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.543",
+      "released_on": "2026-08-10",
+      "commit_sha": "a4e51032d593ee61c54005274c4f8e3f6206f99f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Open four windows that could not be opened at all",
+          "commit_sha": "a4e51032d593ee61c54005274c4f8e3f6206f99f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.541",
+      "released_on": "2026-08-10",
+      "commit_sha": "a4739ed526fb5ecbc15aced446305cb2074f239c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make the update card visible again",
+          "commit_sha": "a4739ed526fb5ecbc15aced446305cb2074f239c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.539",
+      "released_on": "2026-08-10",
+      "commit_sha": "1846e42e102724bc8fb579dfe2e7e9039173e903",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep private working shorthand out of the shipped changelog",
+          "commit_sha": "1846e42e102724bc8fb579dfe2e7e9039173e903"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.537",
+      "released_on": "2026-08-10",
+      "commit_sha": "678a4ea1d77b223a3f6e048a76a8b08fa54f95dc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Float notifications in the corner, and show a real loading screen",
+          "commit_sha": "678a4ea1d77b223a3f6e048a76a8b08fa54f95dc"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.534",
       "released_on": "2026-08-10",

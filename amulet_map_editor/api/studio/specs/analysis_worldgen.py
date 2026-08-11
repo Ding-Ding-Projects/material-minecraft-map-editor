@@ -10,12 +10,21 @@ Nothing in this module claims a value it has not been given.  A chunk that fails
 to read is reported as an error rather than replaced, a predicted structure is
 labelled predicted until its chunk generates, and a conversion says what it will
 discard before it runs.
+
+The version-dependent content -- which structures a world can hold, and what a
+dimension's build range is -- comes from
+:mod:`amulet_map_editor.api.studio.minecraft`, which reads the installed
+libraries rather than carrying a version list of its own.  A feature the
+install does not know about leaves no chip behind, and every surface that shows
+any of it also shows the one sentence saying what this install can actually
+read, so a short list is never mistaken for old Minecraft.
 """
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, List
 
+from amulet_map_editor.api.studio import minecraft
 from amulet_map_editor.api.studio.spec import (
     Action,
     Check,
@@ -25,6 +34,192 @@ from amulet_map_editor.api.studio.spec import (
     Spec,
     sec,
 )
+
+
+def _structure_chips() -> List[str]:
+    """Return every structure type this install can hold, oldest era first.
+
+    Structures are not blocks, so the installed data cannot be asked about them
+    directly; each modern one is gated on the block family that shipped with
+    it, which is a question the block data does answer.  A structure that
+    predates every gate is always listed, because no install that can read a
+    world at all is without it.
+    """
+    chips = [
+        "Village",
+        "Stronghold",
+        "Mineshaft",
+        "Desert pyramid",
+        "Jungle temple",
+        "Witch hut",
+        "Igloo",
+        "Ocean monument",
+        "Woodland mansion",
+        "Pillager outpost",
+        "Shipwreck",
+        "Ocean ruin",
+        "Buried treasure",
+        "Ruined portal",
+        "Nether fortress",
+        "Bastion remnant",
+        "Nether fossil",
+        "End city",
+        "End gateway",
+    ]
+    chips.extend(minecraft.gated("deep_dark", "Ancient city"))
+    chips.extend(minecraft.gated("archaeology", "Trail ruins"))
+    chips.extend(minecraft.gated("trial_chambers", "Trial chamber"))
+    chips.extend(minecraft.gated("pale_garden", "Pale garden"))
+    return chips
+
+
+def _structure_prediction_rows() -> List[Row]:
+    """Return which structure types can be predicted and which must be read.
+
+    A structure reference stored in a generated chunk is a fact; a position
+    worked out from the seed is an expectation that only becomes a fact when
+    the chunk generates.  The rows say which is which per type, so a reader
+    never has to infer it from whether a coordinate happens to look plausible.
+    """
+    rows = [
+        Row(
+            name="Village · Pillager outpost · Desert pyramid",
+            detail="Read from chunk references, predicted from the seed elsewhere",
+            tag="both",
+        ),
+        Row(
+            name="Stronghold",
+            detail="Placed by the seed before generation; predicted until read",
+            tag="predicted",
+        ),
+        Row(
+            name="Mineshaft · Nether fossil · Buried treasure",
+            detail="Only recorded once the chunk generates",
+            tag="read",
+        ),
+        Row(
+            name="End city · End gateway",
+            detail="Predicted only after the end is generated",
+            tag="read",
+        ),
+    ]
+    rows.extend(
+        minecraft.gated(
+            "deep_dark",
+            Row(
+                name="Ancient city",
+                detail=(
+                    "Predicted from the seed until the deep dark chunk "
+                    f"generates · {minecraft.feature_note('deep_dark')}"
+                ),
+                tag="predicted",
+            ),
+        )
+    )
+    rows.extend(
+        minecraft.gated(
+            "archaeology",
+            Row(
+                name="Trail ruins",
+                detail=(
+                    "Predicted from the seed until the chunk generates · "
+                    f"{minecraft.feature_note('archaeology')}"
+                ),
+                tag="predicted",
+            ),
+        )
+    )
+    rows.extend(
+        minecraft.gated(
+            "trial_chambers",
+            Row(
+                name="Trial chamber",
+                detail=(
+                    "Predicted from the seed until the chunk generates · "
+                    f"{minecraft.feature_note('trial_chambers')}"
+                ),
+                tag="predicted",
+            ),
+        )
+    )
+    rows.extend(
+        minecraft.gated(
+            "pale_garden",
+            Row(
+                name="Pale garden",
+                detail=(
+                    "A biome rather than a structure reference, so it is always "
+                    f"a prediction · {minecraft.feature_note('pale_garden')}"
+                ),
+                tag="predicted",
+            ),
+        )
+    )
+    return rows
+
+
+def _height_rows() -> List[Row]:
+    """Return the build range of every dimension on every installed platform.
+
+    Each range is read through :func:`minecraft.height_range` at that
+    platform's newest installed version, and each row carries the note saying
+    where the numbers came from, so a range is never a constant somebody typed.
+    """
+    rows: List[Row] = []
+    for platform in minecraft.editable_platforms():
+        version = minecraft.latest(platform)
+        for dimension, bounds in minecraft.height_ranges(platform, version):
+            rows.append(
+                Row(
+                    name=f"{platform} · {dimension}",
+                    detail=minecraft.height_range_note(platform, version, dimension),
+                    tag=minecraft.range_text(bounds),
+                )
+            )
+    if not rows:
+        rows.append(
+            Row(
+                name="No build range could be read",
+                detail=minecraft.support_report(),
+                tag="unavailable",
+            )
+        )
+    return rows
+
+
+def _conversion_rows() -> List[Row]:
+    """Return the oldest and newest target of each platform, with its range.
+
+    A conversion drops whatever falls outside the target's overworld, so the
+    two ends of the installed range are the two rows that actually matter when
+    deciding whether a build survives one.
+    """
+    rows: List[Row] = []
+    for platform in minecraft.editable_platforms():
+        for version in (minecraft.oldest(platform), minecraft.latest(platform)):
+            if not version:
+                continue
+            bounds = minecraft.height_range(platform, version, minecraft.OVERWORLD)
+            rows.append(
+                Row(
+                    name=f"{platform} {minecraft.version_text(version)}",
+                    detail=(
+                        "Blocks outside this overworld range are reported before "
+                        "a conversion runs, never dropped silently"
+                    ),
+                    tag=minecraft.range_text(bounds),
+                )
+            )
+    if not rows:
+        rows.append(
+            Row(
+                name="No conversion target could be read",
+                detail=minecraft.support_report(),
+                tag="unavailable",
+            )
+        )
+    return rows
+
 
 #: The example operation shown in the operation console, transcribed verbatim so
 #: the reader sees a script that would genuinely run against the selection.
@@ -612,22 +807,7 @@ SPECS: Dict[str, Spec] = {
         ),
         sections=(
             sec("", "search", hint="Search structure types and coordinates"),
-            sec(
-                "Type",
-                "chips",
-                chips=[
-                    "Village",
-                    "Stronghold",
-                    "Mineshaft",
-                    "Ocean monument",
-                    "Woodland mansion",
-                    "Nether fortress",
-                    "Bastion",
-                    "End city",
-                    "Ancient city",
-                    "Trial chamber",
-                ],
-            ),
+            sec("Type", "chips", chips=_structure_chips()),
             sec(
                 "Found",
                 "list",
@@ -654,6 +834,7 @@ SPECS: Dict[str, Spec] = {
                     ),
                 ],
             ),
+            sec("Prediction support", "list", rows=_structure_prediction_rows()),
             sec(
                 "",
                 "note",
@@ -663,6 +844,7 @@ SPECS: Dict[str, Spec] = {
                     "generates."
                 ),
             ),
+            sec("", "note", hint=minecraft.support_report()),
         ),
         actions=(
             Action(label="Add as waypoint", kind="tonal", surface="waypoints"),
@@ -957,54 +1139,24 @@ SPECS: Dict[str, Spec] = {
         confirm="Close",
         intro=(
             "Build range varies by platform and dimension. Operations clamp to "
-            "the range of the world actually being edited."
+            "the range of the world actually being edited. The ranges below are "
+            "the installed platform ranges; open a world and its own dimension "
+            "types replace them, because a data pack may set any range it likes."
         ),
         sections=(
-            sec(
-                "Current world",
-                "list",
-                rows=[
-                    Row(
-                        name="overworld",
-                        detail="bedrock 1.17.0.1",
-                        tag="-64 to 320",
-                    ),
-                    Row(
-                        name="the_nether",
-                        detail="bedrock 1.17.0.1",
-                        tag="0 to 128",
-                    ),
-                    Row(
-                        name="the_end",
-                        detail="bedrock 1.17.0.1",
-                        tag="0 to 256",
-                    ),
-                ],
-            ),
-            sec(
-                "Conversion targets",
-                "list",
-                rows=[
-                    Row(
-                        name="java 1.12.2",
-                        detail="Blocks outside 0–256 are dropped on conversion",
-                        tag="0 to 256",
-                    ),
-                    Row(
-                        name="java 1.20.4",
-                        detail="Matches the current overworld range",
-                        tag="-64 to 320",
-                    ),
-                ],
-            ),
+            sec("Installed platform ranges", "list", rows=_height_rows()),
+            sec("Conversion targets", "list", rows=_conversion_rows()),
             sec(
                 "",
                 "note",
                 hint=(
                     "Amulet reports what a conversion will discard before it "
-                    "runs, rather than truncating silently."
+                    "runs, rather than truncating silently. The upper bound is "
+                    "exclusive, so an overworld of -64 to 320 has its highest "
+                    "placeable block at 319."
                 ),
             ),
+            sec("", "note", hint=minecraft.support_report()),
         ),
         actions=(Action(label="Check selection against target", kind="tonal"),),
     ),

@@ -168,6 +168,53 @@ def remember_section(key: str, expanded: bool) -> None:
 # ----------------------------------------------------------------------------
 
 
+@contextlib.contextmanager
+def measuring(window: wx.Window) -> Iterator[wx.DC]:
+    """Yield a device context that measures text the way painting draws it.
+
+    Every Studio surface paints through a ``wx.GCDC``: :func:`paint_context`
+    wraps one around the buffered paint context, and a capture wraps one around
+    its own bitmap.  A plain ``wx.ClientDC`` measures through GDI instead, and
+    the two do not agree.  On wxPython 4.3.1 / wxWidgets 3.3.3 the design's
+    filled button face reports ``"Confirm clone"`` as 81 pixels wide through the
+    client context and 83 through the graphics one.
+
+    Two pixels is enough to break every label in the shell.  A control sized
+    from the narrower measurement is *always* a hair narrower than the text it
+    then has to draw, so the ellipsis in :func:`elide` fires on labels that were
+    meant to fit exactly: "Confirm clone" became "Confirm clo…", "Cancel clone"
+    became "Cancel clo…", and "Apply" -- five characters on a button with
+    twenty-four pixels of padding either side -- became "Ap…".  It looks like a
+    layout that ran out of room and it is really a measurement taken with the
+    wrong ruler.
+
+    Measuring through the same wrapper that draws is what makes "a control is
+    sized to its own text" true rather than nearly true.  The client context is
+    kept alive for as long as the wrapper, because a ``wx.GCDC`` over a released
+    device context measures nothing.
+    """
+    source = wx.ClientDC(window)
+    try:
+        wrapper: wx.DC = wx.GCDC(source)
+    except TypeError:  # pragma: no cover - platform boundary
+        # Without the wrapper the measurement is the platform's own, which is
+        # also what such a build would paint with, so the two still agree.
+        yield source
+        return
+    try:
+        yield wrapper
+    finally:
+        del wrapper
+
+
+#: Slack added to a measured label before it becomes a control's width.
+#: ``GetTextExtent`` reports whole pixels while the graphics renderer lays glyphs
+#: out on fractional positions, so a control sized to the reported width can
+#: still be a fraction of a pixel short of the drawing.  One pixel each side
+#: costs nothing and removes the last case where a label that fits is elided.
+TEXT_SLACK = 1
+
+
 def elide(dc: wx.DC, text: str, max_width: int) -> str:
     """Return ``text`` shortened with an ellipsis so it fits ``max_width``."""
     if max_width <= 0 or not text:
@@ -185,6 +232,39 @@ def elide(dc: wx.DC, text: str, max_width: int) -> str:
         else:
             high = middle - 1
     return text[:low] + ellipsis
+
+
+def note_elision(window: wx.Window, full: str, drawn: str, *, hint: str = "") -> None:
+    """Keep the whole of an elided label reachable from the control itself.
+
+    Sizing a control from its measured text is the first half of the answer to
+    a clipped label; the other half is what happens when a container genuinely
+    cannot give a control the width its text needs.  A label cut to "Confirm
+    clo…" with nothing behind it is information the interface has simply lost,
+    and a screen-reader user hears the same stump.
+
+    So the ellipsis is only ever half of the presentation: whenever a widget
+    draws less than its full text it puts the full text in its own tooltip
+    here, alongside whatever hint it already carried.  The accessible name is
+    untouched, because every widget in this module is installed with its
+    complete label as its name and keeps it when the drawing shortens -- what
+    is on screen changes, what the control is called does not.
+
+    The tooltip is only written when it would change, because this runs from a
+    paint handler.
+    """
+    full_text = str(full)
+    hint_text = str(hint or "")
+    wanted = hint_text
+    if full_text and str(drawn) != full_text:
+        wanted = f"{full_text}\n{hint_text}" if hint_text else full_text
+    if getattr(window, "_elision_tooltip", None) == wanted:
+        return
+    window._elision_tooltip = wanted
+    try:
+        window.SetToolTip(wanted or None)
+    except (RuntimeError, TypeError):  # pragma: no cover - the window has gone
+        log.debug("Could not record an elided label for %s", window.GetName())
 
 
 def wrap_text(dc: wx.DC, text: str, max_width: int, max_lines: int = 2) -> List[str]:
@@ -698,42 +778,47 @@ class StudioButton(wx.Control, _Interactive):
     # -- geometry ------------------------------------------------------------
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         padding, _radius, size_px, weight, _fixed = self._metrics()
-        dc = wx.ClientDC(self)
-        dc.SetFont(self._label_font(size_px, weight))
-        label = self.GetLabel()
-        if self.variant == "ribbon":
-            lines = wrap_text(dc, label or " ", tokens.scaled(_RIBBON_LABEL_WIDTH), 2)
+        with measuring(self) as dc:
+            dc.SetFont(self._label_font(size_px, weight))
+            label = self.GetLabel()
+            if self.variant == "ribbon":
+                lines = wrap_text(
+                    dc, label or " ", tokens.scaled(_RIBBON_LABEL_WIDTH), 2
+                )
+                text_width = max(dc.GetTextExtent(line)[0] for line in lines)
+                line_height = dc.GetCharHeight()
+                width = max(
+                    tokens.scaled(_RIBBON_MIN_WIDTH),
+                    text_width + TEXT_SLACK * 2 + tokens.scaled(padding) * 2,
+                    tokens.scaled(_RIBBON_BADGE) + tokens.scaled(padding) * 2,
+                    tokens.scaled(self._min_width),
+                )
+                height = (
+                    tokens.scaled(9)
+                    + tokens.scaled(_RIBBON_BADGE)
+                    + tokens.scaled(6)
+                    + line_height * len(lines)
+                    + tokens.scaled(8)
+                )
+                return wx.Size(width, height)
+            height = self._height_for()
+            if self.variant == "icon" and not label.strip():
+                return wx.Size(
+                    max(tokens.scaled(_ICON_WIDTH), tokens.scaled(self._min_width)),
+                    height,
+                )
+            lines = [line for line in label.split("\n") if line] or [" "]
             text_width = max(dc.GetTextExtent(line)[0] for line in lines)
-            line_height = dc.GetCharHeight()
-            width = max(
-                tokens.scaled(_RIBBON_MIN_WIDTH),
-                text_width + tokens.scaled(padding) * 2,
-                tokens.scaled(_RIBBON_BADGE) + tokens.scaled(padding) * 2,
-                tokens.scaled(self._min_width),
-            )
-            height = (
-                tokens.scaled(9)
-                + tokens.scaled(_RIBBON_BADGE)
-                + tokens.scaled(6)
-                + line_height * len(lines)
-                + tokens.scaled(8)
-            )
-            return wx.Size(width, height)
-        height = self._height_for()
-        if self.variant == "icon" and not label.strip():
-            return wx.Size(
-                max(tokens.scaled(_ICON_WIDTH), tokens.scaled(self._min_width)), height
-            )
-        lines = [line for line in label.split("\n") if line] or [" "]
-        text_width = max(dc.GetTextExtent(line)[0] for line in lines)
-        if self.glyph:
-            text_width += dc.GetTextExtent(f"{self.glyph} ")[0]
-        width = text_width + tokens.scaled(padding) * 2
-        if self.variant == "icon":
-            width = max(width, tokens.scaled(_ICON_WIDTH))
-        if len(lines) > 1:
-            height = max(height, dc.GetCharHeight() * len(lines) + tokens.scaled(10))
-        return wx.Size(max(width, tokens.scaled(self._min_width)), height)
+            if self.glyph:
+                text_width += dc.GetTextExtent(f"{self.glyph} ")[0]
+            width = text_width + TEXT_SLACK * 2 + tokens.scaled(padding) * 2
+            if self.variant == "icon":
+                width = max(width, tokens.scaled(_ICON_WIDTH))
+            if len(lines) > 1:
+                height = max(
+                    height, dc.GetCharHeight() * len(lines) + tokens.scaled(10)
+                )
+            return wx.Size(max(width, tokens.scaled(self._min_width)), height)
 
     # -- behaviour -----------------------------------------------------------
     def set_label(self, text: str) -> None:
@@ -803,6 +888,7 @@ class StudioButton(wx.Control, _Interactive):
             for line in lines[1:]:
                 rendered.append(elide(dc, line, available))
                 heights.append(dc.GetCharHeight())
+        note_elision(self, label, "\n".join(rendered), hint=self.hint)
         total = sum(heights)
         y = rect.y + max(0, (rect.height - total) // 2)
         for index, line in enumerate(rendered):
@@ -849,6 +935,9 @@ class StudioButton(wx.Control, _Interactive):
             tokens.scaled(_RIBBON_LABEL_WIDTH), rect.width - tokens.scaled(8)
         )
         lines = wrap_text(dc, self.GetLabel(), available, 2)
+        note_elision(
+            self, " ".join(self.GetLabel().split()), " ".join(lines), hint=self.hint
+        )
         y = badge_rect.GetBottom() + tokens.scaled(6)
         for line in lines:
             text_width = dc.GetTextExtent(line)[0]
@@ -919,14 +1008,14 @@ class Chip(wx.Control, _Interactive):
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(14), _MEDIUM))
-        lines = self.GetLabel().split("\n") or [" "]
-        width = max(dc.GetTextExtent(line or " ")[0] for line in lines)
-        height = max(
-            tokens.scaled(32), dc.GetCharHeight() * len(lines) + tokens.scaled(8)
-        )
-        return wx.Size(width + tokens.scaled(32), height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(14), _MEDIUM))
+            lines = self.GetLabel().split("\n") or [" "]
+            width = max(dc.GetTextExtent(line or " ")[0] for line in lines)
+            height = max(
+                tokens.scaled(32), dc.GetCharHeight() * len(lines) + tokens.scaled(8)
+            )
+            return wx.Size(width + TEXT_SLACK * 2 + tokens.scaled(32), height)
 
     def set_selected(self, selected: bool) -> None:
         """Set the chip's state without running its callback."""
@@ -968,8 +1057,9 @@ class Chip(wx.Control, _Interactive):
             available = max(0, width - tokens.scaled(24))
             line_height = dc.GetCharHeight()
             y = (height - line_height * len(lines)) // 2
-            for line in lines:
-                text = elide(dc, line, available)
+            rendered = [elide(dc, line, available) for line in lines]
+            note_elision(self, self.GetLabel(), "\n".join(rendered))
+            for text in rendered:
                 text_width = dc.GetTextExtent(text)[0]
                 dc.DrawText(text, (width - text_width) // 2, y)
                 y += line_height
@@ -1000,13 +1090,13 @@ class SectionLabel(wx.Control, _Themed):
         return tokens.font(self, point_size(10), wx.FONTWEIGHT_BOLD)
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(self._font())
-        text = self.GetLabel().upper()
-        return wx.Size(
-            tracked_width(dc, text, tokens.scaled(self.TRACKING)) + 2,
-            dc.GetCharHeight() + tokens.scaled(2),
-        )
+        with measuring(self) as dc:
+            dc.SetFont(self._font())
+            text = self.GetLabel().upper()
+            return wx.Size(
+                tracked_width(dc, text, tokens.scaled(self.TRACKING)) + TEXT_SLACK * 2,
+                dc.GetCharHeight() + tokens.scaled(2),
+            )
 
     def set_label(self, text: str) -> None:
         """Replace the caption and re-measure it."""
@@ -1017,14 +1107,24 @@ class SectionLabel(wx.Control, _Themed):
         self.Refresh()
 
     def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
-        """Draw the tracked uppercase caption into ``dc``."""
+        """Draw the tracked uppercase caption, shortened only if it must be."""
         palette = self.palette()
-        with self._painting(dc, rect):
+        with self._painting(dc, rect) as rect:
             dc.SetFont(self._font())
             dc.SetTextForeground(palette.on_surface_variant)
-            draw_tracked_text(
-                dc, self.GetLabel().upper(), 0, 0, tokens.scaled(self.TRACKING)
-            )
+            tracking = tokens.scaled(self.TRACKING)
+            text = self.GetLabel().upper()
+            drawn = text
+            # A caption is sized to its own tracked width, so this only bites
+            # when a container squeezed it -- and then the whole caption is
+            # still one tooltip away rather than gone.
+            if tracked_width(dc, text, tracking) > rect.width:
+                body = text
+                while body and tracked_width(dc, f"{body}…", tracking) > rect.width:
+                    body = body[:-1]
+                drawn = f"{body}…" if body else ""
+            note_elision(self, text, drawn)
+            draw_tracked_text(dc, drawn, 0, 0, tracking)
 
 
 class Card(wx.Panel, _Themed):
@@ -1204,6 +1304,7 @@ class Stepper(wx.Control, _Interactive):
         self.suffix = str(suffix)
         self.on_change = on_change
         self._editing = ""
+        self._field_cache: Optional[int] = None
         self._install(
             f"Value between {format_number(self.minimum)} and "
             f"{format_number(self.maximum)}"
@@ -1220,16 +1321,58 @@ class Stepper(wx.Control, _Interactive):
         return max(self.minimum, min(self.maximum, number))
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, point_size(10)))
-        range_width = dc.GetTextExtent(self._range_text())[0]
-        width = (
-            tokens.scaled(self.BUTTON) * 2
-            + tokens.scaled(self.FIELD)
-            + tokens.scaled(self.GAP) * 3
-            + range_width
+        with measuring(self) as dc:
+            dc.SetFont(tokens.mono_font(self, point_size(10)))
+            range_width = dc.GetTextExtent(self._range_text())[0]
+            field = self._field_width(dc)
+            width = (
+                tokens.scaled(self.BUTTON) * 2
+                + field
+                + tokens.scaled(self.GAP) * 3
+                + range_width
+                + TEXT_SLACK * 2
+            )
+            return wx.Size(
+                width, max(tokens.scaled(self.BUTTON), tokens.control_height())
+            )
+
+    def _field_width(self, dc: Optional[wx.DC] = None) -> int:
+        """Return how wide the value box has to be for any value it can hold.
+
+        The design's width was measured against a two-digit value with no
+        suffix.  A stepper bounded at 100000, or one carrying "blocks" after
+        its number, needs more -- and sizing to the *current* value instead
+        would resize the control on every keystroke.  Both bounds are measured,
+        so the box is as wide as the widest thing it will ever show and then
+        stops moving.
+
+        The result is remembered because the hit regions are worked out from it
+        on every paint and every click, and neither of those should be paying
+        for a graphics context.  The bounds and the suffix do not change after
+        construction; a density or scale change goes through
+        :meth:`refresh_theme`, which clears it.
+        """
+        cached = getattr(self, "_field_cache", None)
+        if cached is not None:
+            return cached
+        if dc is None:
+            with measuring(self) as own:
+                return self._field_width(own)
+        dc.SetFont(tokens.mono_font(self, point_size(12)))
+        widest = max(
+            dc.GetTextExtent(f"{format_number(bound)} {self.suffix}".strip() or " ")[0]
+            for bound in (self.minimum, self.maximum)
         )
-        return wx.Size(width, max(tokens.scaled(self.BUTTON), tokens.control_height()))
+        width = max(
+            tokens.scaled(self.FIELD), widest + TEXT_SLACK * 2 + tokens.scaled(12)
+        )
+        self._field_cache = width
+        return width
+
+    def refresh_theme(self) -> None:
+        """Re-read the tokens, forgetting the measurement they were taken at."""
+        self._field_cache = None
+        super().refresh_theme()
 
     def _range_text(self) -> str:
         text = f"{format_number(self.minimum)} … {format_number(self.maximum)}"
@@ -1276,7 +1419,7 @@ class Stepper(wx.Control, _Interactive):
             height = self.GetClientSize().height
         button = tokens.scaled(self.BUTTON)
         gap = tokens.scaled(self.GAP)
-        field = tokens.scaled(self.FIELD)
+        field = self._field_width()
         top = (height - button) // 2
         minus = wx.Rect(0, top, button, button)
         value = wx.Rect(button + gap, top, field, button)
@@ -1392,10 +1535,12 @@ class _ValuePill(wx.Control, _Themed):
         return False
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
-        width = dc.GetTextExtent(self.GetLabel() or " ")[0]
-        return wx.Size(width + tokens.scaled(24), tokens.scaled(26))
+        with measuring(self) as dc:
+            dc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
+            width = dc.GetTextExtent(self.GetLabel() or " ")[0]
+            return wx.Size(
+                width + TEXT_SLACK * 2 + tokens.scaled(24), tokens.scaled(26)
+            )
 
     def set_text(self, text: str) -> None:
         """Replace the readout and re-measure the pill around it."""
@@ -1584,16 +1729,32 @@ class ProgressRow(wx.Panel, _Themed):
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(12)))
-        height = dc.GetCharHeight() + tokens.scaled(self.BAR_HEIGHT) + tokens.scaled(8)
-        return wx.Size(240, height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(12)))
+            height = (
+                dc.GetCharHeight() + tokens.scaled(self.BAR_HEIGHT) + tokens.scaled(8)
+            )
+            # The hint and the readout share one line, so the row is as wide as
+            # both of them plus the gap between; the design's 240 is the floor
+            # rather than the answer, and it was not scaled at all before.
+            hint_width = dc.GetTextExtent(self.hint)[0]
+            dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+            label_width = dc.GetTextExtent(self.label)[0]
+            width = max(
+                tokens.scaled(240),
+                hint_width + label_width + tokens.scaled(24) + TEXT_SLACK * 2,
+            )
+            return wx.Size(width, height)
 
     def set_progress(self, fraction: float, label: str = "") -> None:
         """Update the bar and, when given, its readout."""
         self.fraction = max(0.0, min(1.0, float(fraction)))
-        if label:
+        if label and str(label) != self.label:
             self.label = str(label)
+            # The readout is part of what the row is measured against, so a
+            # longer one has to re-measure rather than push the hint off.
+            self.InvalidateBestSize()
+            self.SetMinSize(self.DoGetBestSize())
         self.SetName(f"{self.hint} {self.label}".strip() or "Progress")
         self.Refresh()
 
@@ -1606,7 +1767,9 @@ class ProgressRow(wx.Panel, _Themed):
             text_height = dc.GetCharHeight()
             dc.SetTextForeground(palette.on_surface_variant)
             label_width = dc.GetTextExtent(self.label)[0]
-            dc.DrawText(elide(dc, self.hint, max(0, width - label_width - 12)), 0, 0)
+            hint = elide(dc, self.hint, max(0, width - label_width - tokens.scaled(12)))
+            note_elision(self, self.hint, hint)
+            dc.DrawText(hint, 0, 0)
             dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
             dc.SetTextForeground(palette.primary)
             dc.DrawText(self.label, max(0, width - label_width), 0)
@@ -1676,6 +1839,9 @@ class _TextBox(wx.Panel, _Themed):
         self.text.SetName(name)
         if placeholder:
             self.text.SetHint(str(placeholder))
+            # A field narrower than its own placeholder shows a clipped prompt
+            # and nothing else; the whole prompt stays reachable here.
+            self.text.SetToolTip(str(placeholder))
         self._apply_theme(self.palette())
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
@@ -1687,13 +1853,29 @@ class _TextBox(wx.Panel, _Themed):
             self.text.Bind(wx.EVT_TEXT_ENTER, self._on_enter)
         self.SetInitialSize(self.DoGetBestSize())
 
+    #: The design's field width, and the widest a field will grow to hold its
+    #: own placeholder.  Past that the hint is left to the tooltip: a field
+    #: scrolls its content, so nothing typed is ever lost, but a placeholder
+    #: nobody can read is a prompt that failed at the one job it has.
+    WIDTH = 160
+    MAX_WIDTH = 360
+
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         height = (
             tokens.scaled(self._height)
             if self._height is not None
             else tokens.control_height()
         )
-        return wx.Size(tokens.scaled(160), height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(self.size_px), mono=self._mono))
+            hint = self.text.GetHint() if getattr(self, "text", None) else ""
+            content = dc.GetTextExtent(str(hint) or " ")[0]
+            padding = tokens.scaled(11) * 2 + self._prefix_width(dc)
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(tokens.scaled(self.WIDTH), content + padding + TEXT_SLACK * 2),
+        )
+        return wx.Size(width, height)
 
     def value(self) -> str:
         """Return the current text."""
@@ -1719,8 +1901,8 @@ class _TextBox(wx.Panel, _Themed):
     def _on_size(self, event: wx.SizeEvent) -> None:
         width, height = self.GetClientSize()
         padding = tokens.scaled(11)
-        dc = wx.ClientDC(self)
-        prefix = self._prefix_width(dc)
+        with measuring(self) as dc:
+            prefix = self._prefix_width(dc)
         text_height = self.text.GetBestSize().height
         self.text.SetSize(
             padding + prefix,
@@ -1799,6 +1981,12 @@ class OutlinedField(wx.Panel, _Themed):
     LABEL_TOP = 6
     BOX_HEIGHT = 48
     TEXT_PADDING = 15
+    #: The design's field width, and the widest one will grow to hold its own
+    #: floating label.  The label is painted into the outline, so unlike the
+    #: value it cannot scroll: a field narrower than its label loses the name
+    #: of the thing being edited.
+    WIDTH = 220
+    MAX_WIDTH = 420
 
     def __init__(
         self,
@@ -1833,7 +2021,17 @@ class OutlinedField(wx.Panel, _Themed):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         height = tokens.scaled(self.LABEL_TOP) + tokens.scaled(self.BOX_HEIGHT)
-        return wx.Size(tokens.scaled(220), height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(11)))
+            label_width = dc.GetTextExtent(self.label or " ")[0]
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(
+                tokens.scaled(self.WIDTH),
+                label_width + tokens.scaled(30) + TEXT_SLACK * 2,
+            ),
+        )
+        return wx.Size(width, height)
 
     def value(self) -> str:
         """Return the current text."""
@@ -1920,6 +2118,7 @@ class OutlinedField(wx.Panel, _Themed):
             if self.label:
                 dc.SetFont(tokens.font(self, point_size(11)))
                 label = elide(dc, self.label, max(0, box.width - tokens.scaled(30)))
+                note_elision(self, self.label, label)
                 label_width = dc.GetTextExtent(label)[0]
                 notch = wx.Rect(
                     tokens.scaled(11),
@@ -2371,23 +2570,32 @@ class AnchoredPopup(wx.PopupTransientWindow):
         size, so fitting the popup around one collapses it to a couple of rows
         and silently hides everything below the cut -- which is the exact
         failure the scrolling was added to prevent.
+
+        The arithmetic follows the root sizer rather than approximating it.
+        The header is added with the inset above it and the content with the
+        inset on all four sides, so three insets of vertical space are spoken
+        for, not two-and-a-bit: the old sum was four pixels short at the
+        shipped tokens, and four pixels is exactly enough to slice the bottom
+        row of a menu in half lengthways while leaving every row above it
+        looking perfect.  The header is measured into the width too, because a
+        search field wider than the list it filters was being cut off at
+        "Reg".
         """
         area = self.work_area()
         self.header.Fit()
-        header_height = self.header.GetBestSize().height
+        header_size = self.header.GetBestSize()
+        header_height = header_size.height
         content_min = self.content_sizer.GetMinSize()
         self.content.SetVirtualSize(content_min)
-        inset = (tokens.scaled(self.MARGIN) + tokens.scaled(self.PADDING)) * 2
+        inset = tokens.scaled(self.MARGIN) + tokens.scaled(self.PADDING)
 
-        width = content_min.width + inset
+        width = max(content_min.width, header_size.width) + inset * 2
         if self.requested_width:
             width = tokens.scaled(self.requested_width)
         width = max(width, self.anchor.GetSize().width)
         width = min(width, max(120, area.width - tokens.scaled(16)))
 
-        height = (
-            header_height + content_min.height + inset + tokens.scaled(self.PADDING)
-        )
+        height = header_height + content_min.height + inset * 3
         limit = area.height - tokens.scaled(24)
         if self.requested_max_height:
             limit = min(limit, tokens.scaled(self.requested_max_height))
@@ -2635,12 +2843,16 @@ class _OptionRow(wx.Control, _Interactive):
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(12)))
-        width = dc.GetTextExtent(self.GetLabel() or " ")[0] + tokens.scaled(26)
-        if self.swatch:
-            width += tokens.scaled(self.SWATCH + 8)
-        return wx.Size(width, tokens.scaled(self.HEIGHT))
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(12)))
+            width = (
+                dc.GetTextExtent(self.GetLabel() or " ")[0]
+                + TEXT_SLACK * 2
+                + tokens.scaled(26)
+            )
+            if self.swatch:
+                width += tokens.scaled(self.SWATCH + 8)
+            return wx.Size(width, tokens.scaled(self.HEIGHT))
 
     def set_selected(self, selected: bool) -> None:
         """Mark this row as the chosen option."""
@@ -2683,6 +2895,7 @@ class _OptionRow(wx.Control, _Interactive):
             dc.SetFont(tokens.font(self, point_size(12)))
             dc.SetTextForeground(ink)
             text = elide(dc, self.GetLabel(), max(0, width - left - tokens.scaled(9)))
+            note_elision(self, self.GetLabel(), text)
             dc.DrawText(text, left, (height - dc.GetCharHeight()) // 2)
             if self.HasFocus():
                 draw_focus_ring(dc, rect, radius, palette.primary)
@@ -2747,9 +2960,30 @@ class SearchableChoice(wx.Panel, _Interactive):
     def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
         return True
 
+    #: The design's combo width, and the widest one grows to.  The value is
+    #: elided rather than scrolled, so a combo narrower than the option it is
+    #: showing hides the current choice; both the label and the longest option
+    #: are measured.
+    WIDTH = 220
+    MAX_WIDTH = 420
+
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         height = tokens.scaled(self.LABEL_TOP) + tokens.scaled(self.BOX_HEIGHT)
-        return wx.Size(tokens.scaled(220), height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(14)))
+            values = [*self.options, self.value] or [" "]
+            value_width = max(dc.GetTextExtent(text or " ")[0] for text in values)
+            dc.SetFont(tokens.font(self, point_size(11)))
+            label_width = dc.GetTextExtent(self.label or " ")[0]
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(
+                tokens.scaled(self.WIDTH),
+                value_width + tokens.scaled(46) + TEXT_SLACK * 2,
+                label_width + tokens.scaled(30) + TEXT_SLACK * 2,
+            ),
+        )
+        return wx.Size(width, height)
 
     # -- value ---------------------------------------------------------------
     def set_value(self, value: str, *, notify: bool = False) -> None:
@@ -2765,6 +2999,10 @@ class SearchableChoice(wx.Panel, _Interactive):
         self.options = [str(option) for option in options]
         if self.value not in self.options:
             self.value = self.options[0] if self.options else ""
+        # A new option list is new content, and the combo is sized to the
+        # widest thing it can show.
+        self.InvalidateBestSize()
+        self.SetMinSize(self.DoGetBestSize())
         self.Refresh()
 
     def filtered_options(self) -> List[str]:
@@ -2909,6 +3147,7 @@ class SearchableChoice(wx.Panel, _Interactive):
             dc.SetTextForeground(palette.on_surface)
             available = max(0, box.width - tokens.scaled(46))
             value = elide(dc, self.value, available)
+            note_elision(self, self.value, value, hint=self.label)
             dc.DrawText(
                 value,
                 tokens.scaled(15),
@@ -3345,17 +3584,37 @@ class ListRow(wx.Control, _Interactive):
     def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
         return self.on_click is not None
 
+    #: The design's row width, and the widest a row grows to before its name
+    #: and detail start eliding into their own tooltip.
+    WIDTH = 240
+    MAX_WIDTH = 520
+
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
-        name_height = dc.GetCharHeight()
-        dc.SetFont(tokens.font(self, point_size(12)))
-        detail_height = dc.GetCharHeight() if self.detail else 0
-        height = max(
-            tokens.control_height(),
-            name_height + detail_height + tokens.scaled(20),
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            name_height = dc.GetCharHeight()
+            text_width = dc.GetTextExtent(self.row_name or " ")[0]
+            dc.SetFont(tokens.font(self, point_size(12)))
+            detail_height = dc.GetCharHeight() if self.detail else 0
+            if self.detail:
+                text_width = max(text_width, dc.GetTextExtent(self.detail)[0])
+            dc.SetFont(tokens.mono_font(self, point_size(11)))
+            tag_width = dc.GetTextExtent(self.tag)[0] if self.tag else 0
+            height = max(
+                tokens.control_height(),
+                name_height + detail_height + tokens.scaled(20),
+            )
+        chrome = tokens.scaled(36) + (
+            tokens.scaled(self.SWATCH + 11) if self.swatch else 0
         )
-        return wx.Size(tokens.scaled(240), height)
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(
+                tokens.scaled(self.WIDTH),
+                text_width + tag_width + chrome + TEXT_SLACK * 2,
+            ),
+        )
+        return wx.Size(width, height)
 
     def activate(self) -> None:
         if self.on_click is None:
@@ -3407,11 +3666,19 @@ class ListRow(wx.Control, _Interactive):
                 detail_height = dc.GetCharHeight()
             top = (height - name_height - detail_height) // 2
             dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
-            dc.DrawText(elide(dc, self.row_name, available), left, top)
+            drawn_name = elide(dc, self.row_name, available)
+            dc.DrawText(drawn_name, left, top)
+            drawn_detail = self.detail
             if self.detail:
                 dc.SetFont(tokens.font(self, point_size(12)))
                 dc.SetTextForeground(palette.on_surface_variant)
-                dc.DrawText(elide(dc, self.detail, available), left, top + name_height)
+                drawn_detail = elide(dc, self.detail, available)
+                dc.DrawText(drawn_detail, left, top + name_height)
+            note_elision(
+                self,
+                " · ".join(part for part in (self.row_name, self.detail) if part),
+                " · ".join(part for part in (drawn_name, drawn_detail) if part),
+            )
             if self.HasFocus():
                 draw_focus_ring(dc, rect, radius, palette.primary)
 
@@ -3691,15 +3958,20 @@ class TreeRows(wx.Panel, _Themed):
         return True
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, point_size(12)))
-        width = tokens.scaled(200)
-        for glyph, label, _selected in self.nodes:
-            width = max(
-                width, dc.GetTextExtent(f"{glyph} {label}")[0] + tokens.scaled(40)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.mono_font(self, point_size(12)))
+            width = tokens.scaled(200)
+            for glyph, label, _selected in self.nodes:
+                width = max(
+                    width,
+                    dc.GetTextExtent(f"{glyph} {label}")[0]
+                    + TEXT_SLACK * 2
+                    + tokens.scaled(40),
+                )
+            rows = max(1, len(self.nodes))
+            return wx.Size(
+                width, rows * tokens.scaled(self.ROW_HEIGHT) + tokens.scaled(20)
             )
-        rows = max(1, len(self.nodes))
-        return wx.Size(width, rows * tokens.scaled(self.ROW_HEIGHT) + tokens.scaled(20))
 
     def select(self, index: int, *, notify: bool = True) -> None:
         """Move the selection, wrapping inside the list."""
@@ -3805,10 +4077,14 @@ class _KeyButton(wx.Control, _Interactive):
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(13)))
-        width = dc.GetTextExtent(self.GetLabel())[0] + tokens.scaled(28)
-        return wx.Size(width, dc.GetCharHeight() + tokens.scaled(28))
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(13)))
+            width = (
+                dc.GetTextExtent(self.GetLabel())[0]
+                + TEXT_SLACK * 2
+                + tokens.scaled(28)
+            )
+            return wx.Size(width, dc.GetCharHeight() + tokens.scaled(28))
 
     def set_held(self, held: bool, *, notify: bool = True) -> None:
         """Hold or release this key."""
