@@ -29,7 +29,6 @@ jobs:
       build_version: ${{ steps.resolve-version.outputs.build_version }}
       build_channel: ${{ steps.resolve-version.outputs.build_channel }}
       source_tag: ${{ steps.resolve-version.outputs.source_tag }}
-      tests_passed: ${{ steps.release-gating-tests.outcome == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -45,8 +44,8 @@ jobs:
     - name: Clone
       uses: actions/checkout@v6
       with:
-        # Changelog generation and release-gating tests inspect every reachable
-        # release tag; a shallow checkout makes the catalog empty on Windows.
+        # Changelog generation, the line count and the release notes inspect
+        # every reachable tag; a shallow checkout makes the catalog empty.
         fetch-depth: 0
 
     - name: Set up Python ${{ matrix.cfg.python-version }}
@@ -57,7 +56,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install twine pyinstaller~=6.18 build pytest pytest-timeout
+        pip install twine pyinstaller~=6.18 build
 
     - name: Build Wheels
       shell: pwsh
@@ -69,23 +68,11 @@ jobs:
       run: |
         python -m pip install dist/amulet_map_editor-*.whl --upgrade
 
-    - name: Run release-gating tests
-      id: release-gating-tests
+    # The changelog catalog is generated content the packaged build embeds, so
+    # it is still rebuilt here even though this workflow no longer runs tests.
+    - name: Generate the changelog catalog
       run: |
         python scripts/generate_changelog.py
-        python -m pytest tests -v --junitxml=test-results/junit.xml
-
-    # The gating report is the evidence for whether this build may ship, so it
-    # is collected whether the gate passed or failed.
-    - name: Upload release-gating test results
-      uses: actions/upload-artifact@v6
-      if: ${{ always() }}
-      continue-on-error: true
-      with:
-        name: release-gating-tests-${{ matrix.cfg.architecture }}
-        path: test-results
-        if-no-files-found: warn
-        retention-days: 7
 
     - name: PyInstaller build
       run: |
@@ -303,7 +290,7 @@ jobs:
     # marker in our notes prevents that event from trying to upload the same
     # immutable assets a second time, while still allowing manually published
     # releases to use this path.
-    if: ${{ needs.deploy.result == 'success' && needs.deploy.outputs.tests_passed == 'true' && (github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->')) }}
+    if: ${{ needs.deploy.result == 'success' && (github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write

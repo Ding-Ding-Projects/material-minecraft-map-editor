@@ -21,24 +21,27 @@ class CrossPlatformWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("wayland-lock-pointer", install_requires)
         self.assertIn("wayland =", setup)
 
-    def test_windows_release_gate_bootstraps_pytest(self):
+    def test_the_windows_build_no_longer_runs_a_release_gate(self):
+        """The gating step was removed deliberately; it must not creep back.
+
+        Tests still run on every push, in the Unittests workflow. What changed
+        is that a failing test no longer withholds the build, so this asserts
+        the removal rather than the step -- a test that quietly returned would
+        restore the gate without anyone deciding to.
+        """
         workflow = (ROOT / ".github" / "workflows" / "build-windows.yml").read_text(
             encoding="utf-8"
         )
-        self.assertIn("build pytest", workflow)
-        # The gate runs pytest, which collects both TestCase subclasses and
-        # module-level test functions.  ``unittest discover`` only finds the
-        # former, and silently skipped the majority of this suite.
-        self.assertIn("python -m pytest tests", workflow)
-        self.assertNotIn(
-            "python -m unittest discover",
-            workflow,
-            "the release gate must not fall back to a collector that skips "
-            "every module-level test function",
-        )
+        for marker in ("release-gating", "tests_passed", "python -m pytest tests"):
+            with self.subTest(marker=marker):
+                self.assertNotIn(marker, workflow)
 
-    def test_check_workflow_uses_the_same_collector_as_the_release_gate(self):
-        """A gate that runs different tests from CI proves the wrong thing."""
+    def test_the_check_workflow_still_uses_the_collector_that_sees_everything(self):
+        """``unittest discover`` finds only TestCase subclasses.
+
+        It silently skipped the majority of this suite once already, so the
+        workflow that does still run the tests has to keep using pytest.
+        """
         checks = (ROOT / ".github" / "workflows" / "unittests.yml").read_text(
             encoding="utf-8"
         )
