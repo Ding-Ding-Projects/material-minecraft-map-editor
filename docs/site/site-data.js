@@ -381,8 +381,8 @@ window.AMULET_SITE_DATA = {
     {
       "category": "Operations",
       "title": "Release-grade shutdown",
-      "detail": "The yum-tong workflow preserves and publishes recoverable work, runs local release gates, builds real installers, verifies one release, obtains green CI, then cleans up after fresh destructive confirmation.",
-      "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/docs/features/operations/yum-tong.md"
+      "detail": "The release-shutdown workflow preserves and publishes recoverable work, runs the local release gates, builds real installers, verifies one release, obtains a green continuous-integration result, then cleans up only after a fresh explicit confirmation.",
+      "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/docs/features/operations/release shutdown.md"
     },
     {
       "category": "Operations",
@@ -616,7 +616,7 @@ window.AMULET_SITE_DATA = {
       "category": "Agreement",
       "title": "Fresh confirmation for destructive halves",
       "detail": "The irreversible part of any cleanup pass needs a fresh explicit confirmation every time; a previous confirmation never carries forward. Without it the safe half completes and stops with exact candidates and proof.",
-      "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/docs/features/operations/yum-tong.md"
+      "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/docs/features/operations/release shutdown.md"
     },
     {
       "category": "Agreement",
@@ -675,13 +675,13 @@ window.AMULET_SITE_DATA = {
     {
       "category": "Skills",
       "title": "Release-grade shutdown skill",
-      "detail": "The globally managed yum-tong workflow: preserve, ship, prove, then clean up — with its own audit and a fresh confirmation before anything irreversible.",
-      "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/skills/yum-tong/SKILL.md"
+      "detail": "The managed release-shutdown workflow: preserve, ship, prove, then clean up — with its own audit and a fresh explicit confirmation before anything irreversible.",
+      "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/skills/release shutdown/SKILL.md"
     },
     {
       "category": "Skills",
       "title": "Minecraft service skills",
-      "detail": "Server, map-update, world-backup, world-operations, and run skills keep the private Minecraft target's safety contract together so a new agent can operate the service without rediscovering it.",
+      "detail": "Server, map-update, world-backup, world-operations, and run skills keep the operational safety contract for the managed Minecraft service together so a new agent can operate the service without rediscovering it.",
       "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/tree/main/skills"
     },
     {
