@@ -175,9 +175,20 @@ def _print_window(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> b
     if size.width < 1 or size.height < 1:
         return False
     try:
-        scratch = wx.Bitmap(size)
+        scratch = wx.Bitmap(size.width, size.height, 24)
         scratch_dc = wx.MemoryDC(scratch)
         try:
+            # Fill before printing. A fresh bitmap is uninitialised memory --
+            # black -- and PrintWindow reports success whether or not the
+            # window painted anything into it. A container with
+            # BG_STYLE_PAINT set draws nothing, so the call "succeeds", this
+            # blits an all-black rectangle over the correctly filled
+            # background beneath, and a page of light cards ends up floating
+            # on a void.
+            background = window.GetBackgroundColour()
+            if background.IsOk():
+                scratch_dc.SetBackground(wx.Brush(background))
+                scratch_dc.Clear()
             handle = window.GetHandle()
             printed = _user32.PrintWindow(
                 handle, scratch_dc.GetHandle(), PW_RENDERFULLCONTENT
@@ -334,6 +345,21 @@ def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> str
     size = window.GetClientSize()
     if size.width < 1 or size.height < 1:
         return ""
+
+    # Erase the background first, exactly as the window manager does before any
+    # window paints. A plain container -- a wx.Panel holding a layout, a
+    # scrolled viewport larger than its content -- has no drawing code of its
+    # own to call and no native decoration to print, so every route below is a
+    # no-op for it and the region keeps whatever the bitmap already held. That
+    # is uninitialised memory, which is black, so a page of light cards came
+    # out floating on a void: a capture that reads as a catastrophic theme
+    # failure in an interface with no dark surface anywhere in it.
+    background = window.GetBackgroundColour()
+    if background.IsOk():
+        target.SetBrush(wx.Brush(background))
+        target.SetPen(wx.Pen(background))
+        target.DrawRectangle(origin.x, origin.y, size.width, size.height)
+
     if _render_to(window, target, origin):
         return "render"
     if _render_via_paint(window, target, origin):
@@ -365,8 +391,23 @@ def _composite(
     if size.width < 1 or size.height < 1:
         raise RuntimeError(f"{window.GetName() or window!r} has no client area")
 
-    bitmap = wx.Bitmap(size)
+    # 24-bit, deliberately: a default wx.Bitmap carries an alpha channel, and
+    # every pixel no widget actually painted keeps alpha zero. Nothing looks
+    # wrong in memory -- the colour bytes are the fill below -- but a PNG
+    # written from it is transparent there, and every viewer renders that as
+    # black. The result is a capture of a light interface sitting on a void,
+    # which reads as a catastrophic theme failure in an application that has no
+    # dark surface anywhere in it.
+    bitmap = wx.Bitmap(size.width, size.height, 24)
     memory = wx.MemoryDC(bitmap)
+    # Fill before anything draws. A fresh wx.Bitmap holds uninitialised memory,
+    # which reads as black, and a container that paints only part of itself --
+    # a scrolled window whose viewport is larger than its content, most often --
+    # leaves the rest of that black showing. The capture then looks like a
+    # theme failure: correct cards floating on a void, in an interface that has
+    # no dark surface anywhere in it.
+    memory.SetBackground(wx.Brush(window.GetBackgroundColour()))
+    memory.Clear()
     root_origin = window.ClientToScreen(wx.Point(0, 0))
     contributed = 0
     routes: dict[str, int] = {"render": 0, "print": 0, "blit": 0}

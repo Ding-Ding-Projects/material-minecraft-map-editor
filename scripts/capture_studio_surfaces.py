@@ -158,8 +158,14 @@ class Driver:
     def run(self) -> None:
         for tab in BACKSTAGE_TABS:
             self.shell.show_backstage(tab)
-            for _ in range(3):
+            # Switching a tab hides the outgoing page, and the hide does not
+            # take effect until the event loop has run. Capturing too soon
+            # composited the previous page's cards over the incoming one --
+            # which reads as a layout collapse and is really a photograph taken
+            # mid-transition.
+            for _ in range(8):
                 wx.Yield()
+                wx.SafeYield()
             self.shoot(
                 f"backstage-{tab}",
                 self.shell.backstage,

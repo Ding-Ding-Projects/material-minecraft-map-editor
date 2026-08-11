@@ -474,6 +474,25 @@ def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.D
         # what lets the handler draw normally, with no knowledge that it is
         # being photographed and no second copy of its drawing code to keep in
         # step. See render_via_paint.
+        #
+        # The background is filled here for the same reason it is filled below:
+        # a caller hands us a background because it expects to be drawing onto
+        # it, and every widget in this codebase relies on that. Returning the
+        # context without clearing left each one drawing onto whatever the
+        # bitmap already held, so a page that paints cards and section labels
+        # but no field of its own came out as light cards floating on pure
+        # black -- which reads as a catastrophic theme failure in an interface
+        # that has no dark surface in it at all.
+        #
+        # The fill is bounded to this widget's own client area rather than the
+        # whole device context: the context is shared by the entire composite,
+        # and clearing all of it would erase every sibling already drawn.
+        capture_dc = redirect[0]
+        size = window.GetClientSize()
+        if size.width > 0 and size.height > 0:
+            capture_dc.SetBrush(wx.Brush(background))
+            capture_dc.SetPen(wx.Pen(background))
+            capture_dc.DrawRectangle(0, 0, size.width, size.height)
         return redirect
 
     global _paint_fallback_reported
