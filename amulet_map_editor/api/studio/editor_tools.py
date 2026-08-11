@@ -558,19 +558,31 @@ def _say_label(english: str, cantonese: str) -> str:
         return english
 
 
-#: This module's own :class:`Outcome` reason tokens, all of them failures.
+#: Every :class:`Outcome` reason token :func:`confirm_pending` and
+#: :func:`cancel_pending` can return.  Most are failures; two are not.
 #:
-#: ``nothing-pending`` -- the paste tool is not holding anything, so the surface
-#: showing it is stale.  ``no-confirm`` -- this build's paste tool has no
-#: confirm at all.  ``not-written`` -- the confirm ran and the world did not
-#: change.  ``still-held`` -- the object was not dropped and is still drawn.
+#: ``nothing-pending`` -- the paste tool is not holding anything.  That is a
+#: refusal from Confirm, whose whole job was to write the thing that is not
+#: there, and a success from Cancel, whose job was to stop holding it.
+#: ``no-confirm`` -- this build's paste tool has no confirm at all.
+#: ``not-written`` -- the confirm ran and the world did not change.
+#: ``still-held`` -- the object was not dropped and is still drawn.
 #: ``aborted`` -- the paste was stopped on purpose, by the user cancelling its
 #: progress dialog or by the operation ending itself, so nothing went wrong and
-#: there is nothing to report as an error.
+#: there is nothing to report as an error.  ``no-undo-point`` -- the blocks
+#: **were** written and only the undo point was lost, which is a success the
+#: user still has to be told about, because Undo will not take it back.
 #:
-#: Those five want five different things from the interface, which is exactly
-#: why a bare ``False`` was not enough: it made "the tool went away" and "your
-#: blocks were not written" the same answer.
+#: Those want different things from the interface, which is exactly why a bare
+#: ``False`` was not enough: it made "the tool went away" and "your blocks were
+#: not written" the same answer.
+#:
+#: This tuple is not decoration.  ``test_editor_confirm_outcome`` drives every
+#: branch of both functions, collects the tokens they actually return, and
+#: asserts the two sets are equal -- so a token added here without a producer
+#: fails, and a token returned from the code without being documented here fails
+#: too.  A documented contract nobody reads is one that drifts silently, and
+#: this one had no reader at all when it was introduced.
 #:
 #: The class itself lives in :mod:`amulet_map_editor.api.outcome` so the canvas
 #: can return the same shape without importing Studio, and is re-exported here
@@ -581,6 +593,7 @@ PASTE_OUTCOME_REASONS: Tuple[str, ...] = (
     "not-written",
     "still-held",
     "aborted",
+    "no-undo-point",
 )
 
 
@@ -1199,6 +1212,15 @@ def confirm_pending(target: Any = None, parent: Any = None) -> Outcome:
     says so in the log, rather than inventing a failure: an unanswerable
     question is not a negative answer.
 
+    **The one success the depth cannot see.**  ``run_operation`` answers
+    ``ok=True`` with the token ``no-undo-point`` when the operation wrote the
+    world and only the undo point could not be recorded -- and that is precisely
+    a write whose undo depth did not move.  It is therefore taken before the
+    inference rather than after it, or a paste whose blocks are in the world
+    would be reported as having written nothing, which sends the reader looking
+    for blocks that are already there.  It is still reported, as a warning: the
+    paste worked and Undo will not take it back.
+
     **Why it says so out loud.**  Returning ``False`` was necessary and was not
     sufficient.  The swallowed exception is invisible by construction: the user
     pressed Confirm, the progress dialog came and went, and every surface then
@@ -1269,6 +1291,36 @@ def confirm_pending(target: Any = None, parent: Any = None) -> Outcome:
     # unmoved, and the depth check has to call both of them an error.  A tool
     # that answers ``None`` -- every build before ``confirm_paste`` returned one,
     # and every stand-in -- falls through to the depth exactly as before.
+    if reported and getattr(reported, "reason", "") == "no-undo-point":
+        # The one success whose undo depth does not move, and therefore the one
+        # the inference below is guaranteed to get wrong: ``run_operation``
+        # answers ``ok=True`` with this token when the operation wrote the world
+        # and only the undo point could not be recorded, and a depth that has
+        # not moved is exactly what that leaves behind.  Falling through would
+        # tell the user "Confirm placement wrote nothing" about a paste whose
+        # blocks are in their world -- the same misreport in the other
+        # direction, and the worse one, because it sends somebody looking for
+        # blocks that are already there.
+        #
+        # It is still said out loud, as a warning rather than an error: the
+        # paste worked, and Undo will not take it back.
+        title = _one_line(
+            _say_label("Placed, but it cannot be undone", "擺咗，但係還原唔到")
+        )
+        detail = str(getattr(reported, "message", "") or "")
+        message = _say(
+            "Confirm placement wrote the blocks into the world, but no undo point "
+            "could be recorded for it, so Undo will not take this paste back"
+            + (f": {detail}. " if detail else ". ")
+            + "The details are in the application log.",
+            "「確認擺位」已經將啲方塊寫咗入世界，但係記唔到還原點，所以撳「還原」係"
+            "退唔到呢次貼上嘅"
+            + (f"：{detail}。" if detail else "。")
+            + "詳情喺程式嘅 log 度。",
+        )
+        log.warning("The paste was written but no undo point was recorded")
+        _report(parent, title, message, severity="warning")
+        return Outcome(ok=True, reason="no-undo-point", title=title, message=message)
     if reported is not None and not reported:
         if getattr(reported, "reason", "") == "aborted":
             # Stopped on purpose.  ``_run_operation`` says nothing about a silent
@@ -1282,12 +1334,16 @@ def confirm_pending(target: Any = None, parent: Any = None) -> Outcome:
             "not-written",
             ("Confirm placement wrote nothing", "確認擺位乜都冇寫入"),
             (
-                "Confirm placement ran and the paste was stopped before any blocks "
-                "were written, so the world is unchanged"
+                # "no blocks were written" is the same phrase the undo-depth
+                # refusal below uses, deliberately: the two routes reach the
+                # same fact by different evidence, and a user reading the pane
+                # should not have to notice which one answered.
+                "Confirm placement ran and the paste was stopped, so no blocks "
+                "were written and the world is unchanged"
                 + (f": {detail}. " if detail else ". ")
                 + "The object is still being held: try Confirm placement again, or "
                 "Cancel to drop it. The error is in the application log.",
-                "「確認擺位」行咗，但係貼上喺寫入之前就俾人攔住咗，個世界冇變過"
+                "「確認擺位」行咗，但係貼上俾人攔住咗，一格方塊都冇寫入，個世界冇變過"
                 + (f"：{detail}。" if detail else "。")
                 + "嗰嚿嘢仲揸喺手：可以再撳一次「確認擺位」，或者撳「取消」放低佢。"
                 "錯誤詳情喺程式嘅 log 度。",

@@ -39,9 +39,22 @@ toast names the format that was chosen. If the tool ends up on a different
 exporter, the message says both what was asked for and what is showing rather
 than reporting a success.
 
+**A format that cannot be resolved is refused, never defaulted.** There are two
+ways to fail to get one, and they are reported apart because they send the user
+to different places: a value with no exporter names the value it could not map,
+and a ribbon the shell could not read at all says so, because there is no other
+format the user could pick that would help. Neither falls back to the first
+entry in the table. Both hand the tool no operation, record an empty format and
+exporter in the history entry, and are posted as a **warning** — a body
+explaining that nothing was written is not a success, whatever colour it is
+shown in.
+
 This shipped broken and is worth stating plainly: the dropdown stored a value
 nobody read, so all four formats exported a `.construction` and the toast
-reported "Export Construction" back at whoever had chosen otherwise.
+reported "Export Construction" back at whoever had chosen otherwise. The
+fallback outlived the first fix by one layer — an unreadable ribbon still became
+a confident claim that construction had been chosen, in the history entry as
+well as the toast — and is gone now.
 
 Every export states its encoding — UTF-8 unless there is a reason — its line
 endings, and the schema or version it follows, so the file is readable by

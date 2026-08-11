@@ -261,6 +261,7 @@ class _Shell:
     _ribbon_value = StudioShell._ribbon_value
     _export_operation = StudioShell._export_operation
     _selected_exporter = StudioShell._selected_exporter
+    _shown_operation_name = StudioShell._shown_operation_name
     _tool_message = StudioShell._tool_message
 
     def __init__(self, value: str, showing: str = "") -> None:
@@ -410,6 +411,97 @@ def test_an_unmapped_format_is_refused_rather_than_defaulted() -> None:
     )
     body = shell.said[-1]["body"]
     assert "No exporter" in body, body
+
+
+class _BrokenRibbon:
+    """A ribbon the shell cannot read -- the state ``_ribbon_value`` catches.
+
+    This is the only way the shell reaches an empty format value in practice.
+    ``select_values`` is seeded for every dropdown on every tab when the ribbon
+    is built, so a missing key needs the *read* to fail rather than the key to
+    be absent: a workspace whose ribbon has gone, or one still being built when
+    a command arrives.
+    """
+
+    def selected_value(self, label: str) -> str:
+        raise RuntimeError("this ribbon has no dropdowns yet")
+
+
+def _unreadable_shell() -> _Shell:
+    """A shell whose Format dropdown cannot be read at all."""
+    shell = _Shell("")
+    shell.workspace.ribbon = _BrokenRibbon()
+    return shell
+
+
+def test_an_unreadable_format_is_refused_rather_than_defaulted() -> None:
+    """A ribbon the shell cannot read is not a user who chose construction.
+
+    ``_export_operation`` used to answer an unreadable ribbon with
+    ``STRUCTURE_FORMATS[0]``, which rebuilt the original defect one layer up:
+    the tool was asked for ``Export Construction``, the history entry recorded
+    ``format: construction``, and the toast said "writing construction
+    (.construction)" -- three confident statements about a choice nobody made.
+    An unmapped value was already refused here; reading nothing at all was not.
+    """
+    # Precondition: the mechanism is live.  Without this a shell that had
+    # stopped routing anything at all would satisfy every assertion below by
+    # doing nothing, which is the failure this repo has shipped before.
+    working = _Shell("schematic")
+    _bind("_cmd_tool", working, "export")
+    assert working.activated[-1][1] == {"operation": "Export Schematic (legacy)"}, (
+        "the routing under test is not live, so the assertions below would pass "
+        f"on a shell that routes nothing; it asked for {working.activated[-1][1]!r}"
+    )
+
+    shell = _unreadable_shell()
+    _bind("_cmd_tool", shell, "export")
+    _name, state = shell.activated[-1]
+    assert state is None, (
+        "an unreadable ribbon should ask the tool for nothing rather than name "
+        f"an exporter nobody chose; it asked for {state!r}"
+    )
+    _key, payload = shell.recorded[-1]
+    assert payload["format"] == "", (
+        "the history entry invented a format the user never chose: "
+        f"{payload['format']!r}"
+    )
+    assert (
+        payload["exporter"] == ""
+    ), f"the history entry invented an exporter: {payload['exporter']!r}"
+    body = shell.said[-1]["body"]
+    assert "construction" not in body.casefold(), (
+        "the toast named construction to somebody who chose nothing at all: " + body
+    )
+
+
+def test_a_refused_export_is_not_announced_as_a_success() -> None:
+    """The colour has to agree with the sentence.
+
+    Both refusals -- a format with no exporter, and a ribbon that cannot be read
+    -- explained themselves in the body and were posted green, which is how the
+    original defect read to a user: the words said nothing had been exported and
+    the severity said it had worked.
+    """
+    # Precondition: a real choice still reports success, so a shell that had
+    # started calling everything a warning could not pass this.
+    working = _Shell("schematic")
+    _bind("_cmd_tool", working, "export")
+    assert working.said[-1]["severity"] == "success", (
+        "a format that routed correctly is no longer reported as a success, so "
+        "the assertions below prove nothing: " + repr(working.said[-1])
+    )
+
+    for label, shell in (
+        ("a format with no exporter", _Shell("nonesuch")),
+        ("a ribbon that cannot be read", _unreadable_shell()),
+    ):
+        _bind("_cmd_tool", shell, "export")
+        said = shell.said[-1]
+        assert said["severity"] == "warning", (
+            f"{label} was announced as {said['severity']!r} while its own body "
+            "said no exporter ran: " + said["body"]
+        )
 
 
 def test_changing_the_dropdown_retargets_a_live_export_tool() -> None:

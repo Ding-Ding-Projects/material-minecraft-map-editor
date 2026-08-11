@@ -24,14 +24,37 @@ file exports. Queries and payloads are size-bounded. Regex is opt-in so a
 setting name such as `[` remains ordinary text rather than accidentally
 becoming an invalid pattern.
 
-The native **View → Local history…** dialog provides bounded search, explicit
-regex mode, action filtering, date pickers, multi-selection, **Select all**,
+The **View → Local history…** dialog provides bounded search, explicit regex
+mode, action filtering, date pickers, multi-selection, **Select all**,
 **Invert selection**, batch restore-as-new-event, JSON export, and an
 **Open export in VS Code** action. `Ctrl+A` selects the visible events,
-`Ctrl+I` inverts the selection, and `Enter` restores the selected events. A
-partial restore reports the number completed and the exact failure instead of
+`Ctrl+I` inverts the selection, `Shift` with the arrow keys extends the
+selection from the anchor, and `Enter` restores the selected events. A partial
+restore reports the number completed and the exact failure instead of
 pretending the whole batch succeeded. It keeps the history surface
 non-blocking and returns focus through the normal dialog close path.
+
+The window is Material 3: a frameless shell with the shared Material title bar,
+an outlined search field, an action filter that is a `SearchableChoice` — so
+the dropdown carries its own search field and regex builder like every other
+dropdown in the product — owner-drawn bulk actions, and a painted
+`material_dialog.RecordTable` for the events. The table replaced a native
+`wx.ListCtrl` because a native list contributes nothing to a capture: the
+events, the only thing in this window worth checking, could not be
+photographed at all.
+
+Two controls are deliberately still native. The date bounds stay
+`wx.adv.DatePickerCtrl`, because this design system has no calendar of its own
+and a half-built one would be worse than the platform's; they are consequently
+the one part of this window a capture cannot show. The search entry is a real
+`wx.TextCtrl` inside a painted outline, so caret movement, selection, the
+clipboard and screen-reader text review stay the platform's own.
+
+The line above the list says what the filters left and how many rows are
+selected; the footer says what the last action actually did. Those are
+deliberately different sentences, because "639 matching events" and "Restored
+3 events" answer different questions and a single line would keep overwriting
+one with the other.
 
 `LocalHistory.export_and_open()` writes the selected JSON or Markdown export
 first, then uses the shared external-editor action to offer that file to VS
@@ -60,7 +83,10 @@ undo operations undoable.
 created/updated/deleted/restored commits, no-change suppression, plain and
 regex searches, date filters, exports, bounded payloads, and non-blocking safe
 wrappers. The module has no wx dependency and can be tested on a headless
-runner.
+runner. `tests/test_local_history_ui_contract.py` constructs the dialog and
+presses `Ctrl+A`, `Ctrl+I` and `Shift`+arrow against the real table, so the
+keyboard paths are proved by running rather than by the file mentioning a
+handler name.
 
 ## Suggested articles
 

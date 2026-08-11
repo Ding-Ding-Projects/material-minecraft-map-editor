@@ -114,9 +114,17 @@ line naming its label, glyph, hint, and target.
 `ribbon_defs.validate()` returns every structural problem in the definition and
 is asserted to be empty by the suite: a tab with no groups, a group with no
 controls or no launcher, a tile with no glyph or no hint, a tile naming both a
-surface and a command or neither, a dropdown with no options, a dropdown that
-raises no command, and a dropdown defaulting to a value that is not one of its
-own options. It also checks the structure-format table the Export dropdown is
+surface and a command or neither, a dropdown with no options, no label, or two
+rows storing the same value, a dropdown that raises no command, a dropdown
+defaulting to a value that is not one of its own options, a **dropdown option
+storing no value** — a row the user can pick that `set_select` discards
+silently, raising not even the dropdown's own command — and a **field raising no
+command**, which is what every typed box in this ribbon was. It also refuses two
+controls that would share one entry in the ribbon's live-value dictionaries,
+since those are keyed by a dropdown's label alone and by a field's group title
+and label: a collision means typing in one silently overwrites the other, and
+the shell reading either gets whichever was touched last. It also checks the
+structure-format table the Export dropdown is
 built from: a blank cell, a duplicated value, or two formats pointing at one
 exporter — and the coordinate binding table behind Selection ▸ Coordinates: a
 corner addressed twice, a corner addressed by nothing, a box drawn that the
@@ -127,6 +135,27 @@ displayed as though they described the open world.
 A tile pointing at a surface nobody registered, or a command nobody implemented,
 is caught the same way — as a failing check with the exact tab, group, and label
 in the message, rather than as a button that does nothing.
+
+### The refusals are exercised, not merely written
+
+Every refusal above used to be decoration. Deleting the one that catches an
+unbound field left all nineteen checks in `tests/test_studio_spec_registry.py`
+green, because the shipped ribbon has no unbound field, so `validate()` returned
+an empty tuple either way and nothing had ever watched the rule work. The tests
+now hand `validate()` a definition broken on purpose — a one-group ribbon whose
+only control is a box with no command, a dropdown with no command, an option
+with no value — alongside a bound control of the same shape as the floor, so a
+rule that simply complained about everything could not pass either.
+
+The order of the checks is load-bearing and is tested as such. A rule written
+`if entry.command and commands.command(...) is None` reads as correct and says
+"a command, if there is one, must be registered" — which a field naming no
+command satisfies perfectly. That version is kept in the test module as
+`_field_problems_written_the_skipping_way` and handed the same unbound box as
+the real rule: it is asserted to find nothing while the real rule is asserted to
+complain. Rewriting the real rule into that shape turns the second assertion
+red. This is measured rather than assumed — with the guard temporarily rewritten
+that way, an entirely unbound Coordinates grid passed its own check.
 
 The per-tab search never silently empties the tab: a query matching nothing says
 so, and an invalid regular expression is reported rather than treated as a

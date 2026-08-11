@@ -1,11 +1,22 @@
 """``confirm_pending`` reports what the paste did, and says so out loud.
 
-The canvas's ``run_operation`` catches ``BaseException`` unless a caller asks
-for exceptions, and the paste tool's ``confirm_paste`` returns nothing.  So a
-paste that raised and a paste that wrote four hundred blocks arrive at the
+The canvas's ``run_operation`` used to catch ``BaseException`` and answer
+``None``, and the paste tool's ``confirm_paste`` used to return nothing.  So a
+paste that raised and a paste that wrote four hundred blocks arrived at the
 bridge as exactly the same ``None``, and a bridge that returns ``True`` because
 the call came back is reporting that it made the call -- which the caller
 already knew.
+
+**Both of those are now fixed, and this module covers both shapes on purpose.**
+``run_operation`` catches ``Exception`` and returns an ``OperationOutcome``, and
+``confirm_paste`` hands that outcome back -- so the bridge can be told *why*
+rather than inferring *that* from the world's undo depth.  The depth inference
+stays for a build whose paste tool predates the outcome, and
+:class:`_PasteTool` below is exactly such a build: it calls ``run_operation``
+and drops the answer.  :class:`_ReportingPasteTool` is the shipped one, and it
+is not an optional extra here -- every branch that reads the reported outcome is
+unreachable without it, which is how the whole of that branch shipped with no
+coverage at all while this module was green.
 
 Returning ``False`` was necessary and was not sufficient.  The swallowed
 exception is invisible by construction: the progress dialog comes and goes and
@@ -52,6 +63,11 @@ import pytest
 from amulet_map_editor.api import notifications
 from amulet_map_editor.api.studio import editor_tools
 from amulet_map_editor.api.studio import copy as studio_copy
+from amulet_map_editor.programs.edit.api.canvas.edit_canvas import (
+    OperationOutcome,
+    contained_outcome,
+)
+from amulet_map_editor.programs.edit.api.operations.errors import OperationSilentAbort
 
 
 class _History:
@@ -67,20 +83,31 @@ class _World:
 
 
 class _Canvas:
-    """Enough canvas for the bridge to work on, including the swallow itself.
+    """Enough canvas for the bridge to work on, kept to the shipped shape.
 
-    ``run_operation`` is not a convenience stub here.  It is kept to the shape
-    of the real one because that shape *is* the defect: the exception is caught,
-    nothing is re-raised while ``throw_exceptions`` is false, and the undo point
-    is created only on the ``else`` branch that a raise skips.  A test that
-    merely declined to bump the counter would prove the arithmetic and leave the
-    swallow -- the thing that makes the failure invisible -- unexercised.
+    ``run_operation`` is not a convenience stub.  It is written to match the
+    real one, because its shape is what every branch below turns on: the
+    exception is caught -- ``Exception``, exactly as the real one now catches,
+    not ``BaseException`` -- nothing is re-raised while ``throw_exceptions`` is
+    false, an ``OperationOutcome`` is returned either way, and the undo point is
+    created only on the path where nothing raised.
+
+    The comment here used to say the real one caught ``BaseException``.  It had
+    stopped being true, and a stand-in that lies about the code it stands in for
+    is worse than no stand-in: every test written against it proves something
+    about a canvas that does not exist.
+
+    ``lose_undo_point`` reproduces the one success whose undo depth does not
+    move -- the operation wrote the world and only the undo point could not be
+    recorded -- because that is the case the depth inference is guaranteed to
+    read as a failure.
     """
 
-    def __init__(self, world: Any) -> None:
+    def __init__(self, world: Any, lose_undo_point: bool = False) -> None:
         self.tools: dict = {}
         self.world = world
         self.operations_run = 0
+        self._lose_undo_point = lose_undo_point
 
     def run_operation(
         self,
@@ -89,26 +116,37 @@ class _Canvas:
         msg: str = "Running Operation",
         throw_exceptions: bool = False,
         rollback_on_error: Any = None,
-    ) -> Any:
+    ) -> OperationOutcome:
         self.operations_run += 1
         try:
             out = operation()
-        except BaseException as error:  # noqa: BLE001 - the real one is this broad
+        except Exception as error:
             if throw_exceptions:
                 raise error
-        else:
-            history = getattr(self.world, "history_manager", None)
-            if history is not None:
-                history.undo_count += 1
-            return out
+            return contained_outcome(error)
+        if self._lose_undo_point:
+            # The world was written; only the history was not.  The depth
+            # deliberately does not move, which is the whole point of the token.
+            return OperationOutcome(
+                ok=True,
+                reason="no-undo-point",
+                message="the history file is read only",
+                value=out,
+                error=RuntimeError("the history file is read only"),
+            )
+        history = getattr(self.world, "history_manager", None)
+        if history is not None:
+            history.undo_count += 1
+        return OperationOutcome(ok=True, value=out)
 
 
 class _PasteTool:
-    """The paste tool, holding something, running a real operation on confirm.
+    """A paste tool from before ``confirm_paste`` reported anything.
 
-    ``confirm_paste`` returning ``None`` either way is the whole point: it is
-    what the real one does, and it is why the bridge cannot learn the outcome
-    from the call.
+    It runs the operation and drops what ``run_operation`` answers, so the
+    bridge cannot learn the outcome from the call and falls through to the undo
+    depth.  Every build that predates the outcome behaves this way, which is why
+    the inference stays and why it is still exercised here.
     """
 
     def __init__(self, canvas: _Canvas, operation: Callable[[], Any]) -> None:
@@ -120,6 +158,19 @@ class _PasteTool:
     def confirm_paste(self) -> None:
         self.calls += 1
         self._canvas.run_operation(self._operation)
+
+
+class _ReportingPasteTool(_PasteTool):
+    """The shipped paste tool: it returns what ``run_operation`` told it.
+
+    Without this class every branch of ``confirm_pending`` that reads the
+    reported outcome is unreachable, and deleting that branch outright leaves
+    this module green -- which is exactly what happened when it was added.
+    """
+
+    def confirm_paste(self) -> OperationOutcome:
+        self.calls += 1
+        return self._canvas.run_operation(self._operation)
 
 
 class _ToolWithoutConfirm:
@@ -157,13 +208,26 @@ def _raised(_canvas: _Canvas) -> Callable[[], Any]:
     return operation
 
 
+def _aborted(_canvas: _Canvas) -> Callable[[], Any]:
+    """The user cancelled the progress dialog, or the operation ended itself."""
+
+    def operation() -> None:
+        raise OperationSilentAbort()
+
+    return operation
+
+
 def _canvas(
     operation: Callable[[_Canvas], Callable[[], Any]] = _wrote,
     *,
     keep_history: bool = True,
+    tool: type = _PasteTool,
+    lose_undo_point: bool = False,
 ) -> _Canvas:
-    canvas = _Canvas(_World(_History() if keep_history else None))
-    canvas.tools["Paste"] = _PasteTool(canvas, operation(canvas))
+    canvas = _Canvas(
+        _World(_History() if keep_history else None), lose_undo_point=lose_undo_point
+    )
+    canvas.tools["Paste"] = tool(canvas, operation(canvas))
     return canvas
 
 
@@ -473,6 +537,162 @@ def test_the_undo_depth_reader_separates_zero_from_unanswerable() -> None:
     assert editor_tools._undo_depth(_Canvas(_World(None))) is None
     assert editor_tools._undo_depth(object()) is None
     assert editor_tools._undo_depth(empty) is None
+
+
+# ---------------------------------------------------------------------------
+# what the tool itself reported, which the depth cannot see
+# ---------------------------------------------------------------------------
+
+
+def test_a_reported_failure_is_believed_over_the_undo_depth(
+    recorded: List[_Recorded],
+) -> None:
+    """The reported outcome names the operation's own error; the depth cannot.
+
+    Both routes refuse this paste, so ``reason`` alone proves nothing about
+    which one answered -- the evidence is the *wording*.  The reported route
+    quotes what the operation said; the inference can only quote the number it
+    read.  Deleting the reported branch therefore leaves the refusal in place
+    and silently swaps a real explanation for "the undo history is still at 0",
+    which is how that branch shipped with no coverage.
+    """
+    canvas = _canvas(_raised, tool=_ReportingPasteTool)
+    result = editor_tools.confirm_pending(canvas)
+
+    assert result.ok is False, result
+    assert result.reason == "not-written", result
+    assert "could not read the source chunk" in result.message, (
+        "the outcome the paste tool reported was thrown away and the undo depth "
+        f"was guessed from instead: {result.message!r}"
+    )
+    assert "undo history is still" not in result.message, (
+        "the depth inference answered even though the tool said why: "
+        f"{result.message!r}"
+    )
+    assert canvas.tools["Paste"].calls == 1
+    assert recorded and recorded[0].severity == "error", recorded
+
+
+def test_a_paste_the_user_cancelled_is_not_reported_as_an_error(
+    recorded: List[_Recorded],
+) -> None:
+    """The sharpest of the three, because the two routes disagree entirely.
+
+    A silent abort and a broken paste both leave the undo depth where it was, so
+    the inference has to call both of them an error -- and a red notification
+    about a paste that did exactly what the user asked is a lie with a toast
+    attached.  The reported outcome knows the difference.
+    """
+    canvas = _canvas(_aborted, tool=_ReportingPasteTool)
+    result = editor_tools.confirm_pending(canvas)
+
+    assert result.ok is False, "a cancel still means the blocks are not in"
+    assert result.reason == "aborted", result
+    assert canvas.tools["Paste"].calls == 1, "the confirm was never attempted"
+    assert canvas.world.history_manager.undo_count == 0, (
+        "precondition: the depth did not move, so an inference would call this "
+        "a failure -- which is the thing being distinguished from"
+    )
+    assert recorded == [], (
+        "the user's own cancel was reported to them as a failed paste: " f"{recorded}"
+    )
+
+
+def test_a_paste_whose_undo_point_was_lost_is_still_a_paste(
+    recorded: List[_Recorded],
+) -> None:
+    """The misreport pointing the other way, and the worse direction.
+
+    ``run_operation`` answers ``ok=True`` with ``no-undo-point`` when the blocks
+    went in and only the history could not be written -- and that is by
+    definition a write whose undo depth did not move.  Falling through to the
+    inference told the user "Confirm placement wrote nothing" about a paste that
+    is sitting in their world, sending them looking for blocks that are already
+    there.
+    """
+    canvas = _canvas(_wrote, tool=_ReportingPasteTool, lose_undo_point=True)
+    result = editor_tools.confirm_pending(canvas)
+
+    assert canvas.world.history_manager.undo_count == 0, (
+        "precondition: the depth must not move, or this test passes through the "
+        "ordinary success path and proves nothing"
+    )
+    assert result.ok is True, (
+        "a paste that wrote the world was reported as having written nothing, "
+        f"because its undo point was lost: {result.message!r}"
+    )
+    assert result.reason == "no-undo-point", result
+    assert len(recorded) == 1, f"a paste that cannot be undone said nothing: {recorded}"
+    said = recorded[0]
+    assert said.severity == "warning", (
+        f"a successful paste was reported as {said.severity!r}; it worked, and "
+        "the only news is that Undo will not take it back"
+    )
+    assert "Undo" in said.body, said.body
+
+
+def test_a_reported_success_still_needs_the_write_to_have_landed() -> None:
+    """The other half, so the three tests above cannot pass by always agreeing.
+
+    A tool reporting an ordinary success is believed and the depth moved, which
+    is the path a real paste takes every time.
+    """
+    canvas = _canvas(_wrote, tool=_ReportingPasteTool)
+    result = editor_tools.confirm_pending(canvas)
+    assert result.ok is True and result.reason == "", result
+    assert canvas.world.history_manager.undo_count == 1
+
+
+def test_every_reason_token_these_two_functions_return_is_documented(
+    recorded: List[_Recorded],
+) -> None:
+    """``PASTE_OUTCOME_REASONS`` is a contract, so something has to read it.
+
+    It shipped with no reader at all: nothing in the application and nothing in
+    the tests mentioned it, so a token could be added to the tuple without a
+    producer, or returned from the code without being documented, and neither
+    would fail anything.
+
+    Both directions are asserted because only one of them catches the failure
+    that actually happens.  "Every token returned is documented" passes on a
+    tuple that has grown a token nobody produces; "every documented token is
+    returned" passes on a function that has quietly grown a new one.  The sets
+    are equal or this is not a contract.
+    """
+    produced = set()
+
+    def token(outcome: Any) -> None:
+        if outcome.reason:
+            produced.add(outcome.reason)
+
+    # confirm_pending, one branch at a time
+    token(editor_tools.confirm_pending(_Canvas(_World(_History()))))
+    holdless = _Canvas(_World(_History()))
+    holdless.tools["Paste"] = _ToolWithoutConfirm()
+    token(editor_tools.confirm_pending(holdless))
+    token(editor_tools.confirm_pending(_canvas(_raised, tool=_ReportingPasteTool)))
+    token(editor_tools.confirm_pending(_canvas(_aborted, tool=_ReportingPasteTool)))
+    token(
+        editor_tools.confirm_pending(
+            _canvas(_wrote, tool=_ReportingPasteTool, lose_undo_point=True)
+        )
+    )
+    # and the successful one, whose reason is empty by convention
+    assert editor_tools.confirm_pending(_canvas(_wrote)).reason == ""
+
+    # cancel_pending
+    token(editor_tools.cancel_pending(_canvas(_wrote)))
+    token(editor_tools.cancel_pending(_Canvas(_World(_History()))))
+
+    documented = set(editor_tools.PASTE_OUTCOME_REASONS)
+    assert produced == documented, (
+        "the tokens these functions return and the tokens the module documents "
+        f"have drifted apart. Returned and undocumented: {sorted(produced - documented)}. "
+        f"Documented and never returned: {sorted(documented - produced)}"
+    )
+    assert len(editor_tools.PASTE_OUTCOME_REASONS) == len(documented), (
+        "the documented tuple repeats a token: " f"{editor_tools.PASTE_OUTCOME_REASONS}"
+    )
 
 
 # ---------------------------------------------------------------------------
