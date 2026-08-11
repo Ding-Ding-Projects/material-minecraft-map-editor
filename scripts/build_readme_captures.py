@@ -28,8 +28,17 @@ START = "<!-- BEGIN CAPTURES -->"
 END = "<!-- END CAPTURES -->"
 
 #: Groups in the order a reader wants them: the shell first, then the places
-#: work happens, then the long tail of surfaces.
-GROUP_ORDER = ("Backstage", "Workspace", "Ribbon tabs", "Surfaces")
+#: work happens, then the menus and overlays that sit on top of them, then the
+#: long tail of surfaces.
+GROUP_ORDER = (
+    "Backstage",
+    "Workspace",
+    "Ribbon tabs",
+    "Context menus",
+    "Overlays",
+    "Dropdowns",
+    "Surfaces",
+)
 
 
 def _row(entry: Dict, out_dir: Path, root: Path) -> str:
@@ -49,6 +58,7 @@ def build(manifest_path: Path, root: Path) -> str:
     out_dir = manifest_path.parent
     captures: List[Dict] = manifest["captures"]
     failures: List[Dict] = manifest.get("failures", [])
+    not_opened: List[Dict] = manifest.get("notOpened", [])
 
     by_group: Dict[str, List[Dict]] = {}
     for entry in captures:
@@ -76,6 +86,12 @@ def build(manifest_path: Path, root: Path) -> str:
         "window someone happened to drag over it. A surface whose controls "
         "could not draw is reported as a failure and its file deleted, because "
         "a blank capture is worse than none: it looks like evidence.",
+        "",
+        "Menus, dropdowns and popovers are photographed **open, with their rows "
+        "drawn**. They are opened through the application's own openers and "
+        "shown where no display covers them, because a popup grabs the mouse "
+        "and the keyboard and a capture run must not take those from the "
+        "machine it runs on.",
         "",
     ]
 
@@ -115,6 +131,26 @@ def build(manifest_path: Path, root: Path) -> str:
         for failure in sorted(failures, key=lambda f: f["name"]):
             reason = failure["reason"].replace("|", "/").strip()
             lines.append(f"| `{failure['name']}` | {reason} |")
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
+
+    if not_opened:
+        lines.append("<details>")
+        lines.append(
+            f"<summary><b>Menus and overlays not opened</b> — {len(not_opened)}</summary>"
+        )
+        lines.append("")
+        lines.append(
+            "A menu that a run could not raise is written down here rather "
+            "than left out. A gap nobody mentions reads as coverage."
+        )
+        lines.append("")
+        lines.append("| Surface | Why not |")
+        lines.append("| --- | --- |")
+        for entry in sorted(not_opened, key=lambda f: f["name"]):
+            reason = entry["reason"].replace("|", "/").strip()
+            lines.append(f"| `{entry['name']}` | {reason} |")
         lines.append("")
         lines.append("</details>")
         lines.append("")

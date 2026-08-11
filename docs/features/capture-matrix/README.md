@@ -57,15 +57,77 @@ constructs rather than one the harness assembled to look like it.
    picture from 0.829 to 0.631 of one colour, which is the direction a healthy
    capture moves in.
 
-   Ink inside each row's own rectangle is the measurement that separates them:
-   a drawn row measures between two and four percent of its area as ink, and a
-   stubbed one measures precisely zero. A run that finds a blank row deletes the
-   file and names the row.
+   Ink inside each row's own rectangle is the measurement that separates them: a
+   row that drew nothing measures precisely zero, whatever its label was. A run
+   that finds one deletes the file and names the row.
+
+### It asks whether the row drew anything, never whether it drew enough
+
+Ink is a share of the row's whole rectangle, so it depends on how long the label
+is. A menu row reading "Close tabs not containing text…" inks four to ten
+percent of itself; a dropdown row whose entire label is `X` inks **0.4%** of a
+rectangle the same size, because that is one glyph in 244×30 pixels.
+
+A floor set for the first calls the second blank. The workplane axis list — `Y
+(height)`, `X`, `Z` — was deleted as broken while its picture showed all three
+letters perfectly. The floor now sits just above rounding, which leaves the
+shortest real label in this interface a factor of five clear of it and still
+catches the only failure that matters: a row that drew nothing at all.
+
+### Ink is measured against the row, not against a brightness threshold
+
+The first version of that check counted pixels darker than a fixed luminance,
+and it threw away two perfectly good menus on its first real run.
+
+A **disabled** menu row draws its label in the palette's disabled ink, which on
+this light surface sits at roughly 170 luminance — lighter than any threshold
+that would still call the surface itself blank. Measured for darkness, every
+disabled row in the shell reads as *exactly zero* ink, so the viewport and
+navigator menus were deleted as broken while the pictures were correct.
+
+Measuring each row against its **own commonest colour** fixes it and is
+theme-independent besides: pale text still differs from the surface it is drawn
+on. The same rows then read between five and seven percent. There is a test that
+opens a menu with disabled rows and asserts none of them reads as blank, and
+another that does the same for a one-character label, so tightening the
+measurement again cannot quietly resume deleting healthy pictures.
+
+### It reads the image once, not pixel by pixel
+
+`wx.Image.GetRed` and its siblings are a call across the wrapper per channel per
+pixel. Measuring a couple of hundred surfaces that way took a run from about
+eleven minutes to well over an hour on a loaded machine. `GetData()` once per
+picture, then indexing the buffer, measures the same pixels for nothing — and it
+returns a `bytearray`, whose slices are unhashable, so it is converted to
+`bytes` before anything counts colours with it.
 
 Rows that scrolled past the bottom of a clamped popup are not measured — they
 are legitimately absent rather than blank — and the manifest records how many
 rows were actually inside each picture, so a surface whose rows all fell outside
 the frame cannot pass by having proved nothing.
+
+## A gap nobody mentions reads as coverage
+
+Every surface a run could not photograph is written into the manifest's
+`notOpened` list with the reason, and the README renders that list as its own
+table. That is not decoration: on one run the regex builder's dropdown host
+could not be produced and the surface was simply *absent* — in neither the
+captures nor the gaps — which is the same silent hole the whole matrix exists to
+close, reproduced inside the tool meant to close it.
+
+Two things a run now says out loud rather than skipping:
+
+- **A host that could not be produced.** Each kind of search field the builder is
+  photographed from records its own absence if it cannot be opened.
+- **A disabled dropdown.** `open_popup` declines silently when the combo is
+  disabled, so a run that finds one names it.
+
+One gap remains open and is stated here rather than left implied: the **Studio
+shell's own dimension dropdown** is in none of the 112 dropdown captures, and the
+run does not record why either. It is disabled on a capture project with no world
+behind it — verified directly, so it genuinely cannot open — but the shell walk
+reports neither the dropdown nor its disabled state, and the reason for that has
+not been established.
 
 ## Known gap: the `MaterialMenu` family draws blank
 
@@ -114,6 +176,12 @@ Run it from a clean checkout of the commit being recorded. A ten-minute run over
 a working tree that other work is landing in photographs two different versions
 of the application into one manifest, and the manifest's commit is then true of
 neither.
+
+Leave `--commit` off. It exists for a caller that genuinely knows better, and it
+is a foot-gun for everyone else: handing it the *main* checkout's HEAD while the
+harness runs in a linked worktree files the whole matrix under a commit that was
+never photographed. Without it the commit comes from the checkout the run is in,
+and the manifest is self-consistent by construction.
 
 ## Suggested articles
 

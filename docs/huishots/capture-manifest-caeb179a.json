@@ -1,0 +1,5179 @@
+{
+  "schemaVersion": 1,
+  "commit": "caeb179a485acae124f8a4dfd96e49d3a663d09d",
+  "captured": "20260811",
+  "wxPython": "4.3.1 msw (phoenix) wxWidgets 3.3.3",
+  "method": "in-process client-DC blit (capture_surface.capture_window)",
+  "note": "PrintWindow cannot see this interface: it is owner-drawn end to end and returns empty boxes. Colour counts are recorded so a capture near the floor can be retaken rather than shipped.",
+  "menuNote": "Menus, dropdowns and popovers are opened through the application's own openers and shown at a coordinate no display covers, because Popup() grabs the mouse and the keyboard and a capture run must not take those from the machine it runs on.",
+  "captures": [
+    {
+      "filename": "backstage-home-caeb179a-20260811.png",
+      "surface": "backstage.home",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 289,
+      "descendants": 92,
+      "routes": {
+        "render": 88,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.599,
+      "rowsWithInk": 0,
+      "alt": "Amulet Studio backstage, home tab, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "backstage-open-caeb179a-20260811.png",
+      "surface": "backstage.open",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 147,
+      "descendants": 29,
+      "routes": {
+        "render": 23,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.603,
+      "rowsWithInk": 0,
+      "alt": "Amulet Studio backstage, open tab, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "backstage-info-caeb179a-20260811.png",
+      "surface": "backstage.info",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 133,
+      "descendants": 27,
+      "routes": {
+        "render": 21,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.704,
+      "rowsWithInk": 0,
+      "alt": "Amulet Studio backstage, info tab, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "backstage-convert-caeb179a-20260811.png",
+      "surface": "backstage.convert",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 144,
+      "descendants": 25,
+      "routes": {
+        "render": 21,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.64,
+      "rowsWithInk": 0,
+      "alt": "Amulet Studio backstage, convert tab, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "backstage-features-caeb179a-20260811.png",
+      "surface": "backstage.features",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 168,
+      "descendants": 161,
+      "routes": {
+        "render": 156,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.403,
+      "rowsWithInk": 0,
+      "alt": "Amulet Studio backstage, features tab, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "backstage-account-caeb179a-20260811.png",
+      "surface": "backstage.account",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 120,
+      "descendants": 23,
+      "routes": {
+        "render": 19,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.733,
+      "rowsWithInk": 0,
+      "alt": "Amulet Studio backstage, account tab, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "workspace-ribbon-caeb179a-20260811.png",
+      "surface": "workspace.ribbon",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 103,
+      "descendants": 56,
+      "routes": {
+        "render": 55,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.554,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio workspace ribbon, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "workspace-navigator-caeb179a-20260811.png",
+      "surface": "workspace.navigator",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "176x687",
+      "colours": 47,
+      "descendants": 16,
+      "routes": {
+        "render": 12,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.918,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio workspace navigator, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "workspace-viewport-caeb179a-20260811.png",
+      "surface": "workspace.viewport",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1156x653",
+      "colours": 307,
+      "descendants": 15,
+      "routes": {
+        "render": 15,
+        "print": 0,
+        "blit": 0
+      },
+      "uniformFraction": 0.083,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio workspace viewport, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "workspace-properties-caeb179a-20260811.png",
+      "surface": "workspace.properties",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "240x687",
+      "colours": 70,
+      "descendants": 15,
+      "routes": {
+        "render": 13,
+        "print": 2,
+        "blit": 0
+      },
+      "uniformFraction": 0.833,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio workspace properties, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "workspace-status-caeb179a-20260811.png",
+      "surface": "workspace.status",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1156x34",
+      "colours": 31,
+      "descendants": 13,
+      "routes": {
+        "render": 12,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.693,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio workspace status, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-home-caeb179a-20260811.png",
+      "surface": "ribbon.home",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 103,
+      "descendants": 56,
+      "routes": {
+        "render": 55,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.554,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the home tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-tools-caeb179a-20260811.png",
+      "surface": "ribbon.tools",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 96,
+      "descendants": 44,
+      "routes": {
+        "render": 43,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.409,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the tools tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-selection-caeb179a-20260811.png",
+      "surface": "ribbon.selection",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x302",
+      "colours": 83,
+      "descendants": 52,
+      "routes": {
+        "render": 45,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.386,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the selection tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-operations-caeb179a-20260811.png",
+      "surface": "ribbon.operations",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 84,
+      "descendants": 42,
+      "routes": {
+        "render": 41,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.402,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the operations tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-structures-caeb179a-20260811.png",
+      "surface": "ribbon.structures",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 87,
+      "descendants": 35,
+      "routes": {
+        "render": 34,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.411,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the structures tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-chunks-caeb179a-20260811.png",
+      "surface": "ribbon.chunks",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x215",
+      "colours": 78,
+      "descendants": 38,
+      "routes": {
+        "render": 35,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.408,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the chunks tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-terrain-caeb179a-20260811.png",
+      "surface": "ribbon.terrain",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x244",
+      "colours": 95,
+      "descendants": 57,
+      "routes": {
+        "render": 52,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.47,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the terrain tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-build-caeb179a-20260811.png",
+      "surface": "ribbon.build",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 100,
+      "descendants": 52,
+      "routes": {
+        "render": 51,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.446,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the build tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-entities-caeb179a-20260811.png",
+      "surface": "ribbon.entities",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 90,
+      "descendants": 42,
+      "routes": {
+        "render": 41,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.4,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the entities tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-data-caeb179a-20260811.png",
+      "surface": "ribbon.data",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 93,
+      "descendants": 43,
+      "routes": {
+        "render": 42,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.413,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the data tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-analyze-caeb179a-20260811.png",
+      "surface": "ribbon.analyze",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 83,
+      "descendants": 42,
+      "routes": {
+        "render": 41,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.402,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the analyze tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-redstone-caeb179a-20260811.png",
+      "surface": "ribbon.redstone",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 94,
+      "descendants": 45,
+      "routes": {
+        "render": 44,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.419,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the redstone tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-worldgen-caeb179a-20260811.png",
+      "surface": "ribbon.worldgen",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 91,
+      "descendants": 43,
+      "routes": {
+        "render": 42,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.408,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the worldgen tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-view-caeb179a-20260811.png",
+      "surface": "ribbon.view",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 99,
+      "descendants": 50,
+      "routes": {
+        "render": 49,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.448,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the view tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-panels-caeb179a-20260811.png",
+      "surface": "ribbon.panels",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 94,
+      "descendants": 46,
+      "routes": {
+        "render": 45,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.43,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the panels tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-extend-caeb179a-20260811.png",
+      "surface": "ribbon.extend",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 94,
+      "descendants": 44,
+      "routes": {
+        "render": 43,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.394,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the extend tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "ribbon-automate-caeb179a-20260811.png",
+      "surface": "ribbon.automate",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x215",
+      "colours": 102,
+      "descendants": 47,
+      "routes": {
+        "render": 46,
+        "print": 1,
+        "blit": 0
+      },
+      "uniformFraction": 0.378,
+      "rowsWithInk": 0,
+      "alt": "The Amulet Studio ribbon with the automate tab selected and its panel open, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-viewport-caeb179a-20260811.png",
+      "surface": "menu.viewport",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x390",
+      "colours": 62,
+      "descendants": 28,
+      "routes": {
+        "render": 25,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.829,
+      "rowsWithInk": 9,
+      "alt": "The Viewport right-click menu, open, showing its search field, its counted feedback line and its 19 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-navigator-caeb179a-20260811.png",
+      "surface": "menu.navigator",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x390",
+      "colours": 61,
+      "descendants": 19,
+      "routes": {
+        "render": 16,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.848,
+      "rowsWithInk": 9,
+      "alt": "The Navigator right-click menu, open, showing its search field, its counted feedback line and its 10 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-ribbon-caeb179a-20260811.png",
+      "surface": "menu.ribbon",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x390",
+      "colours": 62,
+      "descendants": 18,
+      "routes": {
+        "render": 15,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.837,
+      "rowsWithInk": 9,
+      "alt": "The Ribbon right-click menu, open, showing its search field, its counted feedback line and its 9 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-tab-caeb179a-20260811.png",
+      "surface": "menu.tab",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x348",
+      "colours": 55,
+      "descendants": 16,
+      "routes": {
+        "render": 13,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.816,
+      "rowsWithInk": 7,
+      "alt": "The Tab right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-tabgroup-caeb179a-20260811.png",
+      "surface": "menu.tabGroup",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x348",
+      "colours": 57,
+      "descendants": 16,
+      "routes": {
+        "render": 13,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.808,
+      "rowsWithInk": 7,
+      "alt": "The Tab group right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-pane-caeb179a-20260811.png",
+      "surface": "menu.pane",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x348",
+      "colours": 58,
+      "descendants": 16,
+      "routes": {
+        "render": 13,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.814,
+      "rowsWithInk": 7,
+      "alt": "The Properties pane right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-recent-caeb179a-20260811.png",
+      "surface": "menu.recent",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x348",
+      "colours": 59,
+      "descendants": 16,
+      "routes": {
+        "render": 13,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.806,
+      "rowsWithInk": 7,
+      "alt": "The Recent project right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-boxes-caeb179a-20260811.png",
+      "surface": "menu.boxes",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x390",
+      "colours": 59,
+      "descendants": 18,
+      "routes": {
+        "render": 15,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.845,
+      "rowsWithInk": 9,
+      "alt": "The Selection boxes right-click menu, open, showing its search field, its counted feedback line and its 9 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "menu-statusbar-caeb179a-20260811.png",
+      "surface": "menu.statusbar",
+      "group": "Context menus",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x382",
+      "colours": 57,
+      "descendants": 17,
+      "routes": {
+        "render": 14,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.831,
+      "rowsWithInk": 8,
+      "alt": "The Status bar right-click menu, open, showing its search field, its counted feedback line and its 8 rows with their keyboard shortcuts, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "picker-tab-groups-caeb179a-20260811.png",
+      "surface": "picker.moveIntoGroup",
+      "group": "Overlays",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "300x228",
+      "colours": 56,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.751,
+      "rowsWithInk": 0,
+      "alt": "The Move into group picker, open, showing its search field, the existing tab groups with their colours and member counts, and the create-a-group action, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "regexbuilder-panel-caeb179a-20260811.png",
+      "surface": "regexBuilder.panel",
+      "group": "Overlays",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "380x341",
+      "colours": 72,
+      "descendants": 13,
+      "routes": {
+        "render": 8,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.856,
+      "rowsWithInk": 0,
+      "alt": "The anchored regular-expression builder opened from a search field on a Studio panel, showing its guided token buttons, its pattern editor, its flags and its live match preview, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "regexbuilder-menu-caeb179a-20260811.png",
+      "surface": "regexBuilder.menu",
+      "group": "Overlays",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "380x341",
+      "colours": 72,
+      "descendants": 13,
+      "routes": {
+        "render": 8,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.856,
+      "rowsWithInk": 0,
+      "alt": "The anchored regular-expression builder opened from a search field on the Navigator right-click menu, showing its guided token buttons, its pattern editor, its flags and its live match preview, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "regexbuilder-palette-caeb179a-20260811.png",
+      "surface": "regexBuilder.palette",
+      "group": "Overlays",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "380x341",
+      "colours": 72,
+      "descendants": 13,
+      "routes": {
+        "render": 8,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.856,
+      "rowsWithInk": 0,
+      "alt": "The anchored regular-expression builder opened from a search field on the command palette, showing its guided token buttons, its pattern editor, its flags and its live match preview, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "popup-tab-overflow-caeb179a-20260811.png",
+      "surface": "popup.tabOverflow",
+      "group": "Overlays",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "283x603",
+      "colours": 58,
+      "descendants": 24,
+      "routes": {
+        "render": 21,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.858,
+      "rowsWithInk": 16,
+      "alt": "The ribbon tab overflow list, open on a narrowed window, showing its search field and the 16 tabs the strip could not fit, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "palette-card-caeb179a-20260811.png",
+      "surface": "palette.card",
+      "group": "Overlays",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x620",
+      "colours": 101,
+      "descendants": 51,
+      "routes": {
+        "render": 49,
+        "print": 2,
+        "blit": 0
+      },
+      "uniformFraction": 0.555,
+      "rowsWithInk": 9,
+      "alt": "The Ctrl+Shift+F command palette in its card presentation, showing its search field, its result count and its result rows with their live controls, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "palette-full-caeb179a-20260811.png",
+      "surface": "palette.full",
+      "group": "Overlays",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1536x936",
+      "colours": 109,
+      "descendants": 151,
+      "routes": {
+        "render": 149,
+        "print": 2,
+        "blit": 0
+      },
+      "uniformFraction": 0.691,
+      "rowsWithInk": 15,
+      "alt": "The Ctrl+Shift+F command palette in its full presentation, showing its search field, its result count and its result rows with their live controls, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "about-caeb179a-20260811.png",
+      "surface": "about",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 62,
+      "descendants": 24,
+      "routes": {
+        "render": 19,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.779,
+      "rowsWithInk": 0,
+      "alt": "The About surface (Currently opened world), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "analyzetool-caeb179a-20260811.png",
+      "surface": "analyzeTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 62,
+      "descendants": 33,
+      "routes": {
+        "render": 26,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.804,
+      "rowsWithInk": 0,
+      "alt": "The Analyze surface (Analysis), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "batchqueue-caeb179a-20260811.png",
+      "surface": "batchQueue",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 74,
+      "descendants": 32,
+      "routes": {
+        "render": 25,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.769,
+      "rowsWithInk": 0,
+      "alt": "The Batch queue surface (Automation), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-batchqueue-1-policy-caeb179a-20260811.png",
+      "surface": "dropdown.batchQueue.Policy",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "348x187",
+      "colours": 57,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.571,
+      "rowsWithInk": 3,
+      "alt": "The Policy dropdown on the Batch queue surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "regexbuilder-dropdown-caeb179a-20260811.png",
+      "surface": "regexBuilder.dropdown",
+      "group": "Overlays",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "380x341",
+      "colours": 72,
+      "descendants": 13,
+      "routes": {
+        "render": 8,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.856,
+      "rowsWithInk": 0,
+      "alt": "The anchored regular-expression builder opened from a search field on the Policy dropdown on the Batch queue surface, showing its guided token buttons, its pattern editor, its flags and its live match preview, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-batchqueue-2-report-caeb179a-20260811.png",
+      "surface": "dropdown.batchQueue.Report",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "349x187",
+      "colours": 65,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.59,
+      "rowsWithInk": 3,
+      "alt": "The Report dropdown on the Batch queue surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "biomemap-caeb179a-20260811.png",
+      "surface": "biomeMap",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 88,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.75,
+      "rowsWithInk": 0,
+      "alt": "The Biome map surface (Analysis), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "biomeselect-caeb179a-20260811.png",
+      "surface": "biomeSelect",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 65,
+      "descendants": 27,
+      "routes": {
+        "render": 21,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.599,
+      "rowsWithInk": 0,
+      "alt": "The Select biome surface (Biome picker), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "blockaudit-caeb179a-20260811.png",
+      "surface": "blockAudit",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 77,
+      "descendants": 20,
+      "routes": {
+        "render": 16,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.758,
+      "rowsWithInk": 0,
+      "alt": "The Block state audit surface (Blocks), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "blockhistogram-caeb179a-20260811.png",
+      "surface": "blockHistogram",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 89,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.752,
+      "rowsWithInk": 0,
+      "alt": "The Block histogram surface (Analysis), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "blockselect-caeb179a-20260811.png",
+      "surface": "blockSelect",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 57,
+      "descendants": 54,
+      "routes": {
+        "render": 40,
+        "print": 14,
+        "blit": 0
+      },
+      "uniformFraction": 0.794,
+      "rowsWithInk": 0,
+      "alt": "The Select block surface (Block picker), showing its window search and 5 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-blockselect-1-platform-and-version-caeb179a-20260811.png",
+      "surface": "dropdown.blockSelect.Platform and version",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "328x155",
+      "colours": 55,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.528,
+      "rowsWithInk": 2,
+      "alt": "The Platform and version dropdown on the Select block surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-blockselect-2-namespace-caeb179a-20260811.png",
+      "surface": "dropdown.blockSelect.Namespace",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "329x155",
+      "colours": 50,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.53,
+      "rowsWithInk": 2,
+      "alt": "The Namespace dropdown on the Select block surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "brushsettings-caeb179a-20260811.png",
+      "surface": "brushSettings",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 60,
+      "descendants": 71,
+      "routes": {
+        "render": 54,
+        "print": 17,
+        "blit": 0
+      },
+      "uniformFraction": 0.917,
+      "rowsWithInk": 0,
+      "alt": "The Brush surface (Tools), showing its window search and 5 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-brushsettings-1-brush-mode-caeb179a-20260811.png",
+      "surface": "dropdown.brushSettings.Brush mode",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "318x340",
+      "colours": 62,
+      "descendants": 16,
+      "routes": {
+        "render": 13,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.739,
+      "rowsWithInk": 8,
+      "alt": "The Brush mode dropdown on the Brush surface, open, showing its search field and its 8 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-brushsettings-2-fill-block-caeb179a-20260811.png",
+      "surface": "dropdown.brushSettings.Fill block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "319x251",
+      "colours": 63,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.691,
+      "rowsWithInk": 5,
+      "alt": "The Fill block dropdown on the Brush surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-brushsettings-3-replace-block-caeb179a-20260811.png",
+      "surface": "dropdown.brushSettings.Replace block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "318x219",
+      "colours": 58,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.633,
+      "rowsWithInk": 4,
+      "alt": "The Replace block dropdown on the Brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "brushtool-caeb179a-20260811.png",
+      "surface": "brushTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 73,
+      "descendants": 50,
+      "routes": {
+        "render": 35,
+        "print": 15,
+        "blit": 0
+      },
+      "uniformFraction": 0.897,
+      "rowsWithInk": 0,
+      "alt": "The Shape brush surface (Build), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "cavemap-caeb179a-20260811.png",
+      "surface": "caveMap",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 89,
+      "descendants": 37,
+      "routes": {
+        "render": 26,
+        "print": 11,
+        "blit": 0
+      },
+      "uniformFraction": 0.477,
+      "rowsWithInk": 0,
+      "alt": "The Cave coverage surface (Worldgen), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "chunkinspector-caeb179a-20260811.png",
+      "surface": "chunkInspector",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 74,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.767,
+      "rowsWithInk": 0,
+      "alt": "The Chunk inspector surface (Analysis), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "clonetool-caeb179a-20260811.png",
+      "surface": "cloneTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "680x280",
+      "colours": 40,
+      "descendants": 45,
+      "routes": {
+        "render": 30,
+        "print": 15,
+        "blit": 0
+      },
+      "uniformFraction": 0.942,
+      "rowsWithInk": 0,
+      "alt": "The Clone surface (Tools), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-clonetool-1-rotation-caeb179a-20260811.png",
+      "surface": "dropdown.cloneTool.Rotation",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "308x251",
+      "colours": 48,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.717,
+      "rowsWithInk": 5,
+      "alt": "The Rotation dropdown on the Clone surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-clonetool-2-mirror-caeb179a-20260811.png",
+      "surface": "dropdown.cloneTool.Mirror",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "309x219",
+      "colours": 58,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.637,
+      "rowsWithInk": 4,
+      "alt": "The Mirror dropdown on the Clone surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-clonetool-3-scale-caeb179a-20260811.png",
+      "surface": "dropdown.cloneTool.Scale",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "308x219",
+      "colours": 51,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.653,
+      "rowsWithInk": 4,
+      "alt": "The Scale dropdown on the Clone surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "commandfinder-caeb179a-20260811.png",
+      "surface": "commandFinder",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 80,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.752,
+      "rowsWithInk": 0,
+      "alt": "The Command blocks surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "configureblocks-caeb179a-20260811.png",
+      "surface": "configureBlocks",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x318",
+      "colours": 105,
+      "descendants": 54,
+      "routes": {
+        "render": 40,
+        "print": 14,
+        "blit": 0
+      },
+      "uniformFraction": 0.725,
+      "rowsWithInk": 0,
+      "alt": "The Configure blocks surface (Pickers), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "confirm-caeb179a-20260811.png",
+      "surface": "confirm",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "520x280",
+      "colours": 66,
+      "descendants": 27,
+      "routes": {
+        "render": 21,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.777,
+      "rowsWithInk": 0,
+      "alt": "The Delete unselected chunks surface (Safety gate), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "controls-caeb179a-20260811.png",
+      "surface": "controls",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 60,
+      "descendants": 46,
+      "routes": {
+        "render": 38,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.935,
+      "rowsWithInk": 0,
+      "alt": "The Key Select surface (Key configuration), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-controls-1-active-group-caeb179a-20260811.png",
+      "surface": "dropdown.controls.Active group",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "328x219",
+      "colours": 55,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.648,
+      "rowsWithInk": 4,
+      "alt": "The Active group dropdown on the Key Select surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-controls-2-action-set-caeb179a-20260811.png",
+      "surface": "dropdown.controls.Action set",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "329x187",
+      "colours": 60,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.593,
+      "rowsWithInk": 3,
+      "alt": "The Action set dropdown on the Key Select surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "convertprogress-caeb179a-20260811.png",
+      "surface": "convertProgress",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 71,
+      "descendants": 25,
+      "routes": {
+        "render": 19,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.707,
+      "rowsWithInk": 0,
+      "alt": "The Converting world surface (World conversion), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "cutawayview-caeb179a-20260811.png",
+      "surface": "cutawayView",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 66,
+      "descendants": 32,
+      "routes": {
+        "render": 24,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.917,
+      "rowsWithInk": 0,
+      "alt": "The Cutaway surface (View), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-cutawayview-1-axis-caeb179a-20260811.png",
+      "surface": "dropdown.cutawayView.Axis",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "278x187",
+      "colours": 56,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.577,
+      "rowsWithInk": 3,
+      "alt": "The Axis dropdown on the Cutaway surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-cutawayview-2-side-kept-caeb179a-20260811.png",
+      "surface": "dropdown.cutawayView.Side kept",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "279x155",
+      "colours": 56,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.527,
+      "rowsWithInk": 2,
+      "alt": "The Side kept dropdown on the Cutaway surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dimsum-caeb179a-20260811.png",
+      "surface": "dimsum",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "520x280",
+      "colours": 72,
+      "descendants": 24,
+      "routes": {
+        "render": 19,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.747,
+      "rowsWithInk": 0,
+      "alt": "The Har gow · 蝦餃 surface (Startup surprise), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "docs-caeb179a-20260811.png",
+      "surface": "docs",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "820x280",
+      "colours": 62,
+      "descendants": 33,
+      "routes": {
+        "render": 27,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.802,
+      "rowsWithInk": 0,
+      "alt": "The Documentation surface (Offline bundle), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "editchunktool-caeb179a-20260811.png",
+      "surface": "editChunkTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 45,
+      "descendants": 48,
+      "routes": {
+        "render": 34,
+        "print": 14,
+        "blit": 0
+      },
+      "uniformFraction": 0.942,
+      "rowsWithInk": 0,
+      "alt": "The Edit chunk surface (Tools), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "elementappearance-caeb179a-20260811.png",
+      "surface": "elementAppearance",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 65,
+      "descendants": 57,
+      "routes": {
+        "render": 42,
+        "print": 15,
+        "blit": 0
+      },
+      "uniformFraction": 0.874,
+      "rowsWithInk": 0,
+      "alt": "The Edit appearance surface (Per-element appearance), showing its window search and 5 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-elementappearance-1-font-weight-caeb179a-20260811.png",
+      "surface": "dropdown.elementAppearance.Font weight",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "288x187",
+      "colours": 48,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.582,
+      "rowsWithInk": 3,
+      "alt": "The Font weight dropdown on the Edit appearance surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-elementappearance-2-font-family-caeb179a-20260811.png",
+      "surface": "dropdown.elementAppearance.Font family",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "289x187",
+      "colours": 55,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.579,
+      "rowsWithInk": 3,
+      "alt": "The Font family dropdown on the Edit appearance surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "entitybrowser-caeb179a-20260811.png",
+      "surface": "entityBrowser",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "800x280",
+      "colours": 94,
+      "descendants": 21,
+      "routes": {
+        "render": 17,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.764,
+      "rowsWithInk": 0,
+      "alt": "The Entity browser surface (Entities), showing its window search and 6 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "entityedit-caeb179a-20260811.png",
+      "surface": "entityEdit",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x318",
+      "colours": 90,
+      "descendants": 55,
+      "routes": {
+        "render": 35,
+        "print": 20,
+        "blit": 0
+      },
+      "uniformFraction": 0.893,
+      "rowsWithInk": 0,
+      "alt": "The Edit entity surface (Entities), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "erosion-caeb179a-20260811.png",
+      "surface": "erosion",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 49,
+      "descendants": 40,
+      "routes": {
+        "render": 28,
+        "print": 12,
+        "blit": 0
+      },
+      "uniformFraction": 0.926,
+      "rowsWithInk": 0,
+      "alt": "The Erosion surface (Sculpt), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-erosion-1-type-caeb179a-20260811.png",
+      "surface": "dropdown.erosion.Type",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "268x187",
+      "colours": 55,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.58,
+      "rowsWithInk": 3,
+      "alt": "The Type dropdown on the Erosion surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-erosion-2-deposit-caeb179a-20260811.png",
+      "surface": "dropdown.erosion.Deposit",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "269x187",
+      "colours": 51,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.577,
+      "rowsWithInk": 3,
+      "alt": "The Deposit dropdown on the Erosion surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "errorreport-caeb179a-20260811.png",
+      "surface": "errorReport",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "680x318",
+      "colours": 87,
+      "descendants": 30,
+      "routes": {
+        "render": 23,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.904,
+      "rowsWithInk": 0,
+      "alt": "The Unexpected error surface (Diagnostics), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "exportstructure-caeb179a-20260811.png",
+      "surface": "exportStructure",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 55,
+      "descendants": 35,
+      "routes": {
+        "render": 23,
+        "print": 12,
+        "blit": 0
+      },
+      "uniformFraction": 0.931,
+      "rowsWithInk": 0,
+      "alt": "The Export selection surface (Structure files), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-exportstructure-1-handler-caeb179a-20260811.png",
+      "surface": "dropdown.exportStructure.Handler",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "268x219",
+      "colours": 63,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.622,
+      "rowsWithInk": 4,
+      "alt": "The Handler dropdown on the Export selection surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-exportstructure-2-platform-caeb179a-20260811.png",
+      "surface": "dropdown.exportStructure.Platform",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "269x155",
+      "colours": 51,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.517,
+      "rowsWithInk": 2,
+      "alt": "The Platform dropdown on the Export selection surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "externaleditor-caeb179a-20260811.png",
+      "surface": "externalEditor",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x318",
+      "colours": 121,
+      "descendants": 29,
+      "routes": {
+        "render": 21,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.671,
+      "rowsWithInk": 0,
+      "alt": "The External editor surface (Safe bridge), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "findreplaceblocks-caeb179a-20260811.png",
+      "surface": "findReplaceBlocks",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 81,
+      "descendants": 48,
+      "routes": {
+        "render": 38,
+        "print": 10,
+        "blit": 0
+      },
+      "uniformFraction": 0.779,
+      "rowsWithInk": 0,
+      "alt": "The Blocks surface (Find and replace), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-findreplaceblocks-1-search-in-caeb179a-20260811.png",
+      "surface": "dropdown.findReplaceBlocks.Search in",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "348x187",
+      "colours": 60,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.576,
+      "rowsWithInk": 3,
+      "alt": "The Search in dropdown on the Blocks surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-findreplaceblocks-2-state-matching-caeb179a-20260811.png",
+      "surface": "dropdown.findReplaceBlocks.State matching",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "349x187",
+      "colours": 68,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.579,
+      "rowsWithInk": 3,
+      "alt": "The State matching dropdown on the Blocks surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "findreplacecommands-caeb179a-20260811.png",
+      "surface": "findReplaceCommands",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 56,
+      "descendants": 51,
+      "routes": {
+        "render": 35,
+        "print": 16,
+        "blit": 0
+      },
+      "uniformFraction": 0.802,
+      "rowsWithInk": 0,
+      "alt": "The Commands surface (Find and replace), showing its window search and 5 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-findreplacecommands-1-coordinates-caeb179a-20260811.png",
+      "surface": "dropdown.findReplaceCommands.Coordinates",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "358x187",
+      "colours": 61,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.576,
+      "rowsWithInk": 3,
+      "alt": "The Coordinates dropdown on the Commands surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-findreplacecommands-2-offset-caeb179a-20260811.png",
+      "surface": "dropdown.findReplaceCommands.Offset",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "359x155",
+      "colours": 57,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.517,
+      "rowsWithInk": 2,
+      "alt": "The Offset dropdown on the Commands surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "findreplacenbt-caeb179a-20260811.png",
+      "surface": "findReplaceNbt",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 58,
+      "descendants": 44,
+      "routes": {
+        "render": 30,
+        "print": 14,
+        "blit": 0
+      },
+      "uniformFraction": 0.806,
+      "rowsWithInk": 0,
+      "alt": "The NBT surface (Find and replace), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-findreplacenbt-1-tag-type-caeb179a-20260811.png",
+      "surface": "dropdown.findReplaceNbt.Tag type",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "358x315",
+      "colours": 51,
+      "descendants": 15,
+      "routes": {
+        "render": 12,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.754,
+      "rowsWithInk": 7,
+      "alt": "The Tag type dropdown on the NBT surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-findreplacenbt-2-match-caeb179a-20260811.png",
+      "surface": "dropdown.findReplaceNbt.Match",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "359x219",
+      "colours": 53,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.64,
+      "rowsWithInk": 4,
+      "alt": "The Match dropdown on the NBT surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "flatten-caeb179a-20260811.png",
+      "surface": "flatten",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 47,
+      "descendants": 27,
+      "routes": {
+        "render": 18,
+        "print": 9,
+        "blit": 0
+      },
+      "uniformFraction": 0.931,
+      "rowsWithInk": 0,
+      "alt": "The Flatten to height surface (Sculpt), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-flatten-1-direction-caeb179a-20260811.png",
+      "surface": "dropdown.flatten.Direction",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "260x187",
+      "colours": 50,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.584,
+      "rowsWithInk": 3,
+      "alt": "The Direction dropdown on the Flatten to height surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-flatten-2-edge-caeb179a-20260811.png",
+      "surface": "dropdown.flatten.Edge",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "260x187",
+      "colours": 53,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.572,
+      "rowsWithInk": 3,
+      "alt": "The Edge dropdown on the Flatten to height surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "floodfill-caeb179a-20260811.png",
+      "surface": "floodFill",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 51,
+      "descendants": 46,
+      "routes": {
+        "render": 33,
+        "print": 13,
+        "blit": 0
+      },
+      "uniformFraction": 0.925,
+      "rowsWithInk": 0,
+      "alt": "The Flood fill surface (Tools), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-floodfill-1-search-block-caeb179a-20260811.png",
+      "surface": "dropdown.floodFill.Search block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "278x219",
+      "colours": 63,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.623,
+      "rowsWithInk": 4,
+      "alt": "The Search block dropdown on the Flood fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-floodfill-2-replace-with-caeb179a-20260811.png",
+      "surface": "dropdown.floodFill.Replace with",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "279x219",
+      "colours": 66,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.638,
+      "rowsWithInk": 4,
+      "alt": "The Replace with dropdown on the Flood fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-floodfill-3-neighbours-caeb179a-20260811.png",
+      "surface": "dropdown.floodFill.Neighbours",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "278x187",
+      "colours": 57,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.571,
+      "rowsWithInk": 3,
+      "alt": "The Neighbours dropdown on the Flood fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-floodfill-4-direction-caeb179a-20260811.png",
+      "surface": "dropdown.floodFill.Direction",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "279x187",
+      "colours": 66,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.585,
+      "rowsWithInk": 3,
+      "alt": "The Direction dropdown on the Flood fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "forceloaded-caeb179a-20260811.png",
+      "surface": "forceLoaded",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 75,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.749,
+      "rowsWithInk": 0,
+      "alt": "The Force-loaded chunks surface (Boundaries), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "fourupview-caeb179a-20260811.png",
+      "surface": "fourUpView",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 72,
+      "descendants": 34,
+      "routes": {
+        "render": 25,
+        "print": 9,
+        "blit": 0
+      },
+      "uniformFraction": 0.904,
+      "rowsWithInk": 0,
+      "alt": "The Four-up split surface (View), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-fourupview-1-top-left-caeb179a-20260811.png",
+      "surface": "dropdown.fourUpView.Top left",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "298x251",
+      "colours": 68,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.686,
+      "rowsWithInk": 5,
+      "alt": "The Top left dropdown on the Four-up split surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-fourupview-2-top-right-caeb179a-20260811.png",
+      "surface": "dropdown.fourUpView.Top right",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "299x219",
+      "colours": 61,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.629,
+      "rowsWithInk": 4,
+      "alt": "The Top right dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-fourupview-3-bottom-left-caeb179a-20260811.png",
+      "surface": "dropdown.fourUpView.Bottom left",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "298x219",
+      "colours": 67,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.632,
+      "rowsWithInk": 4,
+      "alt": "The Bottom left dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-fourupview-4-bottom-right-caeb179a-20260811.png",
+      "surface": "dropdown.fourUpView.Bottom right",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "299x219",
+      "colours": 62,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.632,
+      "rowsWithInk": 4,
+      "alt": "The Bottom right dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "gamerules-caeb179a-20260811.png",
+      "surface": "gamerules",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 63,
+      "descendants": 18,
+      "routes": {
+        "render": 14,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.768,
+      "rowsWithInk": 0,
+      "alt": "The Game rules surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "generatetool-caeb179a-20260811.png",
+      "surface": "generateTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 59,
+      "descendants": 53,
+      "routes": {
+        "render": 37,
+        "print": 16,
+        "blit": 0
+      },
+      "uniformFraction": 0.935,
+      "rowsWithInk": 0,
+      "alt": "The Generate surface (Tools), showing its window search and 5 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-generatetool-1-generator-caeb179a-20260811.png",
+      "surface": "dropdown.generateTool.Generator",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "328x315",
+      "colours": 67,
+      "descendants": 15,
+      "routes": {
+        "render": 12,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.759,
+      "rowsWithInk": 7,
+      "alt": "The Generator dropdown on the Generate surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-generatetool-2-output-caeb179a-20260811.png",
+      "surface": "dropdown.generateTool.Output",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "329x155",
+      "colours": 64,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.518,
+      "rowsWithInk": 2,
+      "alt": "The Output dropdown on the Generate surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-generatetool-3-trunk-block-caeb179a-20260811.png",
+      "surface": "dropdown.generateTool.Trunk block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "328x187",
+      "colours": 66,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.582,
+      "rowsWithInk": 3,
+      "alt": "The Trunk block dropdown on the Generate surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-generatetool-4-leaf-block-caeb179a-20260811.png",
+      "surface": "dropdown.generateTool.Leaf block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "329x187",
+      "colours": 62,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.591,
+      "rowsWithInk": 3,
+      "alt": "The Leaf block dropdown on the Generate surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "goto-caeb179a-20260811.png",
+      "surface": "goto",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "460x280",
+      "colours": 48,
+      "descendants": 26,
+      "routes": {
+        "render": 18,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.912,
+      "rowsWithInk": 0,
+      "alt": "The Teleport surface (Camera), showing its window search and 1 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "heightlimits-caeb179a-20260811.png",
+      "surface": "heightLimits",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 79,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.764,
+      "rowsWithInk": 0,
+      "alt": "The Height limits surface (Boundaries), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "history-caeb179a-20260811.png",
+      "surface": "history",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x366",
+      "colours": 109,
+      "descendants": 64,
+      "routes": {
+        "render": 57,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.679,
+      "rowsWithInk": 0,
+      "alt": "The Project history surface (Local Git repository), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "importchunks-caeb179a-20260811.png",
+      "surface": "importChunks",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 61,
+      "descendants": 27,
+      "routes": {
+        "render": 19,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.756,
+      "rowsWithInk": 0,
+      "alt": "The Import chunks surface (Chunk tool), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "importmap-caeb179a-20260811.png",
+      "surface": "importMap",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 62,
+      "descendants": 39,
+      "routes": {
+        "render": 25,
+        "print": 14,
+        "blit": 0
+      },
+      "uniformFraction": 0.907,
+      "rowsWithInk": 0,
+      "alt": "The Import map image surface (Import), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-importmap-1-import-as-caeb179a-20260811.png",
+      "surface": "dropdown.importMap.Import as",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "319x187",
+      "colours": 62,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.577,
+      "rowsWithInk": 3,
+      "alt": "The Import as dropdown on the Import map image surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-importmap-2-dithering-caeb179a-20260811.png",
+      "surface": "dropdown.importMap.Dithering",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "318x187",
+      "colours": 58,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.576,
+      "rowsWithInk": 3,
+      "alt": "The Dithering dropdown on the Import map image surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-importmap-3-palette-caeb179a-20260811.png",
+      "surface": "dropdown.importMap.Palette",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "319x219",
+      "colours": 63,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.63,
+      "rowsWithInk": 4,
+      "alt": "The Palette dropdown on the Import map image surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "inspector-caeb179a-20260811.png",
+      "surface": "inspector",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 71,
+      "descendants": 42,
+      "routes": {
+        "render": 34,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.918,
+      "rowsWithInk": 0,
+      "alt": "The Inspector surface (Panels), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-inspector-1-inspecting-caeb179a-20260811.png",
+      "surface": "dropdown.inspector.Inspecting",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "338x251",
+      "colours": 59,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.691,
+      "rowsWithInk": 5,
+      "alt": "The Inspecting dropdown on the Inspector surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-inspector-2-follow-caeb179a-20260811.png",
+      "surface": "dropdown.inspector.Follow",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "339x155",
+      "colours": 53,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.513,
+      "rowsWithInk": 2,
+      "alt": "The Follow dropdown on the Inspector surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "inventoryeditor-caeb179a-20260811.png",
+      "surface": "inventoryEditor",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 78,
+      "descendants": 55,
+      "routes": {
+        "render": 40,
+        "print": 15,
+        "blit": 0
+      },
+      "uniformFraction": 0.918,
+      "rowsWithInk": 0,
+      "alt": "The Inventory editor surface (Panels), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-inventoryeditor-1-inventory-caeb179a-20260811.png",
+      "surface": "dropdown.inventoryEditor.Inventory",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "348x251",
+      "colours": 61,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.694,
+      "rowsWithInk": 5,
+      "alt": "The Inventory dropdown on the Inventory editor surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-inventoryeditor-2-item-type-caeb179a-20260811.png",
+      "surface": "dropdown.inventoryEditor.Item type",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "349x251",
+      "colours": 73,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.701,
+      "rowsWithInk": 5,
+      "alt": "The Item type dropdown on the Inventory editor surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "itemtypelist-caeb179a-20260811.png",
+      "surface": "itemTypeList",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 63,
+      "descendants": 42,
+      "routes": {
+        "render": 34,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.797,
+      "rowsWithInk": 0,
+      "alt": "The Item types surface (Pickers), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "languageselect-caeb179a-20260811.png",
+      "surface": "languageSelect",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "520x280",
+      "colours": 59,
+      "descendants": 26,
+      "routes": {
+        "render": 22,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.755,
+      "rowsWithInk": 0,
+      "alt": "The Language Select surface (Localization), showing its window search and 1 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "layerslice-caeb179a-20260811.png",
+      "surface": "layerSlice",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 38,
+      "descendants": 39,
+      "routes": {
+        "render": 27,
+        "print": 12,
+        "blit": 0
+      },
+      "uniformFraction": 0.926,
+      "rowsWithInk": 0,
+      "alt": "The Layer slice surface (Measure), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "leveldat-caeb179a-20260811.png",
+      "surface": "levelDat",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 65,
+      "descendants": 20,
+      "routes": {
+        "render": 16,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.827,
+      "rowsWithInk": 0,
+      "alt": "The level.dat surface (Data), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "librarypanel-caeb179a-20260811.png",
+      "surface": "libraryPanel",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 103,
+      "descendants": 52,
+      "routes": {
+        "render": 42,
+        "print": 10,
+        "blit": 0
+      },
+      "uniformFraction": 0.721,
+      "rowsWithInk": 0,
+      "alt": "The Library surface (Panels), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "licenses-caeb179a-20260811.png",
+      "surface": "licenses",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 84,
+      "descendants": 24,
+      "routes": {
+        "render": 19,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.486,
+      "rowsWithInk": 0,
+      "alt": "The Third Party Licenses surface (Legal), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "lightoverlay-caeb179a-20260811.png",
+      "surface": "lightOverlay",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 56,
+      "descendants": 33,
+      "routes": {
+        "render": 24,
+        "print": 9,
+        "blit": 0
+      },
+      "uniformFraction": 0.936,
+      "rowsWithInk": 0,
+      "alt": "The Light levels surface (Mechanics), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-lightoverlay-1-channel-caeb179a-20260811.png",
+      "surface": "dropdown.lightOverlay.Channel",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "298x219",
+      "colours": 65,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.628,
+      "rowsWithInk": 4,
+      "alt": "The Channel dropdown on the Light levels surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-lightoverlay-2-display-caeb179a-20260811.png",
+      "surface": "dropdown.lightOverlay.Display",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "299x187",
+      "colours": 60,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.581,
+      "rowsWithInk": 3,
+      "alt": "The Display dropdown on the Light levels surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "loading-caeb179a-20260811.png",
+      "surface": "loading",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 62,
+      "descendants": 28,
+      "routes": {
+        "render": 21,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.825,
+      "rowsWithInk": 0,
+      "alt": "The Please wait while the renderer loads surface (Renderer), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "logview-caeb179a-20260811.png",
+      "surface": "logView",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 53,
+      "descendants": 31,
+      "routes": {
+        "render": 24,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.813,
+      "rowsWithInk": 0,
+      "alt": "The Log surface (Diagnostics), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-logview-1-minimum-level-caeb179a-20260811.png",
+      "surface": "dropdown.logView.Minimum level",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "358x219",
+      "colours": 51,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.641,
+      "rowsWithInk": 4,
+      "alt": "The Minimum level dropdown on the Log surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-logview-2-source-caeb179a-20260811.png",
+      "surface": "dropdown.logView.Source",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "359x251",
+      "colours": 54,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.696,
+      "rowsWithInk": 5,
+      "alt": "The Source dropdown on the Log surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "lootaudit-caeb179a-20260811.png",
+      "surface": "lootAudit",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 86,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.776,
+      "rowsWithInk": 0,
+      "alt": "The Loot audit surface (Containers), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "macrorecorder-caeb179a-20260811.png",
+      "surface": "macroRecorder",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 95,
+      "descendants": 29,
+      "routes": {
+        "render": 23,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.66,
+      "rowsWithInk": 0,
+      "alt": "The Macro recorder surface (Automation), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-macrorecorder-1-anchor-caeb179a-20260811.png",
+      "surface": "dropdown.macroRecorder.Anchor",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "318x187",
+      "colours": 58,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.573,
+      "rowsWithInk": 3,
+      "alt": "The Anchor dropdown on the Macro recorder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-macrorecorder-2-repeat-caeb179a-20260811.png",
+      "surface": "dropdown.macroRecorder.Repeat",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "319x187",
+      "colours": 56,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.576,
+      "rowsWithInk": 3,
+      "alt": "The Repeat dropdown on the Macro recorder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "mapitems-caeb179a-20260811.png",
+      "surface": "mapItems",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 64,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.778,
+      "rowsWithInk": 0,
+      "alt": "The Map items surface (Data), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "measure-caeb179a-20260811.png",
+      "surface": "measure",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 57,
+      "descendants": 18,
+      "routes": {
+        "render": 14,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.686,
+      "rowsWithInk": 0,
+      "alt": "The Measure surface (Measure), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "minecraftinstalls-caeb179a-20260811.png",
+      "surface": "minecraftInstalls",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 69,
+      "descendants": 32,
+      "routes": {
+        "render": 24,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.751,
+      "rowsWithInk": 0,
+      "alt": "The Minecraft installs surface (Resources), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-minecraftinstalls-1-version-caeb179a-20260811.png",
+      "surface": "dropdown.minecraftInstalls.Version",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "338x219",
+      "colours": 51,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.642,
+      "rowsWithInk": 4,
+      "alt": "The Version dropdown on the Minecraft installs surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-minecraftinstalls-2-resource-pack-caeb179a-20260811.png",
+      "surface": "dropdown.minecraftInstalls.Resource pack",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "339x219",
+      "colours": 61,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.621,
+      "rowsWithInk": 4,
+      "alt": "The Resource pack dropdown on the Minecraft installs surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "movetool-caeb179a-20260811.png",
+      "surface": "moveTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 51,
+      "descendants": 38,
+      "routes": {
+        "render": 25,
+        "print": 13,
+        "blit": 0
+      },
+      "uniformFraction": 0.938,
+      "rowsWithInk": 0,
+      "alt": "The Move surface (Tools), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "narrator-caeb179a-20260811.png",
+      "surface": "narrator",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 62,
+      "descendants": 39,
+      "routes": {
+        "render": 28,
+        "print": 11,
+        "blit": 0
+      },
+      "uniformFraction": 0.899,
+      "rowsWithInk": 0,
+      "alt": "The Narrator and voice surface (Optional speech), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-narrator-1-narrator-language-caeb179a-20260811.png",
+      "surface": "dropdown.narrator.Narrator language",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "268x187",
+      "colours": 46,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.587,
+      "rowsWithInk": 3,
+      "alt": "The Narrator language dropdown on the Narrator and voice surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-narrator-2-backend-caeb179a-20260811.png",
+      "surface": "dropdown.narrator.Backend",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "269x155",
+      "colours": 51,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.517,
+      "rowsWithInk": 2,
+      "alt": "The Backend dropdown on the Narrator and voice surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "nbtlegacy-caeb179a-20260811.png",
+      "surface": "nbtLegacy",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 78,
+      "descendants": 42,
+      "routes": {
+        "render": 32,
+        "print": 10,
+        "blit": 0
+      },
+      "uniformFraction": 0.64,
+      "rowsWithInk": 0,
+      "alt": "The NBT editor surface (Raw data), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "nbtsearch-caeb179a-20260811.png",
+      "surface": "nbtSearch",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 58,
+      "descendants": 51,
+      "routes": {
+        "render": 35,
+        "print": 16,
+        "blit": 0
+      },
+      "uniformFraction": 0.827,
+      "rowsWithInk": 0,
+      "alt": "The NBT search and replace surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "noisegen-caeb179a-20260811.png",
+      "surface": "noiseGen",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 51,
+      "descendants": 42,
+      "routes": {
+        "render": 29,
+        "print": 13,
+        "blit": 0
+      },
+      "uniformFraction": 0.936,
+      "rowsWithInk": 0,
+      "alt": "The Noise fill surface (Generate), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-noisegen-1-noise-caeb179a-20260811.png",
+      "surface": "dropdown.noiseGen.Noise",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "278x219",
+      "colours": 56,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.625,
+      "rowsWithInk": 4,
+      "alt": "The Noise dropdown on the Noise fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-noisegen-2-output-caeb179a-20260811.png",
+      "surface": "dropdown.noiseGen.Output",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "279x187",
+      "colours": 62,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.586,
+      "rowsWithInk": 3,
+      "alt": "The Output dropdown on the Noise fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "operationoptions-caeb179a-20260811.png",
+      "surface": "operationOptions",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 62,
+      "descendants": 37,
+      "routes": {
+        "render": 28,
+        "print": 9,
+        "blit": 0
+      },
+      "uniformFraction": 0.785,
+      "rowsWithInk": 0,
+      "alt": "The Replace surface (Stock operation), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "oreaudit-caeb179a-20260811.png",
+      "surface": "oreAudit",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 71,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.776,
+      "rowsWithInk": 0,
+      "alt": "The Ore distribution surface (Worldgen), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "patternmask-caeb179a-20260811.png",
+      "surface": "patternMask",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 94,
+      "descendants": 47,
+      "routes": {
+        "render": 35,
+        "print": 12,
+        "blit": 0
+      },
+      "uniformFraction": 0.65,
+      "rowsWithInk": 0,
+      "alt": "The Pattern and mask surface (Build), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-patternmask-1-match-caeb179a-20260811.png",
+      "surface": "dropdown.patternMask.Match",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "298x251",
+      "colours": 66,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.687,
+      "rowsWithInk": 5,
+      "alt": "The Match dropdown on the Pattern and mask surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-patternmask-2-applies-to-caeb179a-20260811.png",
+      "surface": "dropdown.patternMask.Applies to",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "299x187",
+      "colours": 53,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.583,
+      "rowsWithInk": 3,
+      "alt": "The Applies to dropdown on the Pattern and mask surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "pendingimports-caeb179a-20260811.png",
+      "surface": "pendingImports",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x318",
+      "colours": 109,
+      "descendants": 45,
+      "routes": {
+        "render": 31,
+        "print": 14,
+        "blit": 0
+      },
+      "uniformFraction": 0.671,
+      "rowsWithInk": 0,
+      "alt": "The Pending imports surface (Panels), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "playerdata-caeb179a-20260811.png",
+      "surface": "playerData",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 86,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.735,
+      "rowsWithInk": 0,
+      "alt": "The Player data surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "playerpanel-caeb179a-20260811.png",
+      "surface": "playerPanel",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x318",
+      "colours": 101,
+      "descendants": 47,
+      "routes": {
+        "render": 35,
+        "print": 12,
+        "blit": 0
+      },
+      "uniformFraction": 0.673,
+      "rowsWithInk": 0,
+      "alt": "The Players surface (Panels), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "pluginsdialog-caeb179a-20260811.png",
+      "surface": "pluginsDialog",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x318",
+      "colours": 82,
+      "descendants": 37,
+      "routes": {
+        "render": 29,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.736,
+      "rowsWithInk": 0,
+      "alt": "The Plugins surface (Extensibility), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "portalbuilder-caeb179a-20260811.png",
+      "surface": "portalBuilder",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "820x414",
+      "colours": 87,
+      "descendants": 77,
+      "routes": {
+        "render": 52,
+        "print": 25,
+        "blit": 0
+      },
+      "uniformFraction": 0.915,
+      "rowsWithInk": 0,
+      "alt": "The Nether portal travel builder surface (Travel), showing its window search and 7 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-portalbuilder-1-size-caeb179a-20260811.png",
+      "surface": "dropdown.portalBuilder.Size",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "378x219",
+      "colours": 56,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.655,
+      "rowsWithInk": 4,
+      "alt": "The Size dropdown on the Nether portal travel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-portalbuilder-2-frame-block-caeb179a-20260811.png",
+      "surface": "dropdown.portalBuilder.Frame block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "379x187",
+      "colours": 61,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.578,
+      "rowsWithInk": 3,
+      "alt": "The Frame block dropdown on the Nether portal travel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-portalbuilder-3-corners-caeb179a-20260811.png",
+      "surface": "dropdown.portalBuilder.Corners",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "378x155",
+      "colours": 53,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.52,
+      "rowsWithInk": 2,
+      "alt": "The Corners dropdown on the Nether portal travel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-portalbuilder-4-orientation-caeb179a-20260811.png",
+      "surface": "dropdown.portalBuilder.Orientation",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "379x155",
+      "colours": 51,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.523,
+      "rowsWithInk": 2,
+      "alt": "The Orientation dropdown on the Nether portal travel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "portallinker-caeb179a-20260811.png",
+      "surface": "portalLinker",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 73,
+      "descendants": 36,
+      "routes": {
+        "render": 25,
+        "print": 11,
+        "blit": 0
+      },
+      "uniformFraction": 0.761,
+      "rowsWithInk": 0,
+      "alt": "The Portal linkage surface (Redstone), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "presets-caeb179a-20260811.png",
+      "surface": "presets",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x462",
+      "colours": 142,
+      "descendants": 38,
+      "routes": {
+        "render": 30,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.638,
+      "rowsWithInk": 0,
+      "alt": "The Appearance presets surface (Versioned interchange), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-presets-1-property-caeb179a-20260811.png",
+      "surface": "dropdown.presets.Property",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "328x251",
+      "colours": 63,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.707,
+      "rowsWithInk": 5,
+      "alt": "The Property dropdown on the Appearance presets surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-presets-2-scope-caeb179a-20260811.png",
+      "surface": "dropdown.presets.Scope",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "329x187",
+      "colours": 66,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.586,
+      "rowsWithInk": 3,
+      "alt": "The Scope dropdown on the Appearance presets surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "profiler-caeb179a-20260811.png",
+      "surface": "profiler",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x318",
+      "colours": 95,
+      "descendants": 32,
+      "routes": {
+        "render": 25,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.631,
+      "rowsWithInk": 0,
+      "alt": "The Profiler surface (Diagnostics), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "pythonconsole-caeb179a-20260811.png",
+      "surface": "pythonConsole",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 63,
+      "descendants": 24,
+      "routes": {
+        "render": 20,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.814,
+      "rowsWithInk": 0,
+      "alt": "The Python console surface (Diagnostics), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "railnetwork-caeb179a-20260811.png",
+      "surface": "railNetwork",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 73,
+      "descendants": 40,
+      "routes": {
+        "render": 30,
+        "print": 10,
+        "blit": 0
+      },
+      "uniformFraction": 0.618,
+      "rowsWithInk": 0,
+      "alt": "The Rail network surface (Redstone), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "railtunnel-caeb179a-20260811.png",
+      "surface": "railTunnel",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "840x414",
+      "colours": 80,
+      "descendants": 163,
+      "routes": {
+        "render": 114,
+        "print": 49,
+        "blit": 0
+      },
+      "uniformFraction": 0.918,
+      "rowsWithInk": 0,
+      "alt": "The Rail tunnel builder surface (Travel), showing its window search and 17 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-1-routing-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Routing",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "388x219",
+      "colours": 63,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.628,
+      "rowsWithInk": 4,
+      "alt": "The Routing dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-2-slope-handling-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Slope handling",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "389x187",
+      "colours": 74,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.575,
+      "rowsWithInk": 3,
+      "alt": "The Slope handling dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-3-dimension-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Dimension",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "388x155",
+      "colours": 53,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.517,
+      "rowsWithInk": 2,
+      "alt": "The Dimension dropdown on the Rail tunnel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-4-cross-section-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Cross-section",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "388x219",
+      "colours": 60,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.636,
+      "rowsWithInk": 4,
+      "alt": "The Cross-section dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-5-wall-block-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Wall block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "389x219",
+      "colours": 69,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.627,
+      "rowsWithInk": 4,
+      "alt": "The Wall block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-6-floor-block-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Floor block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "388x187",
+      "colours": 55,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.577,
+      "rowsWithInk": 3,
+      "alt": "The Floor block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-7-roof-block-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Roof block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "389x187",
+      "colours": 60,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.585,
+      "rowsWithInk": 3,
+      "alt": "The Roof block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-8-body-pattern-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Body pattern",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "391x251",
+      "colours": 67,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.7,
+      "rowsWithInk": 5,
+      "alt": "The Body pattern dropdown on the Rail tunnel builder surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-9-accent-columns-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Accent columns",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "386x219",
+      "colours": 53,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.637,
+      "rowsWithInk": 4,
+      "alt": "The Accent columns dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-10-column-block-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Column block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "391x219",
+      "colours": 70,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.638,
+      "rowsWithInk": 4,
+      "alt": "The Column block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-11-alcoves-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Alcoves",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "386x187",
+      "colours": 51,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.583,
+      "rowsWithInk": 3,
+      "alt": "The Alcoves dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-12-shape-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Shape",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "388x283",
+      "colours": 60,
+      "descendants": 14,
+      "routes": {
+        "render": 11,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.701,
+      "rowsWithInk": 6,
+      "alt": "The Shape dropdown on the Rail tunnel builder surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-13-roof-block-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Roof block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "389x219",
+      "colours": 67,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.63,
+      "rowsWithInk": 4,
+      "alt": "The Roof block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-14-ribs-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Ribs",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "388x187",
+      "colours": 50,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.579,
+      "rowsWithInk": 3,
+      "alt": "The Ribs dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-15-rib-block-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Rib block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "389x187",
+      "colours": 61,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.577,
+      "rowsWithInk": 3,
+      "alt": "The Rib block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-16-placement-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Placement",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "388x251",
+      "colours": 69,
+      "descendants": 13,
+      "routes": {
+        "render": 10,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.688,
+      "rowsWithInk": 5,
+      "alt": "The Placement dropdown on the Rail tunnel builder surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-17-side-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Side",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "389x219",
+      "colours": 59,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.637,
+      "rowsWithInk": 4,
+      "alt": "The Side dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-18-fixture-block-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Fixture block",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "388x315",
+      "colours": 63,
+      "descendants": 15,
+      "routes": {
+        "render": 12,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.74,
+      "rowsWithInk": 7,
+      "alt": "The Fixture block dropdown on the Rail tunnel builder surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-railtunnel-19-backing-caeb179a-20260811.png",
+      "surface": "dropdown.railTunnel.Backing",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "389x219",
+      "colours": 62,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.63,
+      "rowsWithInk": 4,
+      "alt": "The Backing dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "redstonetrace-caeb179a-20260811.png",
+      "surface": "redstoneTrace",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 75,
+      "descendants": 44,
+      "routes": {
+        "render": 32,
+        "print": 12,
+        "blit": 0
+      },
+      "uniformFraction": 0.897,
+      "rowsWithInk": 0,
+      "alt": "The Circuit trace surface (Redstone), showing its window search and 5 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-redstonetrace-1-action-caeb179a-20260811.png",
+      "surface": "dropdown.redstoneTrace.Action",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "348x219",
+      "colours": 65,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.627,
+      "rowsWithInk": 4,
+      "alt": "The Action dropdown on the Circuit trace surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-redstonetrace-2-wiring-caeb179a-20260811.png",
+      "surface": "dropdown.redstoneTrace.Wiring",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "349x155",
+      "colours": 61,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.523,
+      "rowsWithInk": 2,
+      "alt": "The Wiring dropdown on the Circuit trace surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "regenerate-caeb179a-20260811.png",
+      "surface": "regenerate",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 62,
+      "descendants": 30,
+      "routes": {
+        "render": 24,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.747,
+      "rowsWithInk": 0,
+      "alt": "The Regenerate chunks surface (Generate), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "relight-caeb179a-20260811.png",
+      "surface": "relight",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 46,
+      "descendants": 24,
+      "routes": {
+        "render": 18,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.929,
+      "rowsWithInk": 0,
+      "alt": "The Relight surface (Integrity), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-relight-1-light-type-caeb179a-20260811.png",
+      "surface": "dropdown.relight.Light type",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "268x187",
+      "colours": 54,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.577,
+      "rowsWithInk": 3,
+      "alt": "The Light type dropdown on the Relight surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-relight-2-area-caeb179a-20260811.png",
+      "surface": "dropdown.relight.Area",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "269x187",
+      "colours": 58,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.571,
+      "rowsWithInk": 3,
+      "alt": "The Area dropdown on the Relight surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "removeentities-caeb179a-20260811.png",
+      "surface": "removeEntities",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 50,
+      "descendants": 31,
+      "routes": {
+        "render": 22,
+        "print": 9,
+        "blit": 0
+      },
+      "uniformFraction": 0.923,
+      "rowsWithInk": 0,
+      "alt": "The Remove entities surface (Entities), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-removeentities-1-category-caeb179a-20260811.png",
+      "surface": "dropdown.removeEntities.Category",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "268x283",
+      "colours": 57,
+      "descendants": 14,
+      "routes": {
+        "render": 11,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.695,
+      "rowsWithInk": 6,
+      "alt": "The Category dropdown on the Remove entities surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-removeentities-2-named-entities-caeb179a-20260811.png",
+      "surface": "dropdown.removeEntities.Named entities",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "269x187",
+      "colours": 56,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.574,
+      "rowsWithInk": 3,
+      "alt": "The Named entities dropdown on the Remove entities surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "renderlayers-caeb179a-20260811.png",
+      "surface": "renderLayers",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 57,
+      "descendants": 62,
+      "routes": {
+        "render": 44,
+        "print": 18,
+        "blit": 0
+      },
+      "uniformFraction": 0.93,
+      "rowsWithInk": 0,
+      "alt": "The Render layers surface (View), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "schematiclibrary-caeb179a-20260811.png",
+      "surface": "schematicLibrary",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 91,
+      "descendants": 40,
+      "routes": {
+        "render": 32,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.727,
+      "rowsWithInk": 0,
+      "alt": "The Structure library surface (Build), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "schoolunlock-caeb179a-20260811.png",
+      "surface": "schoolUnlock",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "520x280",
+      "colours": 53,
+      "descendants": 26,
+      "routes": {
+        "render": 19,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.896,
+      "rowsWithInk": 0,
+      "alt": "The School mode surface (Presentation lock), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "scoreboard-caeb179a-20260811.png",
+      "surface": "scoreboard",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 74,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.751,
+      "rowsWithInk": 0,
+      "alt": "The Scoreboard surface (Data), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "scriptconsole-caeb179a-20260811.png",
+      "surface": "scriptConsole",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 95,
+      "descendants": 27,
+      "routes": {
+        "render": 22,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.819,
+      "rowsWithInk": 0,
+      "alt": "The Operation console surface (Automation), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "sealevel-caeb179a-20260811.png",
+      "surface": "seaLevel",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 49,
+      "descendants": 28,
+      "routes": {
+        "render": 18,
+        "print": 10,
+        "blit": 0
+      },
+      "uniformFraction": 0.931,
+      "rowsWithInk": 0,
+      "alt": "The Sea level surface (Generate), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-sealevel-1-action-caeb179a-20260811.png",
+      "surface": "dropdown.seaLevel.Action",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "260x187",
+      "colours": 55,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.575,
+      "rowsWithInk": 3,
+      "alt": "The Action dropdown on the Sea level surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-sealevel-2-enclosure-caeb179a-20260811.png",
+      "surface": "dropdown.seaLevel.Enclosure",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "260x155",
+      "colours": 51,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.521,
+      "rowsWithInk": 2,
+      "alt": "The Enclosure dropdown on the Sea level surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "seedtools-caeb179a-20260811.png",
+      "surface": "seedTools",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 70,
+      "descendants": 21,
+      "routes": {
+        "render": 17,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.81,
+      "rowsWithInk": 0,
+      "alt": "The Seed tools surface (Worldgen), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "selectblocktool-caeb179a-20260811.png",
+      "surface": "selectBlockTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "680x280",
+      "colours": 63,
+      "descendants": 38,
+      "routes": {
+        "render": 32,
+        "print": 6,
+        "blit": 0
+      },
+      "uniformFraction": 0.841,
+      "rowsWithInk": 0,
+      "alt": "The Select block surface (Tools), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "selectentitytool-caeb179a-20260811.png",
+      "surface": "selectEntityTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 91,
+      "descendants": 25,
+      "routes": {
+        "render": 20,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.485,
+      "rowsWithInk": 0,
+      "alt": "The Select entity surface (Tools), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "signsearch-caeb179a-20260811.png",
+      "surface": "signSearch",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 72,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.743,
+      "rowsWithInk": 0,
+      "alt": "The Sign text surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "slimechunks-caeb179a-20260811.png",
+      "surface": "slimeChunks",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 78,
+      "descendants": 18,
+      "routes": {
+        "render": 14,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.66,
+      "rowsWithInk": 0,
+      "alt": "The Slime chunks surface (Worldgen), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "smooth-caeb179a-20260811.png",
+      "surface": "smooth",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 42,
+      "descendants": 34,
+      "routes": {
+        "render": 25,
+        "print": 9,
+        "blit": 0
+      },
+      "uniformFraction": 0.918,
+      "rowsWithInk": 0,
+      "alt": "The Smooth terrain surface (Sculpt), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "spawnanalysis-caeb179a-20260811.png",
+      "surface": "spawnAnalysis",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 100,
+      "descendants": 52,
+      "routes": {
+        "render": 40,
+        "print": 12,
+        "blit": 0
+      },
+      "uniformFraction": 0.655,
+      "rowsWithInk": 0,
+      "alt": "The Mob spawn analysis surface (Mechanics), showing its window search and 5 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-spawnanalysis-1-show-caeb179a-20260811.png",
+      "surface": "dropdown.spawnAnalysis.Show",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "348x219",
+      "colours": 56,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.64,
+      "rowsWithInk": 4,
+      "alt": "The Show dropdown on the Mob spawn analysis surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-spawnanalysis-2-time-caeb179a-20260811.png",
+      "surface": "dropdown.spawnAnalysis.Time",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "349x187",
+      "colours": 61,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.592,
+      "rowsWithInk": 3,
+      "alt": "The Time dropdown on the Mob spawn analysis surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "spawnpoints-caeb179a-20260811.png",
+      "surface": "spawnPoints",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 49,
+      "descendants": 34,
+      "routes": {
+        "render": 23,
+        "print": 11,
+        "blit": 0
+      },
+      "uniformFraction": 0.909,
+      "rowsWithInk": 0,
+      "alt": "The Spawn points and beds surface (Redstone), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "stackarray-caeb179a-20260811.png",
+      "surface": "stackArray",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 51,
+      "descendants": 39,
+      "routes": {
+        "render": 25,
+        "print": 14,
+        "blit": 0
+      },
+      "uniformFraction": 0.943,
+      "rowsWithInk": 0,
+      "alt": "The Stack and array surface (Build), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-stackarray-1-layout-caeb179a-20260811.png",
+      "surface": "dropdown.stackArray.Layout",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "278x187",
+      "colours": 58,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.575,
+      "rowsWithInk": 3,
+      "alt": "The Layout dropdown on the Stack and array surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-stackarray-2-axis-caeb179a-20260811.png",
+      "surface": "dropdown.stackArray.Axis",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "279x219",
+      "colours": 56,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.65,
+      "rowsWithInk": 4,
+      "alt": "The Axis dropdown on the Stack and array surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "structurelocator-caeb179a-20260811.png",
+      "surface": "structureLocator",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 81,
+      "descendants": 20,
+      "routes": {
+        "render": 16,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.759,
+      "rowsWithInk": 0,
+      "alt": "The Locate structures surface (Worldgen), showing its window search and 6 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "surfacepaint-caeb179a-20260811.png",
+      "surface": "surfacePaint",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 95,
+      "descendants": 32,
+      "routes": {
+        "render": 24,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.484,
+      "rowsWithInk": 0,
+      "alt": "The Repaint surface surface (Surface), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-surfacepaint-1-driven-by-caeb179a-20260811.png",
+      "surface": "dropdown.surfacePaint.Driven by",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "278x219",
+      "colours": 58,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.63,
+      "rowsWithInk": 4,
+      "alt": "The Driven by dropdown on the Repaint surface surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-surfacepaint-2-blend-caeb179a-20260811.png",
+      "surface": "dropdown.surfacePaint.Blend",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "279x187",
+      "colours": 62,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.588,
+      "rowsWithInk": 3,
+      "alt": "The Blend dropdown on the Repaint surface surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "tabmanager-caeb179a-20260811.png",
+      "surface": "tabManager",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "820x280",
+      "colours": 69,
+      "descendants": 59,
+      "routes": {
+        "render": 42,
+        "print": 17,
+        "blit": 0
+      },
+      "uniformFraction": 0.82,
+      "rowsWithInk": 0,
+      "alt": "The Tabs, groups, and safe closing surface (Workspace navigation), showing its window search and 7 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-tabmanager-1-tab-strip-edge-caeb179a-20260811.png",
+      "surface": "dropdown.tabManager.Tab strip edge",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "378x219",
+      "colours": 59,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.65,
+      "rowsWithInk": 4,
+      "alt": "The Tab strip edge dropdown on the Tabs, groups, and safe closing surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-tabmanager-2-group-state-caeb179a-20260811.png",
+      "surface": "dropdown.tabManager.Group state",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "379x155",
+      "colours": 50,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.522,
+      "rowsWithInk": 2,
+      "alt": "The Group state dropdown on the Tabs, groups, and safe closing surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "terrainbrush-caeb179a-20260811.png",
+      "surface": "terrainBrush",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 47,
+      "descendants": 52,
+      "routes": {
+        "render": 38,
+        "print": 14,
+        "blit": 0
+      },
+      "uniformFraction": 0.935,
+      "rowsWithInk": 0,
+      "alt": "The Terrain brush surface (Sculpt), showing its window search and 4 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-terrainbrush-1-brush-shape-caeb179a-20260811.png",
+      "surface": "dropdown.terrainBrush.Brush shape",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "288x219",
+      "colours": 57,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.638,
+      "rowsWithInk": 4,
+      "alt": "The Brush shape dropdown on the Terrain brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-terrainbrush-2-falloff-caeb179a-20260811.png",
+      "surface": "dropdown.terrainBrush.Falloff",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "289x219",
+      "colours": 54,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.634,
+      "rowsWithInk": 4,
+      "alt": "The Falloff dropdown on the Terrain brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "tickload-caeb179a-20260811.png",
+      "surface": "tickLoad",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 66,
+      "descendants": 35,
+      "routes": {
+        "render": 26,
+        "print": 9,
+        "blit": 0
+      },
+      "uniformFraction": 0.776,
+      "rowsWithInk": 0,
+      "alt": "The Tick load surface (Mechanics), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "toolsettings-caeb179a-20260811.png",
+      "surface": "toolSettings",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "680x280",
+      "colours": 64,
+      "descendants": 42,
+      "routes": {
+        "render": 30,
+        "print": 12,
+        "blit": 0
+      },
+      "uniformFraction": 0.921,
+      "rowsWithInk": 0,
+      "alt": "The Tool settings surface (Tools), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-toolsettings-1-tool-caeb179a-20260811.png",
+      "surface": "dropdown.toolSettings.Tool",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "308x340",
+      "colours": 61,
+      "descendants": 17,
+      "routes": {
+        "render": 14,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.776,
+      "rowsWithInk": 8,
+      "alt": "The Tool dropdown on the Tool settings surface, open, showing its search field and its 9 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-toolsettings-2-on-activation-caeb179a-20260811.png",
+      "surface": "dropdown.toolSettings.On activation",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "309x155",
+      "colours": 53,
+      "descendants": 10,
+      "routes": {
+        "render": 7,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.521,
+      "rowsWithInk": 2,
+      "alt": "The On activation dropdown on the Tool settings surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "undohistory-caeb179a-20260811.png",
+      "surface": "undoHistory",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 56,
+      "descendants": 54,
+      "routes": {
+        "render": 49,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.913,
+      "rowsWithInk": 0,
+      "alt": "The Undo history surface (History), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "update-caeb179a-20260811.png",
+      "surface": "update",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x318",
+      "colours": 99,
+      "descendants": 26,
+      "routes": {
+        "render": 21,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.687,
+      "rowsWithInk": 0,
+      "alt": "The Update status surface (Windows delivery), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "validaterepair-caeb179a-20260811.png",
+      "surface": "validateRepair",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 106,
+      "descendants": 32,
+      "routes": {
+        "render": 25,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.632,
+      "rowsWithInk": 0,
+      "alt": "The Validate and repair surface (Integrity), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "versionselect-caeb179a-20260811.png",
+      "surface": "versionSelect",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 42,
+      "descendants": 25,
+      "routes": {
+        "render": 18,
+        "print": 7,
+        "blit": 0
+      },
+      "uniformFraction": 0.926,
+      "rowsWithInk": 0,
+      "alt": "The Select version surface (Platform), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-versionselect-1-platform-caeb179a-20260811.png",
+      "surface": "dropdown.versionSelect.Platform",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "260x187",
+      "colours": 46,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.584,
+      "rowsWithInk": 3,
+      "alt": "The Platform dropdown on the Select version surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-versionselect-2-data-version-caeb179a-20260811.png",
+      "surface": "dropdown.versionSelect.Data version",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "260x219",
+      "colours": 48,
+      "descendants": 12,
+      "routes": {
+        "render": 9,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.644,
+      "rowsWithInk": 4,
+      "alt": "The Data version dropdown on the Select version surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "viewcontrols-caeb179a-20260811.png",
+      "surface": "viewControls",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 51,
+      "descendants": 56,
+      "routes": {
+        "render": 40,
+        "print": 16,
+        "blit": 0
+      },
+      "uniformFraction": 0.934,
+      "rowsWithInk": 0,
+      "alt": "The View settings surface (View), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-viewcontrols-1-view-type-caeb179a-20260811.png",
+      "surface": "dropdown.viewControls.View type",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "318x283",
+      "colours": 65,
+      "descendants": 14,
+      "routes": {
+        "render": 11,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.7,
+      "rowsWithInk": 6,
+      "alt": "The View type dropdown on the View settings surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-viewcontrols-2-control-scheme-caeb179a-20260811.png",
+      "surface": "dropdown.viewControls.Control scheme",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "319x187",
+      "colours": 66,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.571,
+      "rowsWithInk": 3,
+      "alt": "The Control scheme dropdown on the View settings surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "waypoints-caeb179a-20260811.png",
+      "surface": "waypoints",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 70,
+      "descendants": 36,
+      "routes": {
+        "render": 26,
+        "print": 10,
+        "blit": 0
+      },
+      "uniformFraction": 0.618,
+      "rowsWithInk": 0,
+      "alt": "The Waypoints surface (Navigation), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "workplane-caeb179a-20260811.png",
+      "surface": "workPlane",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 47,
+      "descendants": 35,
+      "routes": {
+        "render": 25,
+        "print": 10,
+        "blit": 0
+      },
+      "uniformFraction": 0.931,
+      "rowsWithInk": 0,
+      "alt": "The Work plane surface (View), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-workplane-1-axis-caeb179a-20260811.png",
+      "surface": "dropdown.workPlane.Axis",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "268x187",
+      "colours": 46,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.59,
+      "rowsWithInk": 3,
+      "alt": "The Axis dropdown on the Work plane surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "dropdown-workplane-2-snap-caeb179a-20260811.png",
+      "surface": "dropdown.workPlane.Snap",
+      "group": "Dropdowns",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "269x187",
+      "colours": 50,
+      "descendants": 11,
+      "routes": {
+        "render": 8,
+        "print": 3,
+        "blit": 0
+      },
+      "uniformFraction": 0.581,
+      "rowsWithInk": 3,
+      "alt": "The Snap dropdown on the Work plane surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "worldborder-caeb179a-20260811.png",
+      "surface": "worldBorder",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 81,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.649,
+      "rowsWithInk": 0,
+      "alt": "The World border surface (Boundaries), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "worlddiff-caeb179a-20260811.png",
+      "surface": "worldDiff",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 84,
+      "descendants": 27,
+      "routes": {
+        "render": 22,
+        "print": 5,
+        "blit": 0
+      },
+      "uniformFraction": 0.66,
+      "rowsWithInk": 0,
+      "alt": "The Compare worlds surface (Integrity), showing its window search and 2 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    },
+    {
+      "filename": "worldinfo-caeb179a-20260811.png",
+      "surface": "worldInfo",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 73,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "uniformFraction": 0.764,
+      "rowsWithInk": 0,
+      "alt": "The World info surface (Panels), showing its window search and 3 sections, in the light theme.",
+      "verified": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+    }
+  ],
+  "failures": [
+    {
+      "name": "menu-appearance",
+      "reason": "8 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 74% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence.",
+      "routes": {
+        "render": 0,
+        "print": 8,
+        "blit": 0
+      },
+      "uniformFraction": 0.737
+    },
+    {
+      "name": "menu-application-file",
+      "reason": "9 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 74% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence.",
+      "routes": {
+        "render": 0,
+        "print": 9,
+        "blit": 0
+      },
+      "uniformFraction": 0.737
+    },
+    {
+      "name": "menu-application-view",
+      "reason": "16 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 74% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence.",
+      "routes": {
+        "render": 0,
+        "print": 16,
+        "blit": 0
+      },
+      "uniformFraction": 0.737
+    }
+  ],
+  "notOpened": [
+    {
+      "name": "regexbuilder-every-other-search-field",
+      "reason": "The builder is one class, opened by every search bar in the product; it is photographed from 4 kinds of host (regexBuilder.dropdown, regexBuilder.menu, regexBuilder.palette, regexBuilder.panel). The Studio shell alone carries 3 search bars and every spec surface carries at least one more, so photographing each field's builder would repeat the same popover under a different anchor name."
+    }
+  ]
+}

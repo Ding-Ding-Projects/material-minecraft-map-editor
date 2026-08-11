@@ -79,6 +79,8 @@ If you are new to the interface, start with
 ## Builds and delivery
 
 - [Build scripts](build-scripts/README.md)
+- [The capture matrix](capture-matrix/README.md) — how the README's screenshots
+  are taken, including the menus and overlays a page capture cannot see
 - [Release delivery contract](release-delivery/README.md)
 - [Release code name](release-code-name/README.md)
 - [Updater](updater/README.md)
