@@ -149,6 +149,38 @@ class TestScalingDoesNotDouble:
         assert ".Layout()" in handler
 
 
+class TestNothingBypassesTheScaling:
+    """A size that stays at 96 DPI while its neighbours grow is a clip."""
+
+    def test_no_fixed_pixel_minimum_sizes_remain(self) -> None:
+        """Minimums are the dangerous ones, so they are what this pins.
+
+        A fixed ``SetMinSize`` is a floor written in device pixels.  Once every
+        child inside it scales with the display and the floor does not, the
+        window can be dragged to a size where its own contents no longer fit --
+        which looks like a broken layout rather than a window that is too
+        small.  Touch targets have the same problem in reverse: 44 device
+        pixels is about a fingertip at 96 DPI and about a third of a
+        centimetre at 200%.
+        """
+        offenders: list[str] = []
+        pattern = re.compile(
+            r"(SetMinSize|SetMaxSize)\(\s*wx\.Size\(\s*\d+\s*,\s*\d+\s*\)"
+        )
+        for path in (ROOT / "amulet_map_editor").rglob("*.py"):
+            for number, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), 1
+            ):
+                if pattern.search(line) and "scaled(" not in line:
+                    offenders.append(
+                        f"{path.relative_to(ROOT).as_posix()}:{number}: {line.strip()}"
+                    )
+        assert not offenders, (
+            "These sizes are written in device pixels and will not follow a "
+            "scaled display:\n  " + "\n  ".join(offenders)
+        )
+
+
 class TestRenamingShowsTheChosenName:
     """A rename shows the typed name, not the typed name plus a suffix."""
 
@@ -160,6 +192,5 @@ class TestRenamingShowsTheChosenName:
             "else's product line."
         )
         assert re.search(r"DEFAULT_DISPLAY_NAME", source), (
-            "The suffix must be conditional on the name still being the "
-            "shipped one."
+            "The suffix must be conditional on the name still being the " "shipped one."
         )

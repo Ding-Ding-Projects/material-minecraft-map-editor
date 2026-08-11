@@ -144,10 +144,15 @@ class AmuletUI(wx.Frame):
             id=wx.ID_ANY,
             title=title,
             pos=wx.DefaultPosition,
-            size=wx.Size(1000, 620),
+            size=wx.Size(tokens.scaled(1000), tokens.scaled(620)),
             style=wx.NO_BORDER | wx.TAB_TRAVERSAL | wx.CLIP_CHILDREN | wx.RESIZE_BORDER,
         )
-        self.SetMinSize(wx.Size(570, 620))
+        # Scaled, because this is the size below which the layout stops fitting
+        # -- and on a 150% display the layout needs 150% of the pixels to fit
+        # in. A fixed floor here lets the window be dragged to a size where
+        # every scaled child inside it is clipped, which reads as a broken
+        # interface rather than as a window that is simply too small.
+        self.SetMinSize(wx.Size(tokens.scaled(570), tokens.scaled(620)))
         icon = wx.Icon()
         icon.CopyFromBitmap(image.logo.amulet_logo.bitmap())
         self.SetIcon(icon)

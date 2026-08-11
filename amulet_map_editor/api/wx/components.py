@@ -6,6 +6,8 @@ from collections.abc import Callable, Iterable
 
 import wx
 
+from amulet_map_editor.api.studio import tokens
+
 from amulet_map_editor.api.material_menu import (
     MaterialMenuItem,
     MenuSelection,
@@ -307,7 +309,10 @@ class MaterialWindowButton(wx.Control):
         self._keyboard_armed: int | None = None
         self.SetToolTip(accessible_name)
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
-        self.SetMinSize(wx.Size(44, 40))
+        # A touch target is a physical measurement -- roughly a fingertip --
+        # so it has to grow with the display, not stay at 44 device pixels and
+        # shrink to a third of a centimetre on a high-resolution panel.
+        self.SetMinSize(wx.Size(tokens.scaled(44), tokens.scaled(40)))
         self.Bind(wx.EVT_BUTTON, handler)
         self.Bind(wx.EVT_PAINT, self._paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
