@@ -162,11 +162,22 @@ def test_the_key_select_surface_follows_a_change_of_key_group(
 
     This is the assertion a written-down string cannot pass.  The surface is
     rebuilt against a different preset and its rows are compared against that
-    preset's own bindings, read straight out of the editor rather than through
-    the code being tested.
+    preset's own bindings, taken from the editor's table rather than from
+    anything that builds the surface.
+
+    The table is fetched through ``keys.key_config()`` because an ordinary
+    ``import`` of it runs the 3D editor's package init, which needs a compiled
+    Cython extension a fresh checkout does not have.  A checkout with no table
+    at all skips: there is then nothing to compare against, and
+    :func:`test_the_live_key_lookup_is_actually_answering` fails loudly for the
+    same reason rather than letting the gap pass unnoticed.
     """
     from amulet_map_editor.api import config
-    from amulet_map_editor.programs.edit.api.key_config import PresetKeybinds
+
+    editor = studio_keys.key_config()
+    if editor is None:
+        pytest.skip("this checkout has no 3D editor key table to compare against")
+    PresetKeybinds = editor.PresetKeybinds
 
     assert _ALTERNATE_GROUP in PresetKeybinds, (
         f"the preset key group {_ALTERNATE_GROUP!r} this test switches to no "
