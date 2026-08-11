@@ -275,6 +275,7 @@ program_3d_edit.paste_tool.copy_water_label=Paste Water
 program_3d_edit.paste_tool.copy_water_tooltip=If enabled all water blocks in the pasted structure will be applied overwriting any existing blocks. If disabled the existing blocks at those locations will remain and water will not be copied.
 program_3d_edit.paste_tool.copy_lava_label=Paste Lava
 program_3d_edit.paste_tool.copy_lava_tooltip=If enabled all lava blocks in the pasted structure will be applied overwriting any existing blocks. If disabled the existing blocks at those locations will remain and lava will not be copied.
+program_3d_edit.paste_tool.paste_rule_label=Paste rule
 program_3d_edit.paste_tool.paste_all=Paste in all chunks
 program_3d_edit.paste_tool.paste_existing=Paste in existing chunks
 program_3d_edit.paste_tool.paste_not_existing=Paste in non-existent chunks
@@ -283,6 +284,8 @@ program_3d_edit.paste_tool.confirm_tooltip=Click to paste the structure into the
 program_3d_edit.paste_tool.zero_scale_message=One of the scale values had a value of zero so nothing was copied.
 
 ## Chunk tool
+program_3d_edit.chunk_tool.view_range=Top-down view
+program_3d_edit.chunk_tool.chunk_actions=Chunks
 program_3d_edit.chunk_tool.min_y=Min Y
 program_3d_edit.chunk_tool.min_y_tooltip=The minimum y coordinate to draw in the top down view. This can be used to view a slice of the world and help view dimensions like the nether and caves.
 program_3d_edit.chunk_tool.max_y=Max Y

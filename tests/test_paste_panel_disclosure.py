@@ -15,11 +15,17 @@ and it is also a slow one that skips on a host without a canvas, so the seam
 underneath gets a fast test of its own here.
 
 That seam is worth testing because it has already broken once.  The wrap width
-was first taken with ``self._location.GetBestSize()``, and ``TupleIntInput`` is
-a ``wx.FlexGridSizer`` rather than a window: sizers have ``CalcMin`` and no
-``GetBestSize``, so the line raised ``AttributeError`` at construction and took
-the entire paste tool down with it.  Nothing about the source said so, and the
-suite stayed green because nothing in it built that panel.
+was first taken with ``self._location.GetBestSize()``, and the coordinate
+control of the day -- ``TupleIntInput`` -- was a ``wx.FlexGridSizer`` rather
+than a window: sizers have ``CalcMin`` and no ``GetBestSize``, so the line
+raised ``AttributeError`` at construction and took the entire paste tool down
+with it.  Nothing about the source said so, and the suite stayed green because
+nothing in it built that panel.
+
+The control is a :class:`TupleNumberField` now, which *is* a window, so the
+exact original failure can no longer be reproduced through the real panel.  The
+helper still handles both kinds and both are still tested, because the reason
+it exists is that this panel measures whatever it is handed.
 """
 
 from __future__ import annotations
@@ -35,6 +41,11 @@ from amulet_map_editor import lang  # noqa: E402
 paste_module = pytest.importorskip(
     "amulet_map_editor.programs.edit.plugins.tools.paste",
     reason="the editor's paste tool needs OpenGL and amulet-core",
+)
+
+from amulet_map_editor.programs.edit.api.ui.material_tool_panel import (  # noqa: E402
+    TupleNumberField,
+    panel_note,
 )
 
 NOTE_KEY = "program_3d_edit.paste_tool.location_note"
@@ -90,34 +101,44 @@ def test_the_disclosure_string_exists_and_says_centre() -> None:
     ), f"the paste panel's location note does not mention the centre: {text!r}"
 
 
-def test_the_wrap_width_survives_the_coordinate_control_being_a_sizer(
+def test_the_wrap_width_answers_for_the_real_coordinate_control(
     panel,
 ) -> None:
     """The width helper answers for the control the panel actually passes it.
 
-    This is the regression.  ``TupleIntInput`` is a sizer, and asking a sizer
-    for ``GetBestSize`` raises rather than returning a poor answer -- so the
-    failure is not a badly wrapped caption, it is a paste tool that does not
-    build.
-    """
-    location = paste_module.TupleIntInput(panel, "x", "y", "z")
-    panel.GetSizer().Add(location, 0, wx.EXPAND)
+    This guards a regression that has already happened once, from the other
+    side.  ``TupleIntInput`` was a ``wx.FlexGridSizer``, and asking a sizer for
+    ``GetBestSize`` raises rather than answering poorly -- so the failure was
+    not a badly wrapped caption, it was a paste tool that did not build at all.
 
-    assert isinstance(location, wx.Sizer), (
-        "TupleIntInput is no longer a sizer, so this test is guarding a seam "
-        "that has moved and should be rewritten rather than deleted"
-    )
-    assert not hasattr(location, "GetBestSize"), (
-        "a sizer now answers GetBestSize, which means the original failure "
-        "this guards can no longer be reproduced -- check the helper is still "
-        "needed before trusting this test"
+    The control is a window now (:class:`TupleNumberField`), so the sizer half
+    of the helper is no longer exercised by the real panel.  It is still tested,
+    against a stand-in, in ``test_a_control_that_measures_nothing_still_wraps``
+    below: the helper is this panel's one measuring point and the next control
+    added here may be either kind.
+    """
+    location = TupleNumberField(panel, ("x", "y", "z"), group="Location")
+    panel.GetSizer().Add(location, 0, wx.EXPAND)
+    panel.GetParent().Layout()
+    wx.Yield()
+
+    assert isinstance(location, wx.Window), (
+        "the paste tool's coordinate control is no longer a window, so this "
+        "test is guarding a seam that has moved and should be rewritten rather "
+        "than deleted"
     )
 
     width = paste_module._control_width(location)
     assert width > 0, (
-        f"the wrap width came back {width}; wx.StaticText.Wrap treats zero or "
-        "less as 'do not wrap', so the panel would grow to the width of the "
-        "whole sentence"
+        f"the wrap width came back {width}; a width of zero or less means 'do "
+        "not wrap', so the panel would grow to the width of the whole sentence"
+    )
+    assert width >= location.GetBestSize().GetWidth() or (
+        width == paste_module.MIN_NOTE_WRAP
+    ), (
+        f"the wrap width {width} is neither the control's own measured width "
+        f"{location.GetBestSize().GetWidth()} nor the floor, so it came from "
+        "somewhere this test does not understand"
     )
 
 
@@ -165,13 +186,16 @@ def test_the_note_wraps_instead_of_widening_the_panel(panel) -> None:
     unwrapped sentence would not be a caption under the boxes -- it would make
     the whole panel as wide as the sentence and push the viewport's own
     controls off the edge of the canvas.
+
+    Built through ``panel_note``, which is what the panel itself calls, so a
+    change to how that caption is made is caught here rather than passing
+    because the test built its own ``wx.StaticText`` by hand.
     """
-    location = paste_module.TupleIntInput(panel, "x", "y", "z")
+    location = TupleNumberField(panel, ("x", "y", "z"), group="Location")
     panel.GetSizer().Add(location, 0, wx.EXPAND)
     width = paste_module._control_width(location)
 
-    note = wx.StaticText(panel, label=lang.get(NOTE_KEY))
-    note.Wrap(width)
+    note = panel_note(panel, lang.get(NOTE_KEY), width)
     panel.GetSizer().Add(note, 0, wx.ALL, 5)
     panel.GetParent().Layout()
     wx.Yield()

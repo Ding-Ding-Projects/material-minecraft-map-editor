@@ -1,8 +1,224 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "2b50973453b9234c9359ec08aa63cf4da2ada551",
+  "source_revision": "0a6a4afc25e0b92b31e7682121fdf06f95a5b1b9",
   "entries": [
+    {
+      "version": "0.10.0-dev.647",
+      "released_on": "2026-08-11",
+      "commit_sha": "aeb17d8c1d0cfa26306e241a86387a42fb54f49f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw the notification centre, local history and regex builder in Material",
+          "commit_sha": "aeb17d8c1d0cfa26306e241a86387a42fb54f49f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.642",
+      "released_on": "2026-08-11",
+      "commit_sha": "b412e22043ce46862153c489d34f90fd559d7f03",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Test the ribbon's own refusals with definitions broken on purpose",
+          "commit_sha": "b412e22043ce46862153c489d34f90fd559d7f03"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.638",
+      "released_on": "2026-08-11",
+      "commit_sha": "afc57ea8e2c413d2bc141b1a3e4b998334307c0a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Put the three new lang lines back on the file's own line endings",
+          "commit_sha": "afc57ea8e2c413d2bc141b1a3e4b998334307c0a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.636",
+      "released_on": "2026-08-11",
+      "commit_sha": "92f4c5c95d1ced79ec0deb5de400119b9328c7c2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw the world toolbar in Material, beside the chips it sits above",
+          "commit_sha": "92f4c5c95d1ced79ec0deb5de400119b9328c7c2"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.633",
+      "released_on": "2026-08-11",
+      "commit_sha": "1d4215e164e9cde7a10a6740e72059c50ff14b66",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Let every heads-up overlay be dragged, nudged, and put back",
+          "commit_sha": "1d4215e164e9cde7a10a6740e72059c50ff14b66"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.630",
+      "released_on": "2026-08-11",
+      "commit_sha": "101e835cfe689a64b0bfbc0ef57a035932ead9a4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make the Coordinates boxes show the selection, and typing move it",
+          "commit_sha": "101e835cfe689a64b0bfbc0ef57a035932ead9a4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.627",
+      "released_on": "2026-08-11",
+      "commit_sha": "889703b11f330108af785041c45694a00de7bf30",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Photograph the menus, not just the pages they open over",
+          "commit_sha": "889703b11f330108af785041c45694a00de7bf30"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.624",
+      "released_on": "2026-08-11",
+      "commit_sha": "db28fb167a9fdd7e6f03cde3f5809610e34194a5",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Drop the Chunks draw range, because nothing in the renderer draws one",
+          "commit_sha": "db28fb167a9fdd7e6f03cde3f5809610e34194a5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.623",
+      "released_on": "2026-08-11",
+      "commit_sha": "c19ae17a47a57646c0ce1aa312816143c481a01f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Give the 3D viewport's right button back to the camera",
+          "commit_sha": "c19ae17a47a57646c0ce1aa312816143c481a01f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.621",
+      "released_on": "2026-08-11",
+      "commit_sha": "9d3753604068e9a7ba04ed70ddd6204bba1630f2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop the Terrain tab offering settings for a brush that does not exist",
+          "commit_sha": "9d3753604068e9a7ba04ed70ddd6204bba1630f2"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.619",
+      "released_on": "2026-08-11",
+      "commit_sha": "caeb179a485acae124f8a4dfd96e49d3a663d09d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Read the key table when a window asks, not when the registry imports",
+          "commit_sha": "caeb179a485acae124f8a4dfd96e49d3a663d09d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.617",
+      "released_on": "2026-08-11",
+      "commit_sha": "dfaa446603d76c3c5f4b5e4686c7200ce4005ca2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make the Format dropdown pick the exporter it names",
+          "commit_sha": "dfaa446603d76c3c5f4b5e4686c7200ce4005ca2"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.614",
+      "released_on": "2026-08-11",
+      "commit_sha": "84967d395430a13fb6b1741962183133147c1dd1",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Let a failed operation be seen by the caller that has to report it",
+          "commit_sha": "84967d395430a13fb6b1741962183133147c1dd1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.613",
+      "released_on": "2026-08-11",
+      "commit_sha": "99ab1ccb3d2f752000f399abe0d3bbdd4c2dc8a6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop a copy dirtying the selection, and make it say what it copied",
+          "commit_sha": "99ab1ccb3d2f752000f399abe0d3bbdd4c2dc8a6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.611",
+      "released_on": "2026-08-11",
+      "commit_sha": "042b61782c01aedc0deacd59be1104555a8b8232",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wire the four dead menu rows, and stop dead rows printing live keys",
+          "commit_sha": "042b61782c01aedc0deacd59be1104555a8b8232"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.609",
+      "released_on": "2026-08-11",
+      "commit_sha": "de0478a3ab773a3657be8c15f2d4a1fb535d9e87",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Reach the preset table the way the code does, not the way that breaks",
+          "commit_sha": "de0478a3ab773a3657be8c15f2d4a1fb535d9e87"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.607",
+      "released_on": "2026-08-11",
+      "commit_sha": "efaf2a10394aa2e267f6a359ba1bdecbfc62a001",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop counting a backdrop as a capture, and refresh the matrix",
+          "commit_sha": "efaf2a10394aa2e267f6a359ba1bdecbfc62a001"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.605",
+      "released_on": "2026-08-11",
+      "commit_sha": "2b50973453b9234c9359ec08aa63cf4da2ada551",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop announcing an operation that recorded nothing, and print keys that work",
+          "commit_sha": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.603",
       "released_on": "2026-08-11",

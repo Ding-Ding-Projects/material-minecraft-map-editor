@@ -7,7 +7,7 @@ going red, because a gate cannot catch what a run never photographs: every
 structural field in the capture report stays clean for a window nobody asked to
 be drawn.
 
-Two halves are needed and neither is sufficient alone.
+Three halves are needed and none is sufficient alone.
 
 The first is a **hand-written list**.  A rule shaped "every menu in the manifest
 is well formed" passes perfectly on a manifest with no menus in it -- it never
@@ -19,10 +19,21 @@ absence nobody notices.
 The second is a **runtime check** that a menu actually composites its rows.  A
 manifest is a record of a run, and a record can only say what that run believed;
 opening a real menu and looking at the pixels is what says the rows draw.
+
+The third guards **the harness**, and it is here because the first two cannot.
+Both of them read ``docs/huishots/capture-manifest-*.json``, which is a committed
+file that does not change when the code does: replacing the three capture calls
+in ``Driver.run`` with ``pass`` deletes every menu from the run and leaves this
+whole module green, verified by doing exactly that.  Nothing in the repository
+re-runs the harness, so the first person to find out is whoever regenerates the
+manifest by hand, months later.  So the run now has a gate of its own, and what
+is tested here is that gate -- on a report with the menus taken out, where it
+must fire, and on the shipped manifest, where it must not.
 """
 
 from __future__ import annotations
 
+import inspect
 import json
 import pathlib
 import sys
@@ -218,6 +229,96 @@ def test_no_shipped_capture_is_blank() -> None:
         if row["colours"] < capture_surface.MIN_DISTINCT_COLOURS
     ]
     assert not blank, f"blank captures were shipped as evidence: {blank}"
+
+
+def test_no_picture_is_shipped_twice_under_two_names() -> None:
+    """One popover photographed from four hosts is one picture, not four.
+
+    The anchored regex builder was opened from a panel, a menu, a dropdown and
+    the palette, and all four files came out byte-identical -- md5 c9e19fa9 --
+    because the builder's own window is all a capture of it contains.  Shipped as
+    four files they counted four times toward the matrix while carrying nothing
+    that distinguished one host from another.
+
+    Opening it from every host is still right; shipping the duplicate is not.
+    """
+    manifest = _manifest()
+    seen: dict = {}
+    twinned = []
+    for row in manifest["captures"]:
+        digest = row.get("digest")
+        assert digest, f"{row['surface']} carries no digest to compare"
+        first = seen.setdefault(digest, row)
+        if first is row:
+            continue
+        if first["filename"] != row["filename"]:
+            twinned.append((row["surface"], row["filename"], first["filename"]))
+        else:
+            assert row.get("sameImageAs") == first["surface"], (
+                f"{row['surface']} shares a file with {first['surface']} without "
+                "saying so"
+            )
+    assert not twinned, (
+        "the same picture is shipped under more than one name, so the matrix "
+        f"counts it more than once: {twinned}"
+    )
+
+
+def test_the_run_gate_fires_when_a_family_of_menus_is_never_photographed() -> None:
+    """The half a committed manifest cannot guard: the run itself.
+
+    Fed a report with the menus taken out -- which is what the harness produces
+    once its capture calls are deleted -- the gate must name every one of them.
+    """
+    stripped = {"captures": [], "failures": [], "notOpened": []}
+    missing = harness.missing_required(stripped)
+    for key in context_menu.CTX_MENUS:
+        assert f"menu.{key}" in missing, (
+            f"menu.{key} vanished from a run and the gate said nothing; that is "
+            "the exact silence the matrix shipped for 141 surfaces"
+        )
+    for name in REQUIRED_OVERLAYS:
+        assert name in missing, name
+    assert any(entry.startswith("dropdown.") for entry in missing), missing
+
+
+def test_the_run_gate_accepts_a_surface_that_was_explained_instead() -> None:
+    """ "Or explained" is the point: a named gap is a fact, not a silence."""
+    key = sorted(context_menu.CTX_MENUS)[0]
+    explained = {
+        "captures": [],
+        "failures": [{"name": f"menu-{key.lower()}", "reason": "would not open"}],
+        "notOpened": [],
+    }
+    assert f"menu.{key}" not in harness.missing_required(explained)
+
+
+def test_the_shipped_manifest_satisfies_the_run_gate() -> None:
+    """And the committed matrix is held to the same rule the run is."""
+    missing = harness.missing_required(_manifest())
+    assert not missing, f"the shipped manifest is missing {missing}"
+
+
+def test_the_run_still_makes_each_capture_pass() -> None:
+    """That ``run`` calls all three, checked in its source.
+
+    Source text is weak evidence and this is honest about being it: it proves the
+    call is written, never that it drew anything.  It is here because deleting
+    those three lines is the mutation that leaves every other check in this file
+    green, and a cheap check that catches a deletion is worth more than no check
+    that catches it.  The gate above is the one that catches a call that ran and
+    produced nothing.
+    """
+    source = inspect.getsource(harness.Driver.run)
+    for call in (
+        "self.capture_context_menus(",
+        "self.capture_dropdowns(",
+        "self.capture_overlays(",
+    ):
+        assert call in source, (
+            f"Driver.run no longer makes the {call} pass, so the run photographs "
+            "none of what it opens"
+        )
 
 
 # ---------------------------------------------------------------------------

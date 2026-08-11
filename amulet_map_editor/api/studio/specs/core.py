@@ -51,6 +51,30 @@ _APPEARANCE_TARGET = (
 )
 
 
+#: The key group the Key Select window is currently showing.  Empty means the
+#: group the editor is listening to, which is what a fresh reading answers with;
+#: a name here is one a reader picked from the window's own dropdown, and it
+#: lasts for the session rather than being written to their configuration.  This
+#: window reads the editor's keys, it does not rebind them: which group the
+#: editor listens to is changed in the 3D editor's own Controls window, and
+#: writing it from here would leave the running canvas still listening to the
+#: old group while this surface claimed otherwise.
+_SHOWN_GROUP = ""
+
+
+def show_group(group_id: str) -> None:
+    """Show ``group_id``'s keys the next time the Key Select surface is built.
+
+    Called by the window's own dropdown.  Nothing is validated here because
+    nothing needs to be: :func:`_controls_spec` falls back to the active group
+    for a name the configuration does not answer for, so a group that is
+    removed between the choice and the next read cannot leave the window
+    listing keys under a name that no longer means anything.
+    """
+    global _SHOWN_GROUP
+    _SHOWN_GROUP = str(group_id)
+
+
 def _controls_spec(read_keys: bool = True) -> Spec:
     """Build the Key Select surface from the key group the editor listens to.
 
@@ -73,33 +97,60 @@ def _controls_spec(read_keys: bool = True) -> Spec:
     it that the keys are unknown.  Dropping the section would read as a window
     that failed to load, and filling it from the shipped defaults would print
     exactly the keys a user who rebound them no longer presses.
+
+    **Every control here does what its label says, and the window promises
+    nothing else.**  It offered three that did not.  "Active group" listed the
+    reader's own key groups with the active one pre-selected and was wired to
+    nothing at all, so picking another left the nineteen rows below exactly
+    where they were -- a dropdown that looks authoritative and is a picture.
+    "Action set" offered "3D editor", "Selection" and "Camera", which are not
+    things the editor has, and filtered nothing.  And the footer read "Save
+    group" over a window that saves nothing, beside "New group", which creates
+    nothing, and "Reset group", which routed to the renderer's generic reset --
+    clearing the window's search boxes and re-reading the open world, neither
+    of which is a key group.  The dropdown now switches which group's keys are
+    listed; the other two are gone; and the button says the one thing pressing
+    it does, which is close the window.
     """
     groups = studio_keys.read_key_groups() if read_keys else studio_keys.KeyGroups()
-    bindings = (studio_keys.editor_bindings() if read_keys else ()) or (
+    shown = _SHOWN_GROUP if _SHOWN_GROUP in groups.ids else groups.active
+    bindings = (studio_keys.editor_bindings(shown) if read_keys else ()) or (
         KeyBinding(*studio_keys.UNREADABLE),
     )
 
-    selects = []
+    sections: List[Section] = []
     if groups.ids:
-        selects.append(Select("Active group", tuple(groups.ids), groups.active))
-    selects.append(Select("Action set", ("3D editor", "Selection", "Camera")))
-
-    sections: List[Section] = [
-        sec("Key group", "selects", selects=selects),
-        sec("Bindings", "keys", keys=list(bindings)),
-    ]
-    if groups.active:
-        note = (
-            f"Read from the 3D editor's active key group “{groups.active}”. "
-            "Every key above is the key that group is bound to right now, not "
-            "a shipped default."
+        sections.append(
+            sec(
+                "Key group",
+                "selects",
+                selects=[
+                    Select("Key group", tuple(groups.ids), shown, on_change=show_group)
+                ],
+            )
         )
-    else:
+    sections.append(sec("Bindings", "keys", keys=list(bindings)))
+
+    if not groups.active:
         note = (
             "The 3D editor's key configuration could not be read, so no key is "
             "listed above. Nothing is shown rather than the shipped defaults, "
             "which are exactly the keys somebody who rebound them no longer "
             "presses."
+        )
+    elif shown == groups.active:
+        note = (
+            f"Read from the 3D editor's active key group “{groups.active}”. "
+            "Every key above is the key that group is bound to right now, not "
+            "a shipped default. Pick another group to read its keys."
+        )
+    else:
+        note = (
+            f"Showing the key group “{shown}”. The 3D editor is listening to "
+            f"“{groups.active}”, so these are not the keys pressing right now "
+            f"— choose “{groups.active}” above to read those. Which group is "
+            "active is changed in the 3D editor's own Controls window, not "
+            "here."
         )
     sections.append(sec("", "note", hint=note))
 
@@ -108,16 +159,14 @@ def _controls_spec(read_keys: bool = True) -> Spec:
         eyebrow="Key configuration",
         title="Key Select",
         width=720,
-        confirm="Save group",
+        confirm="Close",
         intro=(
-            "Press the key you want assigned to an action. The active key group is "
-            "not editable; editing offers to create a new group."
+            "Every action the 3D editor declares, with the key the chosen group "
+            "binds it to, read from your own configuration each time this window "
+            "opens. Rebinding a key, and changing which group the editor listens "
+            "to, happen in the 3D editor's own Controls window."
         ),
         sections=tuple(sections),
-        actions=(
-            Action("New group", "tonal"),
-            Action("Reset group", "outlined"),
-        ),
     )
 
 

@@ -16,6 +16,7 @@ from amulet_map_editor.api.framework import app
 from amulet_map_editor.api.framework.pages import BasePageUI
 from amulet_map_editor.api.framework.programs import BaseProgram, AboutProgram
 from amulet_map_editor.api.wx.nonblocking import notify_exception
+from amulet_map_editor.api.wx.progress import begin_progress
 
 _extensions: List[Tuple[str, Type[BaseProgram]]] = []
 _fixed_extensions: List[Tuple[str, Type[BaseProgram]]] = [
@@ -159,21 +160,29 @@ class WorldPageUI(wx.Notebook, BasePageUI):
         # sleep a little
         thread.join(0.1)
         if thread.is_alive():
-            # if not closed yet open a dialog to warn the user.
-            # We do this on a delay so that it does not flick up for a split second
-            dialog = wx.ProgressDialog(
-                "Closing World",
-                "Please be patient. This may take a little while.",
-                maximum=100,
-                style=wx.PD_APP_MODAL | wx.PD_ELAPSED_TIME | wx.PD_AUTO_HIDE,
-            )
-            dialog.Fit()
-            dialog.Update(99)
-            # wait until the world is closed then close the dialog
-            while thread.is_alive():
-                wx.GetApp().Yield()
-                thread.join(0.1)
-            dialog.Destroy()
+            # Still going, so say so -- on the shell's overlay rather than in a
+            # modal dialog. Closing a world is not a decision the user is being
+            # asked to make, so it does not get a window that takes focus and
+            # disables the application behind it.
+            #
+            # Indeterminate on purpose: the level's own close reports nothing,
+            # and the dialog this replaced papered over that by sitting at 99%
+            # for the whole wait -- a number that was never measured and never
+            # moved. A travelling band says "cannot say", which is the truth.
+            #
+            # Uncancellable on purpose too: a half-closed level is not a state
+            # this can return to, so there is no Cancel to offer and none is
+            # drawn.
+            with begin_progress(
+                self,
+                key=f"close-world-{id(self)}",
+                title="Closing world",
+                detail=self.world_name,
+                unavailable="This world's tabs are closing.",
+            ):
+                while thread.is_alive():
+                    wx.GetApp().Yield()
+                    thread.join(0.1)
 
     def _page_changing(self, evt: wx.BookCtrlEvent):
         """Method to fire when the page is changing."""

@@ -51,6 +51,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -182,6 +183,26 @@ _INK_DELTA = 24
 #: factor of five clear of it.
 _MIN_ROW_INK = 0.0005
 
+#: How far a measurement is pulled back from an edge of the *picture*.
+#:
+#: A popup is a card with a border, and a row clipped by the edge of the picture
+#: keeps that border inside what is left of its rectangle.  Measured on the
+#: viewport menu with every row's paint handler stubbed out, the card's bottom
+#: border runs y=385..389 in a 390-pixel picture -- five scanlines, antialiasing
+#: from 384 -- so six pixels clears it and its blend.
+#:
+#: Pulled back only where the row actually runs off the picture.  Insetting every
+#: side of every row instead is the version that does not work: it eats into
+#: rows that were never clipped, and it still leaves border inside the clipped
+#: one, which measured 0.08333 with nothing drawn.
+_EDGE_INSET = 6
+
+#: How much of a row's own height must survive the picture's edge before its ink
+#: means anything.  A row cut to a sliver above its label would read blank while
+#: having drawn perfectly well, and deleting a healthy capture is the failure
+#: this measurement has already made twice.
+_MIN_ROW_VISIBLE = 0.6
+
 
 def _row_ink(
     pixels: bytes,
@@ -215,15 +236,49 @@ def _row_ink(
     height to the display and scrolls, so the rows past the cut are legitimately
     absent rather than blank, and measuring them would report every long menu as
     broken.
+
+    **The clipped row is where this told a lie for a while.**  A row cut off by
+    the bottom of the picture keeps the card's own border inside what is left of
+    its rectangle, and that border is nothing like the row's backdrop, so the row
+    measured as inked *however little it had drawn*.  On the viewport menu, with
+    every row's paint handler stubbed out, rows 0-7 read exactly 0.00000 and the
+    clipped row 8 read 0.14286 -- two sampled scanlines of card border and not
+    one pixel of label.  The gate was therefore blind to a blank last row in
+    every menu whose last row is clipped, which is most of them, and the one test
+    whose job was to prove the gate could go red failed about half the time
+    saying "only 8 of 9 rows read as blank".
+
+    Two corrections, and both are needed.  Where the row runs off the picture the
+    measurement is pulled back by :data:`_EDGE_INSET`, so the card's border is
+    never counted as the row's ink; and a row with less than
+    :data:`_MIN_ROW_VISIBLE` of its own height left is reported unmeasurable
+    rather than guessed at, because a sliver above the label would read blank for
+    a row that drew perfectly well.
     """
     root = window.ClientToScreen(wx.Point(0, 0))
     origin = row.ClientToScreen(wx.Point(0, 0))
     size = row.GetClientSize()
-    left = max(origin.x - root.x, 0)
-    top = max(origin.y - root.y, 0)
-    right = min(origin.x - root.x + size.width, width)
-    bottom = min(origin.y - root.y + size.height, height)
+    x0, y0 = origin.x - root.x, origin.y - root.y
+    left, top = max(x0, 0), max(y0, 0)
+    right = min(x0 + size.width, width)
+    bottom = min(y0 + size.height, height)
+    # Only where the row meets an edge of the picture: that edge is the card's
+    # own border rather than anything the row drew.  A row sitting comfortably
+    # inside is measured over the whole of itself, as it always was.
+    if x0 <= 0:
+        left = _EDGE_INSET
+    if y0 <= 0:
+        top = _EDGE_INSET
+    if x0 + size.width >= width:
+        right = width - _EDGE_INSET
+    if y0 + size.height >= height:
+        bottom = height - _EDGE_INSET
     if right - left < 8 or bottom - top < 8:
+        return -1.0
+    if size.height and (bottom - top) < size.height * _MIN_ROW_VISIBLE:
+        # Enough of the row is off the picture that what is left may not contain
+        # its label.  Unmeasurable is the honest answer; "blank" would delete a
+        # healthy picture and "inked" would be the border talking.
         return -1.0
     seen: Counter = Counter()
     for y in range(top, bottom, step):
@@ -246,6 +301,14 @@ def _row_ink(
         >= _INK_DELTA
     )
     return drawn / total
+
+
+def _digest(path: Path) -> str:
+    """Return a short content digest of a written capture, or ``""``."""
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    except OSError:  # pragma: no cover - the file was just written
+        return ""
 
 
 def _blank_rows(path: Path, window: wx.Window, rows) -> tuple:
@@ -456,9 +519,35 @@ class Driver:
                 pass
             return
 
+        # Four files, one picture.  The anchored regex builder was photographed
+        # from a panel, a menu, a dropdown and the palette, and all four came out
+        # byte-identical -- md5 c9e19fa9 -- because the builder is one popover
+        # whose own window is all a capture of it contains.  Shipped as four
+        # files they counted four times toward the matrix while carrying no
+        # evidence that distinguished one host from another, which is a coverage
+        # number inflated by a factor of four.
+        #
+        # The run still opens it from every host, because that is the thing worth
+        # checking and a duplicate is the *result* rather than a reason to skip
+        # one.  What changes is that the second and later identical files are
+        # deleted and their rows point at the first, so the manifest says four
+        # surfaces resolved to one picture instead of implying four pictures.
+        digest = _digest(self.out / filename)
+        twin = next((row for row in self.rows if row.get("digest") == digest), None)
+        if twin is not None:
+            try:
+                (self.out / filename).unlink()
+            except OSError:
+                pass
+            filename = twin["filename"]
+
         self.rows.append(
             {
                 "filename": filename,
+                "digest": digest,
+                # Present only when this surface's picture turned out to be one
+                # already shipped for another surface, pixel for pixel.
+                **({"sameImageAs": twin["surface"]} if twin is not None else {}),
                 "surface": surface,
                 "group": group,
                 "theme": "light",
@@ -535,6 +624,18 @@ class Driver:
                         "its panel open, in the light theme."
                     ),
                 )
+                # Here, while this tab is the selected one -- not after the walk.
+                #
+                # The ribbon destroys the outgoing tab's group panel when it
+                # switches, so a dropdown lives only while its own tab is up.
+                # Walking all of the tabs first and *then* asking the shell for
+                # its dropdowns asks a shell holding whichever panel came last,
+                # and that one has none: three ribbon dropdowns -- Dimension on
+                # home, Format on structures, Density on view -- were outside the
+                # matrix entirely, in neither the captures nor the gaps, and the
+                # disabled-dropdown branch below could never fire for the shell
+                # because the walk handed it an empty list.
+                self.capture_dropdowns(ribbon, f"ribbon-{key}", f"the {key} ribbon tab")
 
         self.capture_context_menus()
         self.capture_dropdowns(self.shell, "shell", "the Studio shell")
@@ -627,6 +728,23 @@ class Driver:
             for child in _descendants(window)
             if isinstance(child, widgets.SearchableChoice)
         ]
+        if not combos:
+            # "The walk found none here" and "the walk never looked here" are
+            # not the same fact, and for a long time the manifest could not tell
+            # them apart: the shell's own dropdown walk returned an empty list
+            # and said nothing, which read exactly like a surface that has no
+            # dropdowns rather than one whose dropdowns had been destroyed.
+            self.not_opened.append(
+                {
+                    "name": f"dropdown-{_slug(key)}-none",
+                    "reason": (
+                        f"{where} carries no dropdown at all, so this walk had "
+                        "nothing to open; recorded so an empty result cannot be "
+                        "mistaken for a walk that never ran"
+                    ),
+                }
+            )
+            return
         disabled = [combo.label for combo in combos if not combo.IsEnabled()]
         if disabled:
             # A disabled combo will not open, and ``open_popup`` says nothing
@@ -702,16 +820,31 @@ class Driver:
             ),
         )
         if picker is not None:
+            # Written from what this picker is actually holding.  The alt text
+            # here used to promise "the existing tab groups with their colours
+            # and member counts" for a picture whose whole body reads "No tab
+            # groups yet. Create one to move this tab into it." -- a capture run
+            # starts on a workspace with no groups in it, so that sentence
+            # described a surface the matrix has never contained.
+            count = len(getattr(picker, "groups", ()) or ())
+            listing = (
+                f"the {count} existing tab group(s) with their colours and "
+                "member counts"
+                if count
+                else (
+                    "its empty state, reading that there are no tab groups yet "
+                    "and one must be created to move this tab into"
+                )
+            )
             self.shoot(
                 "picker-tab-groups",
                 picker,
                 group="Overlays",
                 surface="picker.moveIntoGroup",
                 alt=(
-                    "The Move into group picker, open, showing its search "
-                    "field, the existing tab groups with their colours and "
-                    "member counts, and the create-a-group action, in the "
-                    "light theme."
+                    f"The Move into group picker, open, showing its search "
+                    f"field, {listing}, the leave-it-ungrouped row and the "
+                    "create-a-group action, in the light theme."
                 ),
                 rows=picker._rows,
             )
@@ -792,10 +925,17 @@ class Driver:
             group="Overlays",
             surface=f"regexBuilder.{kind}",
             alt=(
+                # What this popover actually contains, checked against
+                # ``_RegexBuilderPopup``: a pattern field, a flags field, a
+                # sample-text field, the plain-text-search feedback line, the
+                # match preview and two actions.  The alt text here used to
+                # promise "guided token buttons", and the builder has none --
+                # nothing in the picture and nothing in the class.
                 "The anchored regular-expression builder opened from a search "
-                f"field on {where}, showing its guided token buttons, its "
-                "pattern editor, its flags and its live match preview, in the "
-                "light theme."
+                f"field on {where}, showing its Pattern, Flags and Sample text "
+                "fields, its plain-text-search feedback line, its match preview "
+                "reading that a pattern must be typed to see what it matches, "
+                "and its Cancel and Apply pattern actions, in the light theme."
             ),
         )
         self.dismiss(builder)
@@ -1141,6 +1281,61 @@ class Driver:
         }
 
 
+#: Surfaces a run must either photograph or write down, and the name its gap
+#: entry carries when it cannot.  Menus are added from ``CTX_MENUS`` below, so
+#: adding a context menu to the product adds it here.
+#:
+#: This list guards **the run**, and it exists because the contract tests cannot.
+#: Those read ``docs/huishots/capture-manifest-*.json``, which is a committed
+#: file: replacing the three capture calls in :meth:`Driver.run` with ``pass``
+#: deletes every menu from the matrix and leaves the whole suite green, because
+#: nothing in it re-runs the harness.  The next person to regenerate the manifest
+#: by hand is the first to find out, months later.
+#:
+#: So the run refuses to report success when a required surface is neither
+#: photographed nor explained.  "Or explained" is the whole point: a surface that
+#: genuinely cannot be opened is a fact the manifest already carries, and only a
+#: surface nobody even tried is silence.
+REQUIRED_SURFACES = {
+    "picker.moveIntoGroup": "picker-tab-groups",
+    "regexBuilder.panel": "regexbuilder-panel",
+    "regexBuilder.menu": "regexbuilder-menu",
+    "regexBuilder.dropdown": "regexbuilder-dropdown",
+    "regexBuilder.palette": "regexbuilder-palette",
+    "popup.tabOverflow": "popup-tab-overflow",
+    "palette.card": "palette-card",
+    "palette.full": "palette-full",
+    "menu.appearance": "menu-appearance",
+}
+REQUIRED_SURFACES.update(
+    {f"menu.{key}": f"menu-{key.lower()}" for key in context_menu.CTX_MENUS}
+)
+
+
+def missing_required(report: dict) -> List[str]:
+    """Return every required surface this run neither photographed nor explained."""
+    surfaces = {row.get("surface") for row in report.get("captures", ())}
+    gaps = " ".join(
+        str(entry.get("name", ""))
+        for entry in list(report.get("failures", ()))
+        + list(report.get("notOpened", ()))
+    )
+    missing = [
+        surface
+        for surface, gap in sorted(REQUIRED_SURFACES.items())
+        if surface not in surfaces and gap not in gaps
+    ]
+    # The dropdowns are a family rather than a fixed list of names -- every spec
+    # surface contributes its own -- so they are required as a group: a run
+    # either opened one or said why it opened none.
+    if (
+        not any(row.get("group") == "Dropdowns" for row in report.get("captures", ()))
+        and "dropdown-" not in gaps
+    ):
+        missing.append("dropdown.* (no dropdown was photographed or accounted for)")
+    return missing
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, default=Path("resource/img"))
@@ -1157,6 +1352,22 @@ def main() -> int:
     if not commit:
         raise SystemExit("could not resolve the commit being captured")
 
+    # What the run is actually photographing, which is not always a commit.
+    #
+    # The stamp on every file is a commit, and a reader takes that to mean the
+    # pictures show that commit's tree.  On a checkout several agents are
+    # landing work in, they show HEAD *plus* whatever is uncommitted -- this run
+    # went out over 61 modified files -- and a matrix that says only `114c1cf2`
+    # is describing a tree nobody can check out.  Counting them costs one
+    # subprocess and turns a quiet approximation into a stated one.
+    dirty = [
+        line
+        for line in subprocess.run(
+            ["git", "status", "--porcelain"], capture_output=True, text=True
+        ).stdout.splitlines()
+        if line.strip()
+    ]
+
     args.out.mkdir(parents=True, exist_ok=True)
     _install_offscreen_popups()
     driver = Driver(args.out, commit, date.today().strftime("%Y%m%d"))
@@ -1165,6 +1376,14 @@ def main() -> int:
     except Exception:
         traceback.print_exc()
     report = driver.report()
+    report["workingTreeChanges"] = len(dirty)
+    report["workingTreeNote"] = (
+        f"photographed with {len(dirty)} uncommitted change(s) in the checkout, "
+        f"so these pictures show commit {commit[:8]} plus that work rather than "
+        "the commit alone"
+        if dirty
+        else f"photographed from a clean checkout of {commit[:8]}"
+    )
 
     manifest = args.manifest or (args.out / f"capture-manifest-{commit[:8]}.json")
     manifest.write_text(
@@ -1184,6 +1403,20 @@ def main() -> int:
         print(f"  FAILED {entry['name']}: {entry['reason']}")
     for entry in report["notOpened"][:12]:
         print(f"  NOT OPENED {entry['name']}: {entry['reason']}")
+
+    missing = missing_required(report)
+    if missing:
+        print(
+            f"REQUIRED SURFACES MISSING ({len(missing)}): a run that photographs "
+            "neither the surface nor the reason it could not is how a whole "
+            "family of menus left the matrix unnoticed"
+        )
+        for surface in missing:
+            print(f"  MISSING {surface}")
+        # The manifest is still written: it is the evidence for what did happen,
+        # and deleting it would leave the failure harder to read rather than
+        # easier.  The exit code is what says the run is not shippable.
+        return 1
     return 0
 
 

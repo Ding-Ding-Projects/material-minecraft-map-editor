@@ -24,8 +24,32 @@ editor's live key configuration, while whether the row can run comes from the
 shell's command registry. So a row can be greyed out beside a key that works,
 and one was — "Deselect all boxes" sat disabled next to the editor's real
 `ACT_DESELECT_ALL_BOXES` binding, which teaches a user that a working feature is
-missing. That row and its three neighbours are wired now, and a disabled row
+missing. That row and its three neighbours are wired now, and such a row
 withholds its accelerator so the pairing cannot return through a different row.
+
+**A row waiting on the world is greyed too, and keeps its key.** Being
+registered is not the same as being runnable. A menu used to ask only whether a
+command existed, so with a world open and nothing selected "Duplicate selection
+box", "Delete selection box", "Move point 1", "Move point 2", "Move the active
+box", "Export the selection…", "Undo" and "Redo" all drew at full strength and
+answered a click with a warning toast — while the ribbon, in the same window,
+greyed every one of them. The menus now ask the shell the same question the
+ribbon asks (`StudioShell.unmet_conditions`) and say what the world is waiting
+for: *"Delete selection box is unavailable: nothing is selected."*, in the
+tooltip and in the accessible name, worded from the row's own label rather than
+from the command behind it.
+
+The two greys differ in exactly one way, and it is the accelerator. A row this
+build has no command for is dead whatever the user does next, so a printed key
+would be a key for something absent. A row waiting on a selection is here, its
+key is the key that will run it, and both come alive together the moment a box
+is drawn — so it keeps printing the key rather than teaching the user that the
+shortcut does not exist either.
+
+A menu built with no shell above it — a preview, a capture harness, a surface
+still being wired — greys nothing on these grounds. "I cannot tell" is not "you
+cannot do this", and a menu that greys itself wholesale reads as a broken
+application.
 
 Every menu carries **Edit appearance…**, opening the per-element editor on the
 control the menu was raised from.
@@ -99,6 +123,12 @@ formerly dead rows through the same `run_command` a right-click reaches and then
 asks the editor's own selection and camera what changed — a row is verified by
 the state it moved, never by the notification it posted — and sweeps every menu
 for a disabled row still printing a key.
+
+It also opens every menu over a live shell holding a world with no selection and
+compares each command row against `unmet_conditions`, so a row and the ribbon
+tile beside it cannot disagree about whether a command can run. The sweep carries
+a precondition that at least one row really is waiting, because a comparison over
+nothing passes by finding nothing.
 
 Suggested articles: [search, regular expressions, and the command palette](../search-and-regex/README.md),
 [ribbon](../ribbon/README.md),

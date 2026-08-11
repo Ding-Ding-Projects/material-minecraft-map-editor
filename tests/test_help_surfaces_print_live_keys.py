@@ -261,20 +261,13 @@ def test_no_menu_row_writes_down_a_key_the_shared_table_already_binds() -> None:
     )
 
 
-def test_the_two_accelerator_tables_say_the_same_thing() -> None:
-    """The palette prints one table's keys and the menus print the other's.
-
-    ``commands`` and ``context_menu`` each hold a copy, and nothing had ever
-    checked that the copies agree -- so a key edited in one place would be
-    advertised two different ways by two surfaces of the same shell.
-    """
-    from amulet_map_editor.api.studio import commands
-
-    mismatched = commands.mismatched_accelerators()
-    assert not mismatched, (
-        "the command registry and the context menus advertise different keys "
-        f"(key, commands, context_menu): {mismatched}"
-    )
+# The two accelerator tables -- the command registry's and the context menus'
+# -- are checked against each other by
+# ``test_studio_spec_registry.test_the_drawn_accelerator_and_the_registered_one_cannot_drift``,
+# which has asserted ``commands.mismatched_accelerators() == ()`` since well
+# before this file existed.  A second copy of that assertion lived here for a
+# while, claiming to be new coverage; it was neither new nor coverage, since
+# both go red together, and it is gone rather than restated.
 
 
 def test_the_palette_pill_advertises_the_chord_the_hook_answers_to(

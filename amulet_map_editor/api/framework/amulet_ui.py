@@ -48,6 +48,7 @@ from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
 from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
 from amulet_map_editor.api.wx.ui.notification_toast import NotificationToast
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
+from amulet_map_editor.api.progress import FAILED, ProgressTask
 from .squirrel_update import (
     build_restart_command,
     check_for_update,
@@ -295,6 +296,15 @@ class AmuletUI(wx.Frame):
         self._scheduled_refresh_thread: threading.Thread | None = None
         self._scheduled_timer = wx.CallLater(1000, self._refresh_scheduled_runtime)
         self._notification_toasts: list[NotificationToast] = []
+        # Built the first time something reports progress. A session that never
+        # runs a long operation never pays for the surface that would have
+        # watched it.
+        self._progress_overlay: Optional[wx.Panel] = None
+        self._progress_overlay_failed = False
+        # A failed row keeps being republished while it sits on screen, so the
+        # announcement is keyed rather than fired per update -- otherwise one
+        # failure narrates itself once per repaint.
+        self._announced_progress_failures: set[str] = set()
         self._update_banner_action.Bind(wx.EVT_BUTTON, self._update_primary_action)
         self._update_banner_release_notes.Bind(
             wx.EVT_BUTTON, self._open_update_release_notes
@@ -394,6 +404,130 @@ class AmuletUI(wx.Frame):
         self._shell_sizer.Detach(toast)
         toast.Destroy()
         self._shell.Layout()
+
+    # -- progress ------------------------------------------------------------
+    def progress_overlay(self) -> Optional[wx.Panel]:
+        """Return the shell's progress overlay, building it on first use.
+
+        Imported here rather than at module scope for the same reason the
+        Studio is: a failure inside the Studio package must degrade the
+        application rather than prevent it from starting.  A build that cannot
+        construct the overlay still reports progress -- in the status bar,
+        which is a poorer surface but a truthful one -- rather than running a
+        long save with nothing on screen at all.
+        """
+        if self._progress_overlay is not None or self._progress_overlay_failed:
+            return self._progress_overlay
+        try:
+            from amulet_map_editor.api.studio.progress_overlay import ProgressOverlay
+
+            self._progress_overlay = ProgressOverlay(self._shell)
+        except Exception:
+            self._progress_overlay_failed = True
+            log.exception(
+                "Could not build the progress overlay; progress will be reported "
+                "in the status bar only"
+            )
+        return self._progress_overlay
+
+    def update_progress(self, task: ProgressTask) -> None:
+        """Show or refresh one operation on the overlay, blocking nothing.
+
+        This is the whole of what the shell does about progress.  It never
+        disables a window, never takes focus, and never inserts anything into a
+        sizer -- the overlay is positioned over the interface exactly as the
+        notification toasts are, so an operation starting cannot reflow the
+        surface the user is working on.
+        """
+        if self.IsBeingDeleted():
+            return
+        # The status bar carries the same sentence regardless, so the report
+        # survives a build with no overlay and reaches a screen reader that is
+        # following the frame rather than the overlay.
+        try:
+            self.SetStatusText(task.accessible_name())
+        except Exception:
+            log.debug("Status-bar progress fallback unavailable", exc_info=True)
+        overlay = self.progress_overlay()
+        if overlay is None:
+            return
+        overlay.publish(task)
+        self._position_progress_overlay()
+        if task.state == FAILED and task.key not in self._announced_progress_failures:
+            self._announced_progress_failures.add(task.key)
+            # The row itself is the visible report and it stays until dismissed,
+            # so this deliberately does not raise a toast as well: several call
+            # sites already publish their own error with a traceback attached,
+            # and two red surfaces for one failure is noise, not emphasis.
+            #
+            # It still reaches the two places a row on screen does not: history,
+            # so the failure is reviewable after the row is dismissed, and the
+            # narrator, so a listener hears it.
+            try:
+                notifications.add(
+                    "error", task.title, task.error or "The operation failed."
+                )
+            except Exception:
+                log.exception("Could not record the progress failure in history")
+            tts_narrator.announce_event(
+                self._narrator,
+                "progress",
+                f"{task.title}. {task.error}",
+                f"{task.title}。{task.error}",
+            )
+
+    def clear_progress(self, key: str) -> None:
+        """Retire a finished operation's row."""
+        if self.IsBeingDeleted():
+            return
+        self._announced_progress_failures.discard(str(key))
+        overlay = self._progress_overlay
+        if overlay is None:
+            return
+        overlay.retire(str(key))
+        self._position_progress_overlay()
+
+    def _progress_overlay_top(self) -> int:
+        """Return the y at which the overlay may start without covering chrome.
+
+        An overlay that covers the window controls is an overlay that takes the
+        close button away for the length of a save, so it starts below whatever
+        title bar is currently in use -- the frame's own when the notebook is
+        showing, the Studio's when it is.
+        """
+        top = 0
+        studio = self._studio
+        if studio is not None:
+            bar = getattr(studio, "title_bar", None)
+            if bar is not None and bar.IsShown():
+                return studio.GetPosition().y + bar.GetSize().height
+            return studio.GetPosition().y
+        for chrome in (self._title_bar, self._command_bar):
+            if chrome is not None and chrome.IsShown():
+                top = max(top, chrome.GetPosition().y + chrome.GetSize().height)
+        return top
+
+    def _position_progress_overlay(self) -> None:
+        """Float the overlay across the top of the interface.
+
+        Positioned, never laid out: progress must not take space from the
+        surface it is reporting about.
+        """
+        overlay = self._progress_overlay
+        if overlay is None or self.IsBeingDeleted():
+            return
+        try:
+            if not overlay.tasks:
+                overlay.Hide()
+                return
+            width = self._shell.GetClientSize().width
+            height = overlay.best_height()
+            overlay.SetSize(wx.Size(width, height))
+            overlay.SetPosition(wx.Point(0, self._progress_overlay_top()))
+            overlay.Raise()
+            overlay.Show()
+        except RuntimeError:  # pragma: no cover - overlay destroyed mid-update
+            self._progress_overlay = None
 
     def _refresh_scheduled_runtime(self) -> None:
         """Refresh scheduled values without ever overlapping worker threads."""
@@ -1078,6 +1212,10 @@ class AmuletUI(wx.Frame):
         self._apply_tab_rail()
         self._update_banner_text.Wrap(max(240, event.GetSize().width - 48))
         self._update_banner.Layout()
+        # A positioned overlay is not laid out by a sizer, so nothing else moves
+        # it when the window resizes -- it would keep the width the shell had
+        # when the operation started and hang off the edge or stop short of it.
+        self._position_progress_overlay()
         event.Skip()
 
     def _open_command_palette(self, _event=None) -> None:
@@ -1388,6 +1526,9 @@ class AmuletUI(wx.Frame):
             self._scheduled_timer.Stop()
         self._scheduled_runtime.stop()
         self._narrator.close()
+        if self._progress_overlay is not None:
+            self._progress_overlay.stop()
+            self._progress_overlay.dismiss_all()
         if self._dim_sum_toast is not None:
             self._dim_sum_toast.dismiss()
 

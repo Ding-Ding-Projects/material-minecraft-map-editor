@@ -19,10 +19,27 @@ whose ``restore_last_undo_point`` unpacks its stored corners back through
 ``SelectionManager.set_selection_corners`` -- and that setter's first act is
 ``self.changed = True``.
 
-Worse in the four tenths of a second before the selection's own deferred undo
-point fires: the value being unpacked is then the *previous* committed
-selection, so the rollback would put the selection back to what it was before
-the user drew the box they are copying.
+An earlier version of this module said the same rollback would put the
+selection back to what it was before the box was drawn, if Copy were pressed
+inside the four tenths of a second before the selection's own deferred undo
+point fires.  Measured in exactly that window with the refusal disabled -- box
+drawn, no main loop in between, then Copy -- the box count was one before and
+one after, and still one after a further 1.5 s.  Copy's own progress pump is
+what finally delivers that timer, so the selection's undo point is committed
+with the *current* box before the rollback is reached and what it restores is
+the box that is already there.  The damage in that window is the same damage as
+everywhere else, and the claim has been withdrawn rather than left standing as
+a measured fact it never was.
+
+**Three routes, not one.**  The report for a copy used to live in the Studio
+shell, and two shipped controls never go through it: the 3D editor binds
+Edit ▸ Copy and Ctrl+C straight to ``EditCanvas.copy``, and the Select tool's
+Copy button does the same.  Measured on a running editor, both moved the
+clipboard and raised zero notifications at any severity.  So this module
+presses all three -- the Studio command, the bare method, and the real button
+through a real ``wx.EVT_BUTTON`` -- and requires exactly one notification from
+each.  Exactly one, because the fix for silence is a fix for double-reporting
+too: if both layers spoke, one Ctrl+C would raise two toasts.
 
 **What this module deliberately does not claim.**  The original report attached
 "undo 1, changed True" to Copy.  Driven through a real ``wx`` main loop that is
@@ -58,7 +75,7 @@ amulet = pytest.importorskip("amulet", reason="amulet-core is not installed")
 
 from amulet.api.structure import structure_cache  # noqa: E402
 
-from amulet_map_editor.api import notifications  # noqa: E402
+from amulet_map_editor.api import lang, notifications  # noqa: E402
 from amulet_map_editor.api.studio import context, editor_tools  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -190,8 +207,42 @@ def _reading(canvas: Any) -> Dict[str, Any]:
     }
 
 
+def _seen() -> set:
+    """The notifications already on record, so a later read can subtract them."""
+    return {note.notification_id for note in notifications.list_notifications()}
+
+
+def _since(seen: set) -> List[Dict[str, str]]:
+    """Every notification raised since ``seen`` was taken."""
+    return [
+        {
+            "severity": str(note.severity),
+            "title": str(note.title),
+            "body": str(note.body),
+        }
+        for note in notifications.list_notifications()
+        if note.notification_id not in seen
+    ]
+
+
+def _find_button(window: Any, label: str) -> Any:
+    """Return the first descendant ``wx.Button`` carrying ``label``.
+
+    The Select tool builds its buttons in a local closure and keeps no
+    reference to any of them, so the only way to press the real control is to
+    go and find it in the panel it was added to.
+    """
+    if isinstance(window, wx.Button) and window.GetLabel() == label:
+        return window
+    for child in window.GetChildren():
+        found = _find_button(child, label)
+        if found is not None:
+            return found
+    return None
+
+
 class Session:
-    """One opened world, and what Copy did to it."""
+    """One opened world, and what Copy did to it -- from all three routes."""
 
     def __init__(self) -> None:
         self.path: str = ""
@@ -202,6 +253,15 @@ class Session:
         self.before_box: Dict[str, Any] = {}
         self.after_box: Dict[str, Any] = {}
         self.toasts: List[Dict[str, str]] = []
+        #: The 3D editor's Edit ▸ Copy and its Ctrl+C both end in a bare
+        #: ``EditCanvas.copy()`` that never reaches the Studio shell.
+        self.direct: Dict[str, Any] = {}
+        self.direct_toasts: List[Dict[str, str]] = []
+        #: The Select tool's own Copy button, pressed as a real wx event.
+        self.button_label: str = ""
+        self.button_found: bool = False
+        self.button: Dict[str, Any] = {}
+        self.button_toasts: List[Dict[str, str]] = []
 
 
 @pytest.fixture(scope="module")
@@ -257,19 +317,50 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         _settle(SETTLE_SECONDS)
         record.settled = _reading(record.canvas)
 
-        seen = {note.notification_id for note in notifications.list_notifications()}
+        seen = _seen()
         shell.run_command("copy")
         _settle(1.0)
         record.after_copy = _reading(record.canvas)
-        record.toasts = [
-            {
-                "severity": str(note.severity),
-                "title": str(note.title),
-                "body": str(note.body),
+        record.toasts = _since(seen)
+
+        # ---- the route the 3D editor's own menu and Ctrl+C take -----------
+        # ``edit.py`` binds both to ``CallableWeakMethod(self._canvas.copy)``,
+        # so what runs is exactly this call and the Studio shell never hears
+        # about it.
+        seen = _seen()
+        before_direct = _reading(record.canvas)
+        record.canvas.copy()
+        _settle(1.0)
+        record.direct = {
+            "before": before_direct,
+            "after": _reading(record.canvas),
+        }
+        record.direct_toasts = _since(seen)
+
+        # ---- and the Select tool's own Copy button ------------------------
+        record.button_label = lang.get("program_3d_edit.select_tool.copy_button")
+        tool = None
+        try:
+            tool = record.canvas.tools.get("Select")
+        except Exception:  # noqa: BLE001 - a canvas without its tool sizer
+            tool = None
+        panel = getattr(tool, "_button_panel", None)
+        button = _find_button(panel, record.button_label) if panel else None
+        if button is None:
+            button = _find_button(frame, record.button_label)
+        record.button_found = button is not None
+        if button is not None:
+            seen = _seen()
+            before_button = _reading(record.canvas)
+            event = wx.CommandEvent(wx.EVT_BUTTON.typeId, button.GetId())
+            event.SetEventObject(button)
+            button.GetEventHandler().ProcessEvent(event)
+            _settle(1.0)
+            record.button = {
+                "before": before_button,
+                "after": _reading(record.canvas),
             }
-            for note in notifications.list_notifications()
-            if note.notification_id not in seen
-        ]
+            record.button_toasts = _since(seen)
     finally:
         try:
             frame.Destroy()
@@ -389,6 +480,38 @@ def test_copying_does_not_disturb_the_selection_it_copied(session: Session) -> N
 # ----------------------------------------------------------------------
 
 
+def _assert_reports_a_copy(toasts: List[Dict[str, str]], route: str) -> None:
+    """Every route into Copy has to raise exactly one useful notification.
+
+    Counted by how many of them talk about the clipboard rather than by how
+    many arrived at all.  The notification store is a profile file on disk and
+    is shared by every process using the same ``CONFIG_DIR``, so a second
+    editor running beside this one can drop an unrelated record into the same
+    window -- and failing this module for somebody else's toast would be a
+    flake, not a finding.  A report made in two layers at once still fails,
+    because both of those sentences are about the clipboard.
+    """
+    assert toasts, (
+        f"{route} raised no notification at all, so nothing tells the user "
+        "whether anything reached the clipboard"
+    )
+    reports = [toast for toast in toasts if "clipboard" in toast["body"].lower()]
+    assert len(reports) == 1, (
+        f"{route} raised {len(reports)} notifications about the clipboard for "
+        f"one action, so the report is being made in two places at once: "
+        f"{toasts}"
+    )
+    toast = reports[0]
+    assert toast["severity"] in ("success", "info"), (
+        f"{route} reported a copy that reached the clipboard as "
+        f"{toast['severity']!r}: {toast}"
+    )
+    assert "block" in toast["body"].lower(), (
+        f"{route}'s notification does not say how much was copied, which is "
+        f"the only fact about a copy the user cannot see: {toast}"
+    )
+
+
 def test_copying_reports_what_it_copied(session: Session) -> None:
     """Copy was silent: no toast at all, at any severity.
 
@@ -397,15 +520,73 @@ def test_copying_reports_what_it_copied(session: Session) -> None:
     the one command whose whole result is invisible in the viewport said
     nothing about having worked.
     """
-    assert session.toasts, (
-        "pressing Copy raised no notification at all, so nothing tells the user "
-        "whether anything reached the clipboard"
+    _assert_reports_a_copy(session.toasts, "the Studio's Copy command")
+
+
+# ----------------------------------------------------------------------
+# ... from every control that runs it, not just the Studio's own command
+# ----------------------------------------------------------------------
+
+
+def test_a_copy_the_shell_never_sees_still_reaches_the_clipboard(
+    session: Session,
+) -> None:
+    """The precondition for the report assertion below it."""
+    assert session.direct["after"]["clipboard"] == (
+        session.direct["before"]["clipboard"] + 1
+    ), (
+        "calling EditCanvas.copy directly put nothing on the clipboard, so the "
+        f"assertion below is measuring a copy that did not happen: {session.direct}"
     )
-    bodies = " ".join(toast["body"] for toast in session.toasts)
-    assert any(
-        toast["severity"] in ("success", "info") for toast in session.toasts
-    ), f"copying reported only failures: {session.toasts}"
-    assert "block" in bodies.lower(), (
-        "the copy notification does not say how much was copied, which is the "
-        f"only fact about a copy the user cannot see: {session.toasts}"
+
+
+def test_a_copy_the_shell_never_sees_still_reports(session: Session) -> None:
+    """The defect the first fix missed, and the reason it missed it.
+
+    ``edit.py`` binds Edit ▸ Copy and Ctrl+C straight to
+    ``CallableWeakMethod(self._canvas.copy)``, so neither passes through
+    ``StudioShell.run_command`` and neither could ever reach the report that
+    used to live in ``_after_editor_command``.  Measured on a running editor
+    before this: the clipboard grew and zero notifications were raised.
+    """
+    _assert_reports_a_copy(session.direct_toasts, "EditCanvas.copy called directly")
+
+
+def test_the_select_tools_copy_button_is_still_there(session: Session) -> None:
+    """Without the button this module's last test asserts about nothing."""
+    assert session.button_found, (
+        "the Select tool has no button labelled "
+        f"{session.button_label!r}, so the test below is vacuous"
     )
+    assert session.button["after"]["clipboard"] == (
+        session.button["before"]["clipboard"] + 1
+    ), (
+        "pressing the Select tool's Copy button put nothing on the clipboard: "
+        f"{session.button}"
+    )
+
+
+def test_the_select_tools_copy_button_reports(session: Session) -> None:
+    """The other control that calls the canvas directly, pressed for real."""
+    _assert_reports_a_copy(session.button_toasts, "the Select tool's Copy button")
+
+
+def test_no_route_into_copy_disturbs_the_selection(session: Session) -> None:
+    """The read-only half, asserted for the two routes the shell never sees."""
+    for route, reading in (
+        ("EditCanvas.copy", session.direct),
+        ("the Copy button", session.button),
+    ):
+        if not reading:
+            continue
+        assert reading["after"]["selection_changed"] is False, (
+            f"{route} left the selection marked changed, so the next undo "
+            f"point will record a revision nobody made: {reading}"
+        )
+        assert reading["after"]["undo"] == reading["before"]["undo"], (
+            f"{route} moved the world's undo depth, and a copy writes nothing "
+            f"to the world: {reading}"
+        )
+        assert (
+            reading["after"]["boxes"] == reading["before"]["boxes"]
+        ), f"{route} changed how many selection boxes there are: {reading}"

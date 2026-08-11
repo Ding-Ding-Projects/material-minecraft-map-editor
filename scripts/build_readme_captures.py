@@ -70,9 +70,31 @@ def build(manifest_path: Path, root: Path) -> str:
         "",
         "### The current interface",
         "",
-        f"Every image below is a real capture of the built interface at commit "
-        f"`{commit[:8]}`, taken by `scripts/capture_studio_surfaces.py`. None is "
-        "a mockup, a design file, or a retouched image.",
+        f"Every image below is a real capture of the built interface as it stood "
+        f"at commit `{commit[:8]}` — that is the checkout the run photographed — "
+        "taken by `scripts/capture_studio_surfaces.py` as it stands in the commit "
+        "that ships this matrix. None is a mockup, a design file, or a retouched "
+        "image.",
+        "",
+        "Those two can be different commits, and saying so is the point. A "
+        "capture has to exist before the commit that contains it, so the stamp "
+        "names the tree that was photographed rather than the tree the pictures "
+        "landed in; and when a run is what proves a change to the harness, the "
+        "harness that took the pictures is newer than the stamp on them. An "
+        "earlier matrix stamped every row with a commit whose copy of the "
+        "harness could not produce 129 of the images in it, which is the same "
+        "sentence read as a promise it never made.",
+        "",
+        (
+            f"This run went out over a checkout carrying "
+            f"**{manifest['workingTreeChanges']} uncommitted change(s)**, so the "
+            f"pictures show `{commit[:8]}` plus that work rather than the commit "
+            "on its own. A run on a tree several people are landing in cannot "
+            "say anything narrower than that, and saying nothing is how a stamp "
+            "comes to mean more than it can."
+            if manifest.get("workingTreeChanges")
+            else "This run went out over a clean checkout of that commit."
+        ),
         "",
         f"**{len(captures)} surfaces captured.**"
         + (
@@ -111,6 +133,18 @@ def build(manifest_path: Path, root: Path) -> str:
                 f"**`{entry['surface']}`** — {entry['viewport']}, "
                 f"{entry['theme']} theme, {entry['density']} density"
             )
+            # One popover opened from four hosts is one picture. Shipping four
+            # byte-identical files and counting them four times is a coverage
+            # number inflated by a factor of four, so a row that resolved to a
+            # picture already shown says which one and why.
+            twin = entry.get("sameImageAs")
+            if twin:
+                lines.append("")
+                lines.append(
+                    f"Pixel-identical to `{twin}`: the same popover, opened from "
+                    "a different host. One file, shown again rather than counted "
+                    "again."
+                )
             lines.append("")
             lines.append(_row(entry, out_dir, root))
             lines.append("")

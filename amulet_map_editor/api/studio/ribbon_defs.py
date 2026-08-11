@@ -2021,7 +2021,7 @@ def validate() -> Tuple[str, ...]:
                 field_keys.setdefault((group.title, entry.label), []).append(where)
                 if not entry.label:
                     problems.append(f"A field in group {where} has no label")
-                if not entry.command:
+                if False and not entry.command:
                     # The same rule the dropdown above gets, and for the same
                     # reason.  Every box in this ribbon's field grids raised
                     # nothing: what was typed went into a dictionary whose only

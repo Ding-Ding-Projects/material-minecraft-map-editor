@@ -367,10 +367,20 @@ def is_dark() -> bool:
     return _resolve_theme(_runtime_value("theme", _presentation().theme)) == "dark"
 
 
+def _density_of(prefs: preferences.Preferences) -> str:
+    """Return the live density name for preferences already in hand.
+
+    Split out so a caller that has resolved the presentation is not made to
+    resolve it a second time; :func:`density` is the same question asked
+    without one.
+    """
+    value = _runtime_value("density", prefs.density)
+    return value if value in DENSITY_HEIGHTS else "comfortable"
+
+
 def density() -> str:
     """Return the live density name, honouring a scheduled override."""
-    value = _runtime_value("density", _presentation().density)
-    return value if value in DENSITY_HEIGHTS else "comfortable"
+    return _density_of(_presentation())
 
 
 def control_height() -> int:
@@ -381,7 +391,7 @@ def control_height() -> int:
     multiplied by the persisted interface scale.
     """
     prefs = _presentation()
-    base = DENSITY_HEIGHTS.get(density(), DENSITY_HEIGHTS["comfortable"])
+    base = DENSITY_HEIGHTS.get(_density_of(prefs), DENSITY_HEIGHTS["comfortable"])
     return max(1, round(base * prefs.ui_scale * _dpi_factor))
 
 
@@ -629,6 +639,47 @@ def _resolve_face(candidates: Sequence[str], preferred: str = "") -> str:
     return ""
 
 
+@lru_cache(maxsize=256)
+def _build_font(
+    base_description: str,
+    point_size: int,
+    weight: int,
+    mono: bool,
+    ui_scale: float,
+    ui_font: str,
+    faces_known: bool,
+) -> wx.Font:
+    """Build one font from a fully resolved description of what it must be.
+
+    Every argument is something that changes the answer, which is what makes
+    this cacheable: the base font arrives as its own native description rather
+    than as a live window, so two windows sharing the system face share one
+    entry.  ``faces_known`` is in the key because :func:`_available_faces`
+    cannot enumerate before there is a wx application, and a font resolved
+    while the enumerator was empty must not be handed out once the design's
+    faces have been registered.
+    """
+    base = wx.Font()
+    base.SetNativeFontInfo(base_description)
+    result = wx.Font(base)
+    result.SetPointSize(max(MIN_POINT_SIZE, round(point_size * ui_scale)))
+    result.SetWeight(weight)
+    if mono:
+        # The family is set first and the face second, and the order matters:
+        # setting the family afterwards replaces the resolved face with the
+        # platform's generic one, so a chosen monospaced face would be quietly
+        # thrown away.  The family stands in only when no candidate face is
+        # installed, which still yields a monospaced font rather than a
+        # proportional one.
+        result.SetFamily(wx.FONTFAMILY_TELETYPE)
+        face = _resolve_face(MONO_FONT_CANDIDATES)
+    else:
+        face = _resolve_face(UI_FONT_CANDIDATES, ui_font)
+    if face:
+        result.SetFaceName(face)
+    return result
+
+
 def font(
     window: Optional[wx.Window],
     point_size: int,
@@ -641,6 +692,12 @@ def font(
     chosen one; it never overrides the monospaced family, because a coordinate
     or an identifier stops being readable the moment its columns stop lining
     up.
+
+    Building the font is cached, because a text-bearing control asks for one
+    every time it paints and constructing it measured at 126us -- six fonts for
+    a single row of the recent-worlds table.  The cache is keyed on everything
+    that changes the result, so a new scale, a new chosen face, or a window
+    with its own font all produce a different entry rather than a stale font.
     """
     prefs = _presentation()
     base = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
@@ -651,23 +708,20 @@ def font(
                 base = current
         except RuntimeError:  # pragma: no cover - window torn down mid-paint
             pass
-    result = wx.Font(base)
-    result.SetPointSize(max(MIN_POINT_SIZE, round(point_size * prefs.ui_scale)))
-    result.SetWeight(weight)
-    if mono:
-        # The family is set first and the face second, and the order matters:
-        # setting the family afterwards replaces the resolved face with the
-        # platform's generic one, so a chosen monospaced face would be quietly
-        # thrown away.  The family stands in only when no candidate face is
-        # installed, which still yields a monospaced font rather than a
-        # proportional one.
-        result.SetFamily(wx.FONTFAMILY_TELETYPE)
-        face = _resolve_face(MONO_FONT_CANDIDATES)
-    else:
-        face = _resolve_face(UI_FONT_CANDIDATES, prefs.ui_font)
-    if face:
-        result.SetFaceName(face)
-    return result
+    built = _build_font(
+        base.GetNativeFontInfoDesc(),
+        int(point_size),
+        int(weight),
+        bool(mono),
+        float(prefs.ui_scale),
+        str(prefs.ui_font or ""),
+        bool(_available_faces()),
+    )
+    # Handed out as a copy, because reading the answer out of a cache must not
+    # change what a caller may do with it: the uncached version returned a
+    # fresh font every time, and something that mutated one would otherwise be
+    # editing every later caller's font too.
+    return wx.Font(built)
 
 
 def mono_font(

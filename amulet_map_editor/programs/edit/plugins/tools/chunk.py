@@ -28,6 +28,13 @@ from amulet_map_editor.programs.edit.plugins.operations.stock_plugins.internal_o
 )
 from amulet_map_editor.api.wx.ui.select_world import WorldSelectDialog
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.programs.edit.api.ui.material_tool_panel import (
+    NumberField,
+    PANEL_PADDING,
+    ToolPanel,
+    section_heading,
+    tool_button,
+)
 
 if TYPE_CHECKING:
     from amulet_map_editor.programs.edit.api.canvas import EditCanvas
@@ -61,90 +68,75 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
 
         self._selection = ChunkSelectionBehaviour(self.canvas)
 
-        self._button_panel = wx.Panel(canvas.GetParent())
-        self._button_panel.SetBackgroundColour(
-            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
-        )
+        self._button_panel = ToolPanel(canvas.GetParent(), "Chunk tool options")
         self._button_panel.Hide()
-        button_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._button_panel.SetSizer(button_sizer)
+        button_sizer = self._button_panel.sizer
+        pad = wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND
 
-        y_sizer = wx.FlexGridSizer(2, 5, 5)
-        button_sizer.Add(y_sizer, flag=wx.ALL, border=5)
-        min_y_label = wx.StaticText(
-            self._button_panel, label=lang.get("program_3d_edit.chunk_tool.min_y")
+        button_sizer.AddSpacer(PANEL_PADDING)
+        button_sizer.Add(
+            section_heading(
+                self._button_panel,
+                lang.get("program_3d_edit.chunk_tool.view_range"),
+            ),
+            0,
+            pad,
+            PANEL_PADDING,
         )
-        y_sizer.Add(min_y_label, flag=wx.ALIGN_CENTER)
-        self._min_y = wx.SpinCtrl(
+        self._min_y = NumberField(
             self._button_panel,
-            min=-30_000_000,
-            max=30_000_000,
-            initial=256,
+            lang.get("program_3d_edit.chunk_tool.min_y"),
+            256,
+            -30_000_000,
+            30_000_000,
+            tooltip=lang.get("program_3d_edit.chunk_tool.min_y_tooltip"),
+            name=lang.get("program_3d_edit.chunk_tool.min_y"),
+            on_change=lambda _value: self._on_clipping_changed(),
+            on_layout=self._resize,
         )
-        self._min_y.SetToolTip(lang.get("program_3d_edit.chunk_tool.min_y_tooltip"))
-        y_sizer.Add(self._min_y, flag=wx.ALIGN_CENTER)
-        self._min_y.Bind(wx.EVT_SPINCTRL, self._on_update_clipping)
+        button_sizer.Add(self._min_y, 0, pad, PANEL_PADDING)
 
-        max_y_label = wx.StaticText(
-            self._button_panel, label=lang.get("program_3d_edit.chunk_tool.max_y")
-        )
-        y_sizer.Add(max_y_label, flag=wx.ALIGN_CENTER)
-        self._max_y = wx.SpinCtrl(
+        self._max_y = NumberField(
             self._button_panel,
-            min=-30_000_000,
-            max=30_000_000,
-            initial=0,
+            lang.get("program_3d_edit.chunk_tool.max_y"),
+            0,
+            -30_000_000,
+            30_000_000,
+            tooltip=lang.get("program_3d_edit.chunk_tool.max_y_tooltip"),
+            name=lang.get("program_3d_edit.chunk_tool.max_y"),
+            on_change=lambda _value: self._on_clipping_changed(),
+            on_layout=self._resize,
         )
-        self._max_y.SetToolTip(lang.get("program_3d_edit.chunk_tool.max_y_tooltip"))
-        y_sizer.Add(self._max_y, flag=wx.ALIGN_CENTER)
-        self._max_y.Bind(wx.EVT_SPINCTRL, self._on_update_clipping)
+        button_sizer.Add(self._max_y, 0, pad, PANEL_PADDING)
         self._dimensions: Dict[Dimension, Tuple[int, int]] = {}
 
-        create_button = wx.Button(
-            self._button_panel,
-            label=lang.get("program_3d_edit.chunk_tool.create_chunks"),
-        )
-        create_button.SetToolTip(
-            lang.get("program_3d_edit.chunk_tool.create_chunks_tooltip")
-        )
         button_sizer.Add(
-            create_button, 0, wx.LEFT | wx.BOTTOM | wx.RIGHT | wx.EXPAND, 5
+            section_heading(
+                self._button_panel,
+                lang.get("program_3d_edit.chunk_tool.chunk_actions"),
+            ),
+            0,
+            pad,
+            PANEL_PADDING,
         )
-        create_button.Bind(wx.EVT_BUTTON, self._create_chunks)
-
-        delete_button = wx.Button(
-            self._button_panel,
-            label=lang.get("program_3d_edit.chunk_tool.delete_chunks"),
-        )
-        delete_button.SetToolTip(
-            lang.get("program_3d_edit.chunk_tool.delete_chunks_tooltip")
-        )
-        button_sizer.Add(
-            delete_button, 0, wx.LEFT | wx.BOTTOM | wx.RIGHT | wx.EXPAND, 5
-        )
-        delete_button.Bind(wx.EVT_BUTTON, self._delete_chunks)
-
-        prune_button = wx.Button(
-            self._button_panel,
-            label=lang.get("program_3d_edit.chunk_tool.prune_chunks"),
-        )
-        prune_button.SetToolTip(
-            lang.get("program_3d_edit.chunk_tool.prune_chunks_tooltip")
-        )
-        button_sizer.Add(prune_button, 0, wx.LEFT | wx.BOTTOM | wx.RIGHT | wx.EXPAND, 5)
-        prune_button.Bind(wx.EVT_BUTTON, self._prune_chunks)
-
-        import_button = wx.Button(
-            self._button_panel,
-            label=lang.get("program_3d_edit.chunk_tool.import_chunks"),
-        )
-        import_button.SetToolTip(
-            lang.get("program_3d_edit.chunk_tool.import_chunks_tooltip")
-        )
-        button_sizer.Add(
-            import_button, 0, wx.LEFT | wx.BOTTOM | wx.RIGHT | wx.EXPAND, 5
-        )
-        import_button.Bind(wx.EVT_BUTTON, self._import_chunks)
+        for key, handler, variant in (
+            ("create_chunks", self._create_chunks, "tonal"),
+            ("delete_chunks", self._delete_chunks, "danger"),
+            ("prune_chunks", self._prune_chunks, "danger"),
+            ("import_chunks", self._import_chunks, "tonal"),
+        ):
+            button_sizer.Add(
+                tool_button(
+                    self._button_panel,
+                    lang.get(f"program_3d_edit.chunk_tool.{key}"),
+                    tooltip=lang.get(f"program_3d_edit.chunk_tool.{key}_tooltip"),
+                    variant=variant,
+                    on_click=handler,
+                ),
+                0,
+                pad,
+                PANEL_PADDING,
+            )
 
         self._resize()
 
@@ -190,6 +182,17 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
     def _on_update_clipping(self, evt):
         self._update_clipping()
         evt.Skip()
+
+    def _on_clipping_changed(self) -> None:
+        """One of the two Y boxes moved.
+
+        The boxes report through their own callback rather than through a spin
+        event caught at the panel, which is what the native controls did.  The
+        difference matters: a panel-level ``EVT_SPINCTRL`` fired for whichever
+        spin control happened to be on the panel, so adding a third one later
+        would silently have redrawn the clipping planes as well.
+        """
+        self._update_clipping()
 
     def _update_clipping(self):
         y = self.canvas.camera.location[1]
@@ -257,7 +260,7 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
             return False
         return None
 
-    def _create_chunks(self, evt):
+    def _create_chunks(self, evt=None):
         def create_chunks(
             world: BaseLevel,
             dimension: Dimension,
@@ -278,7 +281,7 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
             ),
         )
 
-    def _delete_chunks(self, evt):
+    def _delete_chunks(self, evt=None):
         load_original = self._ask_delete_chunks()
         if load_original is not None:
             _log_failure(
@@ -293,7 +296,7 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
                 ),
             )
 
-    def _prune_chunks(self, evt):
+    def _prune_chunks(self, evt=None):
         load_original = self._ask_delete_chunks()
         if load_original is not None:
             _log_failure(
@@ -308,7 +311,7 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
                 ),
             )
 
-    def _import_chunks(self, evt):
+    def _import_chunks(self, evt=None):
         def on_world_selected(path: str):
             destination_changed = False
 

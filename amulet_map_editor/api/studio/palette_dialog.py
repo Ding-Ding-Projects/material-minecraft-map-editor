@@ -599,7 +599,14 @@ def _spec_setting_results() -> List[PaletteResult]:
     school = studio_copy.is_school_mode()
     results: List[PaletteResult] = []
     for key in sorted(getattr(specs, "SPECS", {})):
-        spec = specs.SPECS[key]
+        # Through ``get``, never the snapshot: a surface built from live state
+        # -- the Key Select window's key groups -- registers a rebuilder, and
+        # reading ``SPECS`` straight indexes whatever it happened to hold when
+        # this process imported it.  The palette would then offer the reader a
+        # dropdown of key groups read before their configuration was.
+        spec = specs.get(key)
+        if spec is None:  # pragma: no cover - the key came from the same map
+            continue
         if school and (
             key in SCHOOL_MODE_SURFACES or _school_mode_hides(spec.title, spec.eyebrow)
         ):
