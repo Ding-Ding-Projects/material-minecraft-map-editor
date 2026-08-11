@@ -23,13 +23,18 @@ has been shown and the event loop has run at least once.
 
 from __future__ import annotations
 
+import ctypes
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
 import wx
 
 log = logging.getLogger(__name__)
+
+_IS_WINDOWS = os.name == "nt"
+_user32 = ctypes.windll.user32 if _IS_WINDOWS else None
 
 #: A capture with fewer distinct colours than this is almost certainly blank.
 #: It is a smoke threshold, not a quality bar: a real surface in this interface
@@ -69,7 +74,7 @@ def capture_window(
     bitmap = wx.Bitmap(size)
     memory = wx.MemoryDC(bitmap)
     try:
-        memory.Blit(0, 0, size.width, size.height, wx.ClientDC(window), 0, 0)
+        _paint_into(window, memory, wx.Point(0, 0))
     finally:
         memory.SelectObject(wx.NullBitmap)
 
@@ -119,16 +124,62 @@ def settle(window: wx.Window, *, passes: int = 6) -> None:
         wx.SafeYield()
 
 
-def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> int:
-    """Blit one window's own surface into ``target`` at ``origin``.
+#: ``PrintWindow`` flag that renders the window's full content, including
+#: anything the desktop compositor would normally own.
+PW_RENDERFULLCONTENT = 0x00000002
 
-    Returns the number of pixels copied, or 0 when the window has no surface
-    that can be read this way -- an OpenGL canvas being the case that matters,
-    since its pixels live in the GL framebuffer rather than in a device context.
+
+def _print_window(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> bool:
+    """Ask ``window`` to draw itself into ``target`` at ``origin``.
+
+    ``wx.ClientDC`` *reads* a window's on-screen surface.  On a named off-screen
+    desktop nothing is ever composited, so there is no surface to read and the
+    copy comes back as whatever happened to be in the buffer -- which is how a
+    capture run produced 139 files that passed every numeric check and were all
+    blank.  ``PrintWindow`` does the opposite: it asks the window to render into
+    a device context, which works whether or not anyone is looking at it.
+
+    Returns whether the request succeeded, so the caller can fall back.
+    """
+    if not _IS_WINDOWS:
+        return False
+    size = window.GetClientSize()
+    if size.width < 1 or size.height < 1:
+        return False
+    try:
+        scratch = wx.Bitmap(size)
+        scratch_dc = wx.MemoryDC(scratch)
+        try:
+            handle = window.GetHandle()
+            printed = _user32.PrintWindow(
+                handle, scratch_dc.GetHandle(), PW_RENDERFULLCONTENT
+            )
+        finally:
+            scratch_dc.SelectObject(wx.NullBitmap)
+        if not printed:
+            return False
+        target.DrawBitmap(scratch, origin.x, origin.y, True)
+        return True
+    except Exception:
+        log.debug("PrintWindow failed for %s", window.GetName(), exc_info=True)
+        return False
+
+
+def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> int:
+    """Render one window into ``target`` at ``origin``.
+
+    ``PrintWindow`` is tried first because it is the only route that works on a
+    desktop nobody is watching, which is where a capture matrix has to run.  The
+    device-context read stays as the fallback for platforms without it.
+    Returns the number of pixels covered, or 0 when neither route could draw --
+    an OpenGL canvas being the case that matters, since its pixels live in the
+    GL framebuffer rather than in any device context.
     """
     size = window.GetClientSize()
     if size.width < 1 or size.height < 1:
         return 0
+    if _print_window(window, target, origin):
+        return size.width * size.height
     try:
         source = wx.ClientDC(window)
         target.Blit(origin.x, origin.y, size.width, size.height, source, 0, 0)
