@@ -27,22 +27,27 @@ from __future__ import annotations
 import logging
 import math
 import time
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import wx
 
+from amulet_map_editor.api import config
 from amulet_map_editor.api.studio import tokens
 from amulet_map_editor.api.studio.copy import studio_text
 from amulet_map_editor.api.studio.status_bar import open_studio_menu
 from amulet_map_editor.api.studio.widgets import (
     AXIS_COLOURS,
+    TEXT_SLACK,
     StudioButton,
     colour_of,
     draw_focus_ring,
     elide,
     invoke,
+    measuring,
     paint_context,
     point_size,
+    translated,
 )
 
 log = logging.getLogger(__name__)
@@ -118,6 +123,149 @@ _MINIMAP_MIN_WIDTH = 460
 _TOOLS_MIN_HEIGHT = 260
 
 
+@dataclass(frozen=True)
+class OverlayGroup:
+    """One movable cluster of heads-up controls, and where it starts life.
+
+    ``anchor_x`` and ``anchor_y`` name the corner a group's remembered position
+    is measured from.  That is not decoration: a group anchored bottom-right and
+    remembered as "sixteen pixels in from the bottom-right" is still sixteen
+    pixels in from the bottom-right after the window is resized, whereas the
+    same position stored as an absolute point would be off the edge of a smaller
+    window and half way up a larger one.
+    """
+
+    key: str
+    label: str
+    anchor_x: str
+    anchor_y: str
+    pad: int
+    vertical: bool
+    gap: int
+
+
+#: The four groups a user can move, and where the design puts each of them.
+#:
+#: They are moved as **groups rather than as individual controls**, for two
+#: reasons that both come from what these particular widgets are.  The readouts
+#: are a row whose members change width twice a second as the numbers behind
+#: them change, so four independently positioned chips would drift into each
+#: other the moment a camera moved; and the tool column and the minimap stack
+#: are single design objects whose members are meaningless apart -- a compass
+#: parked away from the map it belongs to is clutter, not customisation.
+#: Grouping also gives each grab handle a body big enough to actually grab.
+#:
+#: The selection corner handles are deliberately absent.  They are not chrome
+#: floating over the world: each one marks a block coordinate, so moving one
+#: somewhere more convenient would be a lie about where the selection is.
+OVERLAY_GROUPS: Tuple[OverlayGroup, ...] = (
+    OverlayGroup("readouts", "Readouts", "left", "top", 14, False, 6),
+    OverlayGroup("minimap", "Minimap and compass", "right", "top", 14, True, 8),
+    OverlayGroup("axes", "Axis key", "left", "bottom", 16, True, 6),
+    OverlayGroup("tools", "View tools", "right", "bottom", 16, True, 6),
+)
+
+OVERLAY_BY_KEY: Dict[str, OverlayGroup] = {group.key: group for group in OVERLAY_GROUPS}
+
+#: Where remembered overlay positions live, keyed ``<surface>.<group>``.
+OVERLAY_LAYOUT_ID = "amulet_studio_overlay_layout"
+
+#: Which viewport a remembered position belongs to.  There is one world view
+#: today; the key carries the surface anyway so a second one cannot silently
+#: inherit the first one's layout.
+OVERLAY_SURFACE = "viewport"
+
+#: How far one arrow key press moves an overlay, and how far it moves while
+#: Shift is held, in design pixels.  These are the numbers the grip states in
+#: its own name and tooltip, scaled for the live display: a control that says
+#: "eight pixels" and moves by six is worse than one that says nothing.
+OVERLAY_STEP = 8
+OVERLAY_LARGE_STEP = 32
+
+#: The grab handle: how thick the gutter is, how far it sits from the controls
+#: it moves, and the shortest it is ever drawn, in design pixels.
+GRIP_THICKNESS = 10
+GRIP_GAP = 4
+GRIP_MIN_LENGTH = 28
+
+
+def load_overlay_offsets(surface: str = OVERLAY_SURFACE) -> Dict[str, Tuple[int, int]]:
+    """Return every remembered overlay position for one surface.
+
+    A position is stored as the distance from the two edges its group is
+    anchored to, never as an absolute point, so a window that changes size
+    keeps a corner-anchored overlay in its corner.
+    """
+    raw = config.get(OVERLAY_LAYOUT_ID, {})
+    if not isinstance(raw, dict):
+        return {}
+    prefix = f"{surface}."
+    offsets: Dict[str, Tuple[int, int]] = {}
+    for key, value in raw.items():
+        name = str(key)
+        if not name.startswith(prefix):
+            continue
+        try:
+            gap_x, gap_y = value
+            offsets[name[len(prefix) :]] = (int(gap_x), int(gap_y))
+        except (TypeError, ValueError):
+            continue
+    return offsets
+
+
+def store_overlay_offset(surface: str, key: str, offset: Tuple[int, int]) -> None:
+    """Remember one overlay's position, ignoring a profile that cannot be written."""
+    try:
+        raw = config.get(OVERLAY_LAYOUT_ID, {})
+        stored = dict(raw) if isinstance(raw, dict) else {}
+        stored[f"{surface}.{key}"] = (int(offset[0]), int(offset[1]))
+        config.put(OVERLAY_LAYOUT_ID, stored)
+    except OSError:
+        log.exception("Could not store the %s overlay position", key)
+
+
+def clear_overlay_offsets(surface: str, key: Optional[str] = None) -> None:
+    """Forget one remembered overlay position, or every one on a surface."""
+    try:
+        raw = config.get(OVERLAY_LAYOUT_ID, {})
+        stored = dict(raw) if isinstance(raw, dict) else {}
+        if key is None:
+            prefix = f"{surface}."
+            stored = {
+                name: value
+                for name, value in stored.items()
+                if not str(name).startswith(prefix)
+            }
+        else:
+            stored.pop(f"{surface}.{key}", None)
+        config.put(OVERLAY_LAYOUT_ID, stored)
+    except OSError:
+        log.exception("Could not reset the overlay positions for %r", surface)
+
+
+def overlay_step(large: bool = False) -> int:
+    """Return how far one arrow key press moves an overlay, in real pixels."""
+    return tokens.scaled(OVERLAY_LARGE_STEP if large else OVERLAY_STEP)
+
+
+def overlay_hint_text() -> str:
+    """Return the sentence the view shows while an overlay grip has attention.
+
+    The numbers are read rather than written out, because they are scaled for
+    the display and a sentence quoting the design's own eight would be wrong on
+    every screen that is not at one hundred percent.
+    """
+    step = overlay_step(False)
+    large = overlay_step(True)
+    return studio_text(
+        f"Drag, or press the arrow keys to move this overlay {step} pixels, "
+        f"Shift for {large}. Home puts it back; Shift+Home puts every "
+        "overlay back.",
+        f"拖佢，或者撳方向鍵郁 {step} 像素，撳住 Shift 就 {large}。"
+        "Home 還原呢個，Shift+Home 全部還原。",
+    )
+
+
 def sky_colour(fraction: float) -> wx.Colour:
     """Return the gradient colour at ``fraction`` down the view.
 
@@ -164,6 +312,20 @@ def hud_paint_context(window: wx.Window) -> Tuple[wx.DC, wx.DC]:
     unpainted.  One helper means one place that has to be right.
     """
     return paint_context(window, hud_backdrop(window))
+
+
+def clear_hud(window: wx.Window, dc: wx.DC, width: int, height: int) -> None:
+    """Fill a heads-up control's own rectangle with the sky sitting behind it.
+
+    :func:`hud_paint_context` does this on the way into a paint handler.  A
+    capture never goes through a paint handler -- it calls ``render_to``
+    directly -- so the same clearing has to be available there, or a widget
+    draws its translucent surface over whatever the capture bitmap already
+    held.
+    """
+    dc.SetBrush(wx.Brush(hud_backdrop(window)))
+    dc.SetPen(wx.TRANSPARENT_PEN)
+    dc.DrawRectangle(0, 0, max(1, width), max(1, height))
 
 
 class HudChip(wx.Control):
@@ -244,12 +406,21 @@ class HudChip(wx.Control):
         return tokens.mono_font(self, point_size(self._size_px))
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(self._font())
-        width = max(dc.GetTextExtent(line or " ")[0] for line in self._lines)
-        height = dc.GetCharHeight() * len(self._lines)
+        """Measure the way the chip paints, or its own text comes out elided.
+
+        A ``wx.ClientDC`` measures through GDI and the chip paints through a
+        ``wx.GCDC``, and the two disagree by a pixel or two -- so a chip sized
+        from the narrower reading is always a hair short of the text it then
+        draws, and :func:`elide` fires on a line that was meant to fit exactly.
+        That is not theoretical here: the stand-in's own notice shipped reading
+        "a drawn stand-in for the w…" with nothing cutting it off but this.
+        """
+        with measuring(self) as dc:
+            dc.SetFont(self._font())
+            width = max(dc.GetTextExtent(line or " ")[0] for line in self._lines)
+            height = dc.GetCharHeight() * len(self._lines)
         return wx.Size(
-            width + tokens.scaled(self.PADDING_X) * 2,
+            width + TEXT_SLACK * 2 + tokens.scaled(self.PADDING_X) * 2,
             height + tokens.scaled(self.PADDING_Y) * 2,
         )
 
@@ -309,12 +480,12 @@ class AxesLegend(wx.Control):
         return False
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, point_size(10)))
-        width = max(dc.GetTextExtent(label)[0] for _axis, label in self.ROWS)
-        line_height = dc.GetCharHeight()
+        with measuring(self) as dc:
+            dc.SetFont(tokens.mono_font(self, point_size(10)))
+            width = max(dc.GetTextExtent(label)[0] for _axis, label in self.ROWS)
+            line_height = dc.GetCharHeight()
         return wx.Size(
-            width + tokens.scaled(self.PADDING_X) * 2,
+            width + TEXT_SLACK * 2 + tokens.scaled(self.PADDING_X) * 2,
             line_height * len(self.ROWS)
             + tokens.scaled(self.GAP) * (len(self.ROWS) - 1)
             + tokens.scaled(self.PADDING_Y) * 2,
@@ -427,10 +598,25 @@ class MinimapView(StudioButton):
         )
         return max(0.05, (half - 8.0) / span)
 
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the map, in the one place both the screen and a capture use.
+
+        Without this the base :class:`StudioButton` one applies, and that draws
+        a *button*: a capture of the viewport came back with an empty rounded
+        rectangle where the map should be, and reported it as having drawn.
+        """
+        with translated(dc, rect):
+            clear_hud(self, dc, rect.width, rect.height)
+            self._draw(dc, rect.width, rect.height)
+
     def _on_paint(self, _event: wx.PaintEvent) -> None:
-        palette = self.palette()
         dc, gcdc = hud_paint_context(self)
         width, height = self.GetClientSize()
+        self._draw(gcdc, width, height)
+        del gcdc
+
+    def _draw(self, gcdc: wx.DC, width: int, height: int) -> None:
+        palette = self.palette()
         rect = wx.Rect(0, 0, width, height)
         radius = tokens.scaled(tokens.RADIUS_MD)
         tokens.draw_elevation(gcdc, rect, radius, 2, True)
@@ -481,7 +667,6 @@ class MinimapView(StudioButton):
         )
         if self.HasFocus() or self._hovered:
             draw_focus_ring(gcdc, rect, radius, accent)
-        del gcdc
 
 
 class CompassView(StudioButton):
@@ -523,10 +708,20 @@ class CompassView(StudioButton):
         side = tokens.scaled(self.SIZE)
         return wx.Size(side, side)
 
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the dial itself, rather than the button underneath it."""
+        with translated(dc, rect):
+            clear_hud(self, dc, rect.width, rect.height)
+            self._draw(dc, rect.width, rect.height)
+
     def _on_paint(self, _event: wx.PaintEvent) -> None:
-        palette = self.palette()
         dc, gcdc = hud_paint_context(self)
         width, height = self.GetClientSize()
+        self._draw(gcdc, width, height)
+        del gcdc
+
+    def _draw(self, gcdc: wx.DC, width: int, height: int) -> None:
+        palette = self.palette()
         rect = wx.Rect(0, 0, width, height)
         tokens.draw_elevation(gcdc, rect, width // 2, 2, True)
         gcdc.SetBrush(wx.Brush(palette.scrim))
@@ -567,7 +762,6 @@ class CompassView(StudioButton):
             gcdc.SetBrush(wx.TRANSPARENT_BRUSH)
             gcdc.SetPen(wx.Pen(accent, 2))
             gcdc.DrawEllipse(2, 2, width - 5, height - 5)
-        del gcdc
 
 
 class ViewportToolButton(StudioButton):
@@ -619,10 +813,20 @@ class ViewportToolButton(StudioButton):
         side = tokens.scaled(self.SIZE)
         return wx.Size(side, side)
 
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the tool's own scrim and glyph, not a plain Studio button."""
+        with translated(dc, rect):
+            clear_hud(self, dc, rect.width, rect.height)
+            self._draw(dc, rect.width, rect.height)
+
     def _on_paint(self, _event: wx.PaintEvent) -> None:
-        palette = self.palette()
         dc, gcdc = hud_paint_context(self)
         width, height = self.GetClientSize()
+        self._draw(gcdc, width, height)
+        del gcdc
+
+    def _draw(self, gcdc: wx.DC, width: int, height: int) -> None:
+        palette = self.palette()
         rect = wx.Rect(0, 0, width, height)
         radius = tokens.scaled(tokens.RADIUS_SM + 1)
         accent = colour_of(OVERLAY_ACCENT)
@@ -646,7 +850,6 @@ class ViewportToolButton(StudioButton):
         )
         if self.HasFocus():
             draw_focus_ring(gcdc, rect, radius, accent)
-        del gcdc
 
 
 class CornerHandle(StudioButton):
@@ -723,9 +926,19 @@ class CornerHandle(StudioButton):
         side = tokens.scaled(self.SIZE)
         return wx.Size(side, side)
 
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the coloured knob, not the square button behind it."""
+        with translated(dc, rect):
+            clear_hud(self, dc, rect.width, rect.height)
+            self._draw(dc, rect.width, rect.height)
+
     def _on_paint(self, _event: wx.PaintEvent) -> None:
         dc, gcdc = hud_paint_context(self)
         width, height = self.GetClientSize()
+        self._draw(gcdc, width, height)
+        del gcdc
+
+    def _draw(self, gcdc: wx.DC, width: int, height: int) -> None:
         side = min(width, height)
         ink = colour_of(self.colour)
         if self._pressed or self._hovered:
@@ -737,6 +950,272 @@ class CornerHandle(StudioButton):
             gcdc.SetBrush(wx.TRANSPARENT_BRUSH)
             gcdc.SetPen(wx.Pen(colour_of(OVERLAY_ACCENT), 2))
             gcdc.DrawEllipse(0, 0, side - 1, side - 1)
+
+
+class OverlayGrip(wx.Control):
+    """The gutter you grab to move one overlay group, and its keyboard.
+
+    It is a **separate window from the controls it moves**, and that is the
+    whole design rather than an implementation detail.  The minimap opens Go to
+    when it is clicked and each tool button runs its tool; making those same
+    surfaces double as drag targets would mean guessing, on every press,
+    whether the user meant the action or the move.  A grip has one job, so
+    there is nothing to guess -- and because it is a child window of the
+    viewport, a press on it is delivered to it and never reaches the renderer
+    canvas underneath, which is what keeps a drag from also turning the camera.
+
+    It is drawn faintly at rest rather than hidden until hovered.  A handle
+    that only exists once the pointer is already over it is a handle nobody
+    finds, and worse, a hidden window is skipped by tab traversal, so the
+    keyboard route would have been unreachable too.
+    """
+
+    #: The three dots the gutter is drawn with, as a fraction of its length.
+    DOTS = (0.36, 0.5, 0.64)
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        key: str,
+        label: str,
+        *,
+        on_place: Optional[Callable[[str, int, int], None]] = None,
+        on_move: Optional[Callable[[str, int, int], None]] = None,
+        on_commit: Optional[Callable[[str], None]] = None,
+        on_reset: Optional[Callable[[str, bool], None]] = None,
+        on_attention: Optional[Callable[[str, bool], None]] = None,
+    ) -> None:
+        super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
+        self.key = str(key)
+        self.label_text = str(label)
+        self._on_place = on_place
+        self._on_move = on_move
+        self._on_commit = on_commit
+        self._on_reset = on_reset
+        self._on_attention = on_attention
+        self._hovered = False
+        self._dragging = False
+        self._grab: Optional[wx.Point] = None
+        self._nudged = False
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        self.SetCursor(wx.Cursor(wx.CURSOR_SIZING))
+        self._sync_name()
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
+        self.Bind(wx.EVT_ENTER_WINDOW, self._on_enter)
+        self.Bind(wx.EVT_LEAVE_WINDOW, self._on_leave)
+        self.Bind(wx.EVT_LEFT_DOWN, self._on_left_down)
+        self.Bind(wx.EVT_MOTION, self._on_motion)
+        self.Bind(wx.EVT_LEFT_UP, self._on_left_up)
+        self.Bind(wx.EVT_MOUSE_CAPTURE_LOST, self._on_capture_lost)
+        self.Bind(wx.EVT_KEY_DOWN, self._on_key_down)
+        self.Bind(wx.EVT_KEY_UP, self._on_key_up)
+        self.Bind(wx.EVT_SET_FOCUS, self._on_focus)
+        self.Bind(wx.EVT_KILL_FOCUS, self._on_blur)
+        self.SetInitialSize(self.DoGetBestSize())
+
+    # -- accessibility -------------------------------------------------------
+    def AcceptsFocus(self) -> bool:  # noqa: N802 - wx API spelling
+        return True
+
+    def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
+        return True
+
+    def _sync_name(self) -> None:
+        """State what this handle does, and exactly how far its keys move it."""
+        step = overlay_step(False)
+        large = overlay_step(True)
+        sentence = (
+            f"Move the {self.label_text.lower()} overlay. Drag it, or press the "
+            f"arrow keys to move it {step} pixels, Shift and an arrow for "
+            f"{large}. Home returns it to its shipped place, and Shift and Home "
+            "returns every overlay."
+        )
+        self.SetName(sentence)
+        self.SetToolTip(sentence)
+
+    def refresh_theme(self) -> None:
+        """Re-read the step for the live density and repaint."""
+        self._sync_name()
+        self.Refresh()
+
+    # -- pointer -------------------------------------------------------------
+    def _on_enter(self, event: wx.MouseEvent) -> None:
+        self._hovered = True
+        invoke(self._on_attention, self.key, True)
+        self.Refresh()
+        event.Skip()
+
+    def _on_leave(self, event: wx.MouseEvent) -> None:
+        self._hovered = False
+        if not self._dragging and not self.HasFocus():
+            invoke(self._on_attention, self.key, False)
+        self.Refresh()
+        event.Skip()
+
+    def _on_left_down(self, event: wx.MouseEvent) -> None:
+        self.SetFocus()
+        self._grab = wx.Point(event.GetPosition())
+        self._dragging = True
+        if not self.HasCapture():
+            try:
+                self.CaptureMouse()
+            except Exception:  # pragma: no cover - platform boundary
+                log.debug("Could not capture the pointer for the %s grip", self.key)
+        invoke(self._on_attention, self.key, True)
+        self.Refresh()
+
+    def _on_motion(self, event: wx.MouseEvent) -> None:
+        """Follow the pointer, in the parent's coordinates.
+
+        The position on the event is inside this window, and this window moves
+        as the drag proceeds, so the two are added: where the pointer is on the
+        viewport is where the grip sits plus where the pointer is on the grip.
+        Subtracting the point the drag started from keeps the handle under the
+        same part of the pointer it was picked up by, rather than snapping its
+        corner to the cursor on the first pixel of movement.
+        """
+        if not self._dragging or self._grab is None:
+            event.Skip()
+            return
+        origin = self.GetPosition()
+        here = event.GetPosition()
+        invoke(
+            self._on_place,
+            self.key,
+            origin.x + here.x - self._grab.x,
+            origin.y + here.y - self._grab.y,
+        )
+
+    def _on_left_up(self, event: wx.MouseEvent) -> None:
+        was_dragging = self._dragging
+        self._release()
+        if was_dragging:
+            invoke(self._on_commit, self.key)
+        self.Refresh()
+        event.Skip()
+
+    def _on_capture_lost(self, _event: wx.MouseCaptureLostEvent) -> None:
+        """Another window took the pointer; keep the move already made."""
+        was_dragging = self._dragging
+        self._dragging = False
+        self._grab = None
+        if was_dragging:
+            invoke(self._on_commit, self.key)
+        self.Refresh()
+
+    def _release(self) -> None:
+        self._dragging = False
+        self._grab = None
+        if self.HasCapture():
+            try:
+                self.ReleaseMouse()
+            except Exception:  # pragma: no cover - platform boundary
+                log.debug("Could not release the pointer for the %s grip", self.key)
+
+    # -- keyboard ------------------------------------------------------------
+    #: Everything the pointer can do, one key press at a time.
+    MOVES: Dict[int, Tuple[int, int]] = {
+        wx.WXK_LEFT: (-1, 0),
+        wx.WXK_RIGHT: (1, 0),
+        wx.WXK_UP: (0, -1),
+        wx.WXK_DOWN: (0, 1),
+        wx.WXK_NUMPAD_LEFT: (-1, 0),
+        wx.WXK_NUMPAD_RIGHT: (1, 0),
+        wx.WXK_NUMPAD_UP: (0, -1),
+        wx.WXK_NUMPAD_DOWN: (0, 1),
+    }
+
+    def _on_key_down(self, event: wx.KeyEvent) -> None:
+        code = event.GetKeyCode()
+        if code in (wx.WXK_HOME, wx.WXK_NUMPAD_HOME):
+            invoke(self._on_reset, self.key, bool(event.ShiftDown()))
+            return
+        delta = self.MOVES.get(code)
+        if delta is None:
+            event.Skip()
+            return
+        step = overlay_step(bool(event.ShiftDown()))
+        self._nudged = True
+        invoke(self._on_move, self.key, delta[0] * step, delta[1] * step)
+
+    def _on_key_up(self, event: wx.KeyEvent) -> None:
+        """Write the position down once the key is let go, not once per repeat.
+
+        A held arrow key repeats about thirty times a second, and the profile is
+        a gzipped pickle: writing on every repeat would put thirty file writes a
+        second behind one keypress for no gain, since only the last one is the
+        position the user meant.
+        """
+        if self._nudged:
+            self._nudged = False
+            invoke(self._on_commit, self.key)
+        event.Skip()
+
+    def _on_focus(self, event: wx.FocusEvent) -> None:
+        invoke(self._on_attention, self.key, True)
+        self.Refresh()
+        event.Skip()
+
+    def _on_blur(self, event: wx.FocusEvent) -> None:
+        if not self._hovered and not self._dragging:
+            invoke(self._on_attention, self.key, False)
+        self.Refresh()
+        event.Skip()
+
+    # -- painting ------------------------------------------------------------
+    def _backdrop(self) -> wx.Colour:
+        return hud_backdrop(self)
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        return wx.Size(tokens.scaled(GRIP_THICKNESS), tokens.scaled(GRIP_MIN_LENGTH))
+
+    def active(self) -> bool:
+        """Return whether the handle is showing itself as grabbable."""
+        return bool(self._hovered or self._dragging or self.HasFocus())
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the handle, in one place both the screen and a capture use.
+
+        A widget that paints only in ``EVT_PAINT`` and never overrides this
+        inherits a default that fills its backdrop and returns, and the capture
+        harness records that as a successful draw -- so the report comes back
+        clean and the picture has an empty rectangle where the handle should
+        be.  This is that override.
+        """
+        with translated(dc, rect):
+            width = max(1, rect.width)
+            height = max(1, rect.height)
+            dc.SetBrush(wx.Brush(self._backdrop()))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(0, 0, width, height)
+
+            accent = colour_of(OVERLAY_ACCENT)
+            body = wx.Rect(0, 0, width, height)
+            radius = tokens.scaled(tokens.RADIUS_SM - 2)
+            if self.active():
+                fill = wx.Colour(accent.Red(), accent.Green(), accent.Blue(), 92)
+                border = accent
+                dot = accent
+            else:
+                fill = wx.Colour(255, 255, 255, 36)
+                border = wx.Colour(255, 255, 255, 56)
+                dot = wx.Colour(255, 255, 255, 140)
+            tokens.draw_round_rect(dc, body, radius, fill, border)
+
+            size = max(2, tokens.scaled(3))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.SetBrush(wx.Brush(dot))
+            for fraction in self.DOTS:
+                centre_y = int(round(height * fraction))
+                dc.DrawEllipse((width - size) // 2, centre_y - size // 2, size, size)
+            if self.HasFocus():
+                draw_focus_ring(dc, body, radius, accent)
+
+    def _on_paint(self, _event: wx.PaintEvent) -> None:
+        dc, gcdc = paint_context(self, self._backdrop())
+        width, height = self.GetClientSize()
+        self.render_to(gcdc, wx.Rect(0, 0, width, height))
         del gcdc
 
 
@@ -755,6 +1234,7 @@ class ViewportHost(wx.Panel):
         on_selection: Optional[
             Callable[[Tuple[int, int, int], Tuple[int, int, int]], None]
         ] = None,
+        overlay_surface: str = OVERLAY_SURFACE,
     ) -> None:
         super().__init__(parent, style=wx.TAB_TRAVERSAL | wx.FULL_REPAINT_ON_RESIZE)
         self.on_surface = on_surface
@@ -787,6 +1267,18 @@ class ViewportHost(wx.Panel):
         self._home_view: Optional[Tuple[Tuple[float, float, float], float]] = None
         self._reading: Dict[str, Any] = {}
         self._placeholder_reason = ""
+        # Where each movable overlay group has been put, and where it is now.
+        # ``_overlay_offsets`` holds only the groups the user has actually
+        # moved, as distances from the corner that group is anchored to; a
+        # group absent from it is drawn at the shipped inset, which is what
+        # makes a reset "forget" rather than "store the default again".
+        self._overlay_surface = str(overlay_surface or OVERLAY_SURFACE)
+        self._overlay_offsets: Dict[str, Tuple[int, int]] = load_overlay_offsets(
+            self._overlay_surface
+        )
+        self._overlay_rects: Dict[str, wx.Rect] = {}
+        self._overlay_placed: Dict[str, Tuple[wx.Window, ...]] = {}
+        self._hint_for: Optional[str] = None
 
         self.SetName("World viewport")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
@@ -854,6 +1346,30 @@ class ViewportHost(wx.Panel):
             on_nudge=self._nudge_corner,
             on_click=self._focus_corner,
         )
+        self.grips: Dict[str, OverlayGrip] = {}
+        for group in OVERLAY_GROUPS:
+            self.grips[group.key] = OverlayGrip(
+                self,
+                group.key,
+                group.label,
+                on_place=self.place_overlay,
+                on_move=self.move_overlay,
+                on_commit=self.commit_overlay,
+                on_reset=self._reset_from_grip,
+                on_attention=self._overlay_attention,
+            )
+        # The keyboard route has to be stated somewhere a user can read it, and
+        # a ten pixel gutter has room for no words at all.  This chip is that
+        # sentence: hidden until a grip is hovered or focused, so it is an
+        # answer to "what do I do with this" rather than permanent clutter.
+        self.overlay_hint = HudChip(
+            self,
+            overlay_hint_text(),
+            name="Overlay move keys",
+            size_px=10,
+            radius=tokens.RADIUS_SM - 2,
+        )
+        self.overlay_hint.Hide()
         self._sync_selection_controls()
 
         self.Bind(wx.EVT_PAINT, self._on_paint)
@@ -1426,6 +1942,166 @@ class ViewportHost(wx.Panel):
         self.Refresh()
         invoke(self.on_selection, self.selection_minimum, self.selection_maximum)
 
+    # -- movable overlays ----------------------------------------------------
+    def overlay_step(self, large: bool = False) -> int:
+        """Return how far one arrow key press moves an overlay, in real pixels."""
+        return overlay_step(large)
+
+    def overlay_rect(self, key: str) -> wx.Rect:
+        """Return where one overlay group currently sits, grab handle included.
+
+        An empty rectangle means the group is not laid out at all -- the view is
+        too small for it, or the overlays are hidden -- rather than that it sits
+        at the origin.
+        """
+        return wx.Rect(self._overlay_rects.get(key, wx.Rect(0, 0, 0, 0)))
+
+    def overlay_members(self, key: str) -> Tuple[wx.Window, ...]:
+        """Return the controls the last layout actually placed in one group."""
+        return self._overlay_placed.get(key, ())
+
+    def _overlay_controls(self, key: str) -> Tuple[wx.Window, ...]:
+        """Return every control belonging to one group, shown or not."""
+        if key == "readouts":
+            return tuple(self.chips)
+        if key == "minimap":
+            return (self.minimap, self.compass)
+        if key == "axes":
+            return (self.axes,)
+        if key == "tools":
+            return tuple(self.tools[entry[0]] for entry in VIEWPORT_TOOLS)
+        return ()
+
+    def _overlay_content_size(self, group: OverlayGroup) -> wx.Size:
+        """Return how much room one group's controls need, laid out together."""
+        members = self._overlay_controls(group.key)
+        if not members:
+            return wx.Size(0, 0)
+        gap = tokens.scaled(group.gap)
+        widths = [member.GetSize().width for member in members]
+        heights = [member.GetSize().height for member in members]
+        spacing = gap * (len(members) - 1)
+        if group.vertical:
+            return wx.Size(max(widths), sum(heights) + spacing)
+        return wx.Size(sum(widths) + spacing, max(heights))
+
+    @staticmethod
+    def _clamp_overlay(
+        x: int, y: int, group_width: int, group_height: int, width: int, height: int
+    ) -> Tuple[int, int]:
+        """Pull a position back inside the view, so it can always be grabbed again.
+
+        Full containment rather than "leave a few pixels showing": a handle is
+        ten pixels wide, and a rule that leaves ten pixels of a group visible
+        can leave exactly the wrong ten -- the far edge of a tool column, with
+        the grab handle itself outside the window and nothing to take hold of.
+        A group wider or taller than the view is pinned to the near edge, which
+        is the most of it that can be reached.
+        """
+        return (
+            min(max(0, int(x)), max(0, width - group_width)),
+            min(max(0, int(y)), max(0, height - group_height)),
+        )
+
+    def _overlay_origin(
+        self,
+        group: OverlayGroup,
+        group_width: int,
+        group_height: int,
+        width: int,
+        height: int,
+    ) -> Tuple[int, int]:
+        """Return where one group starts, remembered position and clamp applied."""
+        pad = tokens.scaled(group.pad)
+        gap_x, gap_y = self._overlay_offsets.get(group.key, (pad, pad))
+        x = gap_x if group.anchor_x == "left" else width - group_width - gap_x
+        y = gap_y if group.anchor_y == "top" else height - group_height - gap_y
+        return self._clamp_overlay(x, y, group_width, group_height, width, height)
+
+    def place_overlay(self, key: str, x: int, y: int) -> wx.Rect:
+        """Put one overlay group's top-left corner at a point, clamped to the view.
+
+        The position is recorded as the distance from the two edges its group is
+        anchored to rather than as the point itself, so the same overlay is in
+        the same *place* after the window changes size instead of the same
+        coordinate.
+        """
+        group = OVERLAY_BY_KEY.get(key)
+        rect = self._overlay_rects.get(key)
+        if group is None or rect is None or rect.width <= 0:
+            return self.overlay_rect(key)
+        width, height = self.GetClientSize()
+        x, y = self._clamp_overlay(x, y, rect.width, rect.height, width, height)
+        self._overlay_offsets[key] = (
+            x if group.anchor_x == "left" else width - rect.width - x,
+            y if group.anchor_y == "top" else height - rect.height - y,
+        )
+        self._layout_overlays()
+        self.Refresh()
+        return self.overlay_rect(key)
+
+    def move_overlay(self, key: str, dx: int, dy: int) -> wx.Rect:
+        """Move one overlay group by a pixel delta, clamped to the view."""
+        rect = self._overlay_rects.get(key)
+        if rect is None or rect.width <= 0:
+            return self.overlay_rect(key)
+        return self.place_overlay(key, rect.x + int(dx), rect.y + int(dy))
+
+    def commit_overlay(self, key: str) -> None:
+        """Write one overlay's position to the profile, at the end of a gesture."""
+        offset = self._overlay_offsets.get(key)
+        if offset is None:
+            clear_overlay_offsets(self._overlay_surface, key)
+            return
+        store_overlay_offset(self._overlay_surface, key, offset)
+
+    def reset_overlay(self, key: str) -> None:
+        """Put one overlay group back where it shipped, and remember that."""
+        self._overlay_offsets.pop(key, None)
+        clear_overlay_offsets(self._overlay_surface, key)
+        self._layout_overlays()
+        self.Refresh()
+
+    def reset_overlay_layout(self) -> None:
+        """Put every overlay group back where it shipped, and remember that."""
+        self._overlay_offsets.clear()
+        clear_overlay_offsets(self._overlay_surface)
+        self._layout_overlays()
+        self.Refresh()
+
+    def _reset_from_grip(self, key: str, every: bool) -> None:
+        if every:
+            self.reset_overlay_layout()
+        else:
+            self.reset_overlay(key)
+
+    def _overlay_attention(self, key: str, showing: bool) -> None:
+        """Show or hide the sentence explaining how to move an overlay."""
+        self._hint_for = key if showing else None
+        self._place_overlay_hint()
+
+    def _place_overlay_hint(self) -> None:
+        """Put the hint beside the grip that asked for it, inside the view."""
+        key = self._hint_for
+        rect = self._overlay_rects.get(key or "")
+        if not self._overlays_visible or key is None or rect is None or not rect.width:
+            self.overlay_hint.Hide()
+            return
+        self.overlay_hint.set_text(overlay_hint_text())
+        size = self.overlay_hint.GetSize()
+        width, height = self.GetClientSize()
+        gap = tokens.scaled(6)
+        below = rect.GetBottom() + gap
+        x = rect.x
+        y = below if below + size.height <= height else rect.y - gap - size.height
+        x, y = self._clamp_overlay(x, y, size.width, size.height, width, height)
+        self.overlay_hint.SetPosition(wx.Point(x, y))
+        self.overlay_hint.Show()
+        try:
+            self.overlay_hint.Raise()
+        except Exception:  # pragma: no cover - platform boundary
+            log.debug("Could not raise the overlay hint")
+
     # -- geometry ------------------------------------------------------------
     def background_colour_at(self, rect: wx.Rect) -> wx.Colour:
         """Return the sky colour behind a child window's rectangle."""
@@ -1489,58 +2165,106 @@ class ViewportHost(wx.Panel):
         self.Refresh()
         event.Skip()
 
+    def _layout_overlay_group(
+        self, group: OverlayGroup, width: int, height: int, visible: bool
+    ) -> None:
+        """Place one movable group: its grab handle first, then its controls."""
+        members = self._overlay_controls(group.key)
+        grip = self.grips[group.key]
+        if not visible or not members:
+            for member in members:
+                member.Show(False)
+            grip.Show(False)
+            self._overlay_rects[group.key] = wx.Rect(0, 0, 0, 0)
+            self._overlay_placed[group.key] = ()
+            return
+
+        thickness = tokens.scaled(GRIP_THICKNESS)
+        grip_gap = tokens.scaled(GRIP_GAP)
+        member_gap = tokens.scaled(group.gap)
+        if group.vertical:
+            showing = list(members)
+            content = self._overlay_content_size(group)
+        else:
+            # A row is the one shape that can outgrow the view: the readout
+            # chips are re-measured every time a reading changes, and four long
+            # ones do not fit a narrow window.  Which of them fit has to be
+            # settled *before* the group is measured, or the group is sized to
+            # a row it is not going to draw -- and then clamped against a width
+            # it does not have, which puts the recorded rectangle outside the
+            # view while every chip inside it is drawn correctly.  A rectangle
+            # that disagrees with the pixels is worse than either.
+            showing, used = [], 0
+            room = max(0, width - thickness - grip_gap)
+            for member in members:
+                size = member.GetSize()
+                extra = size.width if not showing else member_gap + size.width
+                if showing and used + extra > room:
+                    break
+                showing.append(member)
+                used += extra
+            content = wx.Size(
+                used, max((member.GetSize().height for member in showing), default=0)
+            )
+        group_width = thickness + grip_gap + content.width
+        group_height = max(content.height, tokens.scaled(GRIP_MIN_LENGTH))
+        x, y = self._overlay_origin(group, group_width, group_height, width, height)
+        self._overlay_rects[group.key] = wx.Rect(x, y, group_width, group_height)
+
+        grip.Show(True)
+        grip.SetSize(wx.Size(thickness, group_height))
+        grip.SetPosition(wx.Point(x, y))
+
+        left = x + thickness + grip_gap
+        top = y
+        for member in members:
+            if member not in showing:
+                member.Show(False)
+                continue
+            size = member.GetSize()
+            member.Show(True)
+            if group.vertical:
+                # A vertical group hangs off the edge it is anchored to, so its
+                # members line up on that side: the compass sits under the right
+                # edge of the minimap, as the design draws it, rather than under
+                # its left edge with a ragged gap down the middle.
+                offset = content.width - size.width if group.anchor_x == "right" else 0
+                member.SetPosition(wx.Point(left + offset, top))
+                top += size.height + member_gap
+            else:
+                member.SetPosition(
+                    wx.Point(left, y + (group_height - size.height) // 2)
+                )
+                left += size.width + member_gap
+        self._overlay_placed[group.key] = tuple(showing)
+
     def _layout_overlays(self) -> None:
-        """Place every heads-up control against the corners of the view."""
+        """Place every heads-up control, at the corner or wherever it was moved to."""
         width, height = self.GetClientSize()
         if width <= 0 or height <= 0:
             return
         self._sync_placeholder_controls()
-        inset = tokens.scaled(14)
         gap = tokens.scaled(6)
-
-        left = inset
-        for chip in self.chips:
-            size = chip.GetSize()
-            fits = left + size.width <= width - inset
-            chip.Show(self._overlays_visible and fits)
-            if fits:
-                chip.SetPosition(wx.Point(left, inset))
-                left += size.width + gap
-
-        room_for_map = width >= tokens.scaled(_MINIMAP_MIN_WIDTH)
-        self.minimap.Show(self._overlays_visible and room_for_map)
-        self.compass.Show(self._overlays_visible and room_for_map)
-        if room_for_map:
-            map_size = self.minimap.GetSize()
-            self.minimap.SetPosition(wx.Point(width - inset - map_size.width, inset))
-            compass_size = self.compass.GetSize()
-            self.compass.SetPosition(
-                wx.Point(
-                    width - inset - compass_size.width,
-                    inset + map_size.height + tokens.scaled(8),
-                )
-            )
-
         bottom_inset = tokens.scaled(16)
+
+        # Whether a group is shown at all is still decided by the view's size,
+        # not by where the user put it: below these the display would overlap
+        # itself, and hiding beats clipping.
         axes_size = self.axes.GetSize()
         axes_fits = height >= axes_size.height + tokens.scaled(120)
-        self.axes.Show(self._overlays_visible and axes_fits)
-        if axes_fits:
-            self.axes.SetPosition(
-                wx.Point(bottom_inset, height - bottom_inset - axes_size.height)
-            )
-
         tools_fit = height >= tokens.scaled(_TOOLS_MIN_HEIGHT)
-        tool_top = height - bottom_inset
-        for key, _glyph, _label, _hint in reversed(VIEWPORT_TOOLS):
-            tool = self.tools[key]
-            tool.Show(self._overlays_visible and tools_fit)
-            if not tools_fit:
-                continue
-            size = tool.GetSize()
-            tool_top -= size.height
-            tool.SetPosition(wx.Point(width - bottom_inset - size.width, tool_top))
-            tool_top -= gap
+        visible = {
+            "readouts": self._overlays_visible,
+            "minimap": self._overlays_visible
+            and width >= tokens.scaled(_MINIMAP_MIN_WIDTH),
+            "axes": self._overlays_visible and axes_fits,
+            "tools": self._overlays_visible and tools_fit,
+        }
+        for group in OVERLAY_GROUPS:
+            self._layout_overlay_group(
+                group, width, height, visible.get(group.key, False)
+            )
+        self._place_overlay_hint()
 
         box = self.wireframe_rect()
         placeholder = self._overlays_visible and not self.has_canvas()

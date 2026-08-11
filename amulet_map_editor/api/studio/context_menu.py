@@ -406,6 +406,11 @@ def _viewport_menu() -> Tuple[MenuItem, ...]:
         _item("Start rail tunnel here", accel="", surface="railTunnel"),
         _item("Render layers…", accel="", surface="renderLayers"),
         _item("View settings…", accel="", surface="viewControls"),
+        # The heads-up overlays can be dragged anywhere in the view, so there
+        # has to be a way back that does not depend on having found the grab
+        # handle that moved them.  The handles offer Shift+Home; this is the
+        # same action for a pointer.
+        _item("Reset overlay positions", accel="", command="resetOverlays"),
         _APPEARANCE,
     )
 

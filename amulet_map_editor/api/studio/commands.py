@@ -188,6 +188,7 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     ("toggleRibbon", "Collapse or expand the ribbon", "View"),
     ("toggleTheme", "Switch between the light and dark themes", "View"),
     ("setDensity", "Set the interface density", "View"),
+    ("resetOverlays", "Put the viewport overlays back where they shipped", "View"),
     # -- Application ---------------------------------------------------------
     ("openPalette", "Tell me what to do", "Application"),
     ("openPrefs", "Open options", "Application"),

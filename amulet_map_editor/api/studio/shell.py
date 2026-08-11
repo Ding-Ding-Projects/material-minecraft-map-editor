@@ -818,6 +818,7 @@ class StudioShell(wx.Panel):
             "toggleRibbon": self._cmd_toggle_ribbon,
             "toggleTheme": self._cmd_toggle_theme,
             "setDensity": self._cmd_set_density,
+            "resetOverlays": self._cmd_reset_overlays,
             "setExportFormat": self._cmd_set_export_format,
             "openPalette": self._cmd_open_palette,
             "updateRestart": self._cmd_update_restart,
@@ -1824,6 +1825,24 @@ class StudioShell(wx.Panel):
 
     def _cmd_toggle_ribbon(self, _key: str) -> None:
         self.workspace.toggle_ribbon()
+
+    def _cmd_reset_overlays(self, _key: str) -> None:
+        """Put every movable heads-up overlay back where the design puts it.
+
+        The grab handles offer this from the keyboard as Shift+Home, which is
+        no use at all to somebody who has dragged one somewhere unhelpful with
+        the pointer and never focused a handle in their life.  This is the same
+        action from the viewport's own menu and from the command palette.
+        """
+        self.workspace.viewport.reset_overlay_layout()
+        self._record("appearance", {"overlays": "reset"})
+        self.notify(
+            studio_label("Overlay positions", "浮標位置"),
+            studio_text(
+                "Every heads-up overlay is back where it shipped.",
+                "所有浮標都返返原本位置喇。",
+            ),
+        )
 
     def _cmd_toggle_theme(self, _key: str) -> None:
         theme = "light" if tokens.is_dark() else "dark"
