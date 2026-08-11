@@ -883,11 +883,17 @@ class NavigatorPanel(wx.Panel):
         """Show one empty-state line, wrapped to the column it sits in.
 
         The note keeps its own unwrapped text and lays it out at the width it
-        is given, so re-wrapping is not destructive the way ``wx.StaticText``'s
-        was: that one wrote newlines back into the label, and wrapping an
-        already-wrapped string again at a narrower width broke it into
-        progressively shorter fragments.  The text is still set before the
-        width, because that is the order the accessible name wants.
+        is given, so nothing a caller reads back has been edited by the layout.
+        ``wx.StaticText.Wrap`` wrote its line breaks into the label itself, so
+        ``GetLabel`` answered with newlines the caller never set -- and this
+        surface writes that same label into the accessible name.
+
+        Measured rather than assumed, because the obvious worry does not hold:
+        on wxWidgets 3.3.3 ``Wrap`` re-derives from the original text, so
+        re-wrapping at one width is idempotent and re-wrapping wider recovers
+        the string exactly.  The defect was the mangled read-back, not
+        cumulative degradation.  The text is still set before the width,
+        because that is the order the accessible name wants.
         """
         message = single_line(text)
         label.SetLabel(message)

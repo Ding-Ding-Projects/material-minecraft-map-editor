@@ -627,8 +627,23 @@ class _CommitRow(wx.Panel):
         self.head = bool(head)
         self.on_action = on_action
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
-        self.title = wx.StaticText(self, label=self.message)
-        self.detail = wx.StaticText(self, label=self.meta)
+        # Owner-drawn, and named for what they are rather than for what they
+        # happen to say: a screen reader reading "Deleted the GitHub account"
+        # twice, once as the name and once as the value, says nothing about
+        # which of the two lines it is on.
+        self.title = widgets.StudioText(
+            self,
+            self.message,
+            size_px=13,
+            role="on_surface",
+            name=f"Revision message: {self.message}",
+        )
+        self.detail = widgets.StudioText(
+            self,
+            self.meta,
+            size_px=11,
+            name=f"Revision details: {self.meta}",
+        )
         self.diff = widgets.StudioButton(
             self,
             "Diff",
@@ -1280,10 +1295,9 @@ class SpecDialog(wx.Dialog):
             row.add(widgets.Swatch(row, swatch.colour, name=swatch.name))
         blocks: List[tuple] = [(row, True)]
         if section.hint:
-            hint = wx.StaticText(host, label=section.hint)
-            hint.SetName(section.hint)
-            hint.SetFont(tokens.mono_font(host, widgets.point_size(12)))
-            hint.SetForegroundColour(tokens.palette().on_surface_variant)
+            hint = widgets.StudioText(
+                host, section.hint, size_px=12, mono=True, name=section.hint
+            )
             blocks.append((hint, False))
         return blocks
 
@@ -1360,10 +1374,14 @@ class SpecDialog(wx.Dialog):
             widgets.FaceRow(panel, section.block_id), 0, wx.TOP, tokens.scaled(7)
         )
         details = wx.BoxSizer(wx.VERTICAL)
-        identifier = wx.StaticText(panel, label=section.block_id)
-        identifier.SetName(section.block_id)
-        identifier.SetFont(tokens.mono_font(panel, widgets.point_size(12)))
-        identifier.SetForegroundColour(tokens.palette().on_surface)
+        identifier = widgets.StudioText(
+            panel,
+            section.block_id,
+            size_px=12,
+            mono=True,
+            role="on_surface",
+            name=section.block_id,
+        )
         details.Add(identifier, 0, wx.BOTTOM, tokens.scaled(9))
         details.Add(
             _Paragraph(panel, section.hint or spec_api.TEXTURE_HINT, size_px=12),

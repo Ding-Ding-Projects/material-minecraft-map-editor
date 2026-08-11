@@ -1675,8 +1675,9 @@ class CommandPalette(wx.Dialog):
             wx.Size(-1, max(tokens.scaled(self.FIELD_HEIGHT), tokens.control_height()))
         )
 
-        self.count_label = wx.StaticText(self, label="")
-        self.count_label.SetName("Command palette result count")
+        self.count_label = widgets.StudioText(
+            self, "", size_px=12, name="Command palette result count"
+        )
 
         self.results_panel = wx.ScrolledWindow(
             self, style=wx.VSCROLL | wx.TAB_TRAVERSAL
@@ -2045,8 +2046,8 @@ class CommandPalette(wx.Dialog):
         palette = tokens.palette()
         self.SetBackgroundColour(palette.surface)
         self.results_panel.SetBackgroundColour(palette.surface)
-        self.count_label.SetFont(tokens.font(self, widgets.point_size(12)))
-        self.count_label.SetForegroundColour(palette.on_surface_variant)
+        # The result count resolves its own ink and font from the palette and
+        # the live interface scale, so nothing is pushed into it here.
 
     def refresh_theme(self) -> None:
         """Re-read the tokens and repaint the palette and every row on it."""

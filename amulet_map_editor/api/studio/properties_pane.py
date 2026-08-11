@@ -63,6 +63,7 @@ from amulet_map_editor.api.studio.widgets import (
     SectionLabel,
     Stepper,
     StudioButton,
+    StudioText,
     VectorField,
     elide,
     format_number,
@@ -175,11 +176,26 @@ NUDGE_KEYS: Dict[int, Tuple[int, int]] = {
 
 
 #: How the nudge keys read to a person, in the order they are described.
+#:
+#: Short, and it names the nudge step rather than pointing at where the step
+#: control is, because this sentence has to sit at the very top of the pending
+#: controls to be read at all.  The pane is a scroller; the tool header and the
+#: activation summary take 388px of its ~449px column before the pending
+#: controls start, so the whole budget for this paragraph is about three lines,
+#: and a sentence that says "the step above" while being above the step is
+#: worse than one that mentions neither.
 NUDGE_KEY_SENTENCE = (
-    "With this panel focused, the arrow keys nudge by the step above: left "
-    "and right along x, up and down along z, Page Up and Page Down for "
-    "height. Inside a value box the arrow keys belong to that box instead."
+    "Arrow keys nudge the copy by the nudge step: left and right along x, "
+    "up and down along z, Page Up and Page Down for height."
 )
+
+#: The half of the key behaviour that only matters once a value box has focus.
+#:
+#: Split out of :data:`NUDGE_KEY_SENTENCE` and shown beside the value boxes
+#: rather than above them.  It is not a shortcut anybody has to be told about
+#: in advance -- it is what happens when you are already typing a coordinate,
+#: and by then the boxes it is about are the thing on screen.
+NUDGE_BOX_CAVEAT = "Inside a value box the arrow keys belong to that box instead."
 
 #: The controls whose own arrow-key behaviour must win over nudging.  An arrow
 #: press inside one of these moves a caret or changes a value, and doing that
@@ -920,8 +936,14 @@ class PropertiesPane(wx.Panel):
         self.SetName("Properties pane")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
 
-        self.title_label = wx.StaticText(self, label=str(title))
-        self.title_label.SetName("Properties pane title")
+        self.title_label = StudioText(
+            self,
+            str(title),
+            size_px=14,
+            weight=_MEDIUM,
+            role="on_surface",
+            name="Properties pane title",
+        )
         self.appearance_button = StudioButton(
             self,
             "",
@@ -980,10 +1002,12 @@ class PropertiesPane(wx.Panel):
         self.scroller.SetName("Properties pane contents")
         self.body = wx.BoxSizer(wx.VERTICAL)
         self.scroller.SetSizer(self.body)
-        self.status_label = wx.StaticText(self.scroller, label="")
-        self.status_label.SetName("Properties pane search result")
-        self.empty_note = wx.StaticText(self.scroller, label="")
-        self.empty_note.SetName("Properties pane state")
+        self.status_label = StudioText(
+            self.scroller, "", size_px=11, name="Properties pane search result"
+        )
+        self.empty_note = StudioText(
+            self.scroller, "", size_px=11, name="Properties pane state"
+        )
         self.notes_field = wx.TextCtrl(
             self.scroller,
             value=note_for(self._note_key),
@@ -1002,8 +1026,9 @@ class PropertiesPane(wx.Panel):
         self.notes_field.SetMinSize(wx.Size(-1, tokens.scaled(160)))
         self.notes_field.Bind(wx.EVT_TEXT, self._on_note_changed)
         self.notes_field.Bind(wx.EVT_KILL_FOCUS, self._on_note_focus_lost)
-        self.notes_status = wx.StaticText(self.scroller, label="")
-        self.notes_status.SetName("Project note status")
+        self.notes_status = StudioText(
+            self.scroller, "", size_px=11, name="Project note status"
+        )
         self.action_button = StudioButton(
             self,
             "",
@@ -1205,12 +1230,33 @@ class PropertiesPane(wx.Panel):
             width = self.GetClientSize().width - tokens.scaled(32)
         return max(tokens.scaled(140), width - tokens.scaled(10))
 
+    def _wrap_in_column(self, label: StudioText) -> None:
+        """Break ``label``'s current text to the column it sits in.
+
+        The breaks are measured here rather than left to ``StudioText.Wrap``
+        for the reason :meth:`_set_note_status` gives at length: the word wrap
+        behind it splits on spaces and elides whatever will not fit, and a
+        Cantonese sentence carries no spaces at all, so the whole of it arrives
+        as one over-long "word" and is cut to an ellipsis.  :func:`wrap_status`
+        breaks an unbreakable run by character instead.
+
+        The font comes from :meth:`StudioText.text_font` rather than
+        ``GetFont``: nothing pushes a font into an owner-drawn label, so
+        ``GetFont`` answers with the platform default and the measurement would
+        be for a font the pane never draws.
+        """
+        text = single_line(label.GetLabel())
+        if not text:
+            return
+        dc = wx.ClientDC(label)
+        dc.SetFont(label.text_font())
+        label.SetLabel(wrap_status(dc, text, self._note_width()))
+
     def _set_empty_note(self, text: str) -> None:
         """Show one wrapped empty-state line, or none at all.
 
-        The label is set before it is wrapped every time, because wrapping
-        writes newlines into the label and wrapping an already-wrapped string
-        again would break it into progressively shorter fragments.
+        The accessible name keeps the unwrapped single line, so a screen reader
+        reads a sentence rather than the column's line breaks.
         """
         message = single_line(text)
         self.empty_note.SetLabel(message)
@@ -1218,7 +1264,7 @@ class PropertiesPane(wx.Panel):
             f"Properties pane state: {message}" if message else "Properties pane state"
         )
         if message:
-            self.empty_note.Wrap(self._note_width())
+            self._wrap_in_column(self.empty_note)
         self.empty_note.Show(bool(message))
 
     def rebuild(self) -> None:
@@ -1324,7 +1370,7 @@ class PropertiesPane(wx.Panel):
             # sentence sets a minimum wider than the column and pushes every
             # row in the tab out past the right edge with it.  Each branch
             # above sets the label first, so this never wraps a wrapped string.
-            self.status_label.Wrap(self._note_width())
+            self._wrap_in_column(self.status_label)
             self.body.Add(self.status_label, 0, wx.EXPAND | wx.TOP, gap)
         label, _handler = self._action_for_tab()
         self.action_button.SetLabel(label)
@@ -1415,12 +1461,8 @@ class PropertiesPane(wx.Panel):
         message = single_line(text)
         if not message:
             return
-        note = wx.StaticText(self.scroller, label=message)
-        note.SetName(message)
-        palette = tokens.palette()
-        note.SetForegroundColour(palette.on_surface_variant)
-        note.SetFont(tokens.font(self, point_size(11)))
-        note.Wrap(self._note_width())
+        note = StudioText(self.scroller, message, size_px=11, name=message)
+        self._wrap_in_column(note)
         self.body.Add(note, 0, wx.EXPAND | wx.BOTTOM, gap)
 
     def _tool_vector(
@@ -1597,6 +1639,14 @@ class PropertiesPane(wx.Panel):
             return
 
         self._tool_label(studio_label("Pending object"))
+        # Directly under the heading, ahead of the object's own facts, because
+        # this is the only place in the column it can be read.  A control
+        # announces itself through its accessible name and a key press cannot,
+        # so the keys have to be written down -- and written down where the
+        # pane opens.  Beside the nudge buttons they describe, which is where
+        # they read most naturally, the sentence sat 237px past the bottom of
+        # the visible column: a shortcut told below the fold is not told.
+        self._tool_note(studio_text(NUDGE_KEY_SENTENCE), gap)
         if pending.size:
             self._tool_row("Size in blocks", pending.size, gap)
         self._tool_row(
@@ -1640,6 +1690,11 @@ class PropertiesPane(wx.Panel):
             self._on_location_typed,
             gap,
         )
+        # Beside the boxes it is about, rather than in the sentence above: it
+        # describes what an arrow key does once one of these has focus, which
+        # is a thing a user meets while typing here and not a shortcut they
+        # have to be told about before they can find it.
+        self._tool_note(studio_text(NUDGE_BOX_CAVEAT), gap)
         if editor_tools.camera_location() is not None:
             self.body.Add(
                 StudioButton(
@@ -1753,9 +1808,6 @@ class PropertiesPane(wx.Panel):
                     tokens.scaled(4),
                 )
             self.body.Add(row, 0, wx.EXPAND | wx.BOTTOM, gap)
-        # The buttons announce themselves; the keys cannot, so they are said
-        # here.  A shortcut nobody is told about is a shortcut nobody uses.
-        self._tool_note(studio_text(NUDGE_KEY_SENTENCE), gap)
         sentence = editor_tools.movement_sentence()
         if sentence:
             self._tool_note(sentence, gap)
@@ -2085,15 +2137,19 @@ class PropertiesPane(wx.Panel):
         label; what was wrong is that the label was never sized for a sentence
         of any length.
 
-        The breaks are measured here rather than left to ``wx.StaticText.Wrap``.
-        That method takes the control's *current* label as its input, and on
-        wxWidgets 3.3.3 a second call on a control that already holds a wrapped
-        label does nothing at all -- which matters exactly here, because this
-        label is rewritten on every keystroke and every save.  The first status
-        of the session would wrap and every one after it would not, so the
-        defect would come back the moment the note was edited and would look
-        like it had never been fixed.  ``notification_toast`` measures its own
-        breaks for the same reason.
+        The breaks are measured here rather than left to a control's own
+        ``Wrap``.  The word wrap behind that splits on spaces and elides
+        whatever will not fit, and a Cantonese sentence carries no spaces at
+        all, so the whole of it arrives as one over-long "word" and is cut to
+        an ellipsis -- which matters exactly here, because this label is
+        rewritten on every keystroke and every save.  ``wrap_status`` breaks an
+        unbreakable run by character instead, and ``notification_toast``
+        measures its own breaks for the same reason.
+
+        The font comes from :meth:`StudioText.text_font` rather than
+        ``GetFont``: nothing pushes a font into an owner-drawn label, so
+        ``GetFont`` answers with the platform's default GUI font and the
+        measurement would be for a font the pane never draws.
 
         The accessible name keeps the unwrapped single line, so a screen reader
         reads a sentence rather than the pane's line breaks.
@@ -2102,7 +2158,7 @@ class PropertiesPane(wx.Panel):
         self.notes_status.SetName(f"Project note status: {message}")
         if message:
             dc = wx.ClientDC(self.notes_status)
-            dc.SetFont(self.notes_status.GetFont())
+            dc.SetFont(self.notes_status.text_font())
             message = wrap_status(dc, message, self._note_width())
         self.notes_status.SetLabel(message)
         self.Layout()
@@ -2155,11 +2211,10 @@ class PropertiesPane(wx.Panel):
         palette = tokens.palette()
         self.SetBackgroundColour(palette.surface_container)
         self.scroller.SetBackgroundColour(palette.surface_container)
-        self.title_label.SetForegroundColour(palette.on_surface)
-        self.title_label.SetFont(tokens.font(self, point_size(14), _MEDIUM))
-        for label in (self.status_label, self.notes_status, self.empty_note):
-            label.SetForegroundColour(palette.on_surface_variant)
-            label.SetFont(tokens.font(self, point_size(11)))
+        # The four text labels resolve their own ink and font from the palette
+        # and the live interface scale, so pushing a colour or a font into them
+        # here would only pin what they already track -- and a pinned font is a
+        # label that stops re-measuring when the scale moves.
         self.notes_field.SetBackgroundColour(palette.surface)
         self.notes_field.SetForegroundColour(palette.on_surface)
         self.notes_field.SetFont(tokens.font(self, point_size(12)))

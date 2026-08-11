@@ -93,8 +93,48 @@ def _classes(module):
 
 
 def _names_itself(body: str) -> bool:
-    """Return whether a class gives its window an accessible name."""
-    return "self._install(" in body or "SetName(" in body
+    """Return whether a class gives **its own** window an accessible name.
+
+    Three spellings count, and the check is done against the parsed class
+    rather than by looking for substrings, because both halves of the substring
+    version were wrong in opposite directions.
+
+    ``"SetName(" in body`` matched a call on a *child*: a panel that carefully
+    named every label it built and never named itself passed, and one that
+    stopped building those labels went red for a naming change it had not made.
+    That is exactly what happened -- ``SpecDialog`` was satisfying this rule
+    with two ``SetName`` calls on controls inside it, and migrating those two
+    controls to a widget that takes its name as a constructor argument made a
+    correctly-named dialog look unnamed.
+
+    And nothing matched ``super().__init__(..., name=...)`` at all, which is
+    how every dialog here actually names itself -- so the rule could only ever
+    have passed those classes by accident.
+    """
+    node = ast.parse(body).body[0]
+    for call in ast.walk(node):
+        if not isinstance(call, ast.Call):
+            continue
+        function = call.func
+        if not isinstance(function, ast.Attribute):
+            continue
+        # ``self._install(...)`` or ``self.SetName(...)`` -- on self, not on a
+        # child the class happens to be building.
+        if (
+            isinstance(function.value, ast.Name)
+            and function.value.id == "self"
+            and function.attr in ("_install", "SetName")
+        ):
+            return True
+        # ``super().__init__(..., name=...)``
+        if (
+            function.attr == "__init__"
+            and isinstance(function.value, ast.Call)
+            and getattr(function.value.func, "id", "") == "super"
+            and any(keyword.arg == "name" for keyword in call.keywords)
+        ):
+            return True
+    return False
 
 
 def test_the_inventories_are_not_empty():

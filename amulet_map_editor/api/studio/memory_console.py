@@ -656,7 +656,6 @@ class MemoryConsoleDialog(wx.Dialog):
         )
         self._opener = wx.Window.FindFocus()
         self._focus_returned = False
-        self._styled: List[Tuple[wx.Window, str, int, int, bool]] = []
         self.console_search = SearchState(label="Memory Console")
         self.article_search = SearchState(label="Feature articles")
         self.domain = ""
@@ -694,12 +693,20 @@ class MemoryConsoleDialog(wx.Dialog):
         """Build the badge, the two-run title, the search, and the close button."""
         self.header = _EdgeStrip(self, edge="bottom", role="surface_container")
         self.badge = _Badge(self.header, "A")
-        self.title_primary = wx.StaticText(self.header, label=TITLE_PRIMARY)
-        self.title_primary.SetName(CONSOLE_TITLE)
-        self.title_secondary = wx.StaticText(self.header, label=TITLE_SECONDARY)
-        self.title_secondary.SetName(TITLE_SECONDARY)
-        self._style_text(self.title_primary, size_px=15, weight=_MEDIUM)
-        self._style_text(self.title_secondary, role="on_surface_variant", size_px=15)
+        self.title_primary = widgets.StudioText(
+            self.header,
+            TITLE_PRIMARY,
+            size_px=15,
+            weight=_MEDIUM,
+            role="on_surface",
+            name=CONSOLE_TITLE,
+        )
+        self.title_secondary = widgets.StudioText(
+            self.header,
+            TITLE_SECONDARY,
+            size_px=15,
+            name=TITLE_SECONDARY,
+        )
         self.search_bar = widgets.SearchBar(
             self.header,
             "Search every view",
@@ -782,8 +789,14 @@ class MemoryConsoleDialog(wx.Dialog):
         self.content = wx.ScrolledWindow(self.body, style=wx.VSCROLL | wx.TAB_TRAVERSAL)
         self.content.SetScrollRate(0, tokens.scaled(12))
         self.eyebrow = _Eyebrow(self.content, CONSOLE_EYEBROW)
-        self.view_title = wx.StaticText(self.content, label="")
-        self._style_text(self.view_title, size_px=26, weight=_LIGHT)
+        self.view_title = widgets.StudioText(
+            self.content,
+            "",
+            size_px=26,
+            weight=_LIGHT,
+            role="on_surface",
+            name="View title",
+        )
         self.view_subtitle = _Paragraph(
             self.content,
             "",
@@ -859,8 +872,9 @@ class MemoryConsoleDialog(wx.Dialog):
         reader = widgets.Card(panel, radius=14)
         reader.SetName("Selected article")
         self.reader_domain = _Eyebrow(reader, "")
-        self.reader_title = wx.StaticText(reader, label="")
-        self._style_text(self.reader_title, size_px=20)
+        self.reader_title = widgets.StudioText(
+            reader, "", size_px=20, role="on_surface", name="Article title"
+        )
         self.reader_summary = _Paragraph(
             reader, "", size_px=13, line_height=1.6, max_width=READING_MEASURE
         )
@@ -920,62 +934,6 @@ class MemoryConsoleDialog(wx.Dialog):
         columns.Add(reader, 1, wx.ALIGN_TOP | wx.LEFT, tokens.scaled(16))
         panel.SetSizer(columns)
         return panel
-
-    # ------------------------------------------------------------------
-    # text styling
-    # ------------------------------------------------------------------
-    def _style_text(
-        self,
-        control: wx.Window,
-        *,
-        role: str = "on_surface",
-        size_px: int = 13,
-        weight: int = wx.FONTWEIGHT_NORMAL,
-        mono: bool = False,
-    ) -> wx.Window:
-        """Register a native text control so the theme reaches it.
-
-        wx text controls do not repaint themselves from a palette, so each one
-        is recorded here and restyled together.  Recording rather than walking
-        the tree keeps the intended role and size beside the control instead of
-        being re-guessed on every theme change.
-        """
-        entry = (control, role, size_px, weight, mono)
-        self._styled.append(entry)
-        self._apply_text_style(entry, tokens.palette())
-        return control
-
-    @staticmethod
-    def _apply_text_style(
-        entry: Tuple[wx.Window, str, int, int, bool],
-        palette: tokens.StudioPalette,
-    ) -> None:
-        control, role, size_px, weight, mono = entry
-        parent = control.GetParent()
-        if parent is not None:
-            backdrop = parent.GetBackgroundColour()
-            if backdrop.IsOk():
-                control.SetBackgroundColour(backdrop)
-        control.SetForegroundColour(palette.role(role))
-        point = widgets.point_size(size_px)
-        control.SetFont(
-            tokens.mono_font(control, point, weight)
-            if mono
-            else tokens.font(control, point, weight)
-        )
-
-    def _apply_styles(self, palette: tokens.StudioPalette) -> None:
-        """Restyle every registered text control, dropping the destroyed ones."""
-        alive: List[Tuple[wx.Window, str, int, int, bool]] = []
-        for entry in self._styled:
-            try:
-                self._apply_text_style(entry, palette)
-            except RuntimeError:
-                # The control was destroyed by a rebuild; drop it rather than
-                # keeping a reference that raises on every later repaint.
-                continue
-            alive.append(entry)
-        self._styled = alive
 
     # ------------------------------------------------------------------
     # navigation
@@ -1139,7 +1097,6 @@ class MemoryConsoleDialog(wx.Dialog):
                 wx.EXPAND,
             )
             self.cards_panel.SetSizer(sizer)
-            self._apply_styles(tokens.palette())
             return
         gap = tokens.scaled(14)
         grid = wx.GridBagSizer(gap, gap)
@@ -1173,25 +1130,28 @@ class MemoryConsoleDialog(wx.Dialog):
         for index in range(GRID_COLUMNS):
             grid.AddGrowableCol(index, 1)
         self.cards_panel.SetSizer(grid)
-        # The rebuild destroyed the previous view's labels, so restyle here as
-        # well: the pass drops the dead registrations rather than letting the
-        # registry grow by one card's worth of controls per view change.
-        self._apply_styles(tokens.palette())
+        # No restyle pass is needed after a rebuild any more.  Every label on a
+        # card resolves its own ink and font from the palette on each paint, so
+        # there is no registry of native controls to refresh -- and none to
+        # leak a card's worth of dead entries into on every view change.
 
     def _build_card(self, card: MemoryCard) -> wx.Window:
         """Build one card: its title, and whichever parts it declares."""
         panel = widgets.Card(self.cards_panel, radius=14)
         panel.SetName(card.title)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        title = wx.StaticText(panel, label=card.title)
-        title.SetName(card.title)
-        self._style_text(title, size_px=17)
+        title = widgets.StudioText(
+            panel, card.title, size_px=17, role="on_surface", name=card.title
+        )
         sizer.Add(title, 0, wx.EXPAND)
         if card.stat:
-            stat = wx.StaticText(panel, label=card.stat)
-            stat.SetName(f"{card.title}: {card.stat}")
-            self._style_text(
-                stat, role="primary", size_px=26, weight=wx.FONTWEIGHT_BOLD
+            stat = widgets.StudioText(
+                panel,
+                card.stat,
+                size_px=26,
+                weight=wx.FONTWEIGHT_BOLD,
+                role="primary",
+                name=f"{card.title}: {card.stat}",
             )
             sizer.Add(stat, 0, wx.EXPAND | wx.TOP, tokens.scaled(10))
         if card.body:
@@ -1443,7 +1403,6 @@ class MemoryConsoleDialog(wx.Dialog):
             self.header.refresh_theme()
             self.rail.refresh_theme()
             _refresh_children(self.content, palette)
-            self._apply_styles(palette)
             self.Refresh()
         except RuntimeError:
             self._theme_unsubscribe = None

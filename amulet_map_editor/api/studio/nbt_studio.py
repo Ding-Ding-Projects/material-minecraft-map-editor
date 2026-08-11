@@ -1282,8 +1282,14 @@ class _SliderRow(wx.Panel):
             f"{widgets.format_number(self.minimum)} to "
             f"{widgets.format_number(self.maximum)}"
         )
-        self.readout = wx.StaticText(self, label=self._format(float(value)))
-        self.readout.SetName(f"{name} value")
+        self.readout = widgets.StudioText(
+            self,
+            self._format(float(value)),
+            size_px=12,
+            mono=True,
+            role="primary",
+            name=f"{name} value",
+        )
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self.slider, 1, wx.ALIGN_CENTER_VERTICAL)
         row.Add(
@@ -1320,8 +1326,8 @@ class _SliderRow(wx.Panel):
         parent = self.GetParent()
         backdrop = parent.GetBackgroundColour() if parent else palette.surface
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        self.readout.SetForegroundColour(palette.primary)
-        self.readout.SetFont(tokens.mono_font(self, widgets.point_size(12)))
+        # The readout resolves its own ink and monospaced font from the palette
+        # and the live interface scale, so nothing has to be pushed into it.
         self.Refresh()
 
     def _on_slide(self, event: wx.CommandEvent) -> None:
@@ -1351,12 +1357,22 @@ class _HistoryRow(wx.Panel):
         self.revision = revision
         self.SetName(f"{revision.label}: {revision.detail}")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
-        self.label = wx.StaticText(
-            self, label=f"{revision.label} · {revision.timestamp}"
+        self.label = widgets.StudioText(
+            self,
+            f"{revision.label} · {revision.timestamp}",
+            size_px=11,
+            weight=_MEDIUM,
+            mono=True,
+            role="on_surface",
+            name=revision.label,
         )
-        self.label.SetName(revision.label)
-        self.detail = wx.StaticText(self, label=revision.detail)
-        self.detail.SetName(revision.detail)
+        self.detail = widgets.StudioText(
+            self,
+            revision.detail,
+            size_px=11,
+            wrap_width=tokens.scaled(RIGHT_PANE_WIDTH - 140),
+            name=revision.detail,
+        )
         self.button = widgets.StudioButton(
             self,
             _label("Restore", "還原"),
@@ -1388,11 +1404,9 @@ class _HistoryRow(wx.Panel):
         parent = self.GetParent()
         backdrop = parent.GetBackgroundColour() if parent else palette.surface
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        self.label.SetForegroundColour(palette.on_surface)
-        self.label.SetFont(tokens.mono_font(self, widgets.point_size(11), _MEDIUM))
-        self.detail.SetForegroundColour(palette.on_surface_variant)
-        self.detail.SetFont(tokens.font(self, widgets.point_size(11)))
-        self.detail.Wrap(tokens.scaled(RIGHT_PANE_WIDTH - 140))
+        # Both lines resolve their own ink, font, and wrapping from the palette
+        # and the live interface scale; the wrap width is a constructor
+        # argument now rather than something re-applied on every theme change.
         self.button.refresh_theme()
         self.Refresh()
 
@@ -1666,11 +1680,13 @@ class _PromptDialog(wx.Dialog):
         self.SetBackgroundColour(palette.surface)
 
         body = wx.BoxSizer(wx.VERTICAL)
-        caption = wx.StaticText(self, label=intro)
-        caption.SetName(intro)
-        caption.SetForegroundColour(palette.on_surface_variant)
-        caption.SetFont(tokens.font(self, widgets.point_size(13)))
-        caption.Wrap(tokens.scaled(420))
+        caption = widgets.StudioText(
+            self,
+            intro,
+            size_px=13,
+            wrap_width=tokens.scaled(420),
+            name=intro,
+        )
         body.Add(caption, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(tokens.SPACE_MD))
 
         for key, label, kind, value in fields:
@@ -1903,10 +1919,13 @@ class NbtStudioDialog(wx.Dialog):
     def _build_header(self) -> None:
         self.header = _EdgePanel(self, edge="bottom")
         self.eyebrow = _Eyebrow(self.header, _label("Raw data", "原始資料"))
-        self.title_text = wx.StaticText(
-            self.header, label=_label("NBT editor", "NBT 編輯器")
+        self.title_text = widgets.StudioText(
+            self.header,
+            _label("NBT editor", "NBT 編輯器"),
+            size_px=18,
+            role="on_surface",
+            name=_label("NBT editor", "NBT 編輯器"),
         )
-        self.title_text.SetName(_label("NBT editor", "NBT 編輯器"))
         self.source_pill = _Pill(
             self.header, self.document.source.pill, name="Open data source"
         )
@@ -2116,8 +2135,9 @@ class NbtStudioDialog(wx.Dialog):
                 tokens.scaled(tokens.SPACE_SM),
             )
         row.Add(wrap, 1, wx.ALIGN_CENTER_VERTICAL)
-        self.dirty_text = wx.StaticText(self.footer, label=self.document.dirty_text())
-        self.dirty_text.SetName("Unsaved state")
+        self.dirty_text = widgets.StudioText(
+            self.footer, self.document.dirty_text(), size_px=12, name="Unsaved state"
+        )
         row.Add(
             self.dirty_text,
             0,
@@ -2312,11 +2332,13 @@ class NbtStudioDialog(wx.Dialog):
         return outer
 
     def _add_view_note(self, text: str) -> None:
-        note = wx.StaticText(self.centre_pane, label=text)
-        note.SetName(text)
-        note.SetForegroundColour(tokens.palette().on_surface_variant)
-        note.SetFont(tokens.font(self.centre_pane, widgets.point_size(11)))
-        note.Wrap(tokens.scaled(720))
+        note = widgets.StudioText(
+            self.centre_pane,
+            text,
+            size_px=11,
+            wrap_width=tokens.scaled(720),
+            name=text,
+        )
         self.centre_sizer.Add(note, 0, wx.EXPAND | wx.TOP, tokens.scaled(10))
 
     def _build_form_row(self, tag: model.Tag) -> _FormRow:
@@ -2334,13 +2356,11 @@ class NbtStudioDialog(wx.Dialog):
     # ------------------------------------------------------------------
     # one control per tag type
     # ------------------------------------------------------------------
-    def _readout(self, parent: wx.Window, text: str) -> wx.StaticText:
+    def _readout(self, parent: wx.Window, text: str) -> widgets.StudioText:
         """Return the monospaced value caption that sits beside a control."""
-        label = wx.StaticText(parent, label=text)
-        label.SetName(f"Stored value {text}")
-        label.SetForegroundColour(tokens.palette().on_surface_variant)
-        label.SetFont(tokens.mono_font(parent, widgets.point_size(11)))
-        return label
+        return widgets.StudioText(
+            parent, text, size_px=11, mono=True, name=f"Stored value {text}"
+        )
 
     def _host(self, parent: wx.Window) -> wx.Panel:
         """Return a transparent panel that carries a composite control."""
@@ -2807,18 +2827,17 @@ class NbtStudioDialog(wx.Dialog):
         revisions = self.document.history(tag)
         self.history_rows: List[_HistoryRow] = []
         if not revisions:
-            empty = wx.StaticText(
+            empty = widgets.StudioText(
                 self.right_scroll,
-                label=_text(
+                _text(
                     "No revisions yet. The first edit records the value this tag "
                     "was opened with, so there is always something to go back to.",
                     "重未有版本。第一次改動會記低打開時嘅值，永遠有得返轉頭。",
                 ),
+                size_px=11,
+                wrap_width=tokens.scaled(RIGHT_PANE_WIDTH - 40),
+                name="Tag history is empty",
             )
-            empty.SetName("Tag history is empty")
-            empty.SetForegroundColour(palette.on_surface_variant)
-            empty.SetFont(tokens.font(self.right_scroll, widgets.point_size(11)))
-            empty.Wrap(tokens.scaled(RIGHT_PANE_WIDTH - 40))
             self.right_sizer.Add(empty, 0, wx.EXPAND)
         for revision in revisions:
             row = _HistoryRow(self.right_scroll, revision, on_restore=self.restore)
@@ -3399,10 +3418,8 @@ class NbtStudioDialog(wx.Dialog):
                 return
             palette = tokens.palette()
             self.SetBackgroundColour(palette.surface)
-            self.title_text.SetForegroundColour(palette.on_surface)
-            self.title_text.SetFont(tokens.font(self, widgets.point_size(18)))
-            self.dirty_text.SetForegroundColour(palette.on_surface_variant)
-            self.dirty_text.SetFont(tokens.font(self, widgets.point_size(12)))
+            # The title and the unsaved-state line resolve their own ink and
+            # font from the palette and the live interface scale.
             self.centre_pane.SetBackgroundColour(palette.surface)
             self.tree_scroll.SetBackgroundColour(palette.surface_container)
             self.right_scroll.SetBackgroundColour(palette.surface_container)

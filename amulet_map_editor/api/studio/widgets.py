@@ -1256,8 +1256,10 @@ class StudioText(wx.Control, _Themed):
     ``wx.StaticText`` is the control this replaces, and it loses three things
     the shell needs.  It takes its ink from a native foreground colour rather
     than a palette role, so a theme change leaves it behind unless every
-    surface remembers to recolour it by hand.  It cannot letter-space, and it
-    rewraps unpredictably when the interface scale moves.  And -- the reason a
+    surface remembers to recolour it by hand.  It cannot letter-space, and its
+    ``Wrap`` writes the line breaks into the label itself, so ``GetLabel``
+    answers with newlines the caller never set -- which matters wherever a
+    surface copies that label into an accessible name.  And -- the reason a
     capture of this interface used to come back with holes in it -- it paints
     through the platform rather than through :meth:`_Themed.render_to`, so on a
     desktop nobody is looking at, where there is no surface to read back, it
@@ -1424,6 +1426,19 @@ class StudioText(wx.Control, _Themed):
         return tokens.font(
             self, point_size(self._size_px), self._weight, mono=self._mono
         )
+
+    def text_font(self) -> wx.Font:
+        """Return the font this actually draws with.
+
+        ``GetFont`` cannot answer this.  Nothing pushes a font into a control
+        that resolves its own from ``size_px`` and the live interface scale, so
+        ``GetFont`` returns the platform's default GUI font -- a different
+        family at a different size from the one on screen.  A caller that has
+        to measure the text before setting it (the pane statuses break their
+        own lines, because a Cantonese sentence carries no spaces to break on)
+        needs the real one, or it wraps to a width the drawing never had.
+        """
+        return self._font()
 
     def _display_text(self) -> str:
         text = self.GetLabel()
@@ -2784,8 +2799,9 @@ class PathField(wx.Panel, _Themed):
                 wx.ALIGN_BOTTOM | wx.LEFT,
                 tokens.scaled(tokens.SPACE_SM),
             )
-        self.feedback = wx.StaticText(self, label="")
-        self.feedback.SetName(f"{self.label} validation")
+        self.feedback = StudioText(
+            self, "", size_px=11, name=f"{self.label} validation"
+        )
         root = wx.BoxSizer(wx.VERTICAL)
         root.Add(row, 0, wx.EXPAND)
         root.Add(self.feedback, 0, wx.EXPAND | wx.TOP, tokens.scaled(tokens.SPACE_XS))
@@ -2841,8 +2857,14 @@ class PathField(wx.Panel, _Themed):
             message = f"{kind} found."
             colour = palette.on_surface_variant
         self.feedback.SetLabel(message)
-        self.feedback.SetForegroundColour(colour)
-        self.feedback.SetFont(tokens.font(self, point_size(11)))
+        # Only the error red is pushed in.  Handing the ordinary colour back as
+        # an explicit override would pin it to the palette that was live when
+        # the path was last validated, so the line would keep the old theme's
+        # grey after a theme change; ``set_role`` returns it to the palette.
+        if self._valid:
+            self.feedback.set_role("on_surface_variant")
+        else:
+            self.feedback.SetForegroundColour(colour)
         self.Layout()
         return self._valid
 
@@ -2875,9 +2897,10 @@ class PathField(wx.Panel, _Themed):
             else palette.surface
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        feedback = getattr(self, "feedback", None)
-        if feedback is not None:
-            feedback.SetFont(tokens.font(self, point_size(11)))
+        # The feedback line resolves its own font from the live interface
+        # scale; re-validating is what re-picks the ink, which is either the
+        # palette's error red or its ordinary variant.
+        if getattr(self, "feedback", None) is not None:
             self._validate(self.field.value())
 
 
@@ -2991,11 +3014,14 @@ class SearchBar(wx.Panel, _Themed):
         """Re-read the state's honest status line and show it."""
         message = self.state.feedback()
         self.feedback.SetLabel(message)
-        palette = self.palette()
         invalid = self.state.regex and not self.state.is_valid()
-        self.feedback.SetForegroundColour(
-            palette.error if invalid else palette.on_surface_variant
-        )
+        # Only the error red is pushed in; the ordinary colour goes back to the
+        # palette role, so a theme change does not leave the line inked in the
+        # previous theme's grey.
+        if invalid:
+            self.feedback.SetForegroundColour(self.palette().error)
+        else:
+            self.feedback.set_role("on_surface_variant")
         if self.builder_button is not None:
             self.builder_button.SetToolTip(message)
         self.Layout()
@@ -3306,14 +3332,20 @@ class _RegexBuilderPopup(AnchoredPopup):
             mono=False,
             on_change=self._on_edit,
         )
-        self.feedback = wx.StaticText(self.content, label="")
-        self.feedback.SetName("Regex builder feedback")
-        self.feedback.SetForegroundColour(palette.on_surface_variant)
-        self.feedback.SetFont(tokens.font(self.feedback, 9))
-        self.preview = wx.StaticText(self.content, label="")
-        self.preview.SetName("Regex builder match preview")
-        self.preview.SetForegroundColour(palette.on_surface)
-        self.preview.SetFont(tokens.mono_font(self.preview, 9))
+        # 12 design pixels is the 9pt these two were built at: ``point_size``
+        # is the one conversion, so keeping the design number here keeps the
+        # rendered size identical to the native controls they replace.
+        self.feedback = StudioText(
+            self.content, "", size_px=12, name="Regex builder feedback"
+        )
+        self.preview = StudioText(
+            self.content,
+            "",
+            size_px=12,
+            mono=True,
+            role="on_surface",
+            name="Regex builder match preview",
+        )
 
         actions = wx.BoxSizer(wx.HORIZONTAL)
         actions.AddStretchSpacer()
@@ -3367,11 +3399,13 @@ class _RegexBuilderPopup(AnchoredPopup):
     def _refresh_preview(self) -> None:
         """Show whether the pattern compiles and what it matches right now."""
         probe = self._current()
-        palette = tokens.palette()
         self.feedback.SetLabel(probe.feedback())
-        self.feedback.SetForegroundColour(
-            palette.error if not probe.is_valid() else palette.on_surface_variant
-        )
+        # Only the error red is pushed in; the ordinary colour goes back to the
+        # palette role rather than being pinned to whichever theme was live.
+        if probe.is_valid():
+            self.feedback.set_role("on_surface_variant")
+        else:
+            self.feedback.SetForegroundColour(tokens.palette().error)
         if not probe.is_active():
             self.preview.SetLabel("Type a pattern to see what it matches.")
         elif not probe.is_valid():
@@ -3655,12 +3689,13 @@ class SearchableChoice(wx.Panel, _Interactive):
         self._rows = []
         matches = self.filtered_options()
         if not matches:
-            empty = wx.StaticText(
+            message = self.state.describe_matches(0, "option")
+            empty = StudioText(
                 popup.content,
-                label=self.state.describe_matches(0, "option"),
+                message,
+                size_px=12,
+                name=f"{self.state.label} options: {message}",
             )
-            empty.SetForegroundColour(tokens.palette().on_surface_variant)
-            empty.SetFont(tokens.font(self, point_size(12)))
             popup.content_sizer.Add(empty, 0, wx.ALL, tokens.scaled(tokens.SPACE_SM))
         for option in matches:
             row = _OptionRow(
@@ -4733,14 +4768,15 @@ class KeyGate(wx.Panel, _Themed):
         self.authorized = False
         self._flourish = 0
         self._install("Two-key authorisation")
-        self.status = wx.StaticText(
+        self.status = StudioText(
             self,
-            label=(
+            (
                 "Hold both keys, then drag the slider all the way to the right "
                 "to authorise."
             ),
+            size_px=12,
+            name="Authorisation status",
         )
-        self.status.SetName("Authorisation status")
         keys = wx.BoxSizer(wx.HORIZONTAL)
         self.key_a = _KeyButton(self, "Press A", on_change=self._key_changed)
         self.key_l = _KeyButton(self, "Press L", on_change=self._key_changed)
@@ -4871,10 +4907,8 @@ class KeyGate(wx.Panel, _Themed):
             else palette.surface
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        status = getattr(self, "status", None)
-        if status is not None:
-            status.SetForegroundColour(palette.on_surface_variant)
-            status.SetFont(tokens.font(self, point_size(12)))
+        # The status resolves its own ink and font from the palette and the
+        # live interface scale; pushing either in here would pin what it tracks.
         slider = getattr(self, "slider", None)
         if slider is not None:
             slider.SetBackgroundColour(self.GetBackgroundColour())
@@ -5009,8 +5043,9 @@ class BulkActionBar(wx.Panel, _Themed):
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.on_action = on_action
         self._install("Bulk actions", listen=False)
-        self.count = wx.StaticText(self, label="Nothing selected")
-        self.count.SetName("Selection count")
+        self.count = StudioText(
+            self, "Nothing selected", size_px=12, name="Selection count"
+        )
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self.count, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, tokens.SPACE_MD)
         self.buttons: List[StudioButton] = []
@@ -5053,10 +5088,8 @@ class BulkActionBar(wx.Panel, _Themed):
             else palette.surface
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        count = getattr(self, "count", None)
-        if count is not None:
-            count.SetForegroundColour(palette.on_surface_variant)
-            count.SetFont(tokens.font(self, point_size(12)))
+        # The count resolves its own ink and font from the palette and the live
+        # interface scale; pushing either in here would pin what it tracks.
 
     def _backdrop(self) -> wx.Colour:
         return self.GetBackgroundColour()
