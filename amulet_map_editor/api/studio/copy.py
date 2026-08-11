@@ -91,8 +91,43 @@ def _style(text: str, language: str, level: int) -> str:
     return tts_narrator.style_text(value, language, level)
 
 
+def studio_label(english: str, cantonese: str = "") -> str:
+    """Return a CONTROL label in the reader's language, with no tone applied.
+
+    A funny level styles the application's voice.  It has no business inside the
+    text on a button, a tab, a placeholder, a column heading, a window title or a
+    menu item, for two reasons.
+
+    The first is that those strings are not the application talking, they are
+    the application naming a thing, and a name with an aside on the end stops
+    being a name.  A palette button reading "Tell me what to do (the code is
+    dancing; the facts stay put)" tells the reader nothing extra and costs them
+    the label.
+
+    The second is layout.  A control is sized to its label.  Appending a clause
+    to every label at level five overflows tab strips, truncates buttons to
+    "Confirm clo..." and pushes search fields off the edge of the ribbon.  The
+    clipping reads as a broken interface, and it is really a tone setting
+    applied one layer too deep.
+
+    Messages keep their tone; use :func:`studio_text` for those.
+    """
+    english_text = str(english).strip()
+    cantonese_text = str(cantonese).strip()
+    if not cantonese_text:
+        return english_text
+    if not english_text:
+        return cantonese_text
+    mode = _presentation().language_mode
+    if mode == "cantonese":
+        return cantonese_text
+    if mode == "bilingual":
+        return f"{english_text}\n{cantonese_text}"
+    return english_text
+
+
 def studio_text(english: str, cantonese: str = "") -> str:
-    """Return one visible string in the reader's language and tone.
+    """Return one visible MESSAGE in the reader's language and tone.
 
     Bilingual mode returns both lines separated by a newline so a caller can
     render them as a prominent primary label above a compact secondary one, as
@@ -122,6 +157,7 @@ def studio_text(english: str, cantonese: str = "") -> str:
 
 
 __all__ = [
+    "studio_label",
     "funny_levels",
     "is_school_mode",
     "is_verbatim",
