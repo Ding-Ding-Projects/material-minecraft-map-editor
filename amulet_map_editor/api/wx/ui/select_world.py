@@ -566,6 +566,22 @@ class WorldSelectUI(wx.Panel):
             application = wx.GetApp()
             if application is not None:
                 application.Yield()
+        # ``is_alive()`` can already read False by the time the loop rechecks
+        # it, even though the poll published one join earlier was still short
+        # of the true final count -- the thread can finish its last member
+        # between that publish and the next check. Flushing the state once
+        # more here, now that the thread has genuinely terminated and every
+        # member is written, is what guarantees the row is never left
+        # reporting less than what actually happened.
+        total = int(state["total"] or 0)
+        done = int(state["done"] or 0)
+        report.update(
+            fraction=(done / total) if total else None,
+            indeterminate=not total,
+            detail=(
+                f"{done} of {total} files" if total else os.path.basename(archive_path)
+            ),
+        )
         error = state["error"]
         if error is not None:
             raise error

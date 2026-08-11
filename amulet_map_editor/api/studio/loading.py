@@ -105,6 +105,21 @@ def draw_indeterminate_band(
     # has stopped, which is the one thing this band exists to deny.
     left = max(rect.x, start)
     right = min(rect.GetRight(), start + span)
+    # The intersection above is exactly zero width at ``pulse == 0.0`` -- the
+    # seam where one lap ends and the next begins -- and a row starts life at
+    # exactly that pulse, before its first tick has ever run.  A band that is
+    # genuinely invisible there paints the same pixels as an empty determinate
+    # bar at fraction zero, which is precisely the confusion this function
+    # exists to prevent.  So the band keeps a minimum floor width at the edge
+    # it is arriving from or departing to, rather than ever vanishing.
+    floor = min(rect.width, max(tokens.scaled(6), 2))
+    if right - left < floor:
+        if pulse < 0.5:
+            left = rect.x
+            right = min(rect.GetRight(), rect.x + floor)
+        else:
+            right = rect.GetRight()
+            left = max(rect.x, right - floor)
     if right > left:
         tokens.draw_round_rect(
             dc,

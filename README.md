@@ -206,9 +206,13 @@ Relevant source and contracts:
 
 ### The current interface
 
-Every image below is a real capture of the built interface at commit `caeb179a`, taken by `scripts/capture_studio_surfaces.py`. None is a mockup, a design file, or a retouched image.
+Every image below is a real capture of the built interface as it stood at commit `1d4215e1` — that is the checkout the run photographed — taken by `scripts/capture_studio_surfaces.py` as it stands in the commit that ships this matrix. None is a mockup, a design file, or a retouched image.
 
-**270 surfaces captured.** **3 could not be captured** — listed at the end, with why.
+Those two can be different commits, and saying so is the point. A capture has to exist before the commit that contains it, so the stamp names the tree that was photographed rather than the tree the pictures landed in; and when a run is what proves a change to the harness, the harness that took the pictures is newer than the stamp on them. An earlier matrix stamped every row with a commit whose copy of the harness could not produce 129 of the images in it, which is the same sentence read as a promise it never made.
+
+This run went out over a clean checkout of that commit.
+
+**271 surfaces captured.** **3 could not be captured** — listed at the end, with why.
 
 The capture asks each widget to draw itself rather than reading the screen, so the run needs no visible desktop and cannot photograph a window someone happened to drag over it. A surface whose controls could not draw is reported as a failure and its file deleted, because a blank capture is worse than none: it looks like evidence.
 
@@ -219,27 +223,27 @@ Menus, dropdowns and popovers are photographed **open, with their rows drawn**. 
 
 **`backstage.account`** — 1584x921, light theme, comfortable density
 
-![Amulet Studio backstage, account tab, in the light theme.](docs/huishots/backstage-account-caeb179a-20260811.png)
+![Amulet Studio backstage, account tab, in the light theme.](docs/huishots/backstage-account-1d4215e1-20260811.png)
 
 **`backstage.convert`** — 1584x921, light theme, comfortable density
 
-![Amulet Studio backstage, convert tab, in the light theme.](docs/huishots/backstage-convert-caeb179a-20260811.png)
+![Amulet Studio backstage, convert tab, in the light theme.](docs/huishots/backstage-convert-1d4215e1-20260811.png)
 
 **`backstage.features`** — 1584x921, light theme, comfortable density
 
-![Amulet Studio backstage, features tab, in the light theme.](docs/huishots/backstage-features-caeb179a-20260811.png)
+![Amulet Studio backstage, features tab, in the light theme.](docs/huishots/backstage-features-1d4215e1-20260811.png)
 
 **`backstage.home`** — 1584x921, light theme, comfortable density
 
-![Amulet Studio backstage, home tab, in the light theme.](docs/huishots/backstage-home-caeb179a-20260811.png)
+![Amulet Studio backstage, home tab, in the light theme.](docs/huishots/backstage-home-1d4215e1-20260811.png)
 
 **`backstage.info`** — 1584x921, light theme, comfortable density
 
-![Amulet Studio backstage, info tab, in the light theme.](docs/huishots/backstage-info-caeb179a-20260811.png)
+![Amulet Studio backstage, info tab, in the light theme.](docs/huishots/backstage-info-1d4215e1-20260811.png)
 
 **`backstage.open`** — 1584x921, light theme, comfortable density
 
-![Amulet Studio backstage, open tab, in the light theme.](docs/huishots/backstage-open-caeb179a-20260811.png)
+![Amulet Studio backstage, open tab, in the light theme.](docs/huishots/backstage-open-1d4215e1-20260811.png)
 
 </details>
 
@@ -248,23 +252,23 @@ Menus, dropdowns and popovers are photographed **open, with their rows drawn**. 
 
 **`workspace.navigator`** — 176x687, light theme, comfortable density
 
-![The Amulet Studio workspace navigator, in the light theme.](docs/huishots/workspace-navigator-caeb179a-20260811.png)
+![The Amulet Studio workspace navigator, in the light theme.](docs/huishots/workspace-navigator-1d4215e1-20260811.png)
 
 **`workspace.properties`** — 240x687, light theme, comfortable density
 
-![The Amulet Studio workspace properties, in the light theme.](docs/huishots/workspace-properties-caeb179a-20260811.png)
+![The Amulet Studio workspace properties, in the light theme.](docs/huishots/workspace-properties-1d4215e1-20260811.png)
 
 **`workspace.ribbon`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio workspace ribbon, in the light theme.](docs/huishots/workspace-ribbon-caeb179a-20260811.png)
+![The Amulet Studio workspace ribbon, in the light theme.](docs/huishots/workspace-ribbon-1d4215e1-20260811.png)
 
 **`workspace.status`** — 1156x34, light theme, comfortable density
 
-![The Amulet Studio workspace status, in the light theme.](docs/huishots/workspace-status-caeb179a-20260811.png)
+![The Amulet Studio workspace status, in the light theme.](docs/huishots/workspace-status-1d4215e1-20260811.png)
 
 **`workspace.viewport`** — 1156x653, light theme, comfortable density
 
-![The Amulet Studio workspace viewport, in the light theme.](docs/huishots/workspace-viewport-caeb179a-20260811.png)
+![The Amulet Studio workspace viewport, in the light theme.](docs/huishots/workspace-viewport-1d4215e1-20260811.png)
 
 </details>
 
@@ -273,71 +277,73 @@ Menus, dropdowns and popovers are photographed **open, with their rows drawn**. 
 
 **`ribbon.analyze`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the analyze tab selected and its panel open, in the light theme.](docs/huishots/ribbon-analyze-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the analyze tab selected and its panel open, in the light theme.](docs/huishots/ribbon-analyze-1d4215e1-20260811.png)
 
 **`ribbon.automate`** — 1584x215, light theme, comfortable density
 
-![The Amulet Studio ribbon with the automate tab selected and its panel open, in the light theme.](docs/huishots/ribbon-automate-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the automate tab selected and its panel open, in the light theme.](docs/huishots/ribbon-automate-1d4215e1-20260811.png)
 
 **`ribbon.build`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the build tab selected and its panel open, in the light theme.](docs/huishots/ribbon-build-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the build tab selected and its panel open, in the light theme.](docs/huishots/ribbon-build-1d4215e1-20260811.png)
 
 **`ribbon.chunks`** — 1584x215, light theme, comfortable density
 
-![The Amulet Studio ribbon with the chunks tab selected and its panel open, in the light theme.](docs/huishots/ribbon-chunks-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the chunks tab selected and its panel open, in the light theme.](docs/huishots/ribbon-chunks-1d4215e1-20260811.png)
 
 **`ribbon.data`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the data tab selected and its panel open, in the light theme.](docs/huishots/ribbon-data-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the data tab selected and its panel open, in the light theme.](docs/huishots/ribbon-data-1d4215e1-20260811.png)
 
 **`ribbon.entities`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the entities tab selected and its panel open, in the light theme.](docs/huishots/ribbon-entities-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the entities tab selected and its panel open, in the light theme.](docs/huishots/ribbon-entities-1d4215e1-20260811.png)
 
 **`ribbon.extend`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the extend tab selected and its panel open, in the light theme.](docs/huishots/ribbon-extend-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the extend tab selected and its panel open, in the light theme.](docs/huishots/ribbon-extend-1d4215e1-20260811.png)
 
 **`ribbon.home`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the home tab selected and its panel open, in the light theme.](docs/huishots/ribbon-home-caeb179a-20260811.png)
+Pixel-identical to `workspace.ribbon`: the same popover, opened from a different host. One file, shown again rather than counted again.
+
+![The Amulet Studio ribbon with the home tab selected and its panel open, in the light theme.](docs/huishots/workspace-ribbon-1d4215e1-20260811.png)
 
 **`ribbon.operations`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the operations tab selected and its panel open, in the light theme.](docs/huishots/ribbon-operations-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the operations tab selected and its panel open, in the light theme.](docs/huishots/ribbon-operations-1d4215e1-20260811.png)
 
 **`ribbon.panels`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the panels tab selected and its panel open, in the light theme.](docs/huishots/ribbon-panels-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the panels tab selected and its panel open, in the light theme.](docs/huishots/ribbon-panels-1d4215e1-20260811.png)
 
 **`ribbon.redstone`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the redstone tab selected and its panel open, in the light theme.](docs/huishots/ribbon-redstone-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the redstone tab selected and its panel open, in the light theme.](docs/huishots/ribbon-redstone-1d4215e1-20260811.png)
 
-**`ribbon.selection`** — 1584x302, light theme, comfortable density
+**`ribbon.selection`** — 1584x325, light theme, comfortable density
 
-![The Amulet Studio ribbon with the selection tab selected and its panel open, in the light theme.](docs/huishots/ribbon-selection-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the selection tab selected and its panel open, in the light theme.](docs/huishots/ribbon-selection-1d4215e1-20260811.png)
 
 **`ribbon.structures`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the structures tab selected and its panel open, in the light theme.](docs/huishots/ribbon-structures-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the structures tab selected and its panel open, in the light theme.](docs/huishots/ribbon-structures-1d4215e1-20260811.png)
 
-**`ribbon.terrain`** — 1584x244, light theme, comfortable density
+**`ribbon.terrain`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the terrain tab selected and its panel open, in the light theme.](docs/huishots/ribbon-terrain-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the terrain tab selected and its panel open, in the light theme.](docs/huishots/ribbon-terrain-1d4215e1-20260811.png)
 
 **`ribbon.tools`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the tools tab selected and its panel open, in the light theme.](docs/huishots/ribbon-tools-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the tools tab selected and its panel open, in the light theme.](docs/huishots/ribbon-tools-1d4215e1-20260811.png)
 
 **`ribbon.view`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the view tab selected and its panel open, in the light theme.](docs/huishots/ribbon-view-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the view tab selected and its panel open, in the light theme.](docs/huishots/ribbon-view-1d4215e1-20260811.png)
 
 **`ribbon.worldgen`** — 1584x200, light theme, comfortable density
 
-![The Amulet Studio ribbon with the worldgen tab selected and its panel open, in the light theme.](docs/huishots/ribbon-worldgen-caeb179a-20260811.png)
+![The Amulet Studio ribbon with the worldgen tab selected and its panel open, in the light theme.](docs/huishots/ribbon-worldgen-1d4215e1-20260811.png)
 
 </details>
 
@@ -346,39 +352,39 @@ Menus, dropdowns and popovers are photographed **open, with their rows drawn**. 
 
 **`menu.boxes`** — 300x390, light theme, comfortable density
 
-![The Selection boxes right-click menu, open, showing its search field, its counted feedback line and its 9 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-boxes-caeb179a-20260811.png)
+![The Selection boxes right-click menu, open, showing its search field, its counted feedback line and its 9 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-boxes-1d4215e1-20260811.png)
 
 **`menu.navigator`** — 300x390, light theme, comfortable density
 
-![The Navigator right-click menu, open, showing its search field, its counted feedback line and its 10 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-navigator-caeb179a-20260811.png)
+![The Navigator right-click menu, open, showing its search field, its counted feedback line and its 10 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-navigator-1d4215e1-20260811.png)
 
 **`menu.pane`** — 300x348, light theme, comfortable density
 
-![The Properties pane right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-pane-caeb179a-20260811.png)
+![The Properties pane right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-pane-1d4215e1-20260811.png)
 
 **`menu.recent`** — 300x348, light theme, comfortable density
 
-![The Recent project right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-recent-caeb179a-20260811.png)
+![The Recent project right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-recent-1d4215e1-20260811.png)
 
 **`menu.ribbon`** — 300x390, light theme, comfortable density
 
-![The Ribbon right-click menu, open, showing its search field, its counted feedback line and its 9 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-ribbon-caeb179a-20260811.png)
+![The Ribbon right-click menu, open, showing its search field, its counted feedback line and its 9 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-ribbon-1d4215e1-20260811.png)
 
 **`menu.statusbar`** — 300x382, light theme, comfortable density
 
-![The Status bar right-click menu, open, showing its search field, its counted feedback line and its 8 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-statusbar-caeb179a-20260811.png)
+![The Status bar right-click menu, open, showing its search field, its counted feedback line and its 8 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-statusbar-1d4215e1-20260811.png)
 
 **`menu.tab`** — 300x348, light theme, comfortable density
 
-![The Tab right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-tab-caeb179a-20260811.png)
+![The Tab right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-tab-1d4215e1-20260811.png)
 
 **`menu.tabGroup`** — 300x348, light theme, comfortable density
 
-![The Tab group right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-tabgroup-caeb179a-20260811.png)
+![The Tab group right-click menu, open, showing its search field, its counted feedback line and its 7 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-tabgroup-1d4215e1-20260811.png)
 
 **`menu.viewport`** — 300x390, light theme, comfortable density
 
-![The Viewport right-click menu, open, showing its search field, its counted feedback line and its 19 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-viewport-caeb179a-20260811.png)
+![The Viewport right-click menu, open, showing its search field, its counted feedback line and its 20 rows with their keyboard shortcuts, in the light theme.](docs/huishots/menu-viewport-1d4215e1-20260811.png)
 
 </details>
 
@@ -387,945 +393,955 @@ Menus, dropdowns and popovers are photographed **open, with their rows drawn**. 
 
 **`palette.card`** — 660x620, light theme, comfortable density
 
-![The Ctrl+Shift+F command palette in its card presentation, showing its search field, its result count and its result rows with their live controls, in the light theme.](docs/huishots/palette-card-caeb179a-20260811.png)
+![The Ctrl+Shift+F command palette in its card presentation, showing its search field, its result count and its result rows with their live controls, in the light theme.](docs/huishots/palette-card-1d4215e1-20260811.png)
 
 **`palette.full`** — 1536x936, light theme, comfortable density
 
-![The Ctrl+Shift+F command palette in its full presentation, showing its search field, its result count and its result rows with their live controls, in the light theme.](docs/huishots/palette-full-caeb179a-20260811.png)
+![The Ctrl+Shift+F command palette in its full presentation, showing its search field, its result count and its result rows with their live controls, in the light theme.](docs/huishots/palette-full-1d4215e1-20260811.png)
 
 **`picker.moveIntoGroup`** — 300x228, light theme, comfortable density
 
-![The Move into group picker, open, showing its search field, the existing tab groups with their colours and member counts, and the create-a-group action, in the light theme.](docs/huishots/picker-tab-groups-caeb179a-20260811.png)
+![The Move into group picker, open, showing its search field, its empty state, reading that there are no tab groups yet and one must be created to move this tab into, the leave-it-ungrouped row and the create-a-group action, in the light theme.](docs/huishots/picker-tab-groups-1d4215e1-20260811.png)
 
 **`popup.tabOverflow`** — 283x603, light theme, comfortable density
 
-![The ribbon tab overflow list, open on a narrowed window, showing its search field and the 16 tabs the strip could not fit, in the light theme.](docs/huishots/popup-tab-overflow-caeb179a-20260811.png)
+![The ribbon tab overflow list, open on a narrowed window, showing its search field and the 16 tabs the strip could not fit, in the light theme.](docs/huishots/popup-tab-overflow-1d4215e1-20260811.png)
 
 **`regexBuilder.dropdown`** — 380x341, light theme, comfortable density
 
-![The anchored regular-expression builder opened from a search field on the Policy dropdown on the Batch queue surface, showing its guided token buttons, its pattern editor, its flags and its live match preview, in the light theme.](docs/huishots/regexbuilder-dropdown-caeb179a-20260811.png)
+![The anchored regular-expression builder opened from a search field on the Format dropdown on the structures ribbon tab, showing its Pattern, Flags and Sample text fields, its plain-text-search feedback line, its match preview reading that a pattern must be typed to see what it matches, and its Cancel and Apply pattern actions, in the light theme.](docs/huishots/regexbuilder-dropdown-1d4215e1-20260811.png)
 
 **`regexBuilder.menu`** — 380x341, light theme, comfortable density
 
-![The anchored regular-expression builder opened from a search field on the Navigator right-click menu, showing its guided token buttons, its pattern editor, its flags and its live match preview, in the light theme.](docs/huishots/regexbuilder-menu-caeb179a-20260811.png)
+Pixel-identical to `regexBuilder.dropdown`: the same popover, opened from a different host. One file, shown again rather than counted again.
+
+![The anchored regular-expression builder opened from a search field on the Navigator right-click menu, showing its Pattern, Flags and Sample text fields, its plain-text-search feedback line, its match preview reading that a pattern must be typed to see what it matches, and its Cancel and Apply pattern actions, in the light theme.](docs/huishots/regexbuilder-dropdown-1d4215e1-20260811.png)
 
 **`regexBuilder.palette`** — 380x341, light theme, comfortable density
 
-![The anchored regular-expression builder opened from a search field on the command palette, showing its guided token buttons, its pattern editor, its flags and its live match preview, in the light theme.](docs/huishots/regexbuilder-palette-caeb179a-20260811.png)
+Pixel-identical to `regexBuilder.dropdown`: the same popover, opened from a different host. One file, shown again rather than counted again.
+
+![The anchored regular-expression builder opened from a search field on the command palette, showing its Pattern, Flags and Sample text fields, its plain-text-search feedback line, its match preview reading that a pattern must be typed to see what it matches, and its Cancel and Apply pattern actions, in the light theme.](docs/huishots/regexbuilder-dropdown-1d4215e1-20260811.png)
 
 **`regexBuilder.panel`** — 380x341, light theme, comfortable density
 
-![The anchored regular-expression builder opened from a search field on a Studio panel, showing its guided token buttons, its pattern editor, its flags and its live match preview, in the light theme.](docs/huishots/regexbuilder-panel-caeb179a-20260811.png)
+Pixel-identical to `regexBuilder.dropdown`: the same popover, opened from a different host. One file, shown again rather than counted again.
+
+![The anchored regular-expression builder opened from a search field on a Studio panel, showing its Pattern, Flags and Sample text fields, its plain-text-search feedback line, its match preview reading that a pattern must be typed to see what it matches, and its Cancel and Apply pattern actions, in the light theme.](docs/huishots/regexbuilder-dropdown-1d4215e1-20260811.png)
 
 </details>
 
 <details>
-<summary><b>Dropdowns</b> — 112 surfaces</summary>
+<summary><b>Dropdowns</b> — 113 surfaces</summary>
 
-**`dropdown.batchQueue.Policy`** — 348x187, light theme, comfortable density
+**`dropdown.batchQueue.Policy`** — 357x187, light theme, comfortable density
 
-![The Policy dropdown on the Batch queue surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-batchqueue-1-policy-caeb179a-20260811.png)
+![The Policy dropdown on the Batch queue surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-batchqueue-1-policy-1d4215e1-20260811.png)
 
-**`dropdown.batchQueue.Report`** — 349x187, light theme, comfortable density
+**`dropdown.batchQueue.Report`** — 357x187, light theme, comfortable density
 
-![The Report dropdown on the Batch queue surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-batchqueue-2-report-caeb179a-20260811.png)
+![The Report dropdown on the Batch queue surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-batchqueue-2-report-1d4215e1-20260811.png)
 
 **`dropdown.blockSelect.Namespace`** — 329x155, light theme, comfortable density
 
-![The Namespace dropdown on the Select block surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-blockselect-2-namespace-caeb179a-20260811.png)
+![The Namespace dropdown on the Select block surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-blockselect-2-namespace-1d4215e1-20260811.png)
 
 **`dropdown.blockSelect.Platform and version`** — 328x155, light theme, comfortable density
 
-![The Platform and version dropdown on the Select block surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-blockselect-1-platform-and-version-caeb179a-20260811.png)
+![The Platform and version dropdown on the Select block surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-blockselect-1-platform-and-version-1d4215e1-20260811.png)
 
 **`dropdown.brushSettings.Brush mode`** — 318x340, light theme, comfortable density
 
-![The Brush mode dropdown on the Brush surface, open, showing its search field and its 8 options with the current choice marked, in the light theme.](docs/huishots/dropdown-brushsettings-1-brush-mode-caeb179a-20260811.png)
+![The Brush mode dropdown on the Brush surface, open, showing its search field and its 8 options with the current choice marked, in the light theme.](docs/huishots/dropdown-brushsettings-1-brush-mode-1d4215e1-20260811.png)
 
 **`dropdown.brushSettings.Fill block`** — 319x251, light theme, comfortable density
 
-![The Fill block dropdown on the Brush surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-brushsettings-2-fill-block-caeb179a-20260811.png)
+![The Fill block dropdown on the Brush surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-brushsettings-2-fill-block-1d4215e1-20260811.png)
 
 **`dropdown.brushSettings.Replace block`** — 318x219, light theme, comfortable density
 
-![The Replace block dropdown on the Brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-brushsettings-3-replace-block-caeb179a-20260811.png)
+![The Replace block dropdown on the Brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-brushsettings-3-replace-block-1d4215e1-20260811.png)
 
 **`dropdown.cloneTool.Mirror`** — 309x219, light theme, comfortable density
 
-![The Mirror dropdown on the Clone surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-clonetool-2-mirror-caeb179a-20260811.png)
+![The Mirror dropdown on the Clone surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-clonetool-2-mirror-1d4215e1-20260811.png)
 
 **`dropdown.cloneTool.Rotation`** — 308x251, light theme, comfortable density
 
-![The Rotation dropdown on the Clone surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-clonetool-1-rotation-caeb179a-20260811.png)
+![The Rotation dropdown on the Clone surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-clonetool-1-rotation-1d4215e1-20260811.png)
 
 **`dropdown.cloneTool.Scale`** — 308x219, light theme, comfortable density
 
-![The Scale dropdown on the Clone surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-clonetool-3-scale-caeb179a-20260811.png)
+![The Scale dropdown on the Clone surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-clonetool-3-scale-1d4215e1-20260811.png)
 
-**`dropdown.controls.Action set`** — 329x187, light theme, comfortable density
+**`dropdown.controls.Key group`** — 667x219, light theme, comfortable density
 
-![The Action set dropdown on the Key Select surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-controls-2-action-set-caeb179a-20260811.png)
+![The Key group dropdown on the Key Select surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-controls-1-key-group-1d4215e1-20260811.png)
 
-**`dropdown.controls.Active group`** — 328x219, light theme, comfortable density
+**`dropdown.cutawayView.Axis`** — 287x187, light theme, comfortable density
 
-![The Active group dropdown on the Key Select surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-controls-1-active-group-caeb179a-20260811.png)
+![The Axis dropdown on the Cutaway surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-cutawayview-1-axis-1d4215e1-20260811.png)
 
-**`dropdown.cutawayView.Axis`** — 278x187, light theme, comfortable density
+**`dropdown.cutawayView.Side kept`** — 287x155, light theme, comfortable density
 
-![The Axis dropdown on the Cutaway surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-cutawayview-1-axis-caeb179a-20260811.png)
-
-**`dropdown.cutawayView.Side kept`** — 279x155, light theme, comfortable density
-
-![The Side kept dropdown on the Cutaway surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-cutawayview-2-side-kept-caeb179a-20260811.png)
+![The Side kept dropdown on the Cutaway surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-cutawayview-2-side-kept-1d4215e1-20260811.png)
 
 **`dropdown.elementAppearance.Font family`** — 289x187, light theme, comfortable density
 
-![The Font family dropdown on the Edit appearance surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-elementappearance-2-font-family-caeb179a-20260811.png)
+![The Font family dropdown on the Edit appearance surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-elementappearance-2-font-family-1d4215e1-20260811.png)
 
 **`dropdown.elementAppearance.Font weight`** — 288x187, light theme, comfortable density
 
-![The Font weight dropdown on the Edit appearance surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-elementappearance-1-font-weight-caeb179a-20260811.png)
+![The Font weight dropdown on the Edit appearance surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-elementappearance-1-font-weight-1d4215e1-20260811.png)
 
-**`dropdown.erosion.Deposit`** — 269x187, light theme, comfortable density
+**`dropdown.erosion.Deposit`** — 277x187, light theme, comfortable density
 
-![The Deposit dropdown on the Erosion surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-erosion-2-deposit-caeb179a-20260811.png)
+![The Deposit dropdown on the Erosion surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-erosion-2-deposit-1d4215e1-20260811.png)
 
-**`dropdown.erosion.Type`** — 268x187, light theme, comfortable density
+**`dropdown.erosion.Type`** — 277x187, light theme, comfortable density
 
-![The Type dropdown on the Erosion surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-erosion-1-type-caeb179a-20260811.png)
+![The Type dropdown on the Erosion surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-erosion-1-type-1d4215e1-20260811.png)
 
-**`dropdown.exportStructure.Handler`** — 268x219, light theme, comfortable density
+**`dropdown.exportStructure.Handler`** — 277x219, light theme, comfortable density
 
-![The Handler dropdown on the Export selection surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-exportstructure-1-handler-caeb179a-20260811.png)
+![The Handler dropdown on the Export selection surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-exportstructure-1-handler-1d4215e1-20260811.png)
 
-**`dropdown.exportStructure.Platform`** — 269x155, light theme, comfortable density
+**`dropdown.exportStructure.Platform`** — 277x155, light theme, comfortable density
 
-![The Platform dropdown on the Export selection surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-exportstructure-2-platform-caeb179a-20260811.png)
+![The Platform dropdown on the Export selection surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-exportstructure-2-platform-1d4215e1-20260811.png)
 
 **`dropdown.findReplaceBlocks.Search in`** — 348x187, light theme, comfortable density
 
-![The Search in dropdown on the Blocks surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplaceblocks-1-search-in-caeb179a-20260811.png)
+![The Search in dropdown on the Blocks surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplaceblocks-1-search-in-1d4215e1-20260811.png)
 
 **`dropdown.findReplaceBlocks.State matching`** — 349x187, light theme, comfortable density
 
-![The State matching dropdown on the Blocks surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplaceblocks-2-state-matching-caeb179a-20260811.png)
+![The State matching dropdown on the Blocks surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplaceblocks-2-state-matching-1d4215e1-20260811.png)
 
 **`dropdown.findReplaceCommands.Coordinates`** — 358x187, light theme, comfortable density
 
-![The Coordinates dropdown on the Commands surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplacecommands-1-coordinates-caeb179a-20260811.png)
+![The Coordinates dropdown on the Commands surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplacecommands-1-coordinates-1d4215e1-20260811.png)
 
 **`dropdown.findReplaceCommands.Offset`** — 359x155, light theme, comfortable density
 
-![The Offset dropdown on the Commands surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplacecommands-2-offset-caeb179a-20260811.png)
+![The Offset dropdown on the Commands surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplacecommands-2-offset-1d4215e1-20260811.png)
 
 **`dropdown.findReplaceNbt.Match`** — 359x219, light theme, comfortable density
 
-![The Match dropdown on the NBT surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplacenbt-2-match-caeb179a-20260811.png)
+![The Match dropdown on the NBT surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplacenbt-2-match-1d4215e1-20260811.png)
 
 **`dropdown.findReplaceNbt.Tag type`** — 358x315, light theme, comfortable density
 
-![The Tag type dropdown on the NBT surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplacenbt-1-tag-type-caeb179a-20260811.png)
+![The Tag type dropdown on the NBT surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.](docs/huishots/dropdown-findreplacenbt-1-tag-type-1d4215e1-20260811.png)
 
 **`dropdown.flatten.Direction`** — 260x187, light theme, comfortable density
 
-![The Direction dropdown on the Flatten to height surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-flatten-1-direction-caeb179a-20260811.png)
+![The Direction dropdown on the Flatten to height surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-flatten-1-direction-1d4215e1-20260811.png)
 
 **`dropdown.flatten.Edge`** — 260x187, light theme, comfortable density
 
-![The Edge dropdown on the Flatten to height surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-flatten-2-edge-caeb179a-20260811.png)
+![The Edge dropdown on the Flatten to height surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-flatten-2-edge-1d4215e1-20260811.png)
 
 **`dropdown.floodFill.Direction`** — 279x187, light theme, comfortable density
 
-![The Direction dropdown on the Flood fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-floodfill-4-direction-caeb179a-20260811.png)
+![The Direction dropdown on the Flood fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-floodfill-4-direction-1d4215e1-20260811.png)
 
 **`dropdown.floodFill.Neighbours`** — 278x187, light theme, comfortable density
 
-![The Neighbours dropdown on the Flood fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-floodfill-3-neighbours-caeb179a-20260811.png)
+![The Neighbours dropdown on the Flood fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-floodfill-3-neighbours-1d4215e1-20260811.png)
 
 **`dropdown.floodFill.Replace with`** — 279x219, light theme, comfortable density
 
-![The Replace with dropdown on the Flood fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-floodfill-2-replace-with-caeb179a-20260811.png)
+![The Replace with dropdown on the Flood fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-floodfill-2-replace-with-1d4215e1-20260811.png)
 
 **`dropdown.floodFill.Search block`** — 278x219, light theme, comfortable density
 
-![The Search block dropdown on the Flood fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-floodfill-1-search-block-caeb179a-20260811.png)
+![The Search block dropdown on the Flood fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-floodfill-1-search-block-1d4215e1-20260811.png)
 
-**`dropdown.fourUpView.Bottom left`** — 298x219, light theme, comfortable density
+**`dropdown.fourUpView.Bottom left`** — 307x219, light theme, comfortable density
 
-![The Bottom left dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-fourupview-3-bottom-left-caeb179a-20260811.png)
+![The Bottom left dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-fourupview-3-bottom-left-1d4215e1-20260811.png)
 
-**`dropdown.fourUpView.Bottom right`** — 299x219, light theme, comfortable density
+**`dropdown.fourUpView.Bottom right`** — 307x219, light theme, comfortable density
 
-![The Bottom right dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-fourupview-4-bottom-right-caeb179a-20260811.png)
+![The Bottom right dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-fourupview-4-bottom-right-1d4215e1-20260811.png)
 
-**`dropdown.fourUpView.Top left`** — 298x251, light theme, comfortable density
+**`dropdown.fourUpView.Top left`** — 307x251, light theme, comfortable density
 
-![The Top left dropdown on the Four-up split surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-fourupview-1-top-left-caeb179a-20260811.png)
+![The Top left dropdown on the Four-up split surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-fourupview-1-top-left-1d4215e1-20260811.png)
 
-**`dropdown.fourUpView.Top right`** — 299x219, light theme, comfortable density
+**`dropdown.fourUpView.Top right`** — 307x219, light theme, comfortable density
 
-![The Top right dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-fourupview-2-top-right-caeb179a-20260811.png)
+![The Top right dropdown on the Four-up split surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-fourupview-2-top-right-1d4215e1-20260811.png)
 
 **`dropdown.generateTool.Generator`** — 328x315, light theme, comfortable density
 
-![The Generator dropdown on the Generate surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.](docs/huishots/dropdown-generatetool-1-generator-caeb179a-20260811.png)
+![The Generator dropdown on the Generate surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.](docs/huishots/dropdown-generatetool-1-generator-1d4215e1-20260811.png)
 
 **`dropdown.generateTool.Leaf block`** — 329x187, light theme, comfortable density
 
-![The Leaf block dropdown on the Generate surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-generatetool-4-leaf-block-caeb179a-20260811.png)
+![The Leaf block dropdown on the Generate surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-generatetool-4-leaf-block-1d4215e1-20260811.png)
 
 **`dropdown.generateTool.Output`** — 329x155, light theme, comfortable density
 
-![The Output dropdown on the Generate surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-generatetool-2-output-caeb179a-20260811.png)
+![The Output dropdown on the Generate surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-generatetool-2-output-1d4215e1-20260811.png)
 
 **`dropdown.generateTool.Trunk block`** — 328x187, light theme, comfortable density
 
-![The Trunk block dropdown on the Generate surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-generatetool-3-trunk-block-caeb179a-20260811.png)
+![The Trunk block dropdown on the Generate surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-generatetool-3-trunk-block-1d4215e1-20260811.png)
 
-**`dropdown.importMap.Dithering`** — 318x187, light theme, comfortable density
+**`dropdown.importMap.Dithering`** — 326x187, light theme, comfortable density
 
-![The Dithering dropdown on the Import map image surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-importmap-2-dithering-caeb179a-20260811.png)
+![The Dithering dropdown on the Import map image surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-importmap-2-dithering-1d4215e1-20260811.png)
 
-**`dropdown.importMap.Import as`** — 319x187, light theme, comfortable density
+**`dropdown.importMap.Import as`** — 328x187, light theme, comfortable density
 
-![The Import as dropdown on the Import map image surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-importmap-1-import-as-caeb179a-20260811.png)
+![The Import as dropdown on the Import map image surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-importmap-1-import-as-1d4215e1-20260811.png)
 
-**`dropdown.importMap.Palette`** — 319x219, light theme, comfortable density
+**`dropdown.importMap.Palette`** — 328x219, light theme, comfortable density
 
-![The Palette dropdown on the Import map image surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-importmap-3-palette-caeb179a-20260811.png)
+![The Palette dropdown on the Import map image surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-importmap-3-palette-1d4215e1-20260811.png)
 
 **`dropdown.inspector.Follow`** — 339x155, light theme, comfortable density
 
-![The Follow dropdown on the Inspector surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-inspector-2-follow-caeb179a-20260811.png)
+![The Follow dropdown on the Inspector surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-inspector-2-follow-1d4215e1-20260811.png)
 
 **`dropdown.inspector.Inspecting`** — 338x251, light theme, comfortable density
 
-![The Inspecting dropdown on the Inspector surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-inspector-1-inspecting-caeb179a-20260811.png)
+![The Inspecting dropdown on the Inspector surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-inspector-1-inspecting-1d4215e1-20260811.png)
 
 **`dropdown.inventoryEditor.Inventory`** — 348x251, light theme, comfortable density
 
-![The Inventory dropdown on the Inventory editor surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-inventoryeditor-1-inventory-caeb179a-20260811.png)
+![The Inventory dropdown on the Inventory editor surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-inventoryeditor-1-inventory-1d4215e1-20260811.png)
 
 **`dropdown.inventoryEditor.Item type`** — 349x251, light theme, comfortable density
 
-![The Item type dropdown on the Inventory editor surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-inventoryeditor-2-item-type-caeb179a-20260811.png)
+![The Item type dropdown on the Inventory editor surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-inventoryeditor-2-item-type-1d4215e1-20260811.png)
 
-**`dropdown.lightOverlay.Channel`** — 298x219, light theme, comfortable density
+**`dropdown.lightOverlay.Channel`** — 307x219, light theme, comfortable density
 
-![The Channel dropdown on the Light levels surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-lightoverlay-1-channel-caeb179a-20260811.png)
+![The Channel dropdown on the Light levels surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-lightoverlay-1-channel-1d4215e1-20260811.png)
 
-**`dropdown.lightOverlay.Display`** — 299x187, light theme, comfortable density
+**`dropdown.lightOverlay.Display`** — 307x187, light theme, comfortable density
 
-![The Display dropdown on the Light levels surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-lightoverlay-2-display-caeb179a-20260811.png)
+![The Display dropdown on the Light levels surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-lightoverlay-2-display-1d4215e1-20260811.png)
 
-**`dropdown.logView.Minimum level`** — 358x219, light theme, comfortable density
+**`dropdown.logView.Minimum level`** — 367x219, light theme, comfortable density
 
-![The Minimum level dropdown on the Log surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-logview-1-minimum-level-caeb179a-20260811.png)
+![The Minimum level dropdown on the Log surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-logview-1-minimum-level-1d4215e1-20260811.png)
 
-**`dropdown.logView.Source`** — 359x251, light theme, comfortable density
+**`dropdown.logView.Source`** — 367x251, light theme, comfortable density
 
-![The Source dropdown on the Log surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-logview-2-source-caeb179a-20260811.png)
+![The Source dropdown on the Log surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-logview-2-source-1d4215e1-20260811.png)
 
-**`dropdown.macroRecorder.Anchor`** — 318x187, light theme, comfortable density
+**`dropdown.macroRecorder.Anchor`** — 327x187, light theme, comfortable density
 
-![The Anchor dropdown on the Macro recorder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-macrorecorder-1-anchor-caeb179a-20260811.png)
+![The Anchor dropdown on the Macro recorder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-macrorecorder-1-anchor-1d4215e1-20260811.png)
 
-**`dropdown.macroRecorder.Repeat`** — 319x187, light theme, comfortable density
+**`dropdown.macroRecorder.Repeat`** — 327x187, light theme, comfortable density
 
-![The Repeat dropdown on the Macro recorder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-macrorecorder-2-repeat-caeb179a-20260811.png)
+![The Repeat dropdown on the Macro recorder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-macrorecorder-2-repeat-1d4215e1-20260811.png)
 
-**`dropdown.minecraftInstalls.Resource pack`** — 339x219, light theme, comfortable density
+**`dropdown.minecraftInstalls.Resource pack`** — 347x219, light theme, comfortable density
 
-![The Resource pack dropdown on the Minecraft installs surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-minecraftinstalls-2-resource-pack-caeb179a-20260811.png)
+![The Resource pack dropdown on the Minecraft installs surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-minecraftinstalls-2-resource-pack-1d4215e1-20260811.png)
 
-**`dropdown.minecraftInstalls.Version`** — 338x219, light theme, comfortable density
+**`dropdown.minecraftInstalls.Version`** — 347x219, light theme, comfortable density
 
-![The Version dropdown on the Minecraft installs surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-minecraftinstalls-1-version-caeb179a-20260811.png)
+![The Version dropdown on the Minecraft installs surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-minecraftinstalls-1-version-1d4215e1-20260811.png)
 
-**`dropdown.narrator.Backend`** — 269x155, light theme, comfortable density
+**`dropdown.narrator.Backend`** — 277x155, light theme, comfortable density
 
-![The Backend dropdown on the Narrator and voice surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-narrator-2-backend-caeb179a-20260811.png)
+![The Backend dropdown on the Narrator and voice surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-narrator-2-backend-1d4215e1-20260811.png)
 
-**`dropdown.narrator.Narrator language`** — 268x187, light theme, comfortable density
+**`dropdown.narrator.Narrator language`** — 277x187, light theme, comfortable density
 
-![The Narrator language dropdown on the Narrator and voice surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-narrator-1-narrator-language-caeb179a-20260811.png)
+![The Narrator language dropdown on the Narrator and voice surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-narrator-1-narrator-language-1d4215e1-20260811.png)
 
-**`dropdown.noiseGen.Noise`** — 278x219, light theme, comfortable density
+**`dropdown.noiseGen.Noise`** — 287x219, light theme, comfortable density
 
-![The Noise dropdown on the Noise fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-noisegen-1-noise-caeb179a-20260811.png)
+![The Noise dropdown on the Noise fill surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-noisegen-1-noise-1d4215e1-20260811.png)
 
-**`dropdown.noiseGen.Output`** — 279x187, light theme, comfortable density
+**`dropdown.noiseGen.Output`** — 287x187, light theme, comfortable density
 
-![The Output dropdown on the Noise fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-noisegen-2-output-caeb179a-20260811.png)
+![The Output dropdown on the Noise fill surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-noisegen-2-output-1d4215e1-20260811.png)
 
 **`dropdown.patternMask.Applies to`** — 299x187, light theme, comfortable density
 
-![The Applies to dropdown on the Pattern and mask surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-patternmask-2-applies-to-caeb179a-20260811.png)
+![The Applies to dropdown on the Pattern and mask surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-patternmask-2-applies-to-1d4215e1-20260811.png)
 
 **`dropdown.patternMask.Match`** — 298x251, light theme, comfortable density
 
-![The Match dropdown on the Pattern and mask surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-patternmask-1-match-caeb179a-20260811.png)
+![The Match dropdown on the Pattern and mask surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-patternmask-1-match-1d4215e1-20260811.png)
 
 **`dropdown.portalBuilder.Corners`** — 378x155, light theme, comfortable density
 
-![The Corners dropdown on the Nether portal travel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-portalbuilder-3-corners-caeb179a-20260811.png)
+![The Corners dropdown on the Nether portal travel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-portalbuilder-3-corners-1d4215e1-20260811.png)
 
 **`dropdown.portalBuilder.Frame block`** — 379x187, light theme, comfortable density
 
-![The Frame block dropdown on the Nether portal travel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-portalbuilder-2-frame-block-caeb179a-20260811.png)
+![The Frame block dropdown on the Nether portal travel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-portalbuilder-2-frame-block-1d4215e1-20260811.png)
 
 **`dropdown.portalBuilder.Orientation`** — 379x155, light theme, comfortable density
 
-![The Orientation dropdown on the Nether portal travel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-portalbuilder-4-orientation-caeb179a-20260811.png)
+![The Orientation dropdown on the Nether portal travel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-portalbuilder-4-orientation-1d4215e1-20260811.png)
 
 **`dropdown.portalBuilder.Size`** — 378x219, light theme, comfortable density
 
-![The Size dropdown on the Nether portal travel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-portalbuilder-1-size-caeb179a-20260811.png)
+![The Size dropdown on the Nether portal travel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-portalbuilder-1-size-1d4215e1-20260811.png)
 
-**`dropdown.presets.Property`** — 328x251, light theme, comfortable density
+**`dropdown.presets.Property`** — 337x251, light theme, comfortable density
 
-![The Property dropdown on the Appearance presets surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-presets-1-property-caeb179a-20260811.png)
+![The Property dropdown on the Appearance presets surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-presets-1-property-1d4215e1-20260811.png)
 
-**`dropdown.presets.Scope`** — 329x187, light theme, comfortable density
+**`dropdown.presets.Scope`** — 337x187, light theme, comfortable density
 
-![The Scope dropdown on the Appearance presets surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-presets-2-scope-caeb179a-20260811.png)
+![The Scope dropdown on the Appearance presets surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-presets-2-scope-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Accent columns`** — 386x219, light theme, comfortable density
 
-![The Accent columns dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-9-accent-columns-caeb179a-20260811.png)
+![The Accent columns dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-9-accent-columns-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Alcoves`** — 386x187, light theme, comfortable density
 
-![The Alcoves dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-11-alcoves-caeb179a-20260811.png)
+![The Alcoves dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-11-alcoves-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Backing`** — 389x219, light theme, comfortable density
 
-![The Backing dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-19-backing-caeb179a-20260811.png)
+![The Backing dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-19-backing-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Body pattern`** — 391x251, light theme, comfortable density
 
-![The Body pattern dropdown on the Rail tunnel builder surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-8-body-pattern-caeb179a-20260811.png)
+![The Body pattern dropdown on the Rail tunnel builder surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-8-body-pattern-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Column block`** — 391x219, light theme, comfortable density
 
-![The Column block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-10-column-block-caeb179a-20260811.png)
+![The Column block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-10-column-block-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Cross-section`** — 388x219, light theme, comfortable density
 
-![The Cross-section dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-4-cross-section-caeb179a-20260811.png)
+![The Cross-section dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-4-cross-section-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Dimension`** — 388x155, light theme, comfortable density
 
-![The Dimension dropdown on the Rail tunnel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-3-dimension-caeb179a-20260811.png)
+![The Dimension dropdown on the Rail tunnel builder surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-3-dimension-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Fixture block`** — 388x315, light theme, comfortable density
 
-![The Fixture block dropdown on the Rail tunnel builder surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-18-fixture-block-caeb179a-20260811.png)
+![The Fixture block dropdown on the Rail tunnel builder surface, open, showing its search field and its 7 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-18-fixture-block-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Floor block`** — 388x187, light theme, comfortable density
 
-![The Floor block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-6-floor-block-caeb179a-20260811.png)
+![The Floor block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-6-floor-block-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Placement`** — 388x251, light theme, comfortable density
 
-![The Placement dropdown on the Rail tunnel builder surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-16-placement-caeb179a-20260811.png)
+![The Placement dropdown on the Rail tunnel builder surface, open, showing its search field and its 5 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-16-placement-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Rib block`** — 389x187, light theme, comfortable density
 
-![The Rib block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-15-rib-block-caeb179a-20260811.png)
+![The Rib block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-15-rib-block-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Ribs`** — 388x187, light theme, comfortable density
 
-![The Ribs dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-14-ribs-caeb179a-20260811.png)
+![The Ribs dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-14-ribs-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Roof block`** — 389x187, light theme, comfortable density
 
-![The Roof block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-7-roof-block-caeb179a-20260811.png)
+![The Roof block dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-7-roof-block-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Roof block`** — 389x219, light theme, comfortable density
 
-![The Roof block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-13-roof-block-caeb179a-20260811.png)
+![The Roof block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-13-roof-block-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Routing`** — 388x219, light theme, comfortable density
 
-![The Routing dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-1-routing-caeb179a-20260811.png)
+![The Routing dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-1-routing-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Shape`** — 388x283, light theme, comfortable density
 
-![The Shape dropdown on the Rail tunnel builder surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-12-shape-caeb179a-20260811.png)
+![The Shape dropdown on the Rail tunnel builder surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-12-shape-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Side`** — 389x219, light theme, comfortable density
 
-![The Side dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-17-side-caeb179a-20260811.png)
+![The Side dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-17-side-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Slope handling`** — 389x187, light theme, comfortable density
 
-![The Slope handling dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-2-slope-handling-caeb179a-20260811.png)
+![The Slope handling dropdown on the Rail tunnel builder surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-2-slope-handling-1d4215e1-20260811.png)
 
 **`dropdown.railTunnel.Wall block`** — 389x219, light theme, comfortable density
 
-![The Wall block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-5-wall-block-caeb179a-20260811.png)
+![The Wall block dropdown on the Rail tunnel builder surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-railtunnel-5-wall-block-1d4215e1-20260811.png)
 
 **`dropdown.redstoneTrace.Action`** — 348x219, light theme, comfortable density
 
-![The Action dropdown on the Circuit trace surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-redstonetrace-1-action-caeb179a-20260811.png)
+![The Action dropdown on the Circuit trace surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-redstonetrace-1-action-1d4215e1-20260811.png)
 
 **`dropdown.redstoneTrace.Wiring`** — 349x155, light theme, comfortable density
 
-![The Wiring dropdown on the Circuit trace surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-redstonetrace-2-wiring-caeb179a-20260811.png)
+![The Wiring dropdown on the Circuit trace surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-redstonetrace-2-wiring-1d4215e1-20260811.png)
 
-**`dropdown.relight.Area`** — 269x187, light theme, comfortable density
+**`dropdown.relight.Area`** — 277x187, light theme, comfortable density
 
-![The Area dropdown on the Relight surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-relight-2-area-caeb179a-20260811.png)
+![The Area dropdown on the Relight surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-relight-2-area-1d4215e1-20260811.png)
 
-**`dropdown.relight.Light type`** — 268x187, light theme, comfortable density
+**`dropdown.relight.Light type`** — 277x187, light theme, comfortable density
 
-![The Light type dropdown on the Relight surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-relight-1-light-type-caeb179a-20260811.png)
+![The Light type dropdown on the Relight surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-relight-1-light-type-1d4215e1-20260811.png)
 
-**`dropdown.removeEntities.Category`** — 268x283, light theme, comfortable density
+**`dropdown.removeEntities.Category`** — 277x283, light theme, comfortable density
 
-![The Category dropdown on the Remove entities surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.](docs/huishots/dropdown-removeentities-1-category-caeb179a-20260811.png)
+![The Category dropdown on the Remove entities surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.](docs/huishots/dropdown-removeentities-1-category-1d4215e1-20260811.png)
 
-**`dropdown.removeEntities.Named entities`** — 269x187, light theme, comfortable density
+**`dropdown.removeEntities.Named entities`** — 277x187, light theme, comfortable density
 
-![The Named entities dropdown on the Remove entities surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-removeentities-2-named-entities-caeb179a-20260811.png)
+![The Named entities dropdown on the Remove entities surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-removeentities-2-named-entities-1d4215e1-20260811.png)
+
+**`dropdown.ribbon-structures.Format`** — 260x219, light theme, comfortable density
+
+![The Format dropdown on the structures ribbon tab, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-ribbon-structures-1-format-1d4215e1-20260811.png)
+
+**`dropdown.ribbon-view.Density`** — 260x187, light theme, comfortable density
+
+![The Density dropdown on the view ribbon tab, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-ribbon-view-1-density-1d4215e1-20260811.png)
 
 **`dropdown.seaLevel.Action`** — 260x187, light theme, comfortable density
 
-![The Action dropdown on the Sea level surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-sealevel-1-action-caeb179a-20260811.png)
+![The Action dropdown on the Sea level surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-sealevel-1-action-1d4215e1-20260811.png)
 
 **`dropdown.seaLevel.Enclosure`** — 260x155, light theme, comfortable density
 
-![The Enclosure dropdown on the Sea level surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-sealevel-2-enclosure-caeb179a-20260811.png)
+![The Enclosure dropdown on the Sea level surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-sealevel-2-enclosure-1d4215e1-20260811.png)
 
 **`dropdown.spawnAnalysis.Show`** — 348x219, light theme, comfortable density
 
-![The Show dropdown on the Mob spawn analysis surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-spawnanalysis-1-show-caeb179a-20260811.png)
+![The Show dropdown on the Mob spawn analysis surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-spawnanalysis-1-show-1d4215e1-20260811.png)
 
 **`dropdown.spawnAnalysis.Time`** — 349x187, light theme, comfortable density
 
-![The Time dropdown on the Mob spawn analysis surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-spawnanalysis-2-time-caeb179a-20260811.png)
+![The Time dropdown on the Mob spawn analysis surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-spawnanalysis-2-time-1d4215e1-20260811.png)
 
-**`dropdown.stackArray.Axis`** — 279x219, light theme, comfortable density
+**`dropdown.stackArray.Axis`** — 287x219, light theme, comfortable density
 
-![The Axis dropdown on the Stack and array surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-stackarray-2-axis-caeb179a-20260811.png)
+![The Axis dropdown on the Stack and array surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-stackarray-2-axis-1d4215e1-20260811.png)
 
-**`dropdown.stackArray.Layout`** — 278x187, light theme, comfortable density
+**`dropdown.stackArray.Layout`** — 287x187, light theme, comfortable density
 
-![The Layout dropdown on the Stack and array surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-stackarray-1-layout-caeb179a-20260811.png)
+![The Layout dropdown on the Stack and array surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-stackarray-1-layout-1d4215e1-20260811.png)
 
-**`dropdown.surfacePaint.Blend`** — 279x187, light theme, comfortable density
+**`dropdown.surfacePaint.Blend`** — 287x187, light theme, comfortable density
 
-![The Blend dropdown on the Repaint surface surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-surfacepaint-2-blend-caeb179a-20260811.png)
+![The Blend dropdown on the Repaint surface surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-surfacepaint-2-blend-1d4215e1-20260811.png)
 
-**`dropdown.surfacePaint.Driven by`** — 278x219, light theme, comfortable density
+**`dropdown.surfacePaint.Driven by`** — 287x219, light theme, comfortable density
 
-![The Driven by dropdown on the Repaint surface surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-surfacepaint-1-driven-by-caeb179a-20260811.png)
+![The Driven by dropdown on the Repaint surface surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-surfacepaint-1-driven-by-1d4215e1-20260811.png)
 
 **`dropdown.tabManager.Group state`** — 379x155, light theme, comfortable density
 
-![The Group state dropdown on the Tabs, groups, and safe closing surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-tabmanager-2-group-state-caeb179a-20260811.png)
+![The Group state dropdown on the Tabs, groups, and safe closing surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-tabmanager-2-group-state-1d4215e1-20260811.png)
 
 **`dropdown.tabManager.Tab strip edge`** — 378x219, light theme, comfortable density
 
-![The Tab strip edge dropdown on the Tabs, groups, and safe closing surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-tabmanager-1-tab-strip-edge-caeb179a-20260811.png)
+![The Tab strip edge dropdown on the Tabs, groups, and safe closing surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-tabmanager-1-tab-strip-edge-1d4215e1-20260811.png)
 
 **`dropdown.terrainBrush.Brush shape`** — 288x219, light theme, comfortable density
 
-![The Brush shape dropdown on the Terrain brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-terrainbrush-1-brush-shape-caeb179a-20260811.png)
+![The Brush shape dropdown on the Terrain brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-terrainbrush-1-brush-shape-1d4215e1-20260811.png)
 
 **`dropdown.terrainBrush.Falloff`** — 289x219, light theme, comfortable density
 
-![The Falloff dropdown on the Terrain brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-terrainbrush-2-falloff-caeb179a-20260811.png)
+![The Falloff dropdown on the Terrain brush surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-terrainbrush-2-falloff-1d4215e1-20260811.png)
 
-**`dropdown.toolSettings.On activation`** — 309x155, light theme, comfortable density
+**`dropdown.toolSettings.On activation`** — 317x155, light theme, comfortable density
 
-![The On activation dropdown on the Tool settings surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-toolsettings-2-on-activation-caeb179a-20260811.png)
+![The On activation dropdown on the Tool settings surface, open, showing its search field and its 2 options with the current choice marked, in the light theme.](docs/huishots/dropdown-toolsettings-2-on-activation-1d4215e1-20260811.png)
 
-**`dropdown.toolSettings.Tool`** — 308x340, light theme, comfortable density
+**`dropdown.toolSettings.Tool`** — 317x340, light theme, comfortable density
 
-![The Tool dropdown on the Tool settings surface, open, showing its search field and its 9 options with the current choice marked, in the light theme.](docs/huishots/dropdown-toolsettings-1-tool-caeb179a-20260811.png)
+![The Tool dropdown on the Tool settings surface, open, showing its search field and its 9 options with the current choice marked, in the light theme.](docs/huishots/dropdown-toolsettings-1-tool-1d4215e1-20260811.png)
 
 **`dropdown.versionSelect.Data version`** — 260x219, light theme, comfortable density
 
-![The Data version dropdown on the Select version surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-versionselect-2-data-version-caeb179a-20260811.png)
+![The Data version dropdown on the Select version surface, open, showing its search field and its 4 options with the current choice marked, in the light theme.](docs/huishots/dropdown-versionselect-2-data-version-1d4215e1-20260811.png)
 
 **`dropdown.versionSelect.Platform`** — 260x187, light theme, comfortable density
 
-![The Platform dropdown on the Select version surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-versionselect-1-platform-caeb179a-20260811.png)
+![The Platform dropdown on the Select version surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-versionselect-1-platform-1d4215e1-20260811.png)
 
 **`dropdown.viewControls.Control scheme`** — 319x187, light theme, comfortable density
 
-![The Control scheme dropdown on the View settings surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-viewcontrols-2-control-scheme-caeb179a-20260811.png)
+![The Control scheme dropdown on the View settings surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-viewcontrols-2-control-scheme-1d4215e1-20260811.png)
 
 **`dropdown.viewControls.View type`** — 318x283, light theme, comfortable density
 
-![The View type dropdown on the View settings surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.](docs/huishots/dropdown-viewcontrols-1-view-type-caeb179a-20260811.png)
+![The View type dropdown on the View settings surface, open, showing its search field and its 6 options with the current choice marked, in the light theme.](docs/huishots/dropdown-viewcontrols-1-view-type-1d4215e1-20260811.png)
 
-**`dropdown.workPlane.Axis`** — 268x187, light theme, comfortable density
+**`dropdown.workPlane.Axis`** — 277x187, light theme, comfortable density
 
-![The Axis dropdown on the Work plane surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-workplane-1-axis-caeb179a-20260811.png)
+![The Axis dropdown on the Work plane surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-workplane-1-axis-1d4215e1-20260811.png)
 
-**`dropdown.workPlane.Snap`** — 269x187, light theme, comfortable density
+**`dropdown.workPlane.Snap`** — 277x187, light theme, comfortable density
 
-![The Snap dropdown on the Work plane surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-workplane-2-snap-caeb179a-20260811.png)
+![The Snap dropdown on the Work plane surface, open, showing its search field and its 3 options with the current choice marked, in the light theme.](docs/huishots/dropdown-workplane-2-snap-1d4215e1-20260811.png)
 
 </details>
 
 <details>
 <summary><b>Surfaces</b> — 113 surfaces</summary>
 
-**`about`** — 640x280, light theme, comfortable density
+**`about`** — 640x633, light theme, comfortable density
 
-![The About surface (Currently opened world), showing its window search and 2 sections, in the light theme.](docs/huishots/about-caeb179a-20260811.png)
+![The About surface (Currently opened world), showing its window search and 2 sections, in the light theme.](docs/huishots/about-1d4215e1-20260811.png)
 
-**`analyzeTool`** — 740x280, light theme, comfortable density
+**`analyzeTool`** — 740x736, light theme, comfortable density
 
-![The Analyze surface (Analysis), showing its window search and 3 sections, in the light theme.](docs/huishots/analyzetool-caeb179a-20260811.png)
+![The Analyze surface (Analysis), showing its window search and 3 sections, in the light theme.](docs/huishots/analyzetool-1d4215e1-20260811.png)
 
-**`batchQueue`** — 760x280, light theme, comfortable density
+**`batchQueue`** — 760x780, light theme, comfortable density
 
-![The Batch queue surface (Automation), showing its window search and 3 sections, in the light theme.](docs/huishots/batchqueue-caeb179a-20260811.png)
+![The Batch queue surface (Automation), showing its window search and 3 sections, in the light theme.](docs/huishots/batchqueue-1d4215e1-20260811.png)
 
-**`biomeMap`** — 720x280, light theme, comfortable density
+**`biomeMap`** — 720x342, light theme, comfortable density
 
-![The Biome map surface (Analysis), showing its window search and 2 sections, in the light theme.](docs/huishots/biomemap-caeb179a-20260811.png)
+![The Biome map surface (Analysis), showing its window search and 2 sections, in the light theme.](docs/huishots/biomemap-1d4215e1-20260811.png)
 
-**`biomeSelect`** — 620x280, light theme, comfortable density
+**`biomeSelect`** — 620x533, light theme, comfortable density
 
-![The Select biome surface (Biome picker), showing its window search and 2 sections, in the light theme.](docs/huishots/biomeselect-caeb179a-20260811.png)
+![The Select biome surface (Biome picker), showing its window search and 2 sections, in the light theme.](docs/huishots/biomeselect-1d4215e1-20260811.png)
 
-**`blockAudit`** — 740x280, light theme, comfortable density
+**`blockAudit`** — 740x432, light theme, comfortable density
 
-![The Block state audit surface (Blocks), showing its window search and 4 sections, in the light theme.](docs/huishots/blockaudit-caeb179a-20260811.png)
+![The Block state audit surface (Blocks), showing its window search and 4 sections, in the light theme.](docs/huishots/blockaudit-1d4215e1-20260811.png)
 
-**`blockHistogram`** — 720x280, light theme, comfortable density
+**`blockHistogram`** — 720x342, light theme, comfortable density
 
-![The Block histogram surface (Analysis), showing its window search and 2 sections, in the light theme.](docs/huishots/blockhistogram-caeb179a-20260811.png)
+![The Block histogram surface (Analysis), showing its window search and 2 sections, in the light theme.](docs/huishots/blockhistogram-1d4215e1-20260811.png)
 
-**`blockSelect`** — 720x280, light theme, comfortable density
+**`blockSelect`** — 720x780, light theme, comfortable density
 
-![The Select block surface (Block picker), showing its window search and 5 sections, in the light theme.](docs/huishots/blockselect-caeb179a-20260811.png)
+![The Select block surface (Block picker), showing its window search and 5 sections, in the light theme.](docs/huishots/blockselect-1d4215e1-20260811.png)
 
-**`brushSettings`** — 700x280, light theme, comfortable density
+**`brushSettings`** — 700x780, light theme, comfortable density
 
-![The Brush surface (Tools), showing its window search and 5 sections, in the light theme.](docs/huishots/brushsettings-caeb179a-20260811.png)
+![The Brush surface (Tools), showing its window search and 5 sections, in the light theme.](docs/huishots/brushsettings-1d4215e1-20260811.png)
 
-**`brushTool`** — 640x280, light theme, comfortable density
+**`brushTool`** — 640x780, light theme, comfortable density
 
-![The Shape brush surface (Build), showing its window search and 4 sections, in the light theme.](docs/huishots/brushtool-caeb179a-20260811.png)
+![The Shape brush surface (Build), showing its window search and 4 sections, in the light theme.](docs/huishots/brushtool-1d4215e1-20260811.png)
 
-**`caveMap`** — 700x280, light theme, comfortable density
+**`caveMap`** — 700x730, light theme, comfortable density
 
-![The Cave coverage surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/cavemap-caeb179a-20260811.png)
+![The Cave coverage surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/cavemap-1d4215e1-20260811.png)
 
-**`chunkInspector`** — 780x280, light theme, comfortable density
+**`chunkInspector`** — 780x342, light theme, comfortable density
 
-![The Chunk inspector surface (Analysis), showing its window search and 3 sections, in the light theme.](docs/huishots/chunkinspector-caeb179a-20260811.png)
+![The Chunk inspector surface (Analysis), showing its window search and 3 sections, in the light theme.](docs/huishots/chunkinspector-1d4215e1-20260811.png)
 
-**`cloneTool`** — 680x280, light theme, comfortable density
+**`cloneTool`** — 680x780, light theme, comfortable density
 
-![The Clone surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/clonetool-caeb179a-20260811.png)
+![The Clone surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/clonetool-1d4215e1-20260811.png)
 
-**`commandFinder`** — 760x280, light theme, comfortable density
+**`commandFinder`** — 760x342, light theme, comfortable density
 
-![The Command blocks surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/commandfinder-caeb179a-20260811.png)
+![The Command blocks surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/commandfinder-1d4215e1-20260811.png)
 
-**`configureBlocks`** — 740x318, light theme, comfortable density
+**`configureBlocks`** — 740x780, light theme, comfortable density
 
-![The Configure blocks surface (Pickers), showing its window search and 4 sections, in the light theme.](docs/huishots/configureblocks-caeb179a-20260811.png)
+![The Configure blocks surface (Pickers), showing its window search and 4 sections, in the light theme.](docs/huishots/configureblocks-1d4215e1-20260811.png)
 
-**`confirm`** — 520x280, light theme, comfortable density
+**`confirm`** — 520x601, light theme, comfortable density
 
-![The Delete unselected chunks surface (Safety gate), showing its window search and 2 sections, in the light theme.](docs/huishots/confirm-caeb179a-20260811.png)
+![The Delete unselected chunks surface (Safety gate), showing its window search and 2 sections, in the light theme.](docs/huishots/confirm-1d4215e1-20260811.png)
 
-**`controls`** — 720x280, light theme, comfortable density
+**`controls`** — 720x780, light theme, comfortable density
 
-![The Key Select surface (Key configuration), showing its window search and 3 sections, in the light theme.](docs/huishots/controls-caeb179a-20260811.png)
+![The Key Select surface (Key configuration), showing its window search and 3 sections, in the light theme.](docs/huishots/controls-1d4215e1-20260811.png)
 
-**`convertProgress`** — 600x280, light theme, comfortable density
+**`convertProgress`** — 600x578, light theme, comfortable density
 
-![The Converting world surface (World conversion), showing its window search and 3 sections, in the light theme.](docs/huishots/convertprogress-caeb179a-20260811.png)
+![The Converting world surface (World conversion), showing its window search and 3 sections, in the light theme.](docs/huishots/convertprogress-1d4215e1-20260811.png)
 
-**`cutawayView`** — 620x280, light theme, comfortable density
+**`cutawayView`** — 620x584, light theme, comfortable density
 
-![The Cutaway surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/cutawayview-caeb179a-20260811.png)
+![The Cutaway surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/cutawayview-1d4215e1-20260811.png)
 
-**`dimsum`** — 520x280, light theme, comfortable density
+**`dimsum`** — 520x660, light theme, comfortable density
 
-![The Har gow · 蝦餃 surface (Startup surprise), showing its window search and 2 sections, in the light theme.](docs/huishots/dimsum-caeb179a-20260811.png)
+![The Har gow · 蝦餃 surface (Startup surprise), showing its window search and 2 sections, in the light theme.](docs/huishots/dimsum-1d4215e1-20260811.png)
 
-**`docs`** — 820x280, light theme, comfortable density
+**`docs`** — 820x780, light theme, comfortable density
 
-![The Documentation surface (Offline bundle), showing its window search and 3 sections, in the light theme.](docs/huishots/docs-caeb179a-20260811.png)
+![The Documentation surface (Offline bundle), showing its window search and 3 sections, in the light theme.](docs/huishots/docs-1d4215e1-20260811.png)
 
-**`editChunkTool`** — 700x280, light theme, comfortable density
+**`editChunkTool`** — 700x780, light theme, comfortable density
 
-![The Edit chunk surface (Tools), showing its window search and 4 sections, in the light theme.](docs/huishots/editchunktool-caeb179a-20260811.png)
+![The Edit chunk surface (Tools), showing its window search and 4 sections, in the light theme.](docs/huishots/editchunktool-1d4215e1-20260811.png)
 
-**`elementAppearance`** — 640x280, light theme, comfortable density
+**`elementAppearance`** — 640x780, light theme, comfortable density
 
-![The Edit appearance surface (Per-element appearance), showing its window search and 5 sections, in the light theme.](docs/huishots/elementappearance-caeb179a-20260811.png)
+![The Edit appearance surface (Per-element appearance), showing its window search and 5 sections, in the light theme.](docs/huishots/elementappearance-1d4215e1-20260811.png)
 
-**`entityBrowser`** — 800x280, light theme, comfortable density
+**`entityBrowser`** — 800x432, light theme, comfortable density
 
-![The Entity browser surface (Entities), showing its window search and 6 sections, in the light theme.](docs/huishots/entitybrowser-caeb179a-20260811.png)
+![The Entity browser surface (Entities), showing its window search and 6 sections, in the light theme.](docs/huishots/entitybrowser-1d4215e1-20260811.png)
 
-**`entityEdit`** — 660x318, light theme, comfortable density
+**`entityEdit`** — 660x780, light theme, comfortable density
 
-![The Edit entity surface (Entities), showing its window search and 4 sections, in the light theme.](docs/huishots/entityedit-caeb179a-20260811.png)
+![The Edit entity surface (Entities), showing its window search and 4 sections, in the light theme.](docs/huishots/entityedit-1d4215e1-20260811.png)
 
-**`erosion`** — 600x280, light theme, comfortable density
+**`erosion`** — 600x706, light theme, comfortable density
 
-![The Erosion surface (Sculpt), showing its window search and 3 sections, in the light theme.](docs/huishots/erosion-caeb179a-20260811.png)
+![The Erosion surface (Sculpt), showing its window search and 3 sections, in the light theme.](docs/huishots/erosion-1d4215e1-20260811.png)
 
-**`errorReport`** — 680x318, light theme, comfortable density
+**`errorReport`** — 680x705, light theme, comfortable density
 
-![The Unexpected error surface (Diagnostics), showing its window search and 3 sections, in the light theme.](docs/huishots/errorreport-caeb179a-20260811.png)
+![The Unexpected error surface (Diagnostics), showing its window search and 3 sections, in the light theme.](docs/huishots/errorreport-1d4215e1-20260811.png)
 
-**`exportStructure`** — 600x280, light theme, comfortable density
+**`exportStructure`** — 600x547, light theme, comfortable density
 
-![The Export selection surface (Structure files), showing its window search and 3 sections, in the light theme.](docs/huishots/exportstructure-caeb179a-20260811.png)
+![The Export selection surface (Structure files), showing its window search and 3 sections, in the light theme.](docs/huishots/exportstructure-1d4215e1-20260811.png)
 
-**`externalEditor`** — 620x318, light theme, comfortable density
+**`externalEditor`** — 620x725, light theme, comfortable density
 
-![The External editor surface (Safe bridge), showing its window search and 3 sections, in the light theme.](docs/huishots/externaleditor-caeb179a-20260811.png)
+![The External editor surface (Safe bridge), showing its window search and 3 sections, in the light theme.](docs/huishots/externaleditor-1d4215e1-20260811.png)
 
-**`findReplaceBlocks`** — 760x280, light theme, comfortable density
+**`findReplaceBlocks`** — 760x780, light theme, comfortable density
 
-![The Blocks surface (Find and replace), showing its window search and 4 sections, in the light theme.](docs/huishots/findreplaceblocks-caeb179a-20260811.png)
+![The Blocks surface (Find and replace), showing its window search and 4 sections, in the light theme.](docs/huishots/findreplaceblocks-1d4215e1-20260811.png)
 
-**`findReplaceCommands`** — 780x280, light theme, comfortable density
+**`findReplaceCommands`** — 780x780, light theme, comfortable density
 
-![The Commands surface (Find and replace), showing its window search and 5 sections, in the light theme.](docs/huishots/findreplacecommands-caeb179a-20260811.png)
+![The Commands surface (Find and replace), showing its window search and 5 sections, in the light theme.](docs/huishots/findreplacecommands-1d4215e1-20260811.png)
 
-**`findReplaceNbt`** — 780x280, light theme, comfortable density
+**`findReplaceNbt`** — 780x780, light theme, comfortable density
 
-![The NBT surface (Find and replace), showing its window search and 4 sections, in the light theme.](docs/huishots/findreplacenbt-caeb179a-20260811.png)
+![The NBT surface (Find and replace), showing its window search and 4 sections, in the light theme.](docs/huishots/findreplacenbt-1d4215e1-20260811.png)
 
-**`flatten`** — 560x280, light theme, comfortable density
+**`flatten`** — 560x377, light theme, comfortable density
 
-![The Flatten to height surface (Sculpt), showing its window search and 2 sections, in the light theme.](docs/huishots/flatten-caeb179a-20260811.png)
+![The Flatten to height surface (Sculpt), showing its window search and 2 sections, in the light theme.](docs/huishots/flatten-1d4215e1-20260811.png)
 
-**`floodFill`** — 620x280, light theme, comfortable density
+**`floodFill`** — 620x780, light theme, comfortable density
 
-![The Flood fill surface (Tools), showing its window search and 4 sections, in the light theme.](docs/huishots/floodfill-caeb179a-20260811.png)
+![The Flood fill surface (Tools), showing its window search and 4 sections, in the light theme.](docs/huishots/floodfill-1d4215e1-20260811.png)
 
-**`forceLoaded`** — 700x280, light theme, comfortable density
+**`forceLoaded`** — 700x342, light theme, comfortable density
 
-![The Force-loaded chunks surface (Boundaries), showing its window search and 2 sections, in the light theme.](docs/huishots/forceloaded-caeb179a-20260811.png)
+![The Force-loaded chunks surface (Boundaries), showing its window search and 2 sections, in the light theme.](docs/huishots/forceloaded-1d4215e1-20260811.png)
 
-**`fourUpView`** — 660x280, light theme, comfortable density
+**`fourUpView`** — 660x659, light theme, comfortable density
 
-![The Four-up split surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/fourupview-caeb179a-20260811.png)
+![The Four-up split surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/fourupview-1d4215e1-20260811.png)
 
-**`gamerules`** — 700x280, light theme, comfortable density
+**`gamerules`** — 700x294, light theme, comfortable density
 
-![The Game rules surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/gamerules-caeb179a-20260811.png)
+![The Game rules surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/gamerules-1d4215e1-20260811.png)
 
-**`generateTool`** — 720x280, light theme, comfortable density
+**`generateTool`** — 720x780, light theme, comfortable density
 
-![The Generate surface (Tools), showing its window search and 5 sections, in the light theme.](docs/huishots/generatetool-caeb179a-20260811.png)
+![The Generate surface (Tools), showing its window search and 5 sections, in the light theme.](docs/huishots/generatetool-1d4215e1-20260811.png)
 
-**`goto`** — 460x280, light theme, comfortable density
+**`goto`** — 460x430, light theme, comfortable density
 
-![The Teleport surface (Camera), showing its window search and 1 sections, in the light theme.](docs/huishots/goto-caeb179a-20260811.png)
+![The Teleport surface (Camera), showing its window search and 1 sections, in the light theme.](docs/huishots/goto-1d4215e1-20260811.png)
 
-**`heightLimits`** — 700x280, light theme, comfortable density
+**`heightLimits`** — 700x490, light theme, comfortable density
 
-![The Height limits surface (Boundaries), showing its window search and 4 sections, in the light theme.](docs/huishots/heightlimits-caeb179a-20260811.png)
+![The Height limits surface (Boundaries), showing its window search and 4 sections, in the light theme.](docs/huishots/heightlimits-1d4215e1-20260811.png)
 
-**`history`** — 760x366, light theme, comfortable density
+**`history`** — 760x780, light theme, comfortable density
 
-![The Project history surface (Local Git repository), showing its window search and 3 sections, in the light theme.](docs/huishots/history-caeb179a-20260811.png)
+![The Project history surface (Local Git repository), showing its window search and 3 sections, in the light theme.](docs/huishots/history-1d4215e1-20260811.png)
 
-**`importChunks`** — 600x280, light theme, comfortable density
+**`importChunks`** — 600x528, light theme, comfortable density
 
-![The Import chunks surface (Chunk tool), showing its window search and 2 sections, in the light theme.](docs/huishots/importchunks-caeb179a-20260811.png)
+![The Import chunks surface (Chunk tool), showing its window search and 2 sections, in the light theme.](docs/huishots/importchunks-1d4215e1-20260811.png)
 
-**`importMap`** — 700x280, light theme, comfortable density
+**`importMap`** — 700x780, light theme, comfortable density
 
-![The Import map image surface (Import), showing its window search and 4 sections, in the light theme.](docs/huishots/importmap-caeb179a-20260811.png)
+![The Import map image surface (Import), showing its window search and 4 sections, in the light theme.](docs/huishots/importmap-1d4215e1-20260811.png)
 
-**`inspector`** — 740x280, light theme, comfortable density
+**`inspector`** — 740x780, light theme, comfortable density
 
-![The Inspector surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/inspector-caeb179a-20260811.png)
+![The Inspector surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/inspector-1d4215e1-20260811.png)
 
-**`inventoryEditor`** — 760x280, light theme, comfortable density
+**`inventoryEditor`** — 760x780, light theme, comfortable density
 
-![The Inventory editor surface (Panels), showing its window search and 4 sections, in the light theme.](docs/huishots/inventoryeditor-caeb179a-20260811.png)
+![The Inventory editor surface (Panels), showing its window search and 4 sections, in the light theme.](docs/huishots/inventoryeditor-1d4215e1-20260811.png)
 
-**`itemTypeList`** — 720x280, light theme, comfortable density
+**`itemTypeList`** — 720x780, light theme, comfortable density
 
-![The Item types surface (Pickers), showing its window search and 3 sections, in the light theme.](docs/huishots/itemtypelist-caeb179a-20260811.png)
+![The Item types surface (Pickers), showing its window search and 3 sections, in the light theme.](docs/huishots/itemtypelist-1d4215e1-20260811.png)
 
-**`languageSelect`** — 520x280, light theme, comfortable density
+**`languageSelect`** — 520x780, light theme, comfortable density
 
-![The Language Select surface (Localization), showing its window search and 1 sections, in the light theme.](docs/huishots/languageselect-caeb179a-20260811.png)
+![The Language Select surface (Localization), showing its window search and 1 sections, in the light theme.](docs/huishots/languageselect-1d4215e1-20260811.png)
 
-**`layerSlice`** — 560x280, light theme, comfortable density
+**`layerSlice`** — 560x663, light theme, comfortable density
 
-![The Layer slice surface (Measure), showing its window search and 3 sections, in the light theme.](docs/huishots/layerslice-caeb179a-20260811.png)
+![The Layer slice surface (Measure), showing its window search and 3 sections, in the light theme.](docs/huishots/layerslice-1d4215e1-20260811.png)
 
-**`levelDat`** — 700x280, light theme, comfortable density
+**`levelDat`** — 700x432, light theme, comfortable density
 
-![The level.dat surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/leveldat-caeb179a-20260811.png)
+![The level.dat surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/leveldat-1d4215e1-20260811.png)
 
-**`libraryPanel`** — 760x318, light theme, comfortable density
+**`libraryPanel`** — 760x780, light theme, comfortable density
 
-![The Library surface (Panels), showing its window search and 4 sections, in the light theme.](docs/huishots/librarypanel-caeb179a-20260811.png)
+![The Library surface (Panels), showing its window search and 4 sections, in the light theme.](docs/huishots/librarypanel-1d4215e1-20260811.png)
 
-**`licenses`** — 700x280, light theme, comfortable density
+**`licenses`** — 700x617, light theme, comfortable density
 
-![The Third Party Licenses surface (Legal), showing its window search and 2 sections, in the light theme.](docs/huishots/licenses-caeb179a-20260811.png)
+![The Third Party Licenses surface (Legal), showing its window search and 2 sections, in the light theme.](docs/huishots/licenses-1d4215e1-20260811.png)
 
-**`lightOverlay`** — 660x280, light theme, comfortable density
+**`lightOverlay`** — 660x709, light theme, comfortable density
 
-![The Light levels surface (Mechanics), showing its window search and 4 sections, in the light theme.](docs/huishots/lightoverlay-caeb179a-20260811.png)
+![The Light levels surface (Mechanics), showing its window search and 4 sections, in the light theme.](docs/huishots/lightoverlay-1d4215e1-20260811.png)
 
-**`loading`** — 560x280, light theme, comfortable density
+**`loading`** — 560x688, light theme, comfortable density
 
-![The Please wait while the renderer loads surface (Renderer), showing its window search and 4 sections, in the light theme.](docs/huishots/loading-caeb179a-20260811.png)
+![The Please wait while the renderer loads surface (Renderer), showing its window search and 4 sections, in the light theme.](docs/huishots/loading-1d4215e1-20260811.png)
 
-**`logView`** — 780x280, light theme, comfortable density
+**`logView`** — 780x460, light theme, comfortable density
 
-![The Log surface (Diagnostics), showing its window search and 3 sections, in the light theme.](docs/huishots/logview-caeb179a-20260811.png)
+![The Log surface (Diagnostics), showing its window search and 3 sections, in the light theme.](docs/huishots/logview-1d4215e1-20260811.png)
 
-**`lootAudit`** — 720x280, light theme, comfortable density
+**`lootAudit`** — 720x342, light theme, comfortable density
 
-![The Loot audit surface (Containers), showing its window search and 3 sections, in the light theme.](docs/huishots/lootaudit-caeb179a-20260811.png)
+![The Loot audit surface (Containers), showing its window search and 3 sections, in the light theme.](docs/huishots/lootaudit-1d4215e1-20260811.png)
 
-**`macroRecorder`** — 700x280, light theme, comfortable density
+**`macroRecorder`** — 700x698, light theme, comfortable density
 
-![The Macro recorder surface (Automation), showing its window search and 2 sections, in the light theme.](docs/huishots/macrorecorder-caeb179a-20260811.png)
+![The Macro recorder surface (Automation), showing its window search and 2 sections, in the light theme.](docs/huishots/macrorecorder-1d4215e1-20260811.png)
 
-**`mapItems`** — 700x280, light theme, comfortable density
+**`mapItems`** — 700x342, light theme, comfortable density
 
-![The Map items surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/mapitems-caeb179a-20260811.png)
+![The Map items surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/mapitems-1d4215e1-20260811.png)
 
-**`measure`** — 560x280, light theme, comfortable density
+**`measure`** — 560x294, light theme, comfortable density
 
-![The Measure surface (Measure), showing its window search and 2 sections, in the light theme.](docs/huishots/measure-caeb179a-20260811.png)
+![The Measure surface (Measure), showing its window search and 2 sections, in the light theme.](docs/huishots/measure-1d4215e1-20260811.png)
 
-**`minecraftInstalls`** — 740x280, light theme, comfortable density
+**`minecraftInstalls`** — 740x780, light theme, comfortable density
 
-![The Minecraft installs surface (Resources), showing its window search and 4 sections, in the light theme.](docs/huishots/minecraftinstalls-caeb179a-20260811.png)
+![The Minecraft installs surface (Resources), showing its window search and 4 sections, in the light theme.](docs/huishots/minecraftinstalls-1d4215e1-20260811.png)
 
-**`moveTool`** — 640x280, light theme, comfortable density
+**`moveTool`** — 640x705, light theme, comfortable density
 
-![The Move surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/movetool-caeb179a-20260811.png)
+![The Move surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/movetool-1d4215e1-20260811.png)
 
-**`narrator`** — 600x280, light theme, comfortable density
+**`narrator`** — 600x706, light theme, comfortable density
 
-![The Narrator and voice surface (Optional speech), showing its window search and 3 sections, in the light theme.](docs/huishots/narrator-caeb179a-20260811.png)
+![The Narrator and voice surface (Optional speech), showing its window search and 3 sections, in the light theme.](docs/huishots/narrator-1d4215e1-20260811.png)
 
-**`nbtLegacy`** — 720x280, light theme, comfortable density
+**`nbtLegacy`** — 720x780, light theme, comfortable density
 
-![The NBT editor surface (Raw data), showing its window search and 3 sections, in the light theme.](docs/huishots/nbtlegacy-caeb179a-20260811.png)
+![The NBT editor surface (Raw data), showing its window search and 3 sections, in the light theme.](docs/huishots/nbtlegacy-1d4215e1-20260811.png)
 
-**`nbtSearch`** — 760x318, light theme, comfortable density
+**`nbtSearch`** — 760x780, light theme, comfortable density
 
-![The NBT search and replace surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/nbtsearch-caeb179a-20260811.png)
+![The NBT search and replace surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/nbtsearch-1d4215e1-20260811.png)
 
-**`noiseGen`** — 620x280, light theme, comfortable density
+**`noiseGen`** — 620x664, light theme, comfortable density
 
-![The Noise fill surface (Generate), showing its window search and 3 sections, in the light theme.](docs/huishots/noisegen-caeb179a-20260811.png)
+![The Noise fill surface (Generate), showing its window search and 3 sections, in the light theme.](docs/huishots/noisegen-1d4215e1-20260811.png)
 
-**`operationOptions`** — 640x280, light theme, comfortable density
+**`operationOptions`** — 640x780, light theme, comfortable density
 
-![The Replace surface (Stock operation), showing its window search and 3 sections, in the light theme.](docs/huishots/operationoptions-caeb179a-20260811.png)
+![The Replace surface (Stock operation), showing its window search and 3 sections, in the light theme.](docs/huishots/operationoptions-1d4215e1-20260811.png)
 
-**`oreAudit`** — 740x280, light theme, comfortable density
+**`oreAudit`** — 740x294, light theme, comfortable density
 
-![The Ore distribution surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/oreaudit-caeb179a-20260811.png)
+![The Ore distribution surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/oreaudit-1d4215e1-20260811.png)
 
-**`patternMask`** — 660x280, light theme, comfortable density
+**`patternMask`** — 660x780, light theme, comfortable density
 
-![The Pattern and mask surface (Build), showing its window search and 4 sections, in the light theme.](docs/huishots/patternmask-caeb179a-20260811.png)
+![The Pattern and mask surface (Build), showing its window search and 4 sections, in the light theme.](docs/huishots/patternmask-1d4215e1-20260811.png)
 
-**`pendingImports`** — 740x318, light theme, comfortable density
+**`pendingImports`** — 740x780, light theme, comfortable density
 
-![The Pending imports surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/pendingimports-caeb179a-20260811.png)
+![The Pending imports surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/pendingimports-1d4215e1-20260811.png)
 
-**`playerData`** — 720x280, light theme, comfortable density
+**`playerData`** — 720x342, light theme, comfortable density
 
-![The Player data surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/playerdata-caeb179a-20260811.png)
+![The Player data surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/playerdata-1d4215e1-20260811.png)
 
-**`playerPanel`** — 720x318, light theme, comfortable density
+**`playerPanel`** — 720x780, light theme, comfortable density
 
-![The Players surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/playerpanel-caeb179a-20260811.png)
+![The Players surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/playerpanel-1d4215e1-20260811.png)
 
-**`pluginsDialog`** — 740x318, light theme, comfortable density
+**`pluginsDialog`** — 740x780, light theme, comfortable density
 
-![The Plugins surface (Extensibility), showing its window search and 4 sections, in the light theme.](docs/huishots/pluginsdialog-caeb179a-20260811.png)
+![The Plugins surface (Extensibility), showing its window search and 4 sections, in the light theme.](docs/huishots/pluginsdialog-1d4215e1-20260811.png)
 
-**`portalBuilder`** — 820x414, light theme, comfortable density
+**`portalBuilder`** — 820x780, light theme, comfortable density
 
-![The Nether portal travel builder surface (Travel), showing its window search and 7 sections, in the light theme.](docs/huishots/portalbuilder-caeb179a-20260811.png)
+![The Nether portal travel builder surface (Travel), showing its window search and 7 sections, in the light theme.](docs/huishots/portalbuilder-1d4215e1-20260811.png)
 
-**`portalLinker`** — 740x280, light theme, comfortable density
+**`portalLinker`** — 740x780, light theme, comfortable density
 
-![The Portal linkage surface (Redstone), showing its window search and 3 sections, in the light theme.](docs/huishots/portallinker-caeb179a-20260811.png)
+![The Portal linkage surface (Redstone), showing its window search and 3 sections, in the light theme.](docs/huishots/portallinker-1d4215e1-20260811.png)
 
-**`presets`** — 720x462, light theme, comfortable density
+**`presets`** — 720x780, light theme, comfortable density
 
-![The Appearance presets surface (Versioned interchange), showing its window search and 3 sections, in the light theme.](docs/huishots/presets-caeb179a-20260811.png)
+![The Appearance presets surface (Versioned interchange), showing its window search and 3 sections, in the light theme.](docs/huishots/presets-1d4215e1-20260811.png)
 
-**`profiler`** — 740x318, light theme, comfortable density
+**`profiler`** — 740x780, light theme, comfortable density
 
-![The Profiler surface (Diagnostics), showing its window search and 2 sections, in the light theme.](docs/huishots/profiler-caeb179a-20260811.png)
+![The Profiler surface (Diagnostics), showing its window search and 2 sections, in the light theme.](docs/huishots/profiler-1d4215e1-20260811.png)
 
-**`pythonConsole`** — 760x280, light theme, comfortable density
+**`pythonConsole`** — 760x626, light theme, comfortable density
 
-![The Python console surface (Diagnostics), showing its window search and 2 sections, in the light theme.](docs/huishots/pythonconsole-caeb179a-20260811.png)
+![The Python console surface (Diagnostics), showing its window search and 2 sections, in the light theme.](docs/huishots/pythonconsole-1d4215e1-20260811.png)
 
-**`railNetwork`** — 740x280, light theme, comfortable density
+**`railNetwork`** — 740x780, light theme, comfortable density
 
-![The Rail network surface (Redstone), showing its window search and 4 sections, in the light theme.](docs/huishots/railnetwork-caeb179a-20260811.png)
+![The Rail network surface (Redstone), showing its window search and 4 sections, in the light theme.](docs/huishots/railnetwork-1d4215e1-20260811.png)
 
-**`railTunnel`** — 840x414, light theme, comfortable density
+**`railTunnel`** — 840x780, light theme, comfortable density
 
-![The Rail tunnel builder surface (Travel), showing its window search and 17 sections, in the light theme.](docs/huishots/railtunnel-caeb179a-20260811.png)
+![The Rail tunnel builder surface (Travel), showing its window search and 17 sections, in the light theme.](docs/huishots/railtunnel-1d4215e1-20260811.png)
 
-**`redstoneTrace`** — 760x318, light theme, comfortable density
+**`redstoneTrace`** — 760x780, light theme, comfortable density
 
-![The Circuit trace surface (Redstone), showing its window search and 5 sections, in the light theme.](docs/huishots/redstonetrace-caeb179a-20260811.png)
+![The Circuit trace surface (Redstone), showing its window search and 5 sections, in the light theme.](docs/huishots/redstonetrace-1d4215e1-20260811.png)
 
-**`regenerate`** — 600x280, light theme, comfortable density
+**`regenerate`** — 600x727, light theme, comfortable density
 
-![The Regenerate chunks surface (Generate), showing its window search and 2 sections, in the light theme.](docs/huishots/regenerate-caeb179a-20260811.png)
+![The Regenerate chunks surface (Generate), showing its window search and 2 sections, in the light theme.](docs/huishots/regenerate-1d4215e1-20260811.png)
 
-**`relight`** — 600x280, light theme, comfortable density
+**`relight`** — 600x445, light theme, comfortable density
 
-![The Relight surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/relight-caeb179a-20260811.png)
+![The Relight surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/relight-1d4215e1-20260811.png)
 
-**`removeEntities`** — 600x280, light theme, comfortable density
+**`removeEntities`** — 600x681, light theme, comfortable density
 
-![The Remove entities surface (Entities), showing its window search and 3 sections, in the light theme.](docs/huishots/removeentities-caeb179a-20260811.png)
+![The Remove entities surface (Entities), showing its window search and 3 sections, in the light theme.](docs/huishots/removeentities-1d4215e1-20260811.png)
 
-**`renderLayers`** — 640x280, light theme, comfortable density
+**`renderLayers`** — 640x780, light theme, comfortable density
 
-![The Render layers surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/renderlayers-caeb179a-20260811.png)
+![The Render layers surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/renderlayers-1d4215e1-20260811.png)
 
-**`schematicLibrary`** — 760x318, light theme, comfortable density
+**`schematicLibrary`** — 760x780, light theme, comfortable density
 
-![The Structure library surface (Build), showing its window search and 3 sections, in the light theme.](docs/huishots/schematiclibrary-caeb179a-20260811.png)
+![The Structure library surface (Build), showing its window search and 3 sections, in the light theme.](docs/huishots/schematiclibrary-1d4215e1-20260811.png)
 
-**`schoolUnlock`** — 520x280, light theme, comfortable density
+**`schoolUnlock`** — 520x642, light theme, comfortable density
 
-![The School mode surface (Presentation lock), showing its window search and 2 sections, in the light theme.](docs/huishots/schoolunlock-caeb179a-20260811.png)
+![The School mode surface (Presentation lock), showing its window search and 2 sections, in the light theme.](docs/huishots/schoolunlock-1d4215e1-20260811.png)
 
-**`scoreboard`** — 740x280, light theme, comfortable density
+**`scoreboard`** — 740x342, light theme, comfortable density
 
-![The Scoreboard surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/scoreboard-caeb179a-20260811.png)
+![The Scoreboard surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/scoreboard-1d4215e1-20260811.png)
 
-**`scriptConsole`** — 760x318, light theme, comfortable density
+**`scriptConsole`** — 760x762, light theme, comfortable density
 
-![The Operation console surface (Automation), showing its window search and 3 sections, in the light theme.](docs/huishots/scriptconsole-caeb179a-20260811.png)
+![The Operation console surface (Automation), showing its window search and 3 sections, in the light theme.](docs/huishots/scriptconsole-1d4215e1-20260811.png)
 
-**`seaLevel`** — 560x280, light theme, comfortable density
+**`seaLevel`** — 560x470, light theme, comfortable density
 
-![The Sea level surface (Generate), showing its window search and 3 sections, in the light theme.](docs/huishots/sealevel-caeb179a-20260811.png)
+![The Sea level surface (Generate), showing its window search and 3 sections, in the light theme.](docs/huishots/sealevel-1d4215e1-20260811.png)
 
-**`seedTools`** — 700x280, light theme, comfortable density
+**`seedTools`** — 700x459, light theme, comfortable density
 
-![The Seed tools surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/seedtools-caeb179a-20260811.png)
+![The Seed tools surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/seedtools-1d4215e1-20260811.png)
 
-**`selectBlockTool`** — 680x280, light theme, comfortable density
+**`selectBlockTool`** — 680x780, light theme, comfortable density
 
-![The Select block surface (Tools), showing its window search and 2 sections, in the light theme.](docs/huishots/selectblocktool-caeb179a-20260811.png)
+![The Select block surface (Tools), showing its window search and 2 sections, in the light theme.](docs/huishots/selectblocktool-1d4215e1-20260811.png)
 
-**`selectEntityTool`** — 660x280, light theme, comfortable density
+**`selectEntityTool`** — 660x560, light theme, comfortable density
 
-![The Select entity surface (Tools), showing its window search and 2 sections, in the light theme.](docs/huishots/selectentitytool-caeb179a-20260811.png)
+![The Select entity surface (Tools), showing its window search and 2 sections, in the light theme.](docs/huishots/selectentitytool-1d4215e1-20260811.png)
 
-**`signSearch`** — 700x280, light theme, comfortable density
+**`signSearch`** — 700x342, light theme, comfortable density
 
-![The Sign text surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/signsearch-caeb179a-20260811.png)
+![The Sign text surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/signsearch-1d4215e1-20260811.png)
 
-**`slimeChunks`** — 660x280, light theme, comfortable density
+**`slimeChunks`** — 660x294, light theme, comfortable density
 
-![The Slime chunks surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/slimechunks-caeb179a-20260811.png)
+![The Slime chunks surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/slimechunks-1d4215e1-20260811.png)
 
-**`smooth`** — 560x280, light theme, comfortable density
+**`smooth`** — 560x628, light theme, comfortable density
 
-![The Smooth terrain surface (Sculpt), showing its window search and 2 sections, in the light theme.](docs/huishots/smooth-caeb179a-20260811.png)
+![The Smooth terrain surface (Sculpt), showing its window search and 2 sections, in the light theme.](docs/huishots/smooth-1d4215e1-20260811.png)
 
-**`spawnAnalysis`** — 760x280, light theme, comfortable density
+**`spawnAnalysis`** — 760x780, light theme, comfortable density
 
-![The Mob spawn analysis surface (Mechanics), showing its window search and 5 sections, in the light theme.](docs/huishots/spawnanalysis-caeb179a-20260811.png)
+![The Mob spawn analysis surface (Mechanics), showing its window search and 5 sections, in the light theme.](docs/huishots/spawnanalysis-1d4215e1-20260811.png)
 
-**`spawnPoints`** — 700x280, light theme, comfortable density
+**`spawnPoints`** — 700x659, light theme, comfortable density
 
-![The Spawn points and beds surface (Redstone), showing its window search and 3 sections, in the light theme.](docs/huishots/spawnpoints-caeb179a-20260811.png)
+![The Spawn points and beds surface (Redstone), showing its window search and 3 sections, in the light theme.](docs/huishots/spawnpoints-1d4215e1-20260811.png)
 
-**`stackArray`** — 620x280, light theme, comfortable density
+**`stackArray`** — 620x615, light theme, comfortable density
 
-![The Stack and array surface (Build), showing its window search and 3 sections, in the light theme.](docs/huishots/stackarray-caeb179a-20260811.png)
+![The Stack and array surface (Build), showing its window search and 3 sections, in the light theme.](docs/huishots/stackarray-1d4215e1-20260811.png)
 
-**`structureLocator`** — 780x280, light theme, comfortable density
+**`structureLocator`** — 780x459, light theme, comfortable density
 
-![The Locate structures surface (Worldgen), showing its window search and 6 sections, in the light theme.](docs/huishots/structurelocator-caeb179a-20260811.png)
+![The Locate structures surface (Worldgen), showing its window search and 6 sections, in the light theme.](docs/huishots/structurelocator-1d4215e1-20260811.png)
 
-**`surfacePaint`** — 620x280, light theme, comfortable density
+**`surfacePaint`** — 620x608, light theme, comfortable density
 
-![The Repaint surface surface (Surface), showing its window search and 3 sections, in the light theme.](docs/huishots/surfacepaint-caeb179a-20260811.png)
+![The Repaint surface surface (Surface), showing its window search and 3 sections, in the light theme.](docs/huishots/surfacepaint-1d4215e1-20260811.png)
 
-**`tabManager`** — 820x280, light theme, comfortable density
+**`tabManager`** — 820x780, light theme, comfortable density
 
-![The Tabs, groups, and safe closing surface (Workspace navigation), showing its window search and 7 sections, in the light theme.](docs/huishots/tabmanager-caeb179a-20260811.png)
+![The Tabs, groups, and safe closing surface (Workspace navigation), showing its window search and 7 sections, in the light theme.](docs/huishots/tabmanager-1d4215e1-20260811.png)
 
-**`terrainBrush`** — 640x280, light theme, comfortable density
+**`terrainBrush`** — 640x780, light theme, comfortable density
 
-![The Terrain brush surface (Sculpt), showing its window search and 4 sections, in the light theme.](docs/huishots/terrainbrush-caeb179a-20260811.png)
+![The Terrain brush surface (Sculpt), showing its window search and 4 sections, in the light theme.](docs/huishots/terrainbrush-1d4215e1-20260811.png)
 
-**`tickLoad`** — 740x280, light theme, comfortable density
+**`tickLoad`** — 740x780, light theme, comfortable density
 
-![The Tick load surface (Mechanics), showing its window search and 3 sections, in the light theme.](docs/huishots/tickload-caeb179a-20260811.png)
+![The Tick load surface (Mechanics), showing its window search and 3 sections, in the light theme.](docs/huishots/tickload-1d4215e1-20260811.png)
 
-**`toolSettings`** — 680x280, light theme, comfortable density
+**`toolSettings`** — 680x769, light theme, comfortable density
 
-![The Tool settings surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/toolsettings-caeb179a-20260811.png)
+![The Tool settings surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/toolsettings-1d4215e1-20260811.png)
 
-**`undoHistory`** — 700x280, light theme, comfortable density
+**`undoHistory`** — 700x780, light theme, comfortable density
 
-![The Undo history surface (History), showing its window search and 2 sections, in the light theme.](docs/huishots/undohistory-caeb179a-20260811.png)
+![The Undo history surface (History), showing its window search and 2 sections, in the light theme.](docs/huishots/undohistory-1d4215e1-20260811.png)
 
-**`update`** — 620x318, light theme, comfortable density
+**`update`** — 620x663, light theme, comfortable density
 
-![The Update status surface (Windows delivery), showing its window search and 2 sections, in the light theme.](docs/huishots/update-caeb179a-20260811.png)
+![The Update status surface (Windows delivery), showing its window search and 2 sections, in the light theme.](docs/huishots/update-1d4215e1-20260811.png)
 
-**`validateRepair`** — 760x318, light theme, comfortable density
+**`validateRepair`** — 760x780, light theme, comfortable density
 
-![The Validate and repair surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/validaterepair-caeb179a-20260811.png)
+![The Validate and repair surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/validaterepair-1d4215e1-20260811.png)
 
-**`versionSelect`** — 560x280, light theme, comfortable density
+**`versionSelect`** — 560x461, light theme, comfortable density
 
-![The Select version surface (Platform), showing its window search and 2 sections, in the light theme.](docs/huishots/versionselect-caeb179a-20260811.png)
+![The Select version surface (Platform), showing its window search and 2 sections, in the light theme.](docs/huishots/versionselect-1d4215e1-20260811.png)
 
-**`viewControls`** — 700x280, light theme, comfortable density
+**`viewControls`** — 700x780, light theme, comfortable density
 
-![The View settings surface (View), showing its window search and 3 sections, in the light theme.](docs/huishots/viewcontrols-caeb179a-20260811.png)
+![The View settings surface (View), showing its window search and 3 sections, in the light theme.](docs/huishots/viewcontrols-1d4215e1-20260811.png)
 
-**`waypoints`** — 620x280, light theme, comfortable density
+**`waypoints`** — 620x694, light theme, comfortable density
 
-![The Waypoints surface (Navigation), showing its window search and 3 sections, in the light theme.](docs/huishots/waypoints-caeb179a-20260811.png)
+![The Waypoints surface (Navigation), showing its window search and 3 sections, in the light theme.](docs/huishots/waypoints-1d4215e1-20260811.png)
 
-**`workPlane`** — 600x280, light theme, comfortable density
+**`workPlane`** — 600x641, light theme, comfortable density
 
-![The Work plane surface (View), showing its window search and 3 sections, in the light theme.](docs/huishots/workplane-caeb179a-20260811.png)
+![The Work plane surface (View), showing its window search and 3 sections, in the light theme.](docs/huishots/workplane-1d4215e1-20260811.png)
 
-**`worldBorder`** — 660x280, light theme, comfortable density
+**`worldBorder`** — 660x342, light theme, comfortable density
 
-![The World border surface (Boundaries), showing its window search and 3 sections, in the light theme.](docs/huishots/worldborder-caeb179a-20260811.png)
+![The World border surface (Boundaries), showing its window search and 3 sections, in the light theme.](docs/huishots/worldborder-1d4215e1-20260811.png)
 
-**`worldDiff`** — 780x280, light theme, comfortable density
+**`worldDiff`** — 780x759, light theme, comfortable density
 
-![The Compare worlds surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/worlddiff-caeb179a-20260811.png)
+![The Compare worlds surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/worlddiff-1d4215e1-20260811.png)
 
-**`worldInfo`** — 700x280, light theme, comfortable density
+**`worldInfo`** — 700x342, light theme, comfortable density
 
-![The World info surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/worldinfo-caeb179a-20260811.png)
+![The World info surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/worldinfo-1d4215e1-20260811.png)
 
 </details>
 
@@ -1336,19 +1352,107 @@ These are recorded rather than omitted. A gap nobody mentions reads as coverage.
 
 | Surface | Why not |
 | --- | --- |
-| `menu-appearance` | 8 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 74% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence. |
-| `menu-application-file` | 9 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 74% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence. |
-| `menu-application-view` | 16 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 74% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence. |
+| `menu-appearance` | 7 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 78% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence. |
+| `menu-application-file` | 7 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 78% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence. |
+| `menu-application-view` | 7 descendant(s) reported drawing but the picture holds only 3 distinct colours and is 78% one colour: the rows did not draw, so the file was deleted rather than shipped as evidence. |
 
 </details>
 
 <details>
-<summary><b>Menus and overlays not opened</b> — 1</summary>
+<summary><b>Menus and overlays not opened</b> — 89</summary>
 
 A menu that a run could not raise is written down here rather than left out. A gap nobody mentions reads as coverage.
 
 | Surface | Why not |
 | --- | --- |
+| `dropdown-about-none` | the About surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-analyzetool-none` | the Analyze surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-biomemap-none` | the Biome map surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-biomeselect-none` | the Select biome surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-blockaudit-none` | the Block state audit surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-blockhistogram-none` | the Block histogram surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-brushtool-none` | the Shape brush surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-cavemap-none` | the Cave coverage surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-chunkinspector-none` | the Chunk inspector surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-commandfinder-none` | the Command blocks surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-configureblocks-none` | the Configure blocks surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-confirm-none` | the Delete unselected chunks surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-convertprogress-none` | the Converting world surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-dimsum-none` | the Har gow · 蝦餃 surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-docs-none` | the Documentation surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-editchunktool-none` | the Edit chunk surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-entitybrowser-none` | the Entity browser surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-entityedit-none` | the Edit entity surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-errorreport-none` | the Unexpected error surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-externaleditor-none` | the External editor surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-forceloaded-none` | the Force-loaded chunks surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-gamerules-none` | the Game rules surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-goto-none` | the Teleport surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-heightlimits-none` | the Height limits surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-history-none` | the Project history surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-importchunks-none` | the Import chunks surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-itemtypelist-none` | the Item types surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-languageselect-none` | the Language Select surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-layerslice-none` | the Layer slice surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-leveldat-none` | the level.dat surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-librarypanel-none` | the Library surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-licenses-none` | the Third Party Licenses surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-loading-none` | the Please wait while the renderer loads surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-lootaudit-none` | the Loot audit surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-mapitems-none` | the Map items surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-measure-none` | the Measure surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-movetool-none` | the Move surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-nbtlegacy-none` | the NBT editor surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-nbtsearch-none` | the NBT search and replace surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-operationoptions-none` | the Replace surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-oreaudit-none` | the Ore distribution surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-pendingimports-none` | the Pending imports surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-playerdata-none` | the Player data surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-playerpanel-none` | the Players surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-pluginsdialog-none` | the Plugins surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-portallinker-none` | the Portal linkage surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-profiler-none` | the Profiler surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-pythonconsole-none` | the Python console surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-railnetwork-none` | the Rail network surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-regenerate-none` | the Regenerate chunks surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-renderlayers-none` | the Render layers surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-analyze-none` | the analyze ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-automate-none` | the automate ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-build-none` | the build ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-chunks-none` | the chunks ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-data-none` | the data ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-entities-none` | the entities ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-extend-none` | the extend ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-home-1-dimension` | the opener ran but showed no popup |
+| `dropdown-ribbon-home-disabled` | 1 dropdown(s) on this surface are disabled in a capture run and refuse to open: Dimension |
+| `dropdown-ribbon-operations-none` | the operations ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-panels-none` | the panels ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-redstone-none` | the redstone ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-selection-none` | the selection ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-terrain-none` | the terrain ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-tools-none` | the tools ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-ribbon-worldgen-none` | the worldgen ribbon tab carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-schematiclibrary-none` | the Structure library surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-schoolunlock-none` | the School mode surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-scoreboard-none` | the Scoreboard surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-scriptconsole-none` | the Operation console surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-seedtools-none` | the Seed tools surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-selectblocktool-none` | the Select block surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-selectentitytool-none` | the Select entity surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-shell-none` | the Studio shell carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-signsearch-none` | the Sign text surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-slimechunks-none` | the Slime chunks surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-smooth-none` | the Smooth terrain surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-spawnpoints-none` | the Spawn points and beds surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-structurelocator-none` | the Locate structures surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-tickload-none` | the Tick load surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-undohistory-none` | the Undo history surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-update-none` | the Update status surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-validaterepair-none` | the Validate and repair surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-waypoints-none` | the Waypoints surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-worldborder-none` | the World border surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-worlddiff-none` | the Compare worlds surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
+| `dropdown-worldinfo-none` | the World info surface carries no dropdown at all, so this walk had nothing to open; recorded so an empty result cannot be mistaken for a walk that never ran |
 | `regexbuilder-every-other-search-field` | The builder is one class, opened by every search bar in the product; it is photographed from 4 kinds of host (regexBuilder.dropdown, regexBuilder.menu, regexBuilder.palette, regexBuilder.panel). The Studio shell alone carries 3 search bars and every spec surface carries at least one more, so photographing each field's builder would repeat the same popover under a different anchor name. |
 
 </details>
