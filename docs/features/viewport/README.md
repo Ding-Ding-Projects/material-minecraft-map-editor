@@ -23,7 +23,15 @@ blank rectangle and not a decorative screenshot.
 
 Right-clicking the viewport opens the viewport context menu: searchable, with
 each entry's keyboard shortcut shown right-aligned, and carrying
-**Edit appearance…** like every other menu.
+**Edit appearance…** like every other menu. The shortcuts on the selection and
+projection rows are read from the user's own 3D editor key configuration, not
+from the shipped defaults, so a rebound key is the one the menu prints.
+
+**Deselect active box** and **Deselect all boxes** run the same two changes the
+editor's `ACT_DESELECT_BOX` and `ACT_DESELECT_ALL_BOXES` keys make: one drops
+the active box from the selection, the other clears it. They were greyed out
+while printing those very keys, which taught the reader a working feature was
+missing; a row that cannot run now prints no shortcut at all.
 
 ## Configuration
 

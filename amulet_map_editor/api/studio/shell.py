@@ -48,7 +48,7 @@ import wx
 
 from amulet_map_editor.api import local_history, preferences
 from amulet_map_editor.api.studio import commands, context, surfaces, tokens
-from amulet_map_editor.api.studio import recents
+from amulet_map_editor.api.studio import recents, ribbon_defs
 from amulet_map_editor.api.studio.backstage import BackstageView
 from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.title_bar import (
@@ -59,7 +59,14 @@ from amulet_map_editor.api.studio.workspace import WorkspaceView
 
 log = logging.getLogger(__name__)
 
-__all__ = ["DEFAULT_PROJECT_TITLE", "StudioShell"]
+__all__ = [
+    "DEFAULT_PROJECT_TITLE",
+    "StudioShell",
+    "frame_camera",
+    "framing_distance",
+    "look_at",
+    "top_down_framing",
+]
 
 #: What the shell calls a project nobody has named yet.
 DEFAULT_PROJECT_TITLE = "Untitled project"
@@ -147,6 +154,25 @@ _COMMAND_TOOLS: Mapping[str, str] = MappingProxyType(
     }
 )
 
+
+def _same_operation(left: str, right: str) -> bool:
+    """Return whether two operation names are the same one, spelled either way.
+
+    The construction exporter registers itself as ``"\\tExport Construction"``
+    -- a literal tab, so that it sorts to the top of an alphabetical chooser --
+    and every other comparison of that name is against the string without it.
+    Comparing exactly would report a correct arrival as a failure, so case and
+    surrounding space are dropped rather than either spelling being declared
+    the right one.  Same rule as
+    :func:`amulet_map_editor.api.studio.editor_tools._same_operation`, which
+    exists for the same tab.
+    """
+    return (
+        " ".join(str(left or "").split()).casefold()
+        == " ".join(str(right or "").split()).casefold()
+    )
+
+
 #: Commands whose real controls live on a surface.  Consulted only when a
 #: project is open and the editor could not carry the command out, so the user
 #: lands on the window where the action is configured instead of on a message
@@ -188,6 +214,32 @@ _MUTATING_COMMANDS: Tuple[str, ...] = (
     "importChunks",
 )
 
+#: Editor commands ``_after_editor_command`` answers with a branch of its own,
+#: because the undo depth is not their evidence.
+#:
+#: Copy and Reload plugins were in neither tuple, and a command in neither
+#: tuple falls off the end of that function and says *nothing at all* -- which
+#: is how pressing Ctrl+C on a world came to produce zero notifications at any
+#: severity.  Listing them here rather than in ``_MUTATING_COMMANDS`` is the
+#: distinction that matters: neither writes to the world, so the mutating
+#: report would have answered a copy that worked perfectly with "the world
+#: recorded no new undo point, so nothing in it changed".  Copy's evidence is
+#: the clipboard and Reload's is the operation list, and each reports from the
+#: thing it actually did.
+#:
+#: ``undo`` and ``redo`` appear here *and* in ``_MUTATING_COMMANDS``, which is
+#: correct for those two alone: they genuinely move the world, and they also
+#: report the resulting depth themselves rather than through the generic
+#: sentence.
+_REPORTED_COMMANDS: Tuple[str, ...] = (
+    "undo",
+    "redo",
+    "selectAll",
+    "goto",
+    "copy",
+    "reloadPlugins",
+)
+
 #: The three press-and-hold selection gestures: the keybind the editor listens
 #: for, what it moves, and the button on the Select tool that does the same job
 #: from the keyboard.
@@ -198,6 +250,142 @@ _MOVE_COMMANDS: Mapping[str, Tuple[str, str, str]] = MappingProxyType(
         "movePoint2": ("ACT_BOX_CLICK_ADD", "the blue selection point", "_point2_move"),
     }
 )
+
+
+#: The rotation the 3D editor itself installs while the camera looks straight
+#: down, copied from ``CameraBehaviour.move_camera_relative`` rather than
+#: guessed: the top-down projection ignores any other rotation, so framing a
+#: dimension from above has to hand back the one it uses.  The camera normalises
+#: yaw into ``[-180, 180)`` and therefore stores this as ``(-180.0, 90.0)``,
+#: which is the same bearing written the other way round.
+_TOP_DOWN_ROTATION: Tuple[float, float] = (180.0, 90.0)
+
+#: How far above the horizontal the framing camera sits, in degrees.  A flat
+#: view hides the terrain behind the nearest hill and a vertical one throws away
+#: the perspective that makes a landscape readable; this is the angle a mapping
+#: tool conventionally opens at.
+_FRAME_PITCH = 35.0
+
+#: The fraction of the viewport's far clipping distance the framing camera is
+#: allowed to retreat to.  A camera beyond the far plane frames a dimension by
+#: not drawing it.
+_FRAME_CLIP_MARGIN = 0.9
+
+
+def look_at(
+    location: Tuple[float, float, float], target: Tuple[float, float, float]
+) -> Tuple[float, float]:
+    """Return the ``(yaw, pitch)`` that points a camera at ``location`` at ``target``.
+
+    The angles are in the convention
+    :class:`~amulet_map_editor.api.opengl.camera.camera.Camera` uses -- yaw 0
+    faces +Z, positive pitch looks downwards -- and were checked against the
+    renderer's own ``camera_matrix``: each pair puts the target on the camera's
+    -Z axis at exactly the separating distance, which is what "looking at it"
+    means to the matrix that draws the frame.
+
+    A target the camera is already standing on has no direction to face, so the
+    camera's job is done and ``(0.0, 0.0)`` is returned rather than an angle
+    derived from a zero-length vector.
+    """
+    dx = float(target[0]) - float(location[0])
+    dy = float(target[1]) - float(location[1])
+    dz = float(target[2]) - float(location[2])
+    if dx == 0.0 and dy == 0.0 and dz == 0.0:
+        return (0.0, 0.0)
+    return (
+        math.degrees(math.atan2(-dx, dz)),
+        math.degrees(math.atan2(-dy, math.hypot(dx, dz))),
+    )
+
+
+def framing_distance(radius: float, fov: float, aspect: float) -> float:
+    """Return how far back a camera must sit for a sphere to fit in view.
+
+    ``fov`` is the vertical field of view in degrees, which is what
+    ``perspective_matrix`` is handed, and ``aspect`` is width over height.  A
+    window wider than it is tall shows more sideways than it does vertically, so
+    the vertical angle is the binding one; a taller-than-wide window inverts
+    that, and the narrower of the two is used either way.
+
+    The result is the distance from the sphere's *centre*, not from its near
+    face, so the caller places the camera at ``centre + direction * distance``.
+    """
+    span = max(0.0, float(radius))
+    half_vertical = math.radians(max(1.0, min(179.0, float(fov)))) / 2.0
+    ratio = max(0.01, float(aspect))
+    half_horizontal = math.atan(math.tan(half_vertical) * ratio)
+    limiting = min(half_vertical, half_horizontal)
+    return span / math.sin(limiting)
+
+
+def frame_camera(
+    minimum: Tuple[int, int, int],
+    maximum: Tuple[int, int, int],
+    *,
+    fov: float,
+    aspect: float,
+    far: float,
+) -> Tuple[Tuple[float, float, float], Tuple[float, float], bool]:
+    """Return where a perspective camera goes to hold a box in view.
+
+    The box is bounded by a sphere rather than fitted face-on, because a
+    dimension viewed from an angle presents its diagonal rather than its width;
+    fitting the width is what leaves the far corners off the screen.  The camera
+    retreats due north of the centre and :data:`_FRAME_PITCH` degrees above it,
+    so it looks south and downwards -- Minecraft's own default facing, which is
+    the orientation a player's mental map of their world is already in -- and it
+    is stopped short of the viewport's far clipping plane.
+
+    Returns ``(location, rotation, capped)``.  ``capped`` is ``True`` when the
+    dimension is larger than the viewport can draw, which the caller says out
+    loud rather than presenting a partial view as a complete one.
+    """
+    centre = tuple(
+        (float(low) + float(high)) / 2.0 for low, high in zip(minimum, maximum)
+    )
+    radius = (
+        math.dist(
+            [float(value) for value in minimum], [float(value) for value in maximum]
+        )
+        / 2.0
+    )
+    wanted = framing_distance(radius, fov, aspect)
+    limit = max(1.0, float(far) * _FRAME_CLIP_MARGIN)
+    capped = wanted > limit
+    distance = min(wanted, limit)
+    pitch = math.radians(_FRAME_PITCH)
+    location = (
+        centre[0],
+        centre[1] + distance * math.sin(pitch),
+        centre[2] - distance * math.cos(pitch),
+    )
+    return location, look_at(location, centre), capped
+
+
+def top_down_framing(
+    minimum: Tuple[int, int, int],
+    maximum: Tuple[int, int, int],
+    aspect: float,
+) -> Tuple[Tuple[float, float, float], float]:
+    """Return the camera position and orthographic radius for a top-down frame.
+
+    ``orthographic_matrix`` takes a radius measured up the *screen*, and the
+    renderer's own matrices were asked which world axis that is: looking down at
+    rotation :data:`_TOP_DOWN_ROTATION`, world Z runs up the screen and world X
+    runs across it, widened by the aspect ratio.  So Z is bounded directly and X
+    is bounded after dividing by the aspect -- the other way round frames a
+    long, thin dimension by cutting its ends off.
+    """
+    centre = tuple(
+        (float(low) + float(high)) / 2.0 for low, high in zip(minimum, maximum)
+    )
+    ratio = max(0.01, float(aspect))
+    half_x = abs(float(maximum[0]) - float(minimum[0])) / 2.0
+    half_z = abs(float(maximum[2]) - float(minimum[2])) / 2.0
+    radius = max(1.0, half_z, half_x / ratio)
+    height = float(maximum[1]) + radius
+    return (centre[0], height, centre[2]), radius
 
 
 @dataclass(frozen=True)
@@ -594,15 +782,19 @@ class StudioShell(wx.Panel):
             "openInEditor": self._cmd_open_in_editor,
             "addBox": self._cmd_add_box,
             "removeBox": self._cmd_remove_box,
+            "duplicateBox": self._cmd_duplicate_box,
+            "deselectAllBoxes": self._cmd_deselect_all_boxes,
             "rotate": self._cmd_transform,
             "flip": self._cmd_transform,
             "projection": self._cmd_projection,
+            "frameDimension": self._cmd_frame_dimension,
             "cameraSpeed": self._cmd_camera_speed,
             "setDimension": self._cmd_set_dimension,
             "togglePane": self._cmd_toggle_pane,
             "toggleRibbon": self._cmd_toggle_ribbon,
             "toggleTheme": self._cmd_toggle_theme,
             "setDensity": self._cmd_set_density,
+            "setExportFormat": self._cmd_set_export_format,
             "openPalette": self._cmd_open_palette,
             "updateRestart": self._cmd_update_restart,
         }
@@ -869,7 +1061,16 @@ class StudioShell(wx.Panel):
         )
 
     def _cmd_remove_box(self, key: str) -> None:
-        """Drop the most recently added box from the editor's selection."""
+        """Drop the most recently added box from the editor's selection.
+
+        The viewport menu's "Deselect active box" arrives here too, through the
+        ``deselectBox`` alias.  The 3D editor's own ``ACT_DESELECT_BOX`` does
+        exactly this -- ``self.selection_group = selection_group[:-1]`` in
+        :class:`~amulet_map_editor.programs.edit.api.behaviour.
+        block_selection_behaviour.BlockSelectionBehaviour` -- so the two names
+        share one implementation rather than each growing its own answer to the
+        same question.
+        """
         canvas = self._canvas()
         corners = list(self._selection_corners())
         if not corners:
@@ -900,6 +1101,226 @@ class StudioShell(wx.Panel):
                 f"{high[2]} is gone; {len(corners)} remain."
             ),
             severity="success",
+        )
+
+    def _cmd_deselect_all_boxes(self, key: str) -> None:
+        """Clear the editor's whole selection, as the viewport's own key does.
+
+        This is ``ACT_DESELECT_ALL_BOXES`` -- ``self.selection_group =
+        SelectionGroup()`` in the editor's selection behaviour -- reached from a
+        menu row instead of from the keyboard, and written against the same
+        selection the editor's key writes to.
+        """
+        canvas = self._canvas()
+        corners = list(self._selection_corners())
+        if not corners:
+            self.notify(
+                studio_label("Nothing is selected", "冇嘢揀咗"),
+                studio_text("There is no selection box in this world to deselect."),
+                severity="warning",
+            )
+            return
+        if not self._set_selection_corners(canvas, []):
+            return
+        self._record(
+            "selection-deselect-all",
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "boxes_cleared": len(corners),
+            },
+        )
+        self._sync_world_state()
+        self.notify(
+            studio_label("Selection cleared", "清晒個選取"),
+            studio_text(
+                f"{len(corners)} selection {'box' if len(corners) == 1 else 'boxes'} "
+                "left the selection; nothing is selected now."
+            ),
+            severity="success",
+        )
+
+    def _cmd_duplicate_box(self, key: str) -> None:
+        """Copy the active selection box and place the copy beside it.
+
+        The copy is offset by the box's own width along X rather than laid on
+        top of the original.  A duplicate at the same coordinates is a box the
+        user cannot see, cannot pick up, and cannot tell apart from the one it
+        was made from, so the command would report having done something whose
+        only evidence is a number in a panel.  Where the copy went is in the
+        notification, because an offset the user did not ask for is a fact they
+        have to be told rather than left to discover.
+        """
+        canvas = self._canvas()
+        corners = list(self._selection_corners())
+        if not corners:
+            self.notify(
+                studio_label("Nothing is selected", "冇嘢揀咗"),
+                studio_text("There is no selection box in this world to duplicate."),
+                severity="warning",
+            )
+            return
+        low, high = corners[-1]
+        low = tuple(int(value) for value in low)
+        high = tuple(int(value) for value in high)
+        # ``max(1, …)`` so a zero-width box still moves: a copy that landed on
+        # its original would be the invisible duplicate this offset exists for.
+        shift = max(1, abs(high[0] - low[0]))
+        copy_low = (low[0] + shift, low[1], low[2])
+        copy_high = (high[0] + shift, high[1], high[2])
+        corners.append((copy_low, copy_high))
+        if not self._set_selection_corners(canvas, corners):
+            return
+        self._record(
+            "selection-duplicate-box",
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "source_minimum": list(low),
+                "source_maximum": list(high),
+                "minimum": list(copy_low),
+                "maximum": list(copy_high),
+                "offset": [shift, 0, 0],
+                "boxes": len(corners),
+            },
+        )
+        self._sync_world_state()
+        self.notify(
+            studio_label("Selection box duplicated", "複製咗個選取框"),
+            studio_text(
+                f"The box at {low[0]}, {low[1]}, {low[2]} was copied to "
+                f"{copy_low[0]}, {copy_low[1]}, {copy_low[2]} — {shift} "
+                f"{'block' if shift == 1 else 'blocks'} east, so the two do not "
+                f"overlap. The selection now holds {len(corners)} boxes."
+            ),
+            severity="success",
+        )
+
+    def _cmd_frame_dimension(self, key: str) -> None:
+        """Move the camera so the whole of this dimension is in view.
+
+        The extent framed is the *generated* one -- the chunks the world
+        actually has -- rather than the dimension's nominal bounds, which on a
+        Java world run to thirty million blocks in each direction and would
+        frame a mostly empty rectangle with the player's build somewhere inside
+        it as a single pixel.  Reading it walks the region files, the same cost
+        ``select_all`` already pays, so this is a command the user asks for
+        rather than something that runs on its own.
+        """
+        canvas = self._canvas()
+        camera = getattr(canvas, "camera", None)
+        if camera is None:
+            self.notify(
+                studio_label("There is no camera to move", "冇鏡頭可以郁"),
+                studio_text(
+                    "This world's 3D editor has not reported a camera, so there is "
+                    "nothing to frame the dimension with."
+                ),
+                severity="warning",
+            )
+            return
+        extent = self._dimension_extent()
+        if extent is None:
+            self.notify(
+                studio_label("Nothing to frame", "冇嘢可以望"),
+                studio_text(
+                    f"{self._dimension_name() or 'This dimension'} has no generated "
+                    "chunks, so there is nothing for the camera to frame."
+                ),
+                severity="warning",
+            )
+            return
+        minimum, maximum = extent
+        size = tuple(high - low for low, high in zip(minimum, maximum))
+        aspect = float(getattr(camera, "aspect_ratio", 4 / 3) or 4 / 3)
+        # Compared by name rather than by importing ``Projection``: this module
+        # must stay importable on a machine whose OpenGL stack does not load,
+        # and the enumeration lives behind that import.
+        projection = str(getattr(getattr(camera, "projection_mode", None), "name", ""))
+        if projection == "TOP_DOWN":
+            location, radius = top_down_framing(minimum, maximum, aspect)
+            camera.location_rotation = (location, _TOP_DOWN_ROTATION)
+            camera.fov = radius
+            capped = False
+        else:
+            far = 10000.0
+            try:
+                far = float(camera.perspective_clipping[1])
+            except Exception:  # pragma: no cover - a camera without clipping
+                log.debug("Could not read the camera's far clipping plane")
+            location, rotation, capped = frame_camera(
+                minimum,
+                maximum,
+                fov=float(getattr(camera, "perspective_fov", 70.0) or 70.0),
+                aspect=aspect,
+                far=far,
+            )
+            camera.location_rotation = (location, rotation)
+        self._record(
+            "camera-frame-dimension",
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "minimum": list(minimum),
+                "maximum": list(maximum),
+                "camera": [round(value, 3) for value in location],
+                "clipped": capped,
+            },
+        )
+        placed = tuple(int(round(value)) for value in camera.location)
+        self.notify(
+            studio_label("Framed the dimension", "望晒成個維度"),
+            studio_text(
+                f"{self._dimension_name() or 'This dimension'} spans {size[0]}x"
+                f"{size[1]}x{size[2]} blocks from {minimum[0]}, {minimum[1]}, "
+                f"{minimum[2]}; the camera is now at {placed[0]}, {placed[1]}, "
+                f"{placed[2]}."
+                + (
+                    " It is larger than the viewport can draw at once, so the far "
+                    "edge is beyond the render distance."
+                    if capped
+                    else ""
+                )
+            ),
+            severity="warning" if capped else "success",
+        )
+
+    def _dimension_extent(
+        self,
+    ) -> Optional[Tuple[Tuple[int, int, int], Tuple[int, int, int]]]:
+        """Return the block extent of the generated chunks in this dimension.
+
+        ``None`` means the dimension has no generated chunks or could not be
+        read, which the caller reports rather than framing a made-up box.  The
+        horizontal extent comes from the chunks that exist and the vertical one
+        from the world's own bounds, exactly as ``EditCanvas.select_all`` builds
+        the selection it calls "everything".
+        """
+        canvas = self._canvas()
+        level = getattr(canvas, "world", None)
+        if level is None:
+            return None
+        try:
+            dimension = canvas.dimension
+            coords = tuple(level.all_chunk_coords(dimension))
+        except Exception:  # pragma: no cover - a level being torn down
+            log.debug("Could not read the dimension's chunks", exc_info=True)
+            return None
+        if not coords:
+            return None
+        try:
+            span = int(level.sub_chunk_size)
+            bounds = level.bounds(dimension)
+            low_y = int(bounds.min[1])
+            high_y = int(bounds.max[1])
+        except Exception:  # pragma: no cover - a level without bounds
+            log.debug("Could not read the dimension's bounds", exc_info=True)
+            return None
+        xs = [int(x) for x, _z in coords]
+        zs = [int(z) for _x, z in coords]
+        return (
+            (min(xs) * span, low_y, min(zs) * span),
+            ((max(xs) + 1) * span, high_y, (max(zs) + 1) * span),
         )
 
     def _cmd_move_gesture(self, key: str) -> None:
@@ -978,8 +1399,7 @@ class StudioShell(wx.Panel):
             self._apply_paste_transform(key, announce=True)
             return
         try:
-            canvas.copy()
-            canvas.paste_from_cache()
+            copied = canvas.copy()
         except Exception:
             log.exception("Could not float a copy of the selection for %r", key)
             self.notify(
@@ -987,6 +1407,39 @@ class StudioShell(wx.Panel):
                 studio_text(
                     "The selection could not be copied, so there is nothing to "
                     "transform. The details are in the log."
+                ),
+                severity="error",
+            )
+            return
+        # ``EditCanvas.copy`` contains the operation's own exceptions, so the
+        # ``except`` above could never fire for a copy that failed *inside* the
+        # operation -- which is every way a copy actually fails.  The outcome is
+        # what says so.  ``None`` means a canvas that predates the outcome and is
+        # not evidence either way, so it carries on exactly as before.
+        if copied is not None and not copied:
+            failed = bool(getattr(copied, "failed", False))
+            detail = str(getattr(copied, "message", "") or "")
+            log.warning(
+                "The copy for %r did not complete: %s", key, detail or "no detail"
+            )
+            self.notify(
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    "The selection was not copied, so there is nothing to transform"
+                    + (f": {detail}" if detail else ".")
+                ),
+                severity="error" if failed else "warning",
+            )
+            return
+        try:
+            canvas.paste_from_cache()
+        except Exception:
+            log.exception("Could not float the copied selection for %r", key)
+            self.notify(
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    "The copied selection could not be handed to the paste tool, "
+                    "so there is nothing to transform. The details are in the log."
                 ),
                 severity="error",
             )
@@ -1288,6 +1741,59 @@ class StudioShell(wx.Panel):
             severity="success",
         )
 
+    def _cmd_set_export_format(self, _key: str) -> None:
+        """Say which exporter Export will now run, and retarget a live one.
+
+        The dropdown shipped raising nothing at all, which is how it came to
+        decide nothing: a control that stores a value nobody reads is a control
+        that operates and means nothing.  It now does the two things a format
+        choice can honestly do -- name the exporter it has chosen, and, when the
+        Export tool is already the tool on screen, switch that tool over to it
+        rather than leaving the user looking at a chooser disagreeing with the
+        ribbon above it.
+        """
+        value = self._ribbon_value("Format")
+        operation = ribbon_defs.structure_format_operation(value)
+        label = ribbon_defs.structure_format_label(value) or value
+        if not operation:
+            self.notify(
+                studio_label("Export format", "匯出格式"),
+                studio_text(
+                    f"No exporter is registered for the format {value!r}, so "
+                    "Export cannot write it. The formats this build can write "
+                    "are " + ", ".join(ribbon_defs.structure_format_values()) + "."
+                ),
+                severity="warning",
+            )
+            return
+        retargeted = False
+        if self._active_tool_name() == _COMMAND_TOOLS["export"]:
+            retargeted = self._activate_tool(
+                _COMMAND_TOOLS["export"], {"operation": operation}
+            )
+        showing = self._selected_exporter()
+        if retargeted and not _same_operation(showing, operation):
+            # Asked back rather than assumed: the tool may refuse, and a
+            # dropdown reporting a switch that did not happen is the same defect
+            # one layer along.
+            self.notify(
+                studio_label("Export format", "匯出格式"),
+                studio_text(
+                    f"The Export tool was asked for {operation} and is showing "
+                    f"{showing or 'no exporter'}. Press Export to try again."
+                ),
+                severity="warning",
+            )
+            return
+        self.notify(
+            studio_label("Export format", "匯出格式"),
+            studio_text(
+                f"Export will write {label} through the {operation} exporter."
+                + (" The Export tool has switched to it." if retargeted else "")
+            ),
+            severity="success",
+        )
+
     def _cmd_open_palette(self, _key: str) -> None:
         self.open_palette()
 
@@ -1302,13 +1808,50 @@ class StudioShell(wx.Panel):
             log.exception("Could not read the ribbon dropdown %r", label)
             return ""
 
+    def _export_operation(self) -> Tuple[str, str, str]:
+        """Return ``(value, label, operation)`` for the chosen export format.
+
+        The value is read from the ribbon and mapped through
+        :data:`~amulet_map_editor.api.studio.ribbon_defs.STRUCTURE_FORMATS`.  An
+        unmapped value comes back with an empty operation rather than the first
+        exporter, because a silent default here is exactly what shipped: four
+        options, one destination, and a success toast naming the destination
+        back at somebody who had chosen one of the other three.
+        """
+        value = self._ribbon_value("Format") or (
+            ribbon_defs.STRUCTURE_FORMATS[0].value
+            if ribbon_defs.STRUCTURE_FORMATS
+            else ""
+        )
+        return (
+            value,
+            ribbon_defs.structure_format_label(value) or value,
+            ribbon_defs.structure_format_operation(value),
+        )
+
+    def _selected_exporter(self) -> str:
+        """Return the operation the Export tool's own chooser is showing."""
+        tool = self._editor_tool(_COMMAND_TOOLS["export"])
+        if tool is None:
+            return ""
+        try:
+            return str(getattr(tool, "active_operation_name", "") or "")
+        except Exception:  # pragma: no cover - a tool without its chooser yet
+            log.debug("Could not read the selected exporter", exc_info=True)
+            return ""
+
     # -- commands the world editor owns --------------------------------------
     def _cmd_editor(self, key: str) -> None:
         """Hand a command to the live editor and report what it did."""
         action = _EDITOR_ACTIONS.get(key)
         before = self._history_counts()
+        # Read before the command runs, because a copy's only evidence is that
+        # the clipboard grew: its size afterwards on its own cannot tell a copy
+        # that worked from one that raised over a clipboard somebody had
+        # already filled.
+        clipboard_before = self._clipboard_size()
         if action is not None and self._editor_call(action):
-            self._after_editor_command(key, before)
+            self._after_editor_command(key, before, clipboard_before=clipboard_before)
             return
         fallback = _COMMAND_SURFACES.get(key)
         if fallback:
@@ -1339,10 +1882,21 @@ class StudioShell(wx.Panel):
         Activating that tool *is* the command: it is what the editor's own
         buttons do, and the alternative -- guessing a path or a plugin on the
         user's behalf -- would be inventing the one value they came to supply.
+
+        Export is the exception, and it is not an invention: the Format
+        dropdown beside the button is the value the user came to supply, and it
+        is carried into the tool as the operation to select.  Without it the
+        tool started on whichever exporter its chooser sorted first -- which is
+        ``Export Construction``, because that plugin's name begins with a tab --
+        so three of the four formats on offer wrote a fourth kind of file.
         """
         name = _COMMAND_TOOLS[key]
+        state = None
+        if key == "export":
+            _value, _label, operation = self._export_operation()
+            state = {"operation": operation} if operation else None
         tool = self._editor_tool(name)
-        if tool is None or not self._activate_tool(name):
+        if tool is None or not self._activate_tool(name, state):
             fallback = _COMMAND_SURFACES.get(key)
             if fallback:
                 self.notify(
@@ -1364,15 +1918,17 @@ class StudioShell(wx.Panel):
                 severity="warning",
             )
             return
-        self._record(
-            key,
-            {
-                "path": self.project_path,
-                "dimension": self._dimension_name(),
-                "tool": name,
-                "selection_boxes": len(self._selection_corners()),
-            },
-        )
+        payload: Dict[str, Any] = {
+            "path": self.project_path,
+            "dimension": self._dimension_name(),
+            "tool": name,
+            "selection_boxes": len(self._selection_corners()),
+        }
+        if key == "export":
+            value, _label, operation = self._export_operation()
+            payload["format"] = value
+            payload["exporter"] = operation
+        self._record(key, payload)
         if key == "runOperation":
             wx.CallAfter(self._run_active_operation, tool)
             return
@@ -1383,7 +1939,15 @@ class StudioShell(wx.Panel):
         )
 
     def _tool_message(self, key: str, name: str, tool: Any) -> str:
-        """Return what to say once a tool has been brought to the front."""
+        """Return what to say once a tool has been brought to the front.
+
+        For Export this sentence has to name the format the user chose, and it
+        has to be the one the tool is genuinely on rather than the one it was
+        asked for.  It said neither: it read the chooser -- correctly -- and the
+        chooser had never been told anything, so a user who picked
+        ``schematic (.schematic)`` was told "Export Construction" and had no way
+        to tell the difference from the message alone.
+        """
         boxes = len(self._selection_corners())
         if key == "importFile":
             return (
@@ -1401,11 +1965,28 @@ class StudioShell(wx.Panel):
         chosen = str(getattr(tool, "active_operation_name", "") or "") or str(
             getattr(tool, "active_operation_id", "") or ""
         )
-        return (
+        opening = (
             f"The {name} tool is now showing, with the "
             f"{boxes} selected {'box' if boxes == 1 else 'boxes'} as its input"
-            + (f". The selected exporter is {chosen}." if chosen else ".")
         )
+        if key != "export":
+            return opening + (
+                f". The selected exporter is {chosen}." if chosen else "."
+            )
+        _value, label, wanted = self._export_operation()
+        if not wanted:
+            return (
+                f"{opening}. No exporter is registered for the chosen format, so "
+                f"the tool is showing {chosen or 'no exporter'}; choose another "
+                "format in the ribbon."
+            )
+        if not _same_operation(chosen, wanted):
+            return (
+                f"{opening}. It was asked to write {label} through {wanted} and "
+                f"is showing {chosen or 'no exporter'} instead, so check the "
+                "exporter in the tool before running it."
+            )
+        return f"{opening}, writing {label} through the {chosen} exporter."
 
     def _run_active_operation(self, tool: Any) -> None:
         """Run whatever operation the editor's Operation tool has selected."""
@@ -1428,14 +2009,70 @@ class StudioShell(wx.Panel):
                 severity="warning" if not chosen else "info",
             )
             return
+        # ``runOperation`` needs only ``editor`` in ``commands.REQUIREMENTS``,
+        # deliberately: the command's first job is to bring the Operation tool
+        # to the front, and gating that on a selection would stop the user
+        # reaching the chooser until after they had selected something -- the
+        # wrong way round for anybody who wants to see what the operations are.
+        # Running one is the other half, and that half does need a selection,
+        # because every operation is handed ``selection.selection_group`` and an
+        # empty group means it acts on nothing.  So the tool is shown and the
+        # run is declined, naming the tool's own Run button so an operation that
+        # genuinely ignores the selection is still reachable.
+        if not self._selection_corners():
+            self.notify(
+                studio_label("Operations", "操作"),
+                studio_text(
+                    f"The Operation tool is now showing with {chosen or 'an operation'} "
+                    "selected, and it was not run because nothing is selected -- an "
+                    "operation is given the selection to work on. Select a region and "
+                    "run it again, or use the tool's own Run button if this operation "
+                    "does not need one."
+                ),
+                severity="warning",
+            )
+            return
         before = self._history_counts()
-        runner(None)
+        outcome = runner(None)
+        # ``failed`` is read off the outcome rather than imported, so this keeps
+        # working against a panel whose ``_run_operation`` returns nothing --
+        # which is what every one of them did until the canvas learnt to report.
+        if getattr(outcome, "failed", False):
+            detail = str(getattr(outcome, "message", "") or "")
+            log.warning("The operation %r did not complete: %s", chosen, detail)
+            self._record(
+                "runOperation",
+                {
+                    "path": self.project_path,
+                    "dimension": self._dimension_name(),
+                    "subject": chosen or "operation",
+                    "undo_points_before": before[0],
+                    "undo_points_after": self._history_counts()[0],
+                    "failed": True,
+                    "error": detail,
+                },
+            )
+            self._sync_world_state()
+            self.notify(
+                studio_label("Operations", "操作"),
+                studio_text(
+                    f"{chosen or 'The operation'} stopped with an error, so nothing "
+                    f"was written into {self.doc_title}"
+                    + (f": {detail}" if detail else ".")
+                ),
+                severity="error",
+            )
+            return
         self._after_editor_command(
             "runOperation", before, subject=chosen or "operation"
         )
 
     def _after_editor_command(
-        self, key: str, before: Tuple[int, int], subject: str = ""
+        self,
+        key: str,
+        before: Tuple[int, int],
+        subject: str = "",
+        clipboard_before: int = -1,
     ) -> None:
         """Record, re-read, and report what a delegated command changed.
 
@@ -1443,6 +2080,15 @@ class StudioShell(wx.Panel):
         operation that created an undo point genuinely changed something, and
         one that did not says so rather than reporting a success the user cannot
         see in the viewport.
+
+        It is not evidence for every command, though, and the two it says
+        nothing about were the two this function used to answer with silence.
+        A copy writes nothing to the world, so its undo depth is unmoved
+        whether it filled the clipboard or raised; a plugin reload does not
+        touch the world at all.  ``clipboard_before`` is what the copy branch
+        measures against instead, and it is read before the command runs
+        because a clipboard that is non-empty afterwards may simply have been
+        non-empty already.  ``-1`` means nobody took that reading.
         """
         after = self._history_counts()
         level = self._level()
@@ -1504,6 +2150,12 @@ class StudioShell(wx.Panel):
                 ),
             )
             return
+        if key == "copy":
+            self._report_copy(clipboard_before)
+            return
+        if key == "reloadPlugins":
+            self._report_plugin_reload()
+            return
         # The evidence check and the report it guards are asked the *same*
         # question, deliberately.  They were not: the guard asked only about
         # ``_MUTATING_COMMANDS`` while the report below fired for a ``subject``
@@ -1535,6 +2187,154 @@ class StudioShell(wx.Panel):
                 ),
                 severity="success",
             )
+
+    # -- what the two read-only commands say ---------------------------------
+    def _report_copy(self, clipboard_before: int) -> None:
+        """Say what reached the clipboard, or that nothing did.
+
+        Copy is the one editing command whose entire result is invisible: the
+        viewport looks identical afterwards whether it worked or raised.  It
+        reported nothing at all, so those two outcomes were indistinguishable
+        from the interface.
+
+        The evidence is the clipboard growing rather than the command having
+        been called.  ``EditCanvas.run_operation`` swallows the operation's
+        exception when ``throw_exceptions`` is false, so "the method ran" is
+        exactly the claim that cannot be trusted here.
+        """
+        copied = self._copied_structure()
+        if clipboard_before < 0 or self._clipboard_size() <= clipboard_before:
+            self.notify(
+                studio_label("Nothing was copied", "冇嘢複製到"),
+                studio_text(
+                    "The editor ran the copy but nothing reached the clipboard, "
+                    "so there is nothing to paste. The world was not changed."
+                ),
+                severity="warning",
+            )
+            return
+        if copied is None:
+            self.notify(
+                studio_label("Copied", "複製咗"),
+                studio_text(
+                    "Something is on the clipboard, but the editor did not "
+                    "report how big it is. The world was not changed."
+                ),
+                severity="warning",
+            )
+            return
+        blocks, boxes = copied
+        # The dimension the editor is in, not the one the structure calls
+        # itself.  ``structure_cache`` hands back the *structure's* own
+        # dimension key, which for every extracted structure is the literal
+        # string ``"main"`` -- so this sentence read "copied from main", which
+        # is not a place in anybody's world.
+        dimension = self._dimension_name()
+        self.notify(
+            studio_label("Copied", "複製咗"),
+            studio_text(
+                f"{blocks:,} {'block' if blocks == 1 else 'blocks'} in "
+                f"{boxes} {'box' if boxes == 1 else 'boxes'}"
+                + (f" from {dimension}" if dimension else "")
+                + f" {'is' if blocks == 1 else 'are'} on the clipboard. "
+                "Nothing in the world was changed."
+            ),
+            severity="success",
+        )
+
+    def _report_plugin_reload(self) -> None:
+        """Say how many operations came back, or that none did.
+
+        A reload that found nothing -- because a plugin in the operations
+        folder failed to import and took the scan down with it -- looked
+        exactly like a reload that found everything, which is to say it looked
+        like nothing at all.
+        """
+        names = self._loaded_operation_names()
+        if names is None:
+            self.notify(
+                studio_label("Operations reloaded", "重新載入咗操作"),
+                studio_text(
+                    "The editor reloaded its Python operations but did not say "
+                    "which ones it found. Open the Operation tool to see what "
+                    "is there."
+                ),
+                severity="warning",
+            )
+            return
+        if not names:
+            self.notify(
+                studio_label("No operations found", "搵唔到操作"),
+                studio_text(
+                    "The editor reloaded its Python operations and found none. "
+                    "Check the operations folder for a plugin that failed to "
+                    "import."
+                ),
+                severity="warning",
+            )
+            return
+        self.notify(
+            studio_label("Operations reloaded", "重新載入咗操作"),
+            studio_text(
+                f"The editor reloaded its Python operations; {len(names)} "
+                f"{'is' if len(names) == 1 else 'are'} available."
+            ),
+            severity="success",
+        )
+
+    @staticmethod
+    def _clipboard_size() -> int:
+        """Return how many structures the editor's clipboard is holding."""
+        try:
+            from amulet.api.structure import structure_cache
+
+            return len(structure_cache)
+        except Exception:  # pragma: no cover - amulet-core unavailable
+            log.debug("Could not read the editor clipboard", exc_info=True)
+            return 0
+
+    @staticmethod
+    def _copied_structure() -> Optional[Tuple[int, int]]:
+        """Return ``(blocks, boxes)`` for the newest entry on the clipboard.
+
+        Measured from the structure that is actually on the clipboard rather
+        than from the editor's current selection: the two agree only until
+        somebody drags a box after copying, and this sentence is about what can
+        be pasted.
+
+        The structure's own dimension key is deliberately not returned.  Every
+        extracted structure calls its single dimension ``"main"``, so reporting
+        it produced "copied from main" -- a place in no world.
+        """
+        try:
+            from amulet.api.structure import structure_cache
+
+            if not len(structure_cache):
+                return None
+            structure, _dimension = structure_cache.get_structure()
+            bounds = structure.selection_bounds
+            return (int(bounds.volume), len(bounds.selection_boxes))
+        except Exception:  # pragma: no cover - a structure mid-write
+            log.debug("Could not measure the copied structure", exc_info=True)
+            return None
+
+    def _loaded_operation_names(self) -> Optional[Tuple[str, ...]]:
+        """Return the operations the editor is offering, or ``None``.
+
+        ``None`` rather than an empty tuple when the tool could not be asked,
+        because "the editor offers no operations" and "nothing could be asked"
+        are different sentences and only one of them is a problem to go and
+        look at.
+        """
+        tool = self._editor_tool("Operation")
+        names = getattr(tool, "operation_names", None) if tool is not None else None
+        if names is None:
+            return None
+        try:
+            return tuple(str(name) for name in names)
+        except Exception:  # pragma: no cover - a chooser mid-rebuild
+            log.debug("Could not read the loaded operations", exc_info=True)
+            return None
 
     # -- reaching the live editor --------------------------------------------
     def _canvas(self) -> Any:
@@ -1571,19 +2371,72 @@ class StudioShell(wx.Panel):
             log.debug("Could not read the editor tools", exc_info=True)
             return None
 
-    def _activate_tool(self, name: str) -> bool:
-        """Ask the editor to switch to one of its tools; say whether it could."""
+    def _active_tool_name(self) -> str:
+        """Return the name of the editor tool that is currently showing."""
+        canvas = self._canvas()
+        if canvas is None:
+            return ""
+        try:
+            tools = canvas.tools
+        except Exception:  # pragma: no cover - a canvas without its tool sizer
+            log.debug("Could not read the editor tools", exc_info=True)
+            return ""
+        for name, tool in tools.items():
+            try:
+                windows = list(tool.windows())
+            except Exception:  # noqa: BLE001 - a tool without its panels yet
+                continue
+            if windows and all(window.IsShown() for window in windows):
+                return str(name)
+        return ""
+
+    def _activate_tool(self, name: str, state: Any = None) -> bool:
+        """Ask the editor to switch to one of its tools; say whether it could.
+
+        ``state`` is handed to the tool's own ``set_state`` by the tool manager,
+        which is how a caller says *which* operation the tool should arrive on.
+        The Export and Operation tools are choosers, and a chooser started with
+        nothing to select lands on whatever sorts first.
+
+        A true answer means the change was posted and the queue was drained, not
+        that the tool changed: the switch belongs to somebody else's handler and
+        it may refuse.  Every caller that reports an outcome therefore reads the
+        canvas back afterwards rather than reporting this return value.
+        """
         canvas = self._canvas()
         if canvas is None or self._editor_tool(name) is None:
             return False
         try:
             from amulet_map_editor.programs.edit.api.events import ToolChangeEvent
 
-            wx.PostEvent(canvas, ToolChangeEvent(tool=str(name)))
+            wx.PostEvent(canvas, ToolChangeEvent(tool=str(name), state=state))
         except Exception:
             log.exception("Could not switch the editor to the %r tool", name)
             return False
+        self._settle()
         return True
+
+    @staticmethod
+    def _settle(passes: int = 3) -> None:
+        """Let the canvas handle the tool change that was just posted at it.
+
+        A tool change is a posted event, so without this the next line reads the
+        tool that was active a moment ago and reports it as the one that just
+        started -- which is the difference between saying what happened and
+        saying what was asked for.  It is the same reason
+        :func:`amulet_map_editor.api.studio.editor_tools._post_tool_change`
+        settles, and it is why the Export toast could name the previous exporter
+        while the tool went on to select a different one.
+        """
+        app = wx.GetApp()
+        if app is None:
+            return
+        for _pass in range(max(1, passes)):
+            try:
+                app.ProcessPendingEvents()
+                wx.Yield()
+            except Exception:  # noqa: BLE001 - yielding inside a yield
+                return
 
     def _focus_select_tool_button(self, attribute: str) -> bool:
         """Show the Select tool and focus one of its nudge buttons.

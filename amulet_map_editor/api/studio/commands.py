@@ -142,6 +142,7 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     ("openBackstage", "Open the project screen", "Project"),
     ("backToWorkspace", "Back to the workspace", "Project"),
     ("export", "Export the selection", "Project"),
+    ("setExportFormat", "Choose the structure export format", "Project"),
     ("importFile", "Import a structure file", "Project"),
     ("importChunks", "Import chunks from another world", "Project"),
     ("convertWorld", "Convert this world to another platform", "Project"),
@@ -158,6 +159,8 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     # -- Selection -----------------------------------------------------------
     ("addBox", "Add a selection box", "Selection"),
     ("removeBox", "Remove the active selection box", "Selection"),
+    ("duplicateBox", "Duplicate the active selection box", "Selection"),
+    ("deselectAllBoxes", "Deselect every selection box", "Selection"),
     ("moveBox", "Move the active selection box", "Selection"),
     ("movePoint1", "Move selection point 1", "Selection"),
     ("movePoint2", "Move selection point 2", "Selection"),
@@ -173,6 +176,7 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     ("reloadPlugins", "Reload the Python operations", "Operations"),
     # -- View ----------------------------------------------------------------
     ("projection", "Switch the viewport projection", "View"),
+    ("frameDimension", "Frame this dimension in the viewport", "View"),
     ("cameraSpeed", "Set the camera speed", "View"),
     ("setDimension", "Switch dimension", "View"),
     ("togglePane", "Show or hide the properties pane", "View"),
@@ -209,8 +213,15 @@ _BY_KEY: Mapping[str, Command] = MappingProxyType(
 #: says ``closeProject`` -- and because renaming a key in somebody else's module
 #: would silently break the button that uses it.  An alias never appears in a
 #: listing: one action deserves exactly one row in the palette.
+#:
+#: ``deselectBox`` is here rather than in :data:`_DEFINITIONS` because the 3D
+#: editor's ``ACT_DESELECT_BOX`` and this registry's ``removeBox`` do the same
+#: thing to the same selection -- both drop the last box from it -- and two rows
+#: in the palette for one action would be two names for one outcome.  The
+#: viewport menu keeps its own label, which is the design's wording for it.
 ALIASES: Mapping[str, str] = MappingProxyType(
     {
+        "deselectBox": "removeBox",
         "saveProject": "save",
         "save_project": "save",
         "close_project": "closeProject",
@@ -294,6 +305,8 @@ REQUIREMENTS: Mapping[str, Tuple[str, ...]] = MappingProxyType(
         # -- Selection -------------------------------------------------------
         "addBox": ("editor",),
         "removeBox": ("editor", "selection"),
+        "duplicateBox": ("editor", "selection"),
+        "deselectAllBoxes": ("editor", "selection"),
         "moveBox": ("editor", "selection"),
         "movePoint1": ("editor", "selection"),
         "movePoint2": ("editor", "selection"),
@@ -309,6 +322,7 @@ REQUIREMENTS: Mapping[str, Tuple[str, ...]] = MappingProxyType(
         "reloadPlugins": ("editor",),
         # -- View ------------------------------------------------------------
         "setDimension": ("project",),
+        "frameDimension": ("editor",),
     }
 )
 

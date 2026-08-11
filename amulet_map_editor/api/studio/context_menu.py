@@ -22,6 +22,15 @@ registered leaves the row exactly where the design put it, disabled, carrying a
 tooltip that names what is unmet: a menu that quietly loses a command teaches
 the reader the product does not have it.
 
+**And a disabled row prints no shortcut.**  The two halves of a row come from
+different places -- a viewport row's key is read from the 3D editor's live key
+group, while whether it can be run is read from the shell's command registry --
+so a row can be greyed out beside a key that works.  It was: "Deselect all
+boxes" sat disabled next to the editor's real ``ACT_DESELECT_ALL_BOXES``
+binding, teaching a user that a working feature was missing.  Both those rows
+are wired now, and :class:`_MenuRow` withholds the accelerator from any row it
+draws disabled, so the pairing cannot come back through a different row.
+
 **Accelerators the shell installs come from one table.**  :data:`ACCELERATORS`
 is the single source for those bindings: the retained menus read it to draw
 their text, and :func:`accelerator_table_entries` turns the same rows into the
@@ -351,6 +360,12 @@ def _viewport_menu() -> Tuple[MenuItem, ...]:
     An action that cannot be read prints no accelerator at all, which is that
     function's documented answer and the right one: a blank is a row you press
     with the mouse, while a wrong key is a row that trains a habit.
+
+    The two deselect rows print a key *and* run: ``deselectBox`` is the shell's
+    ``removeBox`` under the design's own wording, and ``deselectAllBoxes`` is
+    the shell command that clears the selection the editor's own
+    ``ACT_DESELECT_ALL_BOXES`` clears.  They were greyed out while printing
+    those live bindings, which is the one pairing this menu must never draw.
     """
     return (
         _item(
@@ -396,7 +411,14 @@ def _viewport_menu() -> Tuple[MenuItem, ...]:
 
 
 def _navigator_menu() -> Tuple[MenuItem, ...]:
-    """The design's ``ctxMenus.navigator``: ten rows, in its order."""
+    """The design's ``ctxMenus.navigator``: ten rows, in its order.
+
+    ``frameDimension`` and ``duplicateBox`` were in no command table, so two of
+    these ten drew disabled from the day the menu shipped.  They are the shell's
+    commands now -- one moves the camera to hold the dimension's generated
+    extent, the other copies the active box a box-width clear of itself -- so
+    every row here runs.
+    """
     return (
         _item("Frame this dimension", accel="", command="frameDimension"),
         _item("Add selection box", accel="", command="addBox"),
@@ -843,6 +865,16 @@ class _MenuRow(wx.Control, widgets._Interactive):
     user hears the shortcut the sighted user reads.  A row whose destination
     this build has not registered is drawn disabled and says what is unmet in
     both its tooltip and its accessible name.
+
+    **A disabled row shows no accelerator.**  It showed one, and the viewport
+    menu proved why that is worse than showing nothing: "Deselect all boxes" was
+    greyed out beside ``Ctrl+Shift+D``, a key the 3D editor really does listen
+    for, because the row's accelerator is read from the *editor's* live key
+    group while the row's enabled state is read from the *shell's* command
+    registry.  The two answer different questions, so a row can be dead and its
+    printed key alive at the same time -- and a menu is where a user learns a
+    shortcut, so that pairing teaches them the feature does not exist when it
+    does.  A row this build cannot run says only that.
     """
 
     HEIGHT = 32
@@ -860,9 +892,13 @@ class _MenuRow(wx.Control, widgets._Interactive):
         self.item = item
         self.on_activate = on_activate
         self.unavailable = str(unavailable)
+        #: What this row actually draws on its right: nothing while it cannot
+        #: be run, whatever the item states otherwise.  Read by the painter and
+        #: by the accessible name so the two cannot disagree.
+        self.accel = "" if self.unavailable else item.accel
         name = item.label
-        if item.accel:
-            name = f"{name}, {item.accel}"
+        if self.accel:
+            name = f"{name}, {self.accel}"
         if self.unavailable:
             # A disabled window does not reliably raise a tooltip, so the reason
             # rides in the accessible name too rather than only in the tooltip.
@@ -915,13 +951,13 @@ class _MenuRow(wx.Control, widgets._Interactive):
             accel_ink = tokens.blend(palette.on_surface_variant, palette.surface, 0.55)
         inner = tokens.scaled(self.PADDING)
         accel_width = 0
-        if self.item.accel:
+        if self.accel:
             gcdc.SetFont(tokens.mono_font(self, widgets.point_size(10)))
             gcdc.SetTextForeground(accel_ink)
-            accel_width = gcdc.GetTextExtent(self.item.accel)[0]
+            accel_width = gcdc.GetTextExtent(self.accel)[0]
             accel_height = gcdc.GetCharHeight()
             gcdc.DrawText(
-                self.item.accel,
+                self.accel,
                 max(inner, width - inner - accel_width),
                 (height - accel_height) // 2,
             )
