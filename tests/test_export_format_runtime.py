@@ -12,8 +12,8 @@ success toast reads "Export Construction" back at somebody who chose a
 schematic.
 
 So the assertion here is deliberately not "an exporter was selected".  Four
-assertions name four different exporters, each read back from the ``wx.Choice``
-the user is looking at, after the ribbon's own dropdown has been set and the
+assertions name four different exporters, each read back from the chooser the
+user is looking at, after the ribbon's own dropdown has been set and the
 ribbon's own Export command run.  A regression that dropped the operation state
 again would leave exactly one of these green -- construction, the one that was
 right by accident -- which is the shape this module exists to make impossible.
@@ -22,6 +22,22 @@ right by accident -- which is the shape this module exists to make impossible.
 ``ribbon_defs.STRUCTURE_FORMATS``, and that table is checked against the plugin
 files' own declarations in ``tests/test_export_format_routing.py``.  A constant
 repeated here would agree with the table by construction.
+
+**A false negative this module already produced once.**  The exporter chooser
+used to be a real ``wx.Choice`` and ``_exporter_chooser`` below found it with
+``isinstance(node, wx.Choice)``.  The Material 3 conversion moved that chooser
+to ``MaterialChoice`` -- a ``wx.Panel`` answering the same
+``GetStrings``/``GetStringSelection`` vocabulary but not a ``wx.Choice`` -- and
+every run after that read every arrival as "no chooser found", collapsed every
+``selected`` to the same empty string, and failed
+``test_no_two_formats_arrived_on_the_same_exporter`` with exactly the sentence
+the real regression produces.  Ground truth checked separately (driving
+``StudioShell._selected_exporter()``, the same getattr-based read the export
+toast itself uses) showed all four formats already landing on four distinct
+exporters, so the routing was never broken; the widget search was looking for
+a type the running application had stopped building.  ``_exporter_chooser`` now
+matches by the methods a chooser answers rather than by its class, which
+catches the legacy ``wx.Choice`` and the current ``MaterialChoice`` alike.
 
 **When this module cannot run at all.**  Opening a real world needs a real
 world, a real GPU context and a machine not already running another copy of this
@@ -151,10 +167,26 @@ def _format_dropdown(shell: Any) -> Optional[Any]:
 def _exporter_chooser(canvas: Any) -> Optional[Any]:
     """Return the Export tool's own exporter list, or ``None``.
 
-    Identified by what it holds -- the one ``wx.Choice`` offering every stock
+    Identified by what it holds -- the one dropdown offering every stock
     exporter -- rather than by position, because an exporter's own options panel
-    carries dropdowns of its own and the first Choice found is often one of
+    carries dropdowns of its own and the first match found is often one of
     those.
+
+    Identified by *duck type*, not ``isinstance(node, wx.Choice)``.  The
+    operation chooser this walk is looking for used to be a real ``wx.Choice``
+    and is now ``MaterialChoice`` -- a Material 3 control that answers the same
+    ``GetStrings``/``GetStringSelection`` vocabulary but is built on
+    ``wx.Panel``, not ``wx.Choice``, so an isinstance check against the old
+    class stopped matching it the day the Material conversion landed.  That
+    silent mismatch is exactly the shape of the failure this module's own
+    docstring warns about: every arrival read back as an unfound chooser, every
+    ``selected`` collapsed to the same empty string, and "two formats exported
+    through the same exporter" fired on a routing bug that no longer existed --
+    proven by driving the shell's own ``_selected_exporter()`` (the same
+    getattr-based read the export toast uses) through all four formats and
+    watching it land on four distinct operations. Matching on the methods
+    rather than the class catches both the legacy ``wx.Choice`` and the current
+    ``MaterialChoice``, and anything else built to the same vocabulary later.
     """
     tool = editor_tools.tool_named("Export", canvas)
     if tool is None:
@@ -170,8 +202,10 @@ def _exporter_chooser(canvas: Any) -> Optional[Any]:
     while stack:
         node = stack.pop()
         try:
-            if isinstance(node, wx.Choice):
-                offered = {" ".join(str(text).split()) for text in node.GetStrings()}
+            get_strings = getattr(node, "GetStrings", None)
+            get_selection = getattr(node, "GetStringSelection", None)
+            if callable(get_strings) and callable(get_selection):
+                offered = {" ".join(str(text).split()) for text in get_strings()}
                 if wanted <= offered:
                     return node
             stack.extend(node.GetChildren())
