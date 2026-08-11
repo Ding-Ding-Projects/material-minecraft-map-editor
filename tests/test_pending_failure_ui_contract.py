@@ -12,9 +12,13 @@ placing is still on your screen".
 **Why the pane is driven with a stand-in canvas.**  The real
 ``confirm_pending`` runs here -- it is the code under test and is not replaced.
 What is replaced is the world beneath it: a canvas whose paste operation raises,
-routed through the same ``run_operation`` swallow the real one uses, because
+routed through the same containment the real ``run_operation`` uses and
+returning the same ``OperationOutcome`` the real paste tool hands back, because
 staging a genuinely failing paste inside a real world means breaking the paste
-tool on purpose.  The branch logic behind those outcomes is proven in
+tool on purpose.  The stand-in matching the shipped shape is the whole point of
+it: one that answers ``None`` sends the bridge down its legacy undo-depth route
+instead, so this module would photograph a path the application no longer takes
+and call it the contract.  The branch logic behind those outcomes is proven in
 ``tests/test_editor_confirm_outcome.py``; the successful route through a real
 world is proven in ``tests/test_editor_clone_runtime.py``.  This module proves
 the part neither of those can: that the words reach the screen and the panel
@@ -34,6 +38,10 @@ from amulet_map_editor.api import notifications  # noqa: E402
 from amulet_map_editor.api.studio import editor_tools  # noqa: E402
 from amulet_map_editor.api.studio import properties_pane as pane_module  # noqa: E402
 from amulet_map_editor.api.studio.widgets import StudioText  # noqa: E402
+from amulet_map_editor.programs.edit.api.canvas.edit_canvas import (  # noqa: E402
+    OperationOutcome,
+    contained_outcome,
+)
 
 EXTENT: Tuple[int, int, int] = (4, 1, 4)
 LOCATION: Tuple[int, int, int] = (8, 40, 8)
@@ -55,7 +63,15 @@ class _World:
 
 
 class _Canvas:
-    """A canvas that swallows exactly as ``EditCanvas.run_operation`` does."""
+    """A canvas that contains exactly what ``EditCanvas.run_operation`` does.
+
+    ``Exception`` rather than ``BaseException``, and an ``OperationOutcome``
+    returned either way.  This said ``BaseException`` with a comment claiming
+    "the real one is this broad" long after that had stopped being true, and the
+    cost was not cosmetic: a paste tool built on it reported nothing, so every
+    test in this module drove the bridge's *legacy* undo-depth inference and
+    none of them touched the branch the shipped application actually takes.
+    """
 
     def __init__(self) -> None:
         self.tools: dict = {}
@@ -71,23 +87,25 @@ class _Canvas:
     ) -> Any:
         try:
             out = operation()
-        except BaseException as error:  # noqa: BLE001 - the real one is this broad
+        except Exception as error:
             if throw_exceptions:
                 raise error
-        else:
-            self.world.history_manager.undo_count += 1
-            return out
+            return contained_outcome(error)
+        self.world.history_manager.undo_count += 1
+        return OperationOutcome(ok=True, value=out)
 
 
 class _FailingPasteTool:
+    """The shipped paste tool: it hands back what ``run_operation`` told it."""
+
     def __init__(self, canvas: _Canvas) -> None:
         self._is_enabled = True
         self._canvas = canvas
         self.calls = 0
 
-    def confirm_paste(self) -> None:
+    def confirm_paste(self) -> Any:
         self.calls += 1
-        self._canvas.run_operation(self._operation)
+        return self._canvas.run_operation(self._operation)
 
     @staticmethod
     def _operation() -> None:

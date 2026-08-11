@@ -201,6 +201,14 @@ def test_a_lost_undo_point_does_not_claim_the_write_failed() -> None:
     Reporting this as a failed edit would send somebody looking for blocks that
     are already there, and reporting nothing at all is how the undo stack
     silently stops matching the world.
+
+    This containment is **new**, and saying so matters because the commit that
+    added it described itself only as narrowing a swallow.  Before it, the
+    undo-point call sat outside any ``try`` and a history that could not be
+    written took the caller's frame with it.  Nothing relied on that raise, and
+    an edit that landed is better reported than re-raised -- but a newly
+    contained exception is still a newly contained exception, so it is pinned
+    here rather than left as an undocumented side effect.
     """
     written = object()
     error = RuntimeError("the history file is read only")
@@ -211,6 +219,32 @@ def test_a_lost_undo_point_does_not_claim_the_write_failed() -> None:
     assert outcome.value is written, outcome
     assert outcome.error is error
     assert len(canvas.calls) == 2, canvas.calls
+
+
+@pytest.mark.parametrize("error", (KeyboardInterrupt(), SystemExit(1), GeneratorExit()))
+def test_the_interpreter_is_not_contained_by_the_undo_point_either(
+    error: BaseException,
+) -> None:
+    """The *second* catch, which the parametrised test above cannot reach.
+
+    ``run_operation`` contains twice: once around the operation and once around
+    the undo point it creates afterwards.  A script of one entry can only ever
+    raise from the first, so widening the second ``except`` back to
+    ``BaseException`` -- reinstating the original defect at that site exactly --
+    left every other test in this module green.  Watched failing that way before
+    being kept.
+
+    Ctrl+C while the history is being written is still Ctrl+C, and it is the
+    likelier half of the two: creating the undo point for a large edit is slow,
+    which is precisely when somebody reaches for it.
+    """
+    canvas = _Canvas(object(), error)
+    with pytest.raises(type(error)):
+        EditCanvas.run_operation(canvas, lambda: None, title="Amulet")
+    assert len(canvas.calls) == 2, (
+        "the undo point was never attempted, so this test proves nothing about "
+        f"the second catch and would pass against one of any width: {canvas.calls}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +275,7 @@ class _LiftCanvas:
         self._outcome = outcome
         self._adds = adds
         self.selection = self
+        self.reported: List[Any] = []
 
     @property
     def selection_group(self) -> Any:
@@ -249,6 +284,16 @@ class _LiftCanvas:
     def run_operation(self, operation: Callable[[], Any], **kwargs: Any) -> Any:
         _cache.held += self._adds
         return self._outcome
+
+    def _report_copy(self, before: int, outcome: Any) -> None:
+        """Record the announcement rather than raising it.
+
+        ``EditCanvas.copy`` says what reached the clipboard through the
+        non-blocking notifier, which wants a real window.  What is under test
+        here is the outcome the method *returns*; the sentence it shows belongs
+        to whatever covers that reporting.
+        """
+        self.reported.append((before, outcome))
 
 
 _cache = _Cache()
@@ -347,6 +392,19 @@ class _Shell:
 
     def _sync_world_state(self) -> None:
         return None
+
+    def _shown_operation_name(self, tool: Any) -> str:
+        """Mirror the shell's own helper: the chooser's name, then its id.
+
+        ``_run_active_operation`` reads the operation's *name* through this
+        rather than off the tool directly, so a stand-in without it raises
+        ``AttributeError`` before reaching anything under test.  The fallback
+        chain is copied rather than delegated because the point of a stand-in is
+        to be the smallest ``self`` the method reaches for.
+        """
+        return str(getattr(tool, "active_operation_name", "") or "") or str(
+            getattr(tool, "active_operation_id", "") or ""
+        )
 
     def _after_editor_command(
         self, key: str, before: Tuple[int, int], subject: str = ""
@@ -449,8 +507,15 @@ class _TransformCanvas:
     def __init__(self, outcome: Any) -> None:
         self._outcome = outcome
         self.pasted = 0
+        self.report_asked: Any = None
 
-    def copy(self) -> Any:
+    def copy(self, report: bool = True) -> Any:
+        # ``report`` is recorded rather than ignored: a rotation copies as an
+        # internal step and must not announce a clipboard the user never asked
+        # for.  A stand-in that would not accept the argument sends the real
+        # ``_cmd_transform`` into its own ``except`` and every assertion below
+        # then measures a ``TypeError`` instead of the branch it names.
+        self.report_asked = report
         return self._outcome
 
     def paste_from_cache(self) -> None:
@@ -542,3 +607,129 @@ def test_a_canvas_that_reports_nothing_still_floats_and_transforms(
     shell = _transform(canvas, monkeypatch)
     assert canvas.pasted == 1, shell.said
     assert shell.deferred, shell.said
+
+
+# ---------------------------------------------------------------------------
+# lifting a selection, where the paste tool must not get somebody else's copy
+# ---------------------------------------------------------------------------
+#
+# ``editor_tools._lift_selection`` is the Clone and Move half of the same
+# change, and it had no test of any kind: nothing in ``tests/`` even named it,
+# and the real-editor clone test only ever drives its success path.  Deleting
+# its refusal left every other module green while Clone handed the paste tool
+# the *previous* copy -- the structure cache still holds it, so a failed copy
+# looks exactly like a successful one from the tool's side.
+
+from amulet_map_editor.api.studio import editor_tools  # noqa: E402
+
+
+class _SelectionGroup:
+    """A selection with one box in it, as much as ``selection_state`` reads."""
+
+    selection_boxes = (object(),)
+    volume = 8
+    min = (0, 0, 0)
+    max = (2, 2, 2)
+
+
+class _Selection:
+    selection_group = _SelectionGroup()
+
+
+class _HeldPaste:
+    """A paste tool that exists and is enabled, which is all the bridge asks."""
+
+    _is_enabled = True
+    _moving = False
+
+
+class _LiftCanvasBridge:
+    """A canvas whose ``copy`` is scripted and whose paste hand-off is counted."""
+
+    def __init__(self, outcome: Any) -> None:
+        self._outcome = outcome
+        self.tools = {"Paste": _HeldPaste()}
+        self.selection = _Selection()
+        self.pasted = 0
+        self.copies = 0
+
+    def copy(self) -> Any:
+        self.copies += 1
+        return self._outcome
+
+    def paste_from_cache(self) -> None:
+        self.pasted += 1
+
+
+def _clone(outcome: Any, monkeypatch: Any) -> Tuple[Any, _LiftCanvasBridge, List[Any]]:
+    """Press Clone against a canvas whose copy answers ``outcome``."""
+    said: List[Any] = []
+    monkeypatch.setattr(
+        editor_tools,
+        "_report",
+        lambda parent, title, body, severity="warning": said.append(
+            (severity, str(title), str(body))
+        ),
+    )
+    # The pane that would otherwise be shown the result is a live window; the
+    # activation is returned to the caller either way, which is what is asserted.
+    monkeypatch.setattr(editor_tools, "_host", None, raising=False)
+    canvas = _LiftCanvasBridge(outcome)
+    return editor_tools.activate("cloneTool", None, canvas), canvas, said
+
+
+def test_a_copy_that_failed_is_not_handed_to_the_paste_tool(monkeypatch) -> None:
+    """The defect, stated as what the user would have been given.
+
+    The structure cache keeps whatever was copied last, so floating it after a
+    failed copy puts *somebody else's blocks* under the pointer with a panel
+    saying the selection was copied.  Confirming that writes them into the
+    world.
+    """
+    result, canvas, said = _clone(
+        OperationOutcome(ok=False, reason="raised", message="the chunk was locked"),
+        monkeypatch,
+    )
+    assert canvas.copies == 1, "the copy was never attempted, so nothing was proven"
+    assert canvas.pasted == 0, (
+        "a copy that failed was still floated in the paste tool, so the user is "
+        "holding the previous copy and does not know it"
+    )
+    assert result.ok is False, result
+    assert "the chunk was locked" in result.message, result.message
+    assert said and said[0][0] == "error", said
+
+
+def test_a_cancelled_copy_is_refused_without_being_called_an_error(monkeypatch) -> None:
+    """A cancel still leaves nothing to hand over, and is not a fault to show.
+
+    ``failed`` is what separates the two: an aborted outcome is falsy and not
+    failed, so it stops the hand-off and reports at warning rather than error.
+    """
+    result, canvas, said = _clone(
+        OperationOutcome(ok=False, reason="aborted"), monkeypatch
+    )
+    assert canvas.pasted == 0
+    assert result.ok is False
+    assert said and said[0][0] == "warning", said
+
+
+def test_a_copy_that_worked_is_still_handed_over(monkeypatch) -> None:
+    """The other half, or "always refuse" would pass both tests above."""
+    result, canvas, said = _clone(OperationOutcome(ok=True), monkeypatch)
+    assert canvas.pasted == 1, (
+        "a successful copy was not handed to the paste tool, which refuses every "
+        "Clone in the application"
+    )
+    assert result.ok is True, f"{result.message!r} / {said}"
+    assert result.pending is True, result
+    assert said == [], said
+
+
+def test_a_canvas_that_answers_nothing_is_not_treated_as_a_refusal(
+    monkeypatch,
+) -> None:
+    """A build whose ``copy`` returns ``None`` cannot say, and is not a failure."""
+    result, canvas, said = _clone(None, monkeypatch)
+    assert canvas.pasted == 1, said
+    assert result.ok is True, f"{result.message!r} / {said}"
