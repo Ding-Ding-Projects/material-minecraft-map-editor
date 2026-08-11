@@ -20,6 +20,7 @@ from amulet_map_editor.api.opengl.mesh.selection import (
     RenderSelectionEditable,
     RenderSelectionGroupHighlightable,
 )
+from amulet_map_editor.api.opengl.mesh.selection.box import handles as handle_geometry
 
 from .pointer_behaviour import PointerBehaviour
 from ..key_config import (
@@ -98,6 +99,13 @@ class BlockSelectionBehaviour(PointerBehaviour):
         self._pointer_mask: NPArray2x3 = numpy.zeros((2, 3), dtype=bool)
         self._resizing = False  # is a box being resized
         self._pointer_distance2 = 0  # the pointer distance used when resizing
+        # A grab-handle drag in progress, and the box's points when it started.
+        self._handle_drag: Optional[handle_geometry.HandleDrag] = None
+        self._handle_drag_points: Optional[NPArray2x3] = None
+        # Whether the pointer is currently over a handle. Kept beside the
+        # mesh's own hovered_handle because the cursor shape is the window's
+        # business and the colour is the mesh's, and both have to be undone.
+        self._handle_cursor = False
 
     def _create_active_selection(self):
         """Create the active selection if it does not exist."""
@@ -163,6 +171,12 @@ class BlockSelectionBehaviour(PointerBehaviour):
                 self._pointer_distance -= 1
             self._pointer_moved = True
         elif evt.action_id == ACT_BOX_CLICK:
+            if not self._editing and self._start_handle_drag():
+                # A press that landed on a grab handle is a move, and must not
+                # also start the resize or the new-box creation below -- the
+                # handle sits on the very face those would have picked up.
+                evt.Skip()
+                return
             if not self._editing:
                 default_create = True
                 self._press_time = time.time()
@@ -252,15 +266,146 @@ class BlockSelectionBehaviour(PointerBehaviour):
 
     def _on_input_release(self, evt: InputReleaseEvent):
         if evt.action_id == ACT_BOX_CLICK:
-            if self._editing and time.time() - self._press_time > 0.1:
+            # A handle drag ends the moment the button comes up, without the
+            # tenth of a second the create-drag waits out.  That delay exists so
+            # a click that both presses and releases inside one frame still
+            # leaves a box being drawn; a move has no such state to protect, and
+            # a box that kept following the pointer after the release would be
+            # the exact "why is this thing stuck to my mouse" the handles are
+            # here to fix.
+            if self._handle_drag is not None:
+                self._end_handle_drag()
+            elif self._editing and time.time() - self._press_time > 0.1:
                 self._editing = self._resizing = False
                 self._enable_inputs()
                 self._active_selection.locked = True
                 self.push_selection()
         evt.Skip()
 
+    # ------------------------------------------------------------------
+    # grab handles
+    # ------------------------------------------------------------------
+
+    def _cursor_ray(self) -> Tuple[numpy.ndarray, numpy.ndarray]:
+        """The world-space ray the pointer casts: (origin, direction).
+
+        Top-down is not a camera looking down from where it says it is -- the
+        projection is orthographic, so every ray is parallel and the one under
+        the pointer starts above the pointer rather than above the camera.
+        Using the camera position there would make a handle drag resolve against
+        a ray nobody is pointing along.
+        """
+        if self.canvas.camera.projection_mode == Projection.TOP_DOWN:
+            x, z = self.get_2d_mouse_location()
+            return (
+                numpy.array([x, 1e6, z], dtype=numpy.float64),
+                numpy.array([0.0, -1.0, 0.0], dtype=numpy.float64),
+            )
+        return (
+            numpy.array(self.canvas.camera.location, dtype=numpy.float64),
+            self.look_vector(),
+        )
+
+    def _handle_view(self) -> dict:
+        """The keyword arguments describing how the box is being looked at."""
+        if self.canvas.camera.projection_mode == Projection.TOP_DOWN:
+            return {"view_direction": (0.0, -1.0, 0.0)}
+        return {"camera_position": self.canvas.camera.location}
+
+    def _handle_under_cursor(self) -> Optional[handle_geometry.BoxHandle]:
+        """The grab handle the pointer is over, or ``None``."""
+        if self._active_selection is None:
+            return None
+        self._active_selection.set_handle_view(**self._handle_view())
+        origin, direction = self._cursor_ray()
+        return handle_geometry.hit_handle(
+            self._active_selection.min,
+            self._active_selection.max,
+            origin,
+            direction,
+            self._active_selection.visible_handles,
+        )
+
+    def _set_handle_cursor(self, over: bool):
+        """Say through the pointer itself whether there is something to grab."""
+        if over == self._handle_cursor:
+            return
+        self._handle_cursor = over
+        if self.canvas.camera.rotating:
+            # The camera hides the cursor entirely while it is being turned.
+            # Putting a hand back would undo that.
+            return
+        self.canvas.SetCursor(wx.Cursor(wx.CURSOR_HAND) if over else wx.NullCursor)
+
+    def _refresh_handle_hover(self):
+        """Update which handle is highlighted, and the cursor that says so."""
+        if self._active_selection is None:
+            self._set_handle_cursor(False)
+            return
+        handle = self._handle_under_cursor()
+        self._active_selection.hovered_handle = None if handle is None else handle.name
+        self._set_handle_cursor(handle is not None)
+
+    def _start_handle_drag(self) -> bool:
+        """Begin a drag if the press landed on a handle. Says whether it did."""
+        if self._active_selection is None or self._handle_drag is not None:
+            return False
+        handle = self._handle_under_cursor()
+        if handle is None:
+            return False
+        origin, direction = self._cursor_ray()
+        drag = handle_geometry.begin_drag(
+            handle,
+            self._active_selection.min,
+            self._active_selection.max,
+            origin,
+            direction,
+        )
+        if drag is None:
+            return False
+        self._handle_drag = drag
+        self._handle_drag_points = self._active_selection.points
+        self._initial_box = self._active_selection.points
+        self._pointer_mask[:] = False
+        self._press_time = time.time()
+        self._resizing = False
+        self._editing = True
+        self._active_selection.locked = False
+        self._active_selection.hovered_handle = handle.name
+        self._disable_inputs()
+        return True
+
+    def _drag_handle(self):
+        """Move the box to wherever the drag now resolves to."""
+        if self._handle_drag is None or self._active_selection is None:
+            return
+        origin, direction = self._cursor_ray()
+        offset = self._handle_drag.block_offset(origin, direction)
+        if offset is None:
+            # The ray says nothing usable this frame -- pointing away from the
+            # drag plane, say.  Leaving the box where it is beats guessing.
+            return
+        points = numpy.asarray(self._handle_drag_points) + offset
+        if numpy.array_equal(points, self._active_selection.points):
+            return
+        self._active_selection.points = points
+        self._post_change_event()
+
+    def _end_handle_drag(self):
+        """Commit the drag: the box stays where the pointer left it."""
+        self._handle_drag = None
+        self._handle_drag_points = None
+        self._editing = self._resizing = False
+        self._enable_inputs()
+        if self._active_selection is not None:
+            self._active_selection.locked = True
+        self.push_selection()
+        self._post_change_event()
+
     def _escape(self):
         """Reset the state to how it was before editing."""
+        self._handle_drag = None
+        self._handle_drag_points = None
         if self._editing:
             if self._initial_box is None:
                 # there was no initial box
@@ -391,6 +536,13 @@ class BlockSelectionBehaviour(PointerBehaviour):
 
         # find the closest box position
         # find the closest box or block position
+        if self._pointer_moved and self._handle_drag is not None:
+            # A drag owns the pointer.  None of the picking below applies: the
+            # box is not being resized, no face is being highlighted, and the
+            # block under the cursor is irrelevant to where the box goes.
+            self._drag_handle()
+            self._pointer_moved = False
+            return
         if self._pointer_moved:
             if self.canvas.camera.projection_mode == Projection.TOP_DOWN:
                 camera = self.canvas.camera.location
@@ -434,6 +586,19 @@ class BlockSelectionBehaviour(PointerBehaviour):
                 ) = self._get_editing_selection()
                 self._post_change_event()
             else:
+                self._refresh_handle_hover()
+                if (
+                    self._active_selection is not None
+                    and self._active_selection.hovered_handle is not None
+                ):
+                    # A handle wins over the face behind it.  Otherwise the box
+                    # would highlight a face for resizing while the pointer sits
+                    # on the handle that moves it, and the press would do the
+                    # one the user was not being shown.
+                    self._highlight = False
+                    self._selection.reset_highlight_edges()
+                    self._active_selection.reset_highlight_edges()
+                    return
                 self._selection.reset_highlight_edges()
                 if box_index is None or hit_block:
                     # if no box was hit or a block was hit
@@ -523,8 +688,22 @@ class BlockSelectionBehaviour(PointerBehaviour):
             camera = self.canvas.camera.location
         self._selection.draw(self.canvas.camera.transformation_matrix, camera)
         if self._active_selection is not None:
+            # Handles are for moving a box that exists.  While one is being
+            # drawn out or resized they would sit on top of the corner the
+            # pointer is holding, so they come off until the box settles -- and
+            # stay on through a handle drag, which is the one edit they are for.
+            self._active_selection.show_handles = (
+                self._handle_drag is not None or not self._editing
+            )
+            # Refresh from the camera as well as from the pointer: orbiting
+            # without moving the mouse changes which faces can be dragged.
+            self._active_selection.set_handle_view(**self._handle_view())
             self._active_selection.draw(
                 self.canvas.camera.transformation_matrix, camera
             )
-        if not self._highlight and not self._editing:
+        hovering_handle = (
+            self._active_selection is not None
+            and self._active_selection.hovered_handle is not None
+        )
+        if not self._highlight and not self._editing and not hovering_handle:
             super().draw()

@@ -5,5 +5,8 @@
 	"box_edge": [0.5, 1.0, 1.0],
 	"box_corner": [1.0, 1.0, 0.5],
 	"box_point1": [0.0, 1.0, 0.0],
-	"box_point2": [0.0, 0.0, 1.0]
+	"box_point2": [0.0, 0.0, 1.0],
+	"box_handle": [1.0, 0.45, 0.1],
+	"box_handle_corner": [1.0, 0.75, 0.2],
+	"box_handle_hover": [1.0, 0.25, 0.85]
 }
