@@ -40,7 +40,10 @@ _MEDIUM = getattr(wx, "FONTWEIGHT_MEDIUM", wx.FONTWEIGHT_NORMAL)
 
 
 def _fill_ribbon_gradient(
-    window: wx.Window, dc: wx.DC, palette: tokens.StudioPalette
+    window: wx.Window,
+    dc: wx.DC,
+    palette: tokens.StudioPalette,
+    size: Optional[wx.Size] = None,
 ) -> None:
     """Continue the ribbon panel's gradient across one of its children.
 
@@ -48,8 +51,12 @@ def _fill_ribbon_gradient(
     the same top-to-bottom ramp offset by its own position.  Painting the ramp
     per child rather than a flat colour is what keeps a group column from
     reading as a lighter rectangle sitting on the ribbon.
+
+    ``size`` lets a render use the rect it was handed instead of the window's
+    own client size.  The vertical offset still comes from the window's real
+    position, because that is what decides where in the ramp this child sits.
     """
-    width, height = window.GetClientSize()
+    width, height = size if size is not None else window.GetClientSize()
     if width <= 0 or height <= 0:
         return
     parent = window.GetParent()
@@ -143,38 +150,40 @@ class _TabButton(widgets.StudioButton):
             return palette.surface_container_high, palette.on_surface
         return None, palette.on_surface_variant
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
         palette = self.palette()
         parent = self.GetParent()
         backdrop = parent.GetBackgroundColour() if parent else palette.surface_container
-        if not backdrop.IsOk():
-            backdrop = palette.surface_container
-        dc, gcdc = widgets.paint_context(self, backdrop)
-        width, height = self.GetClientSize()
-        radius = tokens.scaled(self.RADIUS)
-        fill, ink = self._tab_colours(palette)
-        if fill is not None:
-            tokens.draw_round_rect(
-                gcdc, wx.Rect(0, 0, width, height + radius), radius, fill
+        return backdrop if backdrop.IsOk() else palette.surface_container
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the tab: a shape rounded only at the top, and its label."""
+        palette = self.palette()
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            radius = tokens.scaled(self.RADIUS)
+            fill, ink = self._tab_colours(palette)
+            if fill is not None:
+                tokens.draw_round_rect(
+                    dc, wx.Rect(0, 0, width, height + radius), radius, fill
+                )
+            weight = (
+                _MEDIUM
+                if self.emphasis in ("filled", "active")
+                else wx.FONTWEIGHT_NORMAL
             )
-        weight = (
-            _MEDIUM if self.emphasis in ("filled", "active") else wx.FONTWEIGHT_NORMAL
-        )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13), weight))
-        gcdc.SetTextForeground(ink)
-        lines = [line for line in self.GetLabel().split("\n") if line] or [" "]
-        available = max(0, width - tokens.scaled(12))
-        rendered = [widgets.elide(gcdc, line, available) for line in lines]
-        line_height = gcdc.GetCharHeight()
-        y = (height - line_height * len(rendered)) // 2
-        for line in rendered:
-            gcdc.DrawText(line, (width - gcdc.GetTextExtent(line)[0]) // 2, y)
-            y += line_height
-        if self.HasFocus():
-            widgets.draw_focus_ring(
-                gcdc, wx.Rect(0, 0, width, height), radius, palette.primary
-            )
-        del gcdc
+            dc.SetFont(tokens.font(self, widgets.point_size(13), weight))
+            dc.SetTextForeground(ink)
+            lines = [line for line in self.GetLabel().split("\n") if line] or [" "]
+            available = max(0, width - tokens.scaled(12))
+            rendered = [widgets.elide(dc, line, available) for line in lines]
+            line_height = dc.GetCharHeight()
+            y = (height - line_height * len(rendered)) // 2
+            for line in rendered:
+                dc.DrawText(line, (width - dc.GetTextExtent(line)[0]) // 2, y)
+                y += line_height
+            if self.HasFocus():
+                widgets.draw_focus_ring(dc, rect, radius, palette.primary)
 
     def _on_key_down(self, event: wx.KeyEvent) -> None:
         if (
@@ -246,10 +255,11 @@ class _TabStrip(wx.Panel, widgets._Themed):
     def _apply_theme(self, palette: tokens.StudioPalette) -> None:
         self.SetBackgroundColour(palette.surface_container)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
-        palette = self.palette()
-        dc, gcdc = widgets.paint_context(self, palette.surface_container)
-        del gcdc, dc
+    def _backdrop(self) -> wx.Colour:
+        return self.palette().surface_container
+
+    # The strip's whole appearance is that container colour; the tab buttons,
+    # the search, and the chevron on top of it are windows of their own.
 
 
 class _RibbonPanel(wx.ScrolledWindow, widgets._Themed):
@@ -271,27 +281,31 @@ class _RibbonPanel(wx.ScrolledWindow, widgets._Themed):
     def _apply_theme(self, palette: tokens.StudioPalette) -> None:
         self.SetBackgroundColour(palette.surface_container)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
+        return self.palette().surface
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the panel's vertical gradient and the edge under it."""
         palette = self.palette()
-        dc, gcdc = widgets.paint_context(self, palette.surface)
-        width, height = self.GetClientSize()
-        if width <= 0 or height <= 0:
-            del gcdc, dc
-            return
-        dc.GradientFillLinear(
-            wx.Rect(0, 0, width, height),
-            palette.surface,
-            palette.surface_container,
-            wx.SOUTH,
-        )
-        # The design's elevation-1 shadow falls below the panel, where nothing
-        # can be painted from inside it, so the edge is carried by a hairline
-        # border with one softer band above it.
-        gcdc.SetPen(wx.Pen(tokens.blend(palette.outline_variant, palette.surface, 0.6)))
-        gcdc.DrawLine(0, height - 2, width, height - 2)
-        gcdc.SetPen(wx.Pen(palette.outline_variant))
-        gcdc.DrawLine(0, height - 1, width, height - 1)
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            if width <= 0 or height <= 0:
+                return
+            dc.GradientFillLinear(
+                wx.Rect(0, 0, width, height),
+                palette.surface,
+                palette.surface_container,
+                wx.SOUTH,
+            )
+            # The design's elevation-1 shadow falls below the panel, where
+            # nothing can be painted from inside it, so the edge is carried by
+            # a hairline border with one softer band above it.
+            dc.SetPen(
+                wx.Pen(tokens.blend(palette.outline_variant, palette.surface, 0.6))
+            )
+            dc.DrawLine(0, height - 2, width, height - 2)
+            dc.SetPen(wx.Pen(palette.outline_variant))
+            dc.DrawLine(0, height - 1, width, height - 1)
 
 
 class _GroupDivider(wx.Control, widgets._Themed):
@@ -313,17 +327,20 @@ class _GroupDivider(wx.Control, widgets._Themed):
     def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
         return False
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
+        return self.palette().surface
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Continue the ribbon gradient, then draw the hairline over it."""
         palette = self.palette()
-        dc, gcdc = widgets.paint_context(self, palette.surface)
-        _fill_ribbon_gradient(self, dc, palette)
-        width, height = self.GetClientSize()
-        inset = tokens.scaled(self.INSET)
-        gcdc.SetPen(wx.Pen(palette.outline_variant))
-        gcdc.DrawLine(0, inset, 0, max(inset, height - inset))
-        if width > 1:
-            gcdc.DrawLine(width - 1, inset, width - 1, max(inset, height - inset))
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            _fill_ribbon_gradient(self, dc, palette, wx.Size(width, height))
+            inset = tokens.scaled(self.INSET)
+            dc.SetPen(wx.Pen(palette.outline_variant))
+            dc.DrawLine(0, inset, 0, max(inset, height - inset))
+            if width > 1:
+                dc.DrawLine(width - 1, inset, width - 1, max(inset, height - inset))
 
 
 class _GroupPanel(wx.Panel, widgets._Themed):
@@ -455,11 +472,14 @@ class _GroupPanel(wx.Panel, widgets._Themed):
     def _apply_theme(self, palette: tokens.StudioPalette) -> None:
         self.SetBackgroundColour(palette.surface_container)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
+        return self.palette().surface
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Continue the ribbon gradient across this group's column."""
         palette = self.palette()
-        dc, gcdc = widgets.paint_context(self, palette.surface)
-        _fill_ribbon_gradient(self, dc, palette)
-        del gcdc, dc
+        with self._painting(dc, rect) as rect:
+            _fill_ribbon_gradient(self, dc, palette, wx.Size(rect.width, rect.height))
 
 
 class RibbonBar(wx.Panel, widgets._Themed):
@@ -835,10 +855,11 @@ class RibbonBar(wx.Panel, widgets._Themed):
         self.SetBackgroundColour(palette.surface_container)
         self.empty.SetForegroundColour(palette.on_surface_variant)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
-        palette = self.palette()
-        dc, gcdc = widgets.paint_context(self, palette.surface_container)
-        del gcdc, dc
+    def _backdrop(self) -> wx.Colour:
+        return self.palette().surface_container
+
+    # The bar is the strip plus the panel, both of which are their own windows,
+    # so its own appearance is the container colour behind them.
 
     def refresh_theme(self) -> None:
         """Re-read the tokens for the strip, the panel, and every group."""

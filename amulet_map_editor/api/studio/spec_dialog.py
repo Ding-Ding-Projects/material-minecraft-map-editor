@@ -11,15 +11,33 @@ each one re-implementing them slightly differently.
 The window is shown non-modally: several surfaces are routinely open at once,
 and a modal renderer would make the shell unusable the moment two of them were
 needed together.
+
+What a surface renders is not the shipped description on its own.  Every spec
+goes through :func:`amulet_map_editor.api.studio.live.bind` first, which
+rewrites its record-carrying sections from the world the user actually has
+open, and the window re-binds whenever that world changes.  A surface with no
+binder renders exactly as it is described; a surface with one shows the user's
+world, or says plainly that no world is open rather than showing the rows the
+design was drawn with.
 """
 
 from __future__ import annotations
 
+import csv
+import datetime
+import importlib
+import io
+import json
 import logging
-from typing import Callable, Dict, List, Optional
+import os
+import pkgutil
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple
 
 import wx
 
+from amulet_map_editor.api.studio import context as world_context
+from amulet_map_editor.api.studio import live
 from amulet_map_editor.api.studio import spec as spec_api
 from amulet_map_editor.api.studio import specs as spec_registry
 from amulet_map_editor.api.studio import tokens, widgets
@@ -44,6 +62,57 @@ MAX_DIALOG_HEIGHT = 780
 
 #: wxPython 4.1 added a medium weight; older builds fall back to normal.
 _MEDIUM = getattr(wx, "FONTWEIGHT_MEDIUM", wx.FONTWEIGHT_NORMAL)
+
+#: The export formats a surface can be written out in, in the order the save
+#: dialog offers them: a label, the extension, and the renderer that produces
+#: the text.  Every one of them carries the same readings -- a format is a way
+#: of writing what the window shows, never a smaller subset of it.
+EXPORT_FORMATS: Tuple[Tuple[str, str], ...] = (
+    ("Markdown", "md"),
+    ("JSON", "json"),
+    ("CSV", "csv"),
+    ("Plain text", "txt"),
+)
+
+#: The wildcard the save dialog is opened with, built from the formats above so
+#: the two can never disagree about which extension goes with which filter.
+EXPORT_WILDCARD = "|".join(
+    f"{label} (*.{extension})|*.{extension}" for label, extension in EXPORT_FORMATS
+)
+
+
+def load_binders() -> Tuple[str, ...]:
+    """Import every ``binders_*`` module in this package, returning their names.
+
+    The binder registry is populated as a side effect of importing the modules
+    that register into it, so something has to import them -- and this window is
+    the one place every declarative surface passes through.  Discovering them
+    rather than listing them means a new family of binders starts working the
+    moment its module lands, and a module that fails to import takes its own
+    surfaces down to their shipped descriptions instead of taking the window
+    with it.
+    """
+    package = __name__.rsplit(".", 1)[0]
+    loaded: List[str] = []
+    try:
+        module = importlib.import_module(package)
+        search_path = list(getattr(module, "__path__", ()))
+    except Exception:  # pragma: no cover - the package is already imported here
+        log.exception("Could not read the Studio package to find its live binders")
+        return ()
+    for entry in pkgutil.iter_modules(search_path):
+        if not entry.name.startswith("binders_"):
+            continue
+        try:
+            importlib.import_module(f"{package}.{entry.name}")
+        except Exception:
+            log.exception("The live binder module %r could not be imported", entry.name)
+            continue
+        loaded.append(entry.name)
+    return tuple(sorted(loaded))
+
+
+BINDER_MODULES = load_binders()
 
 
 class _Painted(wx.Control):
@@ -687,7 +756,11 @@ class SpecDialog(wx.Dialog):
             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
             name=f"{spec.eyebrow}: {spec.title}",
         )
-        self.spec = spec
+        #: The shipped description, kept so the surface can be bound again
+        #: against a different world without the previous world's readings
+        #: still in it.
+        self.source_spec = spec
+        self.spec = self._bind(spec)
         self.on_action = on_action
         self._opener = wx.Window.FindFocus()
         self._focus_returned = False
@@ -695,7 +768,14 @@ class SpecDialog(wx.Dialog):
         self._section_states: Dict[int, SearchState] = {}
         self._section_bars: Dict[int, widgets.SearchBar] = {}
         self._focus_request: Optional[int] = None
+        #: The record the user last clicked in a list, and the target every
+        #: action that needs one operates on.
+        self.selected_row: Optional[spec_api.Row] = None
+        #: The last file this window wrote, so "open in VS Code" has something
+        #: real to open rather than guessing at a path.
+        self.last_export: Optional[Path] = None
         self._theme_unsubscribe = tokens.register_theme_listener(self.refresh_theme)
+        world_context.subscribe(self._on_world_changed)
 
         self.header = _EdgePanel(self, edge="bottom")
         self.eyebrow = _Eyebrow(self.header, spec.eyebrow)
@@ -794,6 +874,57 @@ class SpecDialog(wx.Dialog):
         self.Bind(wx.EVT_CLOSE, self._on_close)
         self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
         self.confirm_button.SetFocus()
+
+    # ------------------------------------------------------------------
+    # the open world
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _bind(spec: Spec) -> Spec:
+        """Return ``spec`` rewritten from whatever world is open right now.
+
+        Binding never fails the window: :func:`live.bind` already returns the
+        shipped description when a binder is absent or raises, and the extra
+        guard here covers a registry that could not be reached at all.
+        """
+        try:
+            bound = live.bind(spec, world_context.current())
+        except Exception:  # noqa: BLE001 - a surface still has to open
+            log.exception("Could not bind the surface %r to the open world", spec.key)
+            return spec
+        return bound if isinstance(bound, Spec) else spec
+
+    def _on_world_changed(self, _context: world_context.WorldContext) -> None:
+        """Re-read the world into this window when the open world changes.
+
+        The publish can arrive from whichever thread opened or closed the
+        world, so the rebuild is handed back to the main loop rather than
+        touching controls from under it.
+        """
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        wx.CallAfter(self.rebind)
+
+    def rebind(self) -> None:
+        """Bind the shipped description to the open world and redraw the body."""
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        self.spec = self._bind(self.source_spec)
+        # A section search is keyed by position, and binding can change what
+        # sits at each position, so a query left behind would silently narrow a
+        # section it was never typed into.
+        self._section_states = {}
+        self.selected_row = None
+        self.rebuild()
+
+    def world(self) -> world_context.WorldContext:
+        """Return the world this window is currently showing."""
+        return world_context.current()
 
     # ------------------------------------------------------------------
     # construction helpers
@@ -912,12 +1043,24 @@ class SpecDialog(wx.Dialog):
         bar.SetFocus()
         bar.field.text.SetInsertionPointEnd()
 
+    def _collapsible(self, section: Section) -> bool:
+        """Return whether a section starts folded away behind a disclosure.
+
+        A titled note beside real records is an aside, and folding it keeps the
+        records in view.  A titled note that *is* the window's content -- which
+        is what a surface shows when no world is open, or when the world holds
+        nothing to list -- is the answer, and folding the answer away makes an
+        honest empty state look like a window that failed to load.
+        """
+        if section.kind == "code":
+            return True
+        if section.kind != "note" or not section.title:
+            return False
+        return any(other.kind not in ("note", "search") for other in self.spec.sections)
+
     def _render_section(self, index: int, section: Section) -> Optional[wx.Window]:
         """Build one section's block, titled where the section carries a title."""
-        collapsible = section.kind == "code" or (
-            section.kind == "note" and bool(section.title)
-        )
-        if collapsible:
+        if self._collapsible(section):
             container = widgets.CollapsibleSection(
                 self.body,
                 section.title or section.kind.title(),
@@ -1039,13 +1182,39 @@ class SpecDialog(wx.Dialog):
     def _render_list(
         self, host: wx.Window, _index: int, section: Section
     ) -> List[tuple]:
+        # Every row is clickable, because the footer actions that need a target
+        # -- add, remove, reset -- have nowhere to point without one, and an
+        # action that names no record is an action nobody can check.
         return [
             (
-                widgets.ListRow(host, row.name, row.detail, row.tag, swatch=row.swatch),
+                widgets.ListRow(
+                    host,
+                    row.name,
+                    row.detail,
+                    row.tag,
+                    swatch=row.swatch,
+                    on_click=lambda item=row: self.select_row(item),
+                ),
                 True,
             )
             for row in section.rows
         ]
+
+    def select_row(self, row: spec_api.Row) -> None:
+        """Record the row the user just picked as this window's target."""
+        self.selected_row = row
+        top = self.GetTopLevelParent()
+        try:
+            top.SetStatusText(f"Selected: {row.name}")
+        except Exception:  # noqa: BLE001 - a frame with no status bar is normal
+            log.debug("No status bar to report the selected record on")
+
+    def selected_label(self) -> str:
+        """Return the selected record as one line, or ``""`` when none is."""
+        row = self.selected_row
+        if row is None:
+            return ""
+        return " · ".join(part for part in (row.name, row.detail, row.tag) if part)
 
     def _render_keys(
         self, host: wx.Window, _index: int, section: Section
@@ -1255,13 +1424,483 @@ class SpecDialog(wx.Dialog):
     # actions
     # ------------------------------------------------------------------
     def run_action(self, action: Action) -> None:
-        """Route one action to a surface, the shell, or an honest report."""
+        """Route one action to a surface, to this window, or to an honest report.
+
+        The order matters.  An action that names another surface opens it, and
+        always has.  An action this window can genuinely carry out against the
+        open world -- writing an export, copying a reading, counting what the
+        search matches, re-reading the world -- is carried out here rather than
+        handed on, because handing it to a shell that only reports would turn a
+        real capability back into a message about one.
+        """
         if action.surface and self._open_surface(action.surface):
+            return
+        if self._perform(action):
             return
         if self.on_action is not None:
             widgets.invoke(self.on_action, action)
             return
         self._report_unhandled(action)
+
+    def _verb(self, label: str) -> str:
+        """Return the operation ``label`` asks for, or ``""`` when it names none."""
+        text = " ".join(str(label).split()).lower()
+        if not text:
+            return ""
+        for phrase in ("vs code", "visual studio code", "external editor"):
+            if phrase in text:
+                return "open"
+        first = text.split(" ", 1)[0]
+        if first in ("export", "copy", "find", "preview", "add", "remove", "reset"):
+            return first
+        return ""
+
+    def _perform(self, action: Action) -> bool:
+        """Carry out ``action`` here when it names something this window can do."""
+        verb = self._verb(action.label)
+        if not verb:
+            return False
+        handler = getattr(self, f"_do_{verb}", None)
+        if handler is None:
+            return False
+        try:
+            handler(action)
+        except Exception as error:  # noqa: BLE001 - a failed action is reported
+            log.exception(
+                "The action %r failed on surface %r", action.label, self.spec.key
+            )
+            self._notify(
+                action.label,
+                f"{action.label} could not be completed: {type(error).__name__}: "
+                f"{error}. Nothing was changed.",
+                severity="error",
+            )
+        return True
+
+    # -- reporting ----------------------------------------------------------
+    def _notify(
+        self, title: str, body: str, *, severity: str = "info", details: str = ""
+    ) -> None:
+        """Report an outcome without halting the window."""
+        from amulet_map_editor.api.wx import nonblocking
+
+        nonblocking.notify(
+            self, title, body, severity=severity, details=details or self._provenance()
+        )
+
+    def _provenance(self) -> str:
+        """Return where this window's readings came from, for a report's details."""
+        ctx = self.world()
+        if not ctx.open:
+            return f"Surface: {self.spec.key} · No world is open."
+        return (
+            f"Surface: {self.spec.key} · World: {ctx.name or 'unnamed'} · "
+            f"Folder: {ctx.path or 'not recorded'} · Dimension: "
+            f"{ctx.dimension or 'not reported'}"
+        )
+
+    def _needs_world(self, action: Action) -> bool:
+        """Report and refuse when a world-dependent action has no world open."""
+        if self.world().open:
+            return False
+        if self.spec.key not in live.bound_keys():
+            return False
+        self._notify(
+            action.label,
+            f"No world is open, so {action.label.lower()} has nothing to work "
+            "with. Open a world from the project screen and run it again.",
+            severity="warning",
+        )
+        return True
+
+    # -- the readings this window holds -------------------------------------
+    def _records(self) -> List[Tuple[str, str, str, str]]:
+        """Return every reading currently on show, as section, name, detail, tag.
+
+        This is what an export writes and what a search counts, so the two can
+        never disagree about what the window is showing.
+        """
+        rows: List[Tuple[str, str, str, str]] = []
+        for section in self._visible_sections():
+            title = section.title or section.kind
+            for row in section.rows:
+                rows.append((title, row.name, row.detail, row.tag))
+            for field in section.fields:
+                rows.append((title, field.label, field.value, field.placeholder))
+            for select in section.selects:
+                rows.append(
+                    (title, select.label, select.current(), ", ".join(select.options))
+                )
+            for check in section.checks:
+                rows.append(
+                    (title, check.label, "on" if check.value else "off", check.hint)
+                )
+            for item in section.ranges:
+                rows.append((title, item.label, str(item.value), ""))
+            for swatch in section.swatches:
+                rows.append((title, swatch.name, swatch.colour, ""))
+            for binding in section.keys:
+                rows.append((title, binding.action, binding.binding, ""))
+            for node in section.tree:
+                rows.append((title, node.label, node.glyph, ""))
+            for chip in section.chips:
+                rows.append((title, chip, "", ""))
+            for commit in section.commits:
+                rows.append((title, commit.message, commit.meta, ""))
+            if section.kind == "note" and section.hint:
+                rows.append((title, "note", section.hint, ""))
+        return rows
+
+    def _visible_sections(self) -> List[Section]:
+        """Return the sections the searches currently leave on show."""
+        sections = []
+        for section in self.spec.sections:
+            narrowed = self._narrow(section)
+            if narrowed is not None:
+                sections.append(narrowed)
+        return sections
+
+    def _total_records(self) -> int:
+        """Return how many readings the window holds before any search."""
+        total = 0
+        for section in self.spec.sections:
+            total += len(section.items()) + len(section.chips)
+        return total
+
+    # -- export -------------------------------------------------------------
+    def _export_text(self, extension: str) -> str:
+        """Return this window's readings written in one of the export formats."""
+        ctx = self.world()
+        stamp = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+        records = self._records()
+        source = ctx.path or ctx.name or "no world open"
+        if extension == "json":
+            return json.dumps(
+                {
+                    "surface": self.spec.key,
+                    "title": self.spec.title,
+                    "exported": stamp,
+                    "world": {
+                        "open": ctx.open,
+                        "name": ctx.name,
+                        "path": ctx.path,
+                        "platform": ctx.platform,
+                        "version": ctx.game_version or ctx.version,
+                        "dimension": ctx.dimension,
+                    },
+                    "search": self.window_search.query,
+                    "records": [
+                        {
+                            "section": section,
+                            "name": name,
+                            "detail": detail,
+                            "tag": tag,
+                        }
+                        for section, name, detail, tag in records
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        if extension == "csv":
+            buffer = io.StringIO()
+            writer = csv.writer(buffer, lineterminator="\n")
+            writer.writerow(["section", "name", "detail", "tag"])
+            writer.writerows(records)
+            return buffer.getvalue()
+        if extension == "md":
+            lines = [
+                f"# {self.spec.title}",
+                "",
+                f"- Surface: `{self.spec.key}`",
+                f"- Exported: {stamp}",
+                f"- Read from: {source}",
+            ]
+            if self.window_search.query:
+                lines.append(f"- Search: `{self.window_search.query}`")
+            lines.append("")
+            current = ""
+            for section, name, detail, tag in records:
+                if section != current:
+                    current = section
+                    lines.extend(["", f"## {section}", ""])
+                suffix = f" — `{tag}`" if tag else ""
+                lines.append(f"- **{name}** {detail}{suffix}".rstrip())
+            lines.append("")
+            return "\n".join(lines)
+        lines = [
+            self.spec.title,
+            "=" * len(self.spec.title),
+            f"Surface: {self.spec.key}",
+            f"Exported: {stamp}",
+            f"Read from: {source}",
+            "",
+        ]
+        current = ""
+        for section, name, detail, tag in records:
+            if section != current:
+                current = section
+                lines.extend([f"[{section}]"])
+            lines.append(
+                "  " + " · ".join(part for part in (name, detail, tag) if part)
+            )
+        return "\n".join(lines) + "\n"
+
+    def _do_export(self, action: Action) -> None:
+        """Write what this window is showing to a file the user picks."""
+        if self._needs_world(action):
+            return
+        records = self._records()
+        if not records:
+            self._notify(
+                action.label,
+                "This window is showing no records, so there is nothing to " "export.",
+                severity="warning",
+            )
+            return
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        with wx.FileDialog(
+            self,
+            f"{action.label} — choose where to write it",
+            defaultFile=f"{self.spec.key}-{stamp}.md",
+            wildcard=EXPORT_WILDCARD,
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+        ) as chooser:
+            if chooser.ShowModal() != wx.ID_OK:
+                self._notify(
+                    action.label, "The export was cancelled; no file was written."
+                )
+                return
+            target = Path(chooser.GetPath())
+            index = max(0, min(chooser.GetFilterIndex(), len(EXPORT_FORMATS) - 1))
+        label, extension = EXPORT_FORMATS[index]
+        if target.suffix.lower() != f".{extension}":
+            target = target.with_suffix(f".{extension}")
+        content = self._export_text(extension)
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        except OSError as error:
+            self._notify(
+                action.label,
+                f"The export could not be written to {target}: {error}",
+                severity="error",
+            )
+            return
+        self.last_export = target
+        self._record_history(
+            f"studio.export.{self.spec.key}",
+            {
+                "surface": self.spec.key,
+                "format": extension,
+                "path": str(target),
+                "records": len(records),
+                "world": self.world().path,
+            },
+            record_type="studio export",
+        )
+        self._notify(
+            action.label,
+            f"Wrote {len(records)} records as {label} to {target}.",
+            details=f"{self._provenance()} · {target}",
+        )
+
+    def _do_open(self, action: Action) -> None:
+        """Open the last export -- or the world folder -- in the external editor."""
+        from amulet_map_editor.api import export_actions
+
+        target: Optional[Path] = None
+        what = ""
+        if self.last_export is not None and self.last_export.exists():
+            target, what = self.last_export, "the file this window just exported"
+        else:
+            ctx = self.world()
+            if ctx.path and os.path.isdir(ctx.path):
+                target, what = Path(ctx.path), "the open world's folder"
+        if target is None:
+            self._notify(
+                action.label,
+                "There is nothing to open: this window has not exported a file "
+                "yet, and no world folder is open. Export first, or open a "
+                "world, and the editor will have something real to show.",
+                severity="warning",
+            )
+            return
+        result = export_actions.open_exported_path(target)
+        self._notify(
+            action.label,
+            (
+                f"{result.message} Opened {what}: {target}."
+                if result.ok
+                else f"{result.message} The target was {target}."
+            ),
+            severity="info" if result.ok else "error",
+        )
+
+    # -- copy ---------------------------------------------------------------
+    def _do_copy(self, action: Action) -> None:
+        """Put a reading on the clipboard -- the named one, or the whole window."""
+        if self._needs_world(action):
+            return
+        ctx = self.world()
+        text = ""
+        what = ""
+        label = action.label.lower()
+        if "seed" in label:
+            if not ctx.seed:
+                self._notify(
+                    action.label,
+                    "This world records no seed in its level.dat"
+                    + (f" ({ctx.reason('seed')})" if ctx.reason("seed") else "")
+                    + ", so there is nothing to copy.",
+                    severity="warning",
+                )
+                return
+            text, what = ctx.seed, "the world seed"
+        elif "path" in label or "folder" in label:
+            text, what = ctx.path, "the world folder"
+        elif self.selected_row is not None:
+            text, what = self.selected_label(), "the selected record"
+        else:
+            text, what = self._export_text("txt"), "everything this window shows"
+        if not text:
+            self._notify(
+                action.label,
+                "There is nothing to copy: this window is showing no records.",
+                severity="warning",
+            )
+            return
+        if not wx.TheClipboard.Open():
+            self._notify(
+                action.label,
+                "The clipboard could not be opened, so nothing was copied.",
+                severity="error",
+            )
+            return
+        try:
+            wx.TheClipboard.SetData(wx.TextDataObject(text))
+            wx.TheClipboard.Flush()
+        finally:
+            wx.TheClipboard.Close()
+        summary = text if len(text) <= 60 else f"{len(text)} characters"
+        self._notify(action.label, f"Copied {what}: {summary}.")
+
+    # -- searching ----------------------------------------------------------
+    def _match_report(self) -> str:
+        """Return what the current searches actually match, in one sentence."""
+        total = self._total_records()
+        matched = len([record for record in self._records() if record[1] != "note"])
+        query = self.window_search.query
+        if not query:
+            return (
+                f"No search is active, so all {total} readings in this window "
+                "are on show."
+            )
+        return f"{matched} of {total} readings match “{query}”."
+
+    def _do_find(self, action: Action) -> None:
+        """Report what the window search matches in the readings on show."""
+        if self._needs_world(action):
+            return
+        self._notify(action.label, self._match_report())
+
+    def _do_preview(self, action: Action) -> None:
+        """Report what the window is about to act on, before anything acts."""
+        if self._needs_world(action):
+            return
+        selected = self.selected_label()
+        detail = f" The selected record is {selected}." if selected else ""
+        self._notify(
+            action.label,
+            self._match_report()
+            + detail
+            + " Nothing has been changed; this is what the operation would cover.",
+        )
+
+    # -- records ------------------------------------------------------------
+    def _reads_from(self) -> str:
+        """Return what this surface reads, named as the user would name it."""
+        ctx = self.world()
+        return ctx.path or ctx.name or "the open world"
+
+    def _do_add(self, action: Action) -> None:
+        self._report_read_only(action, "add a record to")
+
+    def _do_remove(self, action: Action) -> None:
+        self._report_read_only(action, "remove a record from")
+
+    def _report_read_only(self, action: Action, what: str) -> None:
+        """Say plainly that this window reads its records and does not write them."""
+        if self._needs_world(action):
+            return
+        selected = self.selected_label()
+        target = (
+            f"The selected record is {selected}."
+            if selected
+            else "No record is selected in this window."
+        )
+        self._notify(
+            action.label,
+            f"{target} This window reads its records from {self._reads_from()} "
+            f"and does not {what} it, so nothing was changed. Use the editor "
+            "for that data -- the NBT editor writes the stored tags directly.",
+            severity="warning",
+        )
+
+    def _do_reset(self, action: Action) -> None:
+        """Clear the window's searches and read the world again from disk."""
+        ctx = self.world()
+        self.window_search.reset()
+        for state in self._section_states.values():
+            state.reset()
+        refreshed = ctx
+        if ctx.open:
+            try:
+                refreshed = world_context.refresh()
+            except Exception as error:  # noqa: BLE001 - reported, never raised
+                log.exception("Could not re-read the open world")
+                self._notify(
+                    action.label,
+                    f"The open world could not be re-read: "
+                    f"{type(error).__name__}: {error}.",
+                    severity="error",
+                )
+                return
+        self.rebind()
+        self._record_history(
+            f"studio.reset.{self.spec.key}",
+            {
+                "surface": self.spec.key,
+                "world": refreshed.path,
+                "sections": len(self.spec.sections),
+            },
+            record_type="studio reset",
+        )
+        if not refreshed.open:
+            self._notify(
+                action.label,
+                "Cleared this window's searches. No world is open, so there was "
+                "nothing to re-read.",
+            )
+            return
+        name = refreshed.name or "the open world"
+        self._notify(
+            action.label,
+            f"Cleared this window's searches and read {name} again from disk: "
+            f"{self._total_records()} readings in "
+            f"{len(self.spec.sections)} sections. Nothing stored in the world "
+            "was changed.",
+        )
+
+    @staticmethod
+    def _record_history(record_id: str, payload: dict, *, record_type: str) -> None:
+        """Record one change in the local history, never failing the action."""
+        try:
+            from amulet_map_editor.api import local_history
+
+            local_history.safe_record(record_id, payload, record_type=record_type)
+        except Exception:  # noqa: BLE001 - history is audit support, not the job
+            log.debug("Could not record %s in the local history", record_id)
 
     def _open_surface(self, key: str) -> bool:
         """Open another surface, preferring the shell's own registry."""
@@ -1355,9 +1994,14 @@ class SpecDialog(wx.Dialog):
         event.Skip()
 
     def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
-        if event.GetEventObject() is self and self._theme_unsubscribe is not None:
-            self._theme_unsubscribe()
-            self._theme_unsubscribe = None
+        if event.GetEventObject() is self:
+            if self._theme_unsubscribe is not None:
+                self._theme_unsubscribe()
+                self._theme_unsubscribe = None
+            # A destroyed window that is still subscribed is told about the
+            # next world and rebuilds controls that no longer exist, which
+            # takes the whole shell down rather than only this surface.
+            world_context.unsubscribe(self._on_world_changed)
         event.Skip()
 
     def refresh_theme(self) -> None:
@@ -1402,4 +2046,13 @@ def open_spec(parent: wx.Window, key: str) -> Optional[SpecDialog]:
     )
 
 
-__all__ = ["ACTION_VARIANTS", "MAX_DIALOG_HEIGHT", "SpecDialog", "open_spec"]
+__all__ = [
+    "ACTION_VARIANTS",
+    "BINDER_MODULES",
+    "EXPORT_FORMATS",
+    "EXPORT_WILDCARD",
+    "MAX_DIALOG_HEIGHT",
+    "SpecDialog",
+    "load_binders",
+    "open_spec",
+]

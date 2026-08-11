@@ -64,6 +64,14 @@ NOTEBOOK_MENU_STYLE = (
 NOTEBOOK_STYLE = NOTEBOOK_MENU_STYLE | flatnotebook.FNB_X_ON_TAB
 UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 
+#: How long to wait before looking again for an editor canvas that is still
+#: being built, and how long to keep looking before saying it never arrived.
+#: The canvas is created on a worker thread that loads a resource pack and
+#: builds a texture atlas, so it is genuinely absent for a few seconds after a
+#: world opens rather than merely slow to appear.
+CANVAS_HOST_RETRY_MS = 400
+CANVAS_HOST_TIMEOUT_SECONDS = 300.0
+
 CLOSEABLE_PAGE_TYPE = Union[WorldPageUI]
 
 
@@ -107,9 +115,16 @@ class AmuletUI(wx.Frame):
     The frame's content is the Amulet Studio shell: a title bar, the backstage
     project screen, and the editing workspace.  The world notebook still exists
     below it -- it owns world loading, per-page unsaved-work protection, and the
-    tab dock the tab manager edits -- and is handed to the workspace viewport
-    once a world is open, so the real renderer draws inside the new shell rather
-    than beside it.
+    tab dock the tab manager edits -- but it stays hidden.  What the workspace
+    viewport is given is the active editor's canvas itself, so the viewport
+    shows the world and nothing else: no second tab strip, and no About or
+    Convert page nested inside the view of the world.  Those two extensions
+    stay reachable from the ribbon, the command palette, and the backstage.
+
+    The canvas is borrowed rather than taken.  Its owning extension keeps it in
+    the notebook's page tree and is handed it back before that page is closed,
+    because a canvas left parented to the viewport after its extension is
+    destroyed is a window drawing a world that no longer exists.
     """
 
     # The notebook to hold world pages
@@ -133,6 +148,13 @@ class AmuletUI(wx.Frame):
         icon = wx.Icon()
         icon.CopyFromBitmap(image.logo.amulet_logo.bitmap())
         self.SetIcon(icon)
+
+        # The canvas the Studio viewport has borrowed, with the page and the
+        # extension it must go back to: ``(page, owner, canvas)``.
+        self._hosted_canvas: Optional[tuple[WorldPageUI, wx.Window, wx.Window]] = None
+        self._canvas_host_timer: Optional[wx.CallLater] = None
+        self._canvas_host_deadline: Optional[float] = None
+        self._world_context_key: Optional[tuple[str, int]] = None
 
         self._shell = wx.Panel(self)
         self._shell_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -521,21 +543,181 @@ class AmuletUI(wx.Frame):
             return
         page = self.active_world_page()
         if page is None:
+            self.release_hosted_canvas()
+            self._cancel_canvas_host_retry()
+            self._clear_world_context()
             studio.detach_project()
             return
         # The Studio owns tab management, so the legacy side rail would be a
         # second, contradictory list of the same tabs inside the viewport.
         self._tab_rail.Hide()
         self._select_editor_program(page)
-        studio.set_canvas(self._tab_content)
-        # The notebook now lives inside the Studio viewport, which the shared
-        # Material traversal deliberately does not enter; style it from here so
-        # the world pages keep the palette every other native surface uses.
+        self._host_editor_canvas(page, studio)
+        if not (studio.project_open and studio.project_path == page.path):
+            studio.attach_project(
+                page.world_name, page.path, self._world_platform(page)
+            )
+        self._publish_world_context(page)
+
+    # -- the editor canvas inside the Studio viewport ------------------------
+    def hosted_canvas(self) -> Optional[wx.Window]:
+        """Return the canvas the Studio viewport is currently showing."""
+        return None if self._hosted_canvas is None else self._hosted_canvas[2]
+
+    def _host_editor_canvas(self, page: WorldPageUI, studio) -> None:
+        """Put the active editor's canvas inside the workspace viewport.
+
+        Only the canvas moves.  Its extension stays where the world notebook
+        put it, so the notebook's page tree is never handed a window that is no
+        longer one of its children.
+        """
+        program = self.active_editor_program()
+        if program is None:
+            self.release_hosted_canvas()
+            studio.set_canvas(None)
+            self._set_viewport_reason(
+                "This world loaded no 3D editor, so there is no renderer to show. "
+                "The log records which extension failed to load."
+            )
+            return
+        canvas = getattr(program, "_canvas", None)
+        building = getattr(program, "_setup_thread", None) is not None
+        if canvas is None or building or not canvas.IsShown():
+            self.release_hosted_canvas()
+            studio.set_canvas(None)
+            self._await_editor_canvas()
+            return
+        self._cancel_canvas_host_retry()
+        if self._hosted_canvas is not None and self._hosted_canvas[2] is canvas:
+            studio.set_canvas(canvas)
+            return
+        self.release_hosted_canvas()
+        owner = canvas.GetParent()
+        sizer = owner.GetSizer() if owner is not None else None
+        if sizer is not None:
+            sizer.Detach(canvas)
+        self._hosted_canvas = (page, owner, canvas)
+        studio.set_canvas(canvas)
+        self._set_viewport_reason("")
+        # The world pages are outside the Studio's own token traversal, so they
+        # are styled from here rather than being left with the default palette.
         apply_material3(self._tab_content)
         self._tab_content.Layout()
-        if studio.project_open and studio.project_path == page.path:
+
+    def _await_editor_canvas(self) -> None:
+        """Say the renderer is still starting, and look again shortly.
+
+        The alternative -- showing the drawn stand-in with no explanation --
+        reads as a renderer that failed rather than one that has not finished
+        loading its resource pack yet.
+        """
+        now = time.monotonic()
+        if self._canvas_host_deadline is None:
+            self._canvas_host_deadline = now + CANVAS_HOST_TIMEOUT_SECONDS
+        if now > self._canvas_host_deadline:
+            self._set_viewport_reason(
+                "The 3D editor did not finish starting within "
+                f"{int(CANVAS_HOST_TIMEOUT_SECONDS)} seconds. The log records why; "
+                "nothing is being drawn from the world."
+            )
+            self._cancel_canvas_host_retry()
             return
-        studio.attach_project(page.world_name, page.path, self._world_platform(page))
+        self._set_viewport_reason(
+            "The 3D editor is still starting: it is loading the resource pack "
+            "and building its texture atlas. Nothing here is read from the "
+            "world yet."
+        )
+        if self._canvas_host_timer is not None and self._canvas_host_timer.IsRunning():
+            return
+        self._canvas_host_timer = wx.CallLater(
+            CANVAS_HOST_RETRY_MS, self.sync_studio_project
+        )
+
+    def _cancel_canvas_host_retry(self) -> None:
+        if self._canvas_host_timer is not None and self._canvas_host_timer.IsRunning():
+            self._canvas_host_timer.Stop()
+        self._canvas_host_timer = None
+        self._canvas_host_deadline = None
+
+    def release_hosted_canvas(self, page: Optional[WorldPageUI] = None) -> None:
+        """Give a borrowed canvas back to the extension that owns it.
+
+        Called before a world page closes and whenever the viewport is about to
+        show a different one.  ``page`` narrows it to one world's canvas, so
+        closing one world never takes the renderer away from another.
+        """
+        record = self._hosted_canvas
+        if record is None:
+            return
+        hosted_page, owner, canvas = record
+        if page is not None and page is not hosted_page:
+            return
+        self._hosted_canvas = None
+        studio = getattr(self, "_studio", None)
+        if studio is not None:
+            try:
+                studio.set_canvas(None)
+            except RuntimeError:  # pragma: no cover - the shell is being torn down
+                pass
+        try:
+            if not canvas or canvas.IsBeingDeleted():
+                return
+            if owner and not owner.IsBeingDeleted():
+                canvas.Reparent(owner)
+                sizer = owner.GetSizer()
+                if sizer is not None and sizer.GetItem(canvas) is None:
+                    sizer.Add(canvas, 1, wx.EXPAND)
+                owner.Layout()
+        except RuntimeError:  # pragma: no cover - either window already gone
+            log.debug("The borrowed canvas could not be returned", exc_info=True)
+
+    def _set_viewport_reason(self, reason: str) -> None:
+        """Tell the viewport why it has no renderer, when it has none."""
+        studio = getattr(self, "_studio", None)
+        viewport = getattr(getattr(studio, "workspace", None), "viewport", None)
+        setter = getattr(viewport, "set_placeholder_reason", None)
+        if callable(setter):
+            try:
+                setter(reason)
+            except RuntimeError:  # pragma: no cover - the workspace is going away
+                pass
+
+    # -- the world every Studio surface reads from ---------------------------
+    def _publish_world_context(self, page: WorldPageUI) -> None:
+        """Make the open level the world every Studio surface reads from.
+
+        The snapshot walks the world folder and counts its chunks, so it is
+        taken once per world rather than on every tab change; attaching the
+        canvas afterwards only replaces the selection and the dimension, which
+        costs nothing.
+        """
+        try:
+            from amulet_map_editor.api.studio import context as world_context
+        except Exception:  # pragma: no cover - a build without the Studio
+            log.debug("The Studio world context is unavailable", exc_info=True)
+            return
+        canvas = self.hosted_canvas()
+        key = (page.path, id(getattr(page, "world", None)))
+        try:
+            if key != self._world_context_key:
+                world_context.set_level(
+                    page.world, path=page.path, name=page.world_name, canvas=canvas
+                )
+                self._world_context_key = key
+            elif canvas is not None:
+                world_context.set_canvas(canvas)
+        except Exception:
+            log.exception("Could not publish the open world to the Studio surfaces")
+
+    def _clear_world_context(self) -> None:
+        """Record that no world is open, for every surface that reads one."""
+        self._world_context_key = None
+        try:
+            from amulet_map_editor.api.studio import context as world_context
+
+            world_context.clear()
+        except Exception:  # pragma: no cover - a build without the Studio
+            log.debug("The Studio world context could not be cleared", exc_info=True)
 
     @staticmethod
     def _select_editor_program(page: WorldPageUI) -> None:
@@ -1002,6 +1184,8 @@ class AmuletUI(wx.Frame):
                 self._show_update_state(*pending_state)
             return
         self._discard_pending_update_after_accepted_close()
+        self.release_hosted_canvas()
+        self._cancel_canvas_host_retry()
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
         if self._scheduled_timer is not None and self._scheduled_timer.IsRunning():
@@ -1217,6 +1401,11 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
     def _on_page_closing(self, evt: flatnotebook.EVT_FLATNOTEBOOK_PAGE_CLOSING):
         """Handle the page closing."""
         page: CLOSEABLE_PAGE_TYPE = self.GetPage(evt.GetSelection())
+        # The Studio viewport may be showing this page's renderer. Give it back
+        # before anything closes the world, so the canvas is destroyed with the
+        # extension that owns it rather than outliving it inside the viewport.
+        if self._owner_frame is not None:
+            self._owner_frame.release_hosted_canvas(page)
         if page is not self._main_menu:
             preapproved = False
             if (

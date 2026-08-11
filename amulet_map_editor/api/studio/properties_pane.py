@@ -1,11 +1,18 @@
 """The workspace properties pane: what is selected, what changed, and why.
 
-Three tabs share one column.  **Properties** lists the facts the workspace
-holds about the current selection.  **History** lists the project's revisions
-and restores one, which appends a new revision rather than rewinding -- the
-state you restored from stays undoable, which is the whole point of the
-per-project repository.  **Notes** is a real note stored with the project, not
-a scratch box that empties when the window closes.
+Three tabs share one column.  **Properties** reads the current selection back
+out of the open world -- its bounds, its volume, the dimension it sits in, how
+many chunks it covers, and the block the editor's pointer is on.  **History**
+lists the project's own local-history events and restores one, which appends a
+new event rather than rewinding: the state you restored from stays in the list
+and stays restorable in its turn.  **Notes** is a real note stored with the
+project, not a scratch box that empties when the window closes.
+
+Nothing here is held between refreshes.  Every row is read at the moment it is
+drawn, and the pane subscribes to the world context so the moment a world
+opens, closes, changes dimension, or has its selection redrawn, the rows are
+read again.  With no world open the pane says so instead of leaving the last
+world's figures on screen.
 
 The pane's own search filters the rows in front of it and reports an honest
 count, including the empty one.
@@ -13,20 +20,26 @@ count, including the empty one.
 
 from __future__ import annotations
 
+import datetime
 import logging
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import wx
 
 from amulet_map_editor.api import config, local_history
-from amulet_map_editor.api.studio import tokens
+from amulet_map_editor.api.studio import context, tokens
 from amulet_map_editor.api.studio.copy import studio_text
 from amulet_map_editor.api.studio.search import SearchState
 from amulet_map_editor.api.studio.status_bar import (
     clear_container,
+    invalidate_project_history,
     open_studio_menu,
+    project_history_events,
+    project_key_for,
+    restore_history_event,
     single_line,
+    studio_canvas,
 )
 from amulet_map_editor.api.studio.widgets import (
     SearchBar,
@@ -81,82 +94,328 @@ class PropertySection:
 
 @dataclass(frozen=True)
 class ProjectRevision:
-    """One commit in the project's own Git repository."""
+    """One event in the project's own local-history repository."""
 
     commit: str
     message: str
     meta: str
     head: bool = False
+    #: The full identifier the history store restores by.  The seven characters
+    #: in :attr:`commit` are for a person to read; this is what is restored.
+    event_id: str = ""
 
     def haystack(self) -> str:
         """Return everything a search over the history should look at."""
         return f"{self.commit} {self.message} {self.meta}"
 
 
-#: The revisions the design's project history shows, newest first.
-DEFAULT_REVISIONS: Tuple[ProjectRevision, ...] = (
-    ProjectRevision(
-        "a91f0c7",
-        "Fill selection with deepslate",
-        "a91f0c7 · 10 Aug 2026, 09:41 · 12 chunks",
-        head=True,
-    ),
-    ProjectRevision(
-        "5d3e118",
-        "Move box 1 to -2, 98, -49",
-        "5d3e118 · 10 Aug 2026, 09:22 · 1 box",
-    ),
-    ProjectRevision(
-        "c72ba40",
-        "Paste spawn arch structure",
-        "c72ba40 · 10 Aug 2026, 08:58 · 384 blocks",
-    ),
-    ProjectRevision(
-        "1e6f9d2",
-        "Delete unselected chunks",
-        "1e6f9d2 · 09 Aug 2026, 21:14 · 96 chunks",
-    ),
-    ProjectRevision(
-        "7ab4c05",
-        "Import Debug 1.14 chunk backup",
-        "7ab4c05 · 09 Aug 2026, 20:02 · 48 chunks",
-    ),
-    ProjectRevision(
-        "0004aa1",
-        "Initial project commit",
-        "0004aa1 · 09 Aug 2026, 19:40 · world snapshot",
-    ),
+#: What the History tab says when a project has recorded nothing yet.
+NO_REVISIONS_YET = studio_text(
+    "This project has recorded no revisions yet. Every edit that changes it "
+    "adds one, and none of them are ever rewritten.",
+    "呢個項目而家仲未有任何版本記錄。每次改動都會加一個，而且永遠唔會改寫舊嘅。",
 )
 
-#: The sections the design's pane shows for the selected box.
-DEFAULT_SECTIONS: Tuple[PropertySection, ...] = (
-    PropertySection(
-        "Selection",
-        (
-            ("Minimum", "-2, 98, -49"),
-            ("Maximum", "13, 99, -32"),
-            ("Size", "16x2x18"),
-            ("Volume", "576 blocks"),
-        ),
-    ),
-    PropertySection(
-        "Dimension",
-        (
-            ("Dimension", "minecraft:overworld"),
-            ("Height range", "-64 to 320"),
-            ("Loaded chunks", "812"),
-        ),
-    ),
-    PropertySection(
-        "Revision",
-        (
-            ("Head", "a91f0c7"),
-            ("Message", "Fill selection with deepslate"),
-            ("Committed", "10 Aug 2026, 09:41"),
-            ("Revisions", "1,284 commits"),
-        ),
-    ),
+#: What it says when the profile could not hold a history repository at all.
+NO_HISTORY_AVAILABLE = studio_text(
+    "The project history could not be read from this profile, so no revision "
+    "can be listed or restored.",
+    "喺呢個設定檔度讀唔到項目歷史，所以列唔到亦都還原唔到任何版本。",
 )
+
+#: What the History tab says with no project open to have a history.
+NO_PROJECT_HISTORY = studio_text(
+    "No world is open, so there is no project history to show.",
+    "而家未開世界，所以冇項目歷史可以睇。",
+)
+
+#: What the Properties tab says with no world open.
+NO_WORLD_PROPERTIES = studio_text(
+    "No world is open. Open one from the project screen and this pane will "
+    "show what is selected in it.",
+    "而家未開世界。喺項目版面開一個，呢一欄就會顯示揀咗啲乜。",
+)
+
+#: The record types the studio writes, and how each one reads in the list.  A
+#: record type this build does not recognise still appears, named by the type
+#: the store recorded, rather than being dropped from the history.
+_RECORD_LABELS: Dict[str, str] = {
+    "studio revision": "Project edit",
+    "studio note": "Project note",
+}
+
+#: The shipped lists are empty because both are read from the open project.
+DEFAULT_REVISIONS: Tuple[ProjectRevision, ...] = ()
+DEFAULT_SECTIONS: Tuple[PropertySection, ...] = ()
+
+
+def format_timestamp(value: str) -> str:
+    """Return a stored UTC timestamp as a local date a person reads."""
+    text = str(value or "")
+    if not text:
+        return ""
+    try:
+        moment = datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text
+    if moment.tzinfo is not None:
+        moment = moment.astimezone()
+    return moment.strftime("%d %b %Y, %H:%M")
+
+
+def _payload_text(payload: Any, key: str) -> str:
+    """Return one field of a recorded payload, or ``""`` when it has none."""
+    if isinstance(payload, dict):
+        value = payload.get(key)
+        if value is not None:
+            return str(value)
+    return ""
+
+
+def revision_from_event(event: Any, *, head: bool = False) -> ProjectRevision:
+    """Return one history event as the row the History tab draws.
+
+    The message is whatever the event actually recorded.  An event whose
+    payload carries no message is named by what it did and what it did it to,
+    rather than being given a sentence nobody wrote.
+    """
+    event_id = str(getattr(event, "event_id", ""))
+    action = str(getattr(event, "action", ""))
+    record_type = str(getattr(event, "record_type", ""))
+    kind = _RECORD_LABELS.get(record_type, record_type or "record")
+    payload = getattr(event, "after", None)
+    message = _payload_text(payload, "message")
+    detail = _payload_text(payload, "detail")
+    if not message:
+        characters = _payload_text(payload, "characters")
+        if characters:
+            message = f"{kind} {action}, {characters} characters"
+        elif payload is None and action:
+            # A deleted or restored record holds no payload to name, so the
+            # row says what the event left behind rather than inventing a
+            # description of work nobody recorded.
+            message = f"{kind} {action}, leaving nothing recorded"
+        else:
+            message = f"{kind} {action}" if action else kind
+    parts = [event_id[:7], format_timestamp(getattr(event, "timestamp", ""))]
+    parts.append(detail or action or kind)
+    return ProjectRevision(
+        commit=event_id[:7],
+        message=message,
+        meta=" · ".join(part for part in parts if part),
+        head=bool(head),
+        event_id=event_id,
+    )
+
+
+def load_project_revisions(
+    project_key: str, *, refresh: bool = False
+) -> Tuple[Tuple[ProjectRevision, ...], bool]:
+    """Return one project's revisions, newest first, and whether they read.
+
+    The second value separates a project that has recorded nothing from a
+    history that could not be read at all, which are different things to say
+    and would otherwise both render as an empty list.
+    """
+    events, available = project_history_events(project_key, refresh=refresh)
+    revisions = tuple(
+        revision_from_event(event, head=index == 0)
+        for index, event in enumerate(events)
+    )
+    return revisions, available
+
+
+def cursor_location(canvas: Any = None) -> Optional[Tuple[int, int, int]]:
+    """Return the block the editor's pointer is on, or ``None``.
+
+    The pointer belongs to whichever tool is active rather than to the canvas,
+    so the canvas is asked first and each of its tools afterwards.  Nothing is
+    substituted when no tool is reporting one: the camera's own position is not
+    the cursor, and showing it as though it were would be a number the user
+    could not act on.
+    """
+    target = studio_canvas() if canvas is None else canvas
+    if target is None:
+        return None
+    candidates: List[Any] = [target]
+    try:
+        candidates.extend(target.tools.values())
+    except Exception:  # noqa: BLE001 - a canvas with no tool sizer yet
+        pass
+    for candidate in list(candidates):
+        try:
+            candidates.extend(vars(candidate).values())
+        except TypeError:  # pragma: no cover - an object with no __dict__
+            continue
+    for candidate in candidates:
+        point = getattr(candidate, "pointer_base", None)
+        if point is None:
+            continue
+        try:
+            x, y, z = (int(value) for value in point)
+        except Exception:  # noqa: BLE001 - not a coordinate triple
+            continue
+        return (x, y, z)
+    return None
+
+
+def cursor_block(
+    ctx: Optional[context.WorldContext] = None,
+) -> Tuple[str, str]:
+    """Return the block under the editor's pointer, and where it is.
+
+    The block is translated back into the version the world is saved in, so the
+    name is the one the user would see in the game rather than the universal
+    palette entry the editor stores it as.  Both halves are empty when the
+    editor is not reporting a pointer.
+    """
+    if ctx is None:
+        ctx = context.current()
+    if not ctx.open or ctx.level is None:
+        return "", ""
+    point = cursor_location()
+    if point is None:
+        return "", ""
+    where = f"{point[0]}, {point[1]}, {point[2]}"
+    try:
+        block = ctx.level.get_block(point[0], point[1], point[2], ctx.dimension)
+    except Exception as err:  # noqa: BLE001 - an ungenerated or broken chunk
+        # A chunk nobody has generated and a chunk that will not load are
+        # different facts, and merging them would hide a corrupt region behind
+        # an ordinary empty one.
+        if type(err).__name__ == "ChunkDoesNotExist":
+            return "that chunk is not generated", where
+        return f"not readable ({type(err).__name__})", where
+    try:
+        platform, version = ctx.level.level_wrapper.max_world_version
+        translator = ctx.level.translation_manager.get_version(platform, version).block
+        converted = translator.from_universal(block)[0]
+        return str(getattr(converted, "full_blockstate", None) or converted), where
+    except Exception:  # noqa: BLE001 - a block this version has no name for
+        return f"{block.full_blockstate} (universal)", where
+
+
+def world_sections(
+    ctx: Optional[context.WorldContext] = None,
+) -> Tuple[PropertySection, ...]:
+    """Describe the open world's selection, dimension, and head revision.
+
+    Every row here was read from the level a moment before it was built.  A
+    fact the world does not record is stated as absent rather than filled in.
+    """
+    if ctx is None:
+        ctx = context.current()
+    if not ctx.open:
+        return ()
+
+    selection_rows: List[Tuple[str, str]] = []
+    bounds = ctx.selection_bounds()
+    if bounds is None or not ctx.selection_boxes:
+        selection_rows.append(("Selection", "nothing selected"))
+    else:
+        low, high = bounds
+        extent = tuple(max(0, high[axis] - low[axis]) for axis in range(3))
+        # The level stores the far corner one block past the last block the
+        # box contains, which is the arithmetic the editor wants and not the
+        # coordinate a user reads off the viewport, so the last contained
+        # block is what is shown.
+        last = tuple(
+            high[axis] - 1 if extent[axis] else high[axis] for axis in range(3)
+        )
+        # With more than one box the extent describes the box that encloses
+        # them all while the volume counts the blocks they actually cover, and
+        # those are different numbers.  Each is labelled for what it is rather
+        # than being left side by side to be read as one measurement.
+        many = len(ctx.selection_boxes) > 1
+        selection_rows.extend(
+            [
+                ("Boxes", str(len(ctx.selection_boxes))),
+                ("Minimum", ", ".join(str(value) for value in low)),
+                ("Maximum", ", ".join(str(value) for value in last)),
+                (
+                    "Bounding size" if many else "Size",
+                    "x".join(str(value) for value in extent),
+                ),
+                (
+                    "Selected volume" if many else "Volume",
+                    f"{ctx.selection_volume:,} "
+                    + ("block" if ctx.selection_volume == 1 else "blocks"),
+                ),
+                ("Chunks", f"{len(ctx.selection_chunks()):,}"),
+            ]
+        )
+    block, where = cursor_block(ctx)
+    if block:
+        selection_rows.append(("Block at cursor", block))
+        selection_rows.append(("Cursor", where))
+    else:
+        selection_rows.append(("Block at cursor", "the editor is not reporting one"))
+
+    info = ctx.current_dimension()
+    dimension_rows: List[Tuple[str, str]] = [
+        ("Dimension", ctx.dimension or "none reported"),
+        (
+            "Height range",
+            (
+                f"{info.min_y} to {info.max_y}"
+                if info is not None and info.has_range
+                else "not reported"
+            ),
+        ),
+        (
+            "Chunks stored",
+            (
+                "not readable"
+                if info is not None and not info.counted
+                else f"{ctx.chunk_count:,}" + ("+" if info and info.truncated else "")
+            ),
+        ),
+        ("Dimensions", str(len(ctx.dimension_info))),
+    ]
+
+    world_rows: List[Tuple[str, str]] = [
+        ("World", ctx.name or "not recorded"),
+        (
+            "Version",
+            ctx.game_version
+            or " ".join(part for part in (ctx.platform, ctx.version) if part)
+            or "not reported",
+        ),
+        ("Seed", ctx.seed or ctx.reason("seed") or "not recorded"),
+        (
+            "Spawn",
+            (
+                ", ".join(str(value) for value in ctx.spawn)
+                if ctx.spawn is not None
+                else ctx.reason("spawn") or "not recorded"
+            ),
+        ),
+    ]
+
+    revisions, available = load_project_revisions(project_key_for(ctx))
+    revision_rows: List[Tuple[str, str]] = []
+    if not available:
+        revision_rows.append(("History", "could not be read from this profile"))
+    elif not revisions:
+        revision_rows.append(("History", "nothing recorded yet"))
+    else:
+        head = revisions[0]
+        committed = [part.strip() for part in head.meta.split("·")]
+        revision_rows.extend(
+            [
+                ("Head", head.commit),
+                ("Message", head.message),
+                ("Recorded", committed[1] if len(committed) > 1 else head.meta),
+                ("Revisions", f"{len(revisions):,}"),
+            ]
+        )
+
+    return (
+        PropertySection("Selection", tuple(selection_rows)),
+        PropertySection("Dimension", tuple(dimension_rows)),
+        PropertySection("World", tuple(world_rows)),
+        PropertySection("Revision", tuple(revision_rows)),
+    )
 
 
 def load_notes() -> Dict[str, str]:
@@ -450,6 +709,9 @@ class PropertiesPane(wx.Panel):
         self.tab = "properties"
         self.search_state = SearchState(label="Properties")
         self._note_dirty = False
+        self._note_key = self.active_project_key()
+        self._live_revisions: List[ProjectRevision] = []
+        self._history_available = True
         self.SetName("Properties pane")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
 
@@ -499,9 +761,11 @@ class PropertiesPane(wx.Panel):
         self.scroller.SetSizer(self.body)
         self.status_label = wx.StaticText(self.scroller, label="")
         self.status_label.SetName("Properties pane search result")
+        self.empty_note = wx.StaticText(self.scroller, label="")
+        self.empty_note.SetName("Properties pane state")
         self.notes_field = wx.TextCtrl(
             self.scroller,
-            value=note_for(self.project_key),
+            value=note_for(self._note_key),
             style=wx.TE_MULTILINE | wx.TE_RICH2,
         )
         self.notes_field.SetName("Project note")
@@ -570,9 +834,64 @@ class PropertiesPane(wx.Panel):
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
         self.scroller.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+        context.subscribe(self._on_world_context)
         self._apply_theme()
+        self.refresh_history()
         self.rebuild()
+
+    # -- the open world ------------------------------------------------------
+    def active_project_key(self) -> str:
+        """Return the project whose note and history this pane is showing.
+
+        The open world wins over whatever the owner last named, because the
+        world is the thing the notes and the history actually belong to and it
+        is the one the user is looking at.
+        """
+        return project_key_for() or self.project_key
+
+    def _on_world_context(self, ctx: context.WorldContext) -> None:
+        """Take a world change from any thread onto the one wx paints on."""
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        if wx.IsMainThread():
+            self.apply_context(ctx)
+        else:
+            wx.CallAfter(self.apply_context, ctx)
+
+    def apply_context(self, ctx: Optional[context.WorldContext] = None) -> None:
+        """Re-read every tab from the world that is open right now."""
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        key = self.active_project_key()
+        if key != self._note_key:
+            if self._note_dirty:
+                self.save_note()
+            self._note_key = key
+            self.notes_field.ChangeValue(note_for(key))
+            self._note_dirty = False
+        self.refresh_history()
+        self.rebuild()
+
+    def refresh_history(self, *, reread: bool = False) -> None:
+        """Re-read the project's revisions from its own local history."""
+        revisions, available = load_project_revisions(
+            self.active_project_key(), refresh=reread
+        )
+        self._live_revisions = list(revisions)
+        self._history_available = bool(available)
+
+    def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
+        if event.GetEventObject() is self:
+            context.unsubscribe(self._on_world_context)
+        event.Skip()
 
     # -- content -------------------------------------------------------------
     def set_title(self, title: str) -> None:
@@ -581,14 +900,31 @@ class PropertiesPane(wx.Panel):
         self.title_label.SetName(f"Properties for {single_line(title)}")
         self.Layout()
 
+    def visible_sections(self) -> Tuple[PropertySection, ...]:
+        """Return the rows the Properties tab shows right now.
+
+        The open world is the source whenever there is one, read at the moment
+        this is called rather than kept from the last push.  Sections the owner
+        supplied are what is left when no world is open, which is when there is
+        nothing to read.
+        """
+        live = world_sections()
+        return live if live else tuple(self.sections)
+
+    def visible_revisions(self) -> Tuple[ProjectRevision, ...]:
+        """Return the revisions the History tab shows right now."""
+        if self._history_available:
+            return tuple(self._live_revisions)
+        return tuple(self.revisions)
+
     def set_sections(self, sections: Sequence[PropertySection]) -> None:
-        """Replace the Properties tab's rows."""
+        """Set the rows shown when no world is open to read them from."""
         self.sections = list(sections)
         if self.tab == "properties":
             self.rebuild()
 
     def set_revisions(self, revisions: Sequence[ProjectRevision]) -> None:
-        """Replace the History tab's revisions."""
+        """Set the revisions shown when the local history cannot be read."""
         self.revisions = list(revisions)
         if self.tab == "history":
             self.rebuild()
@@ -598,10 +934,12 @@ class PropertiesPane(wx.Panel):
         if self._note_dirty:
             self.save_note()
         self.project_key = str(project_key)
-        self.notes_field.ChangeValue(note_for(self.project_key))
+        self._note_key = self.active_project_key()
+        self.notes_field.ChangeValue(note_for(self._note_key))
         self._note_dirty = False
         if title:
             self.set_title(title)
+        self.refresh_history()
         self.rebuild()
 
     def set_tab(self, key: str) -> None:
@@ -612,23 +950,50 @@ class PropertiesPane(wx.Panel):
         for name, pill in self.tab_buttons.items():
             pill.set_selected(name == key)
         self.search_state.label = dict(PANE_TABS)[key]
+        if key == "history":
+            self.refresh_history(reread=True)
         self.rebuild()
 
+    def _set_empty_note(self, text: str) -> None:
+        """Show one wrapped empty-state line, or none at all.
+
+        The label is set before it is wrapped every time, because wrapping
+        writes newlines into the label and wrapping an already-wrapped string
+        again would break it into progressively shorter fragments.
+        """
+        message = single_line(text)
+        self.empty_note.SetLabel(message)
+        self.empty_note.SetName(
+            f"Properties pane state: {message}" if message else "Properties pane state"
+        )
+        if message:
+            self.empty_note.Wrap(
+                max(tokens.scaled(160), self.GetClientSize().width - tokens.scaled(32))
+            )
+        self.empty_note.Show(bool(message))
+
     def rebuild(self) -> None:
-        """Rebuild the open tab's body against the current search query."""
+        """Rebuild the open tab's body from the open world and the query."""
         state = self.search_state
         clear_container(
             self.body,
             self.scroller,
-            keep=(self.status_label, self.notes_field, self.notes_status),
+            keep=(
+                self.status_label,
+                self.empty_note,
+                self.notes_field,
+                self.notes_status,
+            ),
         )
         self.notes_field.Show(self.tab == "notes")
         self.notes_status.Show(self.tab == "notes")
         gap = tokens.scaled(tokens.SPACE_SM - 1)
+        self._set_empty_note("")
 
         if self.tab == "properties":
+            sections = self.visible_sections()
             kept = 0
-            for section in self.sections:
+            for section in sections:
                 filtered = section.matches(state)
                 if not filtered.rows:
                     continue
@@ -647,14 +1012,16 @@ class PropertiesPane(wx.Panel):
                         gap,
                     )
                 self.body.AddSpacer(tokens.scaled(tokens.SPACE_SM))
+            if not sections:
+                self._set_empty_note(NO_WORLD_PROPERTIES)
+                self.body.Add(self.empty_note, 0, wx.EXPAND | wx.BOTTOM, gap)
             self.status_label.SetLabel(
                 state.describe_matches(kept, "property") if state.is_active() else ""
             )
         elif self.tab == "history":
+            revisions = self.visible_revisions()
             matched = [
-                revision
-                for revision in self.revisions
-                if state.matches(revision.haystack())
+                revision for revision in revisions if state.matches(revision.haystack())
             ]
             for revision in matched:
                 self.body.Add(
@@ -663,10 +1030,13 @@ class PropertiesPane(wx.Panel):
                     wx.EXPAND | wx.BOTTOM,
                     gap,
                 )
+            if not revisions:
+                self._set_empty_note(self._history_note())
+                self.body.Add(self.empty_note, 0, wx.EXPAND | wx.BOTTOM, gap)
             self.status_label.SetLabel(
                 state.describe_matches(len(matched), "revision")
                 if state.is_active()
-                else f"{len(matched)} revisions · newest first"
+                else (f"{len(matched)} revisions · newest first" if matched else "")
             )
         else:
             self.body.Add(self.notes_field, 0, wx.EXPAND | wx.BOTTOM, gap)
@@ -699,6 +1069,14 @@ class PropertiesPane(wx.Panel):
         self.Layout()
         self._apply_theme()
 
+    def _history_note(self) -> str:
+        """Return why the History tab has nothing to list."""
+        if not self._history_available:
+            return NO_HISTORY_AVAILABLE
+        if not self.active_project_key():
+            return NO_PROJECT_HISTORY
+        return NO_REVISIONS_YET
+
     # -- actions -------------------------------------------------------------
     def _action_for_tab(self) -> Tuple[str, Callable[[], None]]:
         """Return the primary action for the open tab: its label and its work."""
@@ -719,7 +1097,45 @@ class PropertiesPane(wx.Panel):
         handler()
 
     def _restore(self, commit: str) -> None:
-        invoke(self.on_restore, commit)
+        """Restore the revision a row names, then tell the owner it happened.
+
+        The restore is done here rather than handed to the owner, because the
+        history the row came from is the one that has to be written back to;
+        the callback still fires so the workspace can react, and it fires only
+        once the store has genuinely accepted the new event.
+        """
+        self.restore_revision(commit)
+
+    def restore_revision(self, commit: str) -> Optional[ProjectRevision]:
+        """Restore one revision by appending a new one, and re-read the list."""
+        target = next(
+            (
+                revision
+                for revision in self.visible_revisions()
+                if revision.commit == str(commit) or revision.event_id == str(commit)
+            ),
+            None,
+        )
+        if target is None or not target.event_id:
+            log.debug("No history event %r to restore", commit)
+            invoke(self.on_restore, commit)
+            return None
+        restored = restore_history_event(target.event_id)
+        if restored is None:
+            self._set_note_status(
+                studio_text(
+                    "That revision could not be restored.",
+                    "還原唔到嗰個版本。",
+                )
+            )
+            log.debug("The history store refused to restore %r", target.event_id)
+            invoke(self.on_restore, commit)
+            return None
+        invalidate_project_history()
+        self.refresh_history(reread=True)
+        self.rebuild()
+        invoke(self.on_restore, target.commit)
+        return target
 
     def _close(self) -> None:
         invoke(self.on_close)
@@ -743,7 +1159,8 @@ class PropertiesPane(wx.Panel):
 
     def save_note(self) -> bool:
         """Write the note to the project's record and say whether it landed."""
-        if not self.project_key:
+        key = self.active_project_key()
+        if not key:
             self._set_note_status(
                 studio_text(
                     "No project is open, so there is nowhere to store this note yet.",
@@ -751,7 +1168,9 @@ class PropertiesPane(wx.Panel):
                 )
             )
             return False
-        saved = store_note(self.project_key, self.note())
+        saved = store_note(key, self.note())
+        if saved:
+            invalidate_project_history(key)
         self._note_dirty = not saved
         self._set_note_status(
             studio_text("Saved with the project.", "已經同項目一齊存好。")
@@ -798,7 +1217,7 @@ class PropertiesPane(wx.Panel):
         self.scroller.SetBackgroundColour(palette.surface_container)
         self.title_label.SetForegroundColour(palette.on_surface)
         self.title_label.SetFont(tokens.font(self, point_size(14), _MEDIUM))
-        for label in (self.status_label, self.notes_status):
+        for label in (self.status_label, self.notes_status, self.empty_note):
             label.SetForegroundColour(palette.on_surface_variant)
             label.SetFont(tokens.font(self, point_size(11)))
         self.notes_field.SetBackgroundColour(palette.surface)
@@ -833,15 +1252,25 @@ __all__ = [
     "MAX_NOTE_LENGTH",
     "MIN_PANEL_WIDTH",
     "NOTES_CONFIG_ID",
-    "PANE_TABS",
+    "NO_HISTORY_AVAILABLE",
+    "NO_PROJECT_HISTORY",
+    "NO_REVISIONS_YET",
+    "NO_WORLD_PROPERTIES",
     "PANEL_WIDTH",
+    "PANE_TABS",
     "ProjectRevision",
     "PropertiesPane",
     "PropertyRow",
     "PropertySection",
     "RevisionRow",
     "TabPill",
+    "cursor_block",
+    "cursor_location",
+    "format_timestamp",
     "load_notes",
+    "load_project_revisions",
     "note_for",
+    "revision_from_event",
     "store_note",
+    "world_sections",
 ]

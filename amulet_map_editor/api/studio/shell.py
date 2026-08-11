@@ -19,12 +19,27 @@ Three routes leave this class and nothing else does:
 A command that cannot be carried out says why, naming the exact key and the
 exact thing that is missing.  A button that appears to work and quietly does
 nothing is the defect this routing exists to prevent.
+
+**Nothing here reimplements an editing operation.**  Saving, the undo stack, the
+clipboard, chunk creation and deletion, imports, exports, and the operation
+plugins all belong to :mod:`amulet_map_editor.programs.edit`, which owns the
+level and its history.  This class finds the live canvas, finds the tool that
+owns the action, calls it, and then reads the world back to report what actually
+changed.  A second implementation of undo would be a second answer to the same
+question, and the two would disagree the first time either of them changed.
+
+The shell is also the one place that says which world is open: it publishes the
+level to :mod:`amulet_map_editor.api.studio.context` when a project attaches and
+clears it when the last one closes, which is what every surface reads its
+numbers from.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 import os
+import time
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple
@@ -32,7 +47,7 @@ from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple
 import wx
 
 from amulet_map_editor.api import local_history, preferences
-from amulet_map_editor.api.studio import commands, surfaces, tokens
+from amulet_map_editor.api.studio import commands, context, surfaces, tokens
 from amulet_map_editor.api.studio import recents
 from amulet_map_editor.api.studio.backstage import BackstageView
 from amulet_map_editor.api.studio.copy import studio_text
@@ -57,31 +72,40 @@ _DENSITIES: Tuple[str, ...] = ("compact", "comfortable", "spacious")
 #: from freezing the interface while a keystroke is being routed.
 _MAX_DESCENDANTS = 600
 
+#: The shortest gap between two live enablement passes, in seconds.  The pass
+#: runs on idle so that a selection dragged in the viewport greys the commands
+#: that need one without the viewport having to know they exist; the throttle is
+#: what stops that costing anything measurable while the user drags.
+_ENABLEMENT_INTERVAL = 0.15
+
 
 @dataclass(frozen=True)
 class _EditorAction:
     """One command carried out by the live world editor rather than the shell.
 
-    ``names`` are tried in order on the editor canvas and then on the active
-    program.  ``event`` records that the target is a wx event handler and
-    therefore takes an event argument, which is passed as ``None``.
+    ``names`` are tried in order on each target.  ``event`` records that the
+    target is a wx event handler and therefore takes an event argument, which is
+    passed as ``None``.
 
-    ``descend`` additionally searches the world page's own controls, because a
-    few actions live on a tool panel rather than on the canvas.  It is off by
-    default and named per action rather than applied to everything: a walk over
-    every descendant looking for a method called ``save`` would eventually find
-    one on something that is not the world.
+    ``tool`` names the editor tool that owns the action -- ``"Chunk"`` for the
+    chunk operations, ``"Operation"`` for the plugin runner.  Those tools are
+    ``wx.Sizer`` subclasses rather than windows, so a walk over the world page's
+    *windows* never reaches them however deep it goes; the canvas's own ``tools``
+    mapping is the only route to them and is tried before any walk.
+
+    ``descend`` additionally searches the world page's controls, for an action
+    that lives on a panel rather than on a tool.  It is off by default and named
+    per action rather than applied to everything: a walk looking for a method
+    called ``save`` would eventually find one on something that is not the world.
     """
 
     names: Tuple[str, ...]
     event: bool = False
     descend: bool = False
+    tool: str = ""
 
 
-#: Commands the world editor owns.  The Studio deliberately does not
-#: reimplement them: undo depth, the clipboard, and chunk operations belong to
-#: the level that is open, and a second implementation would be a second answer
-#: to the same question.
+#: Commands the world editor owns, and the method on it that carries each out.
 _EDITOR_ACTIONS: Mapping[str, _EditorAction] = MappingProxyType(
     {
         "save": _EditorAction(("save",)),
@@ -92,29 +116,47 @@ _EDITOR_ACTIONS: Mapping[str, _EditorAction] = MappingProxyType(
         "paste": _EditorAction(("paste_from_cache",)),
         "delete": _EditorAction(("delete",)),
         "selectAll": _EditorAction(("select_all",)),
-        "reloadPlugins": _EditorAction(("reload_operations",), descend=True),
-        "createChunks": _EditorAction(("_create_chunks",), event=True, descend=True),
-        "deleteChunks": _EditorAction(("_delete_chunks",), event=True, descend=True),
-        "deleteUnselectedChunks": _EditorAction(
-            ("_prune_chunks",), event=True, descend=True
+        "goto": _EditorAction(("goto",)),
+        "reloadPlugins": _EditorAction(
+            ("reload_operations",), tool="Operation", descend=True
         ),
-        "importChunks": _EditorAction(("_import_chunks",), event=True, descend=True),
-        "rotate": _EditorAction(("rotate",)),
-        "flip": _EditorAction(("mirror", "flip")),
+        "createChunks": _EditorAction(
+            ("_create_chunks",), event=True, tool="Chunk", descend=True
+        ),
+        "deleteChunks": _EditorAction(
+            ("_delete_chunks",), event=True, tool="Chunk", descend=True
+        ),
+        "deleteUnselectedChunks": _EditorAction(
+            ("_prune_chunks",), event=True, tool="Chunk", descend=True
+        ),
+        "importChunks": _EditorAction(
+            ("_import_chunks",), event=True, tool="Chunk", descend=True
+        ),
     }
 )
 
-#: Commands whose real controls live on a surface.  Used when the live editor
-#: has no method for the action, so the user still lands on the window where the
-#: action is configured instead of on a message saying nothing happened.
+#: The editor tool a command puts the user in front of.  Activating a tool is
+#: itself the action for these: the import tool opens the file chooser as it
+#: enables, and the export and operation tools are where the selection is turned
+#: into a file or handed to a plugin.
+_COMMAND_TOOLS: Mapping[str, str] = MappingProxyType(
+    {
+        "importFile": "Import",
+        "export": "Export",
+        "runOperation": "Operation",
+    }
+)
+
+#: Commands whose real controls live on a surface.  Consulted only when a
+#: project is open and the editor could not carry the command out, so the user
+#: lands on the window where the action is configured instead of on a message
+#: saying nothing happened.
 _COMMAND_SURFACES: Mapping[str, str] = MappingProxyType(
     {
         "export": "exportStructure",
         "importFile": "pendingImports",
         "importChunks": "importChunks",
         "runOperation": "operationOptions",
-        "rotate": "stackArray",
-        "flip": "stackArray",
     }
 )
 
@@ -146,15 +188,48 @@ _MUTATING_COMMANDS: Tuple[str, ...] = (
     "importChunks",
 )
 
-#: Editor actions whose binding the user configures, quoted back when the
-#: command is a press-and-hold gesture rather than something to run once.
-_MOVE_COMMANDS: Mapping[str, Tuple[str, str]] = MappingProxyType(
+#: The three press-and-hold selection gestures: the keybind the editor listens
+#: for, what it moves, and the button on the Select tool that does the same job
+#: from the keyboard.
+_MOVE_COMMANDS: Mapping[str, Tuple[str, str, str]] = MappingProxyType(
     {
-        "moveBox": ("ACT_BOX_CLICK", "the active selection box"),
-        "movePoint1": ("ACT_BOX_CLICK", "the green selection point"),
-        "movePoint2": ("ACT_BOX_CLICK_ADD", "the blue selection point"),
+        "moveBox": ("ACT_BOX_CLICK", "the active selection box", "_selection_move"),
+        "movePoint1": ("ACT_BOX_CLICK", "the green selection point", "_point1_move"),
+        "movePoint2": ("ACT_BOX_CLICK_ADD", "the blue selection point", "_point2_move"),
     }
 )
+
+
+@dataclass(frozen=True)
+class _CommandState:
+    """What the open world can answer right now, read from the live editor.
+
+    Every field is a fact about the world rather than about the interface, and
+    every one of them is read fresh: a stale copy of "something is selected" is
+    what makes a control enabled after the selection has gone.
+    """
+
+    project: bool = False
+    editor: bool = False
+    selection: bool = False
+    clipboard: bool = False
+    undo: bool = False
+    redo: bool = False
+
+    def unmet(self, needs: Tuple[str, ...]) -> Tuple[str, ...]:
+        """Return the conditions in ``needs`` this state does not satisfy."""
+        return tuple(name for name in needs if not getattr(self, name, False))
+
+    def signature(self) -> Tuple[bool, ...]:
+        """Return a cheap value that changes exactly when the state does."""
+        return (
+            self.project,
+            self.editor,
+            self.selection,
+            self.clipboard,
+            self.undo,
+            self.redo,
+        )
 
 
 class StudioShell(wx.Panel):
@@ -216,6 +291,10 @@ class StudioShell(wx.Panel):
         self._handlers: Dict[str, Callable[[str], None]] = self._build_handlers()
         self._accelerator_ids: Dict[str, int] = {}
         self._opening_project = False
+        #: The last state the enablement pass applied, so an idle tick that
+        #: changed nothing costs one tuple comparison rather than a tree walk.
+        self._enablement_signature: Optional[Tuple[Any, ...]] = None
+        self._enablement_checked = 0.0
         self._remove_palette_shortcut: Optional[Callable[[], None]] = (
             install_palette_shortcut(self, self.open_palette)
         )
@@ -224,8 +303,11 @@ class StudioShell(wx.Panel):
         self._theme_unsubscribe: Optional[Callable[[], None]] = (
             tokens.register_theme_listener(self._repaint)
         )
+        context.subscribe(self._on_world_context)
         self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
+        self.Bind(wx.EVT_IDLE, self._on_idle)
         self._apply_theme()
+        self._refresh_enablement(force=True)
 
     # ------------------------------------------------------------------
     # lifecycle
@@ -242,7 +324,31 @@ class StudioShell(wx.Panel):
                 except RuntimeError:  # pragma: no cover - frame already gone
                     pass
                 self._remove_palette_shortcut = None
+            context.unsubscribe(self._on_world_context)
+            # A shell going away takes the world it published with it; leaving
+            # the context pointing at a level whose window has been destroyed
+            # would let the next surface read numbers out of a closed world.
+            if context.current().open:
+                context.clear()
         event.Skip()
+
+    def _on_idle(self, event: wx.IdleEvent) -> None:
+        """Keep the ribbon's enabled states true while the user works.
+
+        The selection is dragged in the viewport, the undo stack moves when an
+        operation finishes, and the clipboard fills the first time anything is
+        copied.  None of those go through this class, and a tile that stays
+        pressable after its precondition has gone is exactly the control that
+        looks live and does nothing.  Re-reading the world on idle, throttled,
+        is what keeps every one of them honest without the viewport, the
+        operation runner, and the clipboard each having to report to the shell.
+        """
+        event.Skip()
+        now = time.monotonic()
+        if now - self._enablement_checked < _ENABLEMENT_INTERVAL:
+            return
+        self._enablement_checked = now
+        self._refresh_enablement()
 
     # ------------------------------------------------------------------
     # views
@@ -311,7 +417,6 @@ class StudioShell(wx.Panel):
         self.project_path = str(path or "")
         self.project_platform = str(platform or "")
         self.project_open = True
-        self.set_saved(True)
         self.title_bar.set_title(self.doc_title)
         self.workspace.set_project(self.doc_title, self.project_path)
         self.backstage.set_project(
@@ -319,6 +424,11 @@ class StudioShell(wx.Panel):
         )
         self._remember_recent()
         self.show_workspace()
+        # Published last, and only once every panel has been told the project
+        # is open: the subscribers redraw from the world, and one that redrew
+        # against a half-attached shell would show the previous project's name
+        # beside this project's numbers.
+        self._publish_world()
 
     def detach_project(self) -> None:
         """Record that no project is open and return to the project screen."""
@@ -331,7 +441,40 @@ class StudioShell(wx.Panel):
         self.workspace.set_canvas(None)
         self.workspace.set_project(self.doc_title, "")
         self.backstage.set_project(False)
+        context.clear()
         self.show_backstage("home")
+        self._refresh_enablement(force=True)
+
+    def _publish_world(self) -> None:
+        """Hand the open level to the world context every surface reads.
+
+        The level is taken from the notebook page the frame reports, not from
+        anything the shell was told: a project the shell believes is open but
+        whose page has already gone must publish nothing rather than publish a
+        name with no world behind it.
+        """
+        level = self._level()
+        if level is None:
+            if self.project_open:
+                log.debug(
+                    "No level is reachable for %r, so the world context stays "
+                    "empty rather than describing a world nothing can read",
+                    self.doc_title,
+                )
+            context.clear()
+            self._refresh_enablement(force=True)
+            return
+        context.set_level(
+            level,
+            path=self.project_path,
+            name=self.doc_title,
+            canvas=self._canvas(),
+        )
+        self._sync_world_state()
+
+    def _on_world_context(self, ctx: context.WorldContext) -> None:
+        """Re-read the enabled states whenever the open world changes."""
+        self._refresh_enablement(force=True)
 
     def close_project(self) -> None:
         """Close the open project, letting unsaved-work protection decide.
@@ -355,8 +498,18 @@ class StudioShell(wx.Panel):
         self.workspace.set_saved(self.saved)
 
     def set_canvas(self, window: Optional[wx.Window]) -> None:
-        """Host the real renderer inside the workspace viewport."""
+        """Host the real renderer inside the workspace viewport.
+
+        The renderer arrives well after the project does -- the editor builds
+        its canvas on a background thread -- and it is what the world context
+        reads the selection and the shown dimension from.  So the world is
+        published again here rather than only when the project attached, or
+        every selection-driven surface would spend the rest of the session
+        reading a context that was snapshotted before there was a viewport.
+        """
         self.workspace.set_canvas(window)
+        if self.project_open:
+            self._publish_world()
 
     def set_update_state(
         self, status: str, version: str = "", detail: str = ""
@@ -380,8 +533,20 @@ class StudioShell(wx.Panel):
     # surfaces, the palette, and reporting
     # ------------------------------------------------------------------
     def open_surface(self, key: str) -> Optional[wx.Window]:
-        """Open one surface, and report honestly when it does not open."""
-        return surfaces.open_surface(self, key)
+        """Open one surface, and report honestly when it does not open.
+
+        One key is intercepted.  ``goto`` describes a camera teleport, and the
+        live editor already owns a teleport dialog that reads the camera's real
+        position and moves it; the Studio's own description of that dialog can
+        only show numbers it has no way of reading.  When there is a canvas the
+        real one opens, and when there is not the description does, so the user
+        never lands on a form that cannot move anything.
+        """
+        resolved = str(key or "")
+        if resolved == "goto" and self._canvas() is not None:
+            self.run_command("goto")
+            return None
+        return surfaces.open_surface(self, resolved)
 
     def open_palette(self) -> Optional[wx.Window]:
         """Open the command palette over every command, surface, and setting."""
@@ -411,6 +576,8 @@ class StudioShell(wx.Panel):
             "openInEditor": self._cmd_open_in_editor,
             "addBox": self._cmd_add_box,
             "removeBox": self._cmd_remove_box,
+            "rotate": self._cmd_transform,
+            "flip": self._cmd_transform,
             "projection": self._cmd_projection,
             "cameraSpeed": self._cmd_camera_speed,
             "setDimension": self._cmd_set_dimension,
@@ -425,6 +592,8 @@ class StudioShell(wx.Panel):
             handlers[key] = self._cmd_open_registered_surface
         for key in _MOVE_COMMANDS:
             handlers[key] = self._cmd_move_gesture
+        for key in _COMMAND_TOOLS:
+            handlers.setdefault(key, self._cmd_tool)
         for key in _EDITOR_ACTIONS:
             handlers.setdefault(key, self._cmd_editor)
         for key in _COMMAND_SURFACES:
@@ -432,7 +601,13 @@ class StudioShell(wx.Panel):
         return handlers
 
     def run_command(self, key: str) -> None:
-        """Run one command, whatever asked for it."""
+        """Run one command, whatever asked for it.
+
+        A command whose preconditions are not met is refused here rather than
+        inside its handler, so the keyboard, the palette, and a ribbon tile that
+        was pressed before the pass could grey it all get the same sentence
+        naming the same missing condition.
+        """
         resolved = commands.resolve(key)
         if not resolved:
             log.error("run_command was called without a command key")
@@ -448,6 +623,8 @@ class StudioShell(wx.Panel):
                 severity="warning",
             )
             return
+        if not self._require(resolved):
+            return
         try:
             handler(resolved)
         except Exception:
@@ -457,30 +634,69 @@ class StudioShell(wx.Panel):
                 f"Running {resolved!r} raised an error. The details are in the log.",
                 severity="error",
             )
+        finally:
+            self._refresh_enablement(force=True)
 
-    def _command_label(self, key: str) -> str:
-        """Return a command's registered label, falling back to its key."""
-        entry = commands.command(key)
-        return entry.label if entry is not None else key
+    def _require(self, key: str) -> bool:
+        """Report why ``key`` cannot run, and return whether it can.
+
+        The conditions come from the registry rather than from each handler, so
+        the sentence a disabled tile shows in its tooltip and the sentence a
+        pressed one shows in a notification cannot describe different worlds.
+        """
+        needs = commands.requirements(key)
+        if not needs:
+            return True
+        unmet = self._command_state().unmet(needs)
+        if not unmet:
+            return True
+        self.notify(
+            studio_text(commands.label_for(key), ""),
+            commands.unavailable_hint(key, unmet),
+            severity="warning",
+        )
+        return False
 
     # -- project commands ----------------------------------------------------
     def _cmd_save(self, key: str) -> None:
-        if not self._require_project(key):
-            return
-        if self._editor_call(_EDITOR_ACTIONS["save"]):
-            self.set_saved(True)
-            self._record("save", {"project": self.doc_title, "path": self.project_path})
+        """Write the open world to disk through the editor's own save."""
+        before = self._history_counts()
+        if not self._editor_call(_EDITOR_ACTIONS["save"]):
             self.notify(
-                studio_text("Saved", "已經儲存"),
-                f"{self.doc_title} was written to disk.",
-                severity="success",
+                studio_text("Nothing was saved", "冇嘢儲存到"),
+                "No world editor is attached to this project, so there was nothing "
+                "to write.",
+                severity="warning",
+            )
+            return
+        # The level is asked whether it still differs from disk rather than being
+        # marked clean because a save was requested: a save that fails partway
+        # leaves the world changed, and a title bar claiming otherwise is how
+        # unsaved work gets closed away.
+        level = self._level()
+        changed = bool(getattr(level, "changed", False)) if level is not None else False
+        self._record(
+            "save",
+            {
+                "project": self.doc_title,
+                "path": self.project_path,
+                "undo_points": before[0],
+                "still_changed": changed,
+            },
+        )
+        self._sync_world_state()
+        if changed:
+            self.notify(
+                studio_text("Partly saved", "未完全儲存"),
+                f"{self.doc_title} still reports unsaved changes after the save "
+                "finished. The details are in the log.",
+                severity="warning",
             )
             return
         self.notify(
-            studio_text("Nothing was saved", "冇嘢儲存到"),
-            "No world editor is attached to this project, so there was nothing "
-            "to write.",
-            severity="warning",
+            studio_text("Saved", "已經儲存"),
+            f"{self.doc_title} was written to {self.project_path or 'disk'}.",
+            severity="success",
         )
 
     def _cmd_open_project(self, _key: str) -> None:
@@ -569,55 +785,96 @@ class StudioShell(wx.Panel):
         restart()
 
     # -- selection commands --------------------------------------------------
-    def _cmd_add_box(self, _key: str) -> None:
-        box = self.workspace.navigator.add_box()
-        self.workspace.refresh_state()
-        self.set_saved(False)
-        self.workspace.record_revision(
-            f"Added {box.label}", f"{box.corner_text(box.minimum)} · 1x1x1"
-        )
-        self.notify(
-            studio_text("Selection box added", "加咗一個選取框"),
-            f"{box.label} starts at {box.corner_text(box.minimum)}.",
-            severity="success",
-        )
+    def _cmd_add_box(self, key: str) -> None:
+        """Add a one-block selection box where the camera is standing.
 
-    def _cmd_remove_box(self, _key: str) -> None:
-        navigator = self.workspace.navigator
-        box = navigator.selected_box()
-        if box is None:
+        The box goes into the editor's own selection, which is what every
+        operation reads and what the renderer draws, rather than into a list the
+        Studio keeps beside it.  Its position is the camera's real position: a
+        box has to start somewhere, and the place the user is looking from is the
+        only origin the world can actually supply.
+        """
+        canvas = self._canvas()
+        corners = list(self._selection_corners())
+        origin = self._camera_block(canvas)
+        if origin is None:
             self.notify(
-                studio_text("No selection box is active", "冇選取框揀咗"),
-                "Select a box in the navigator before removing one.",
+                studio_text("The camera has no position", "鏡頭冇位置"),
+                "The 3D editor has not reported a camera position yet, so there "
+                "is nowhere to put a selection box.",
                 severity="warning",
             )
             return
-        remaining = [item for item in navigator.boxes if item is not box]
-        navigator.set_boxes(remaining)
-        self.workspace.refresh_state()
-        self.set_saved(False)
-        self.workspace.record_revision(
-            f"Removed {box.label}", f"{len(remaining)} boxes remain"
+        far = (origin[0] + 1, origin[1] + 1, origin[2] + 1)
+        corners.append((origin, far))
+        if not self._set_selection_corners(canvas, corners):
+            return
+        self._record(
+            "selection-add-box",
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "minimum": list(origin),
+                "maximum": list(far),
+                "boxes": len(corners),
+            },
         )
+        self._sync_world_state()
+        self.notify(
+            studio_text("Selection box added", "加咗一個選取框"),
+            f"A 1x1x1 box was added at {origin[0]}, {origin[1]}, {origin[2]}; "
+            f"the selection now holds {len(corners)} "
+            f"{'box' if len(corners) == 1 else 'boxes'}.",
+            severity="success",
+        )
+
+    def _cmd_remove_box(self, key: str) -> None:
+        """Drop the most recently added box from the editor's selection."""
+        canvas = self._canvas()
+        corners = list(self._selection_corners())
+        if not corners:
+            self.notify(
+                studio_text("Nothing is selected", "冇嘢揀咗"),
+                "There is no selection box in this world to remove.",
+                severity="warning",
+            )
+            return
+        low, high = corners.pop()
+        if not self._set_selection_corners(canvas, corners):
+            return
+        self._record(
+            "selection-remove-box",
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "minimum": list(low),
+                "maximum": list(high),
+                "boxes": len(corners),
+            },
+        )
+        self._sync_world_state()
         self.notify(
             studio_text("Selection box removed", "刪咗個選取框"),
-            f"{box.label} is gone; {len(remaining)} remain.",
+            f"The box from {low[0]}, {low[1]}, {low[2]} to {high[0]}, {high[1]}, "
+            f"{high[2]} is gone; {len(corners)} remain.",
             severity="success",
         )
 
     def _cmd_move_gesture(self, key: str) -> None:
-        """Report the real binding for a press-and-hold selection gesture.
+        """Put the user on the control that moves a selection point.
 
-        These three are gestures rather than one-shot actions: the user holds a
-        button and then uses the movement keys.  The binding is read from the
-        editor's own key configuration, so a rebound control is quoted as the
-        user set it rather than as the shipped default.
+        These three are gestures rather than one-shot actions: the editor moves
+        a point while a button is held, and there is no single distance a
+        command could move it by.  So the command does the part that can be
+        done -- it switches the editor to the Select tool, whose nudge buttons
+        move the same points from the keyboard, and puts the keyboard on the
+        right one -- and then quotes the viewport binding, read from the user's
+        own key configuration rather than from the shipped default.
         """
         from amulet_map_editor.api.studio.context_menu import viewport_accelerator
 
-        action, subject = _MOVE_COMMANDS[key]
-        if self._editor_call(_EditorAction((key,))):
-            return
+        action, subject, button_name = _MOVE_COMMANDS[key]
+        focused = self._focus_select_tool_button(button_name)
         binding = viewport_accelerator(action)
         movement = " ".join(
             part
@@ -629,81 +886,285 @@ class StudioShell(wx.Panel):
             )
             if part
         )
+        parts: List[str] = []
+        if focused:
+            parts.append(
+                f"The Select tool is now showing; its nudge control for {subject} "
+                "moves it one block at a time from the keyboard."
+            )
         if binding:
-            body = (
-                f"Hold {binding} in the viewport and use the movement controls"
+            parts.append(
+                f"In the viewport, hold {binding} and use the movement controls"
                 + (f" ({movement})" if movement else "")
-                + f" to move {subject}."
+                + f" to drag {subject}."
             )
         else:
-            body = (
-                f"The binding that moves {subject} is not set in this profile. "
-                "Open Key configuration to give it one."
+            parts.append(
+                f"The viewport binding that drags {subject} is not set in this "
+                "profile. Open Key configuration to give it one."
             )
-        self.notify(studio_text(self._command_label(key), ""), body, severity="info")
+        self.notify(
+            studio_text(commands.label_for(key), ""), " ".join(parts), severity="info"
+        )
+
+    def _cmd_transform(self, key: str) -> None:
+        """Rotate or flip the selection, through the editor's paste transform.
+
+        The editor performs a rotation by floating a copy of the selection and
+        transforming it before it is stamped down, which is why this is not a
+        one-shot world edit: the copy has to be placed and confirmed.  So when a
+        floating paste is already in flight the transform is applied to it, and
+        otherwise the selection is copied and floated first -- both through the
+        editor's own copy, paste, and transform, never through a second
+        implementation of any of them.
+        """
+        canvas = self._canvas()
+        paste = self._editor_tool("Paste")
+        if paste is None:
+            self.notify(
+                studio_text(commands.label_for(key), ""),
+                "This world's editor has no paste tool, which is what applies a "
+                "rotation, so there is nothing to transform with.",
+                severity="warning",
+            )
+            return
+        if getattr(paste, "_is_enabled", False):
+            self._apply_paste_transform(key, announce=True)
+            return
+        try:
+            canvas.copy()
+            canvas.paste_from_cache()
+        except Exception:
+            log.exception("Could not float a copy of the selection for %r", key)
+            self.notify(
+                studio_text(commands.label_for(key), ""),
+                "The selection could not be copied, so there is nothing to "
+                "transform. The details are in the log.",
+                severity="error",
+            )
+            return
+        # ``paste_from_cache`` posts the tool change, so the paste tool is not
+        # holding the structure yet; the transform is applied once that event
+        # has been handled and only if it really arrived.
+        wx.CallAfter(self._apply_paste_transform, key, True)
+
+    def _apply_paste_transform(self, key: str, announce: bool = False) -> None:
+        """Apply one 90-degree rotation or one mirror to the floating paste."""
+        paste = self._editor_tool("Paste")
+        if paste is None or not getattr(paste, "_is_enabled", False):
+            self.notify(
+                studio_text(commands.label_for(key), ""),
+                "The copied selection is not floating in the paste tool, so "
+                "there was nothing to transform.",
+                severity="warning",
+            )
+            return
+        method = getattr(
+            paste,
+            "_on_rotate_right" if key == "rotate" else "_on_mirror_horizontal",
+            None,
+        )
+        if not callable(method):
+            self.notify(
+                studio_text(commands.label_for(key), ""),
+                "This build's paste tool exposes no "
+                f"{'rotation' if key == 'rotate' else 'mirror'} control.",
+                severity="warning",
+            )
+            return
+        method(None)
+        self._record(
+            key,
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "rotation": list(
+                    getattr(getattr(paste, "_rotation", None), "value", ())
+                ),
+                "scale": list(getattr(getattr(paste, "_scale", None), "value", ())),
+            },
+        )
+        self._sync_world_state()
+        if not announce:
+            return
+        verb = "rotated 90° to the right" if key == "rotate" else "mirrored"
+        self.notify(
+            studio_text("Paste transform", "貼上變換"),
+            f"The floating selection was {verb}. Place it in the viewport and "
+            "confirm the paste to write it into the world.",
+            severity="success",
+        )
 
     # -- view commands -------------------------------------------------------
     def _cmd_projection(self, _key: str) -> None:
+        """Switch the projection, on the real camera when there is one."""
         status = self.workspace.status
         current = status.projection()
         following = "top" if current == "3d" else "3d"
         status.set_projection(following, notify=True)
+        applied = self._set_camera_projection(following)
         self.notify(
             studio_text("Projection", "投影"),
-            f"The viewport is now {'top-down' if following == 'top' else '3D'}.",
+            f"The viewport is now {'top-down' if following == 'top' else '3D'}."
+            + (
+                ""
+                if applied
+                else " No 3D editor is attached, so only the Studio viewport "
+                "changed."
+            ),
         )
 
+    def _set_camera_projection(self, mode: str) -> bool:
+        """Point the editor's own camera at ``mode``; say whether one took it."""
+        canvas = self._canvas()
+        if canvas is None:
+            return False
+        try:
+            from amulet_map_editor.api.opengl.camera import Projection
+
+            canvas.camera.projection_mode = (
+                Projection.TOP_DOWN if mode == "top" else Projection.PERSPECTIVE
+            )
+        except Exception:
+            log.exception("Could not set the editor camera projection to %r", mode)
+            return False
+        return True
+
     def _cmd_camera_speed(self, _key: str) -> None:
-        """Put the keyboard on the real camera-speed control and say where."""
-        slider = self.workspace.status.speed_slider
+        """Match the editor's camera to the Studio slider, and say where it is.
+
+        The slider is the control the user adjusts, so its value is what the
+        real camera is set to rather than the other way round; without an
+        editor attached the slider is still the honest answer for the Studio's
+        own viewport, and the notification says which of the two happened.
+        """
+        status = self.workspace.status
+        slider = status.speed_slider
         slider.SetFocus()
+        speed = status.speed()
+        canvas = self._canvas()
+        applied = False
+        if canvas is not None:
+            try:
+                canvas.camera.move_speed = float(speed)
+                applied = True
+            except Exception:
+                log.exception("Could not set the editor camera speed to %r", speed)
         self.notify(
             studio_text("Camera speed", "鏡頭速度"),
-            f"The camera moves at {self.workspace.status.speed()} blocks per second. "
-            "The status bar slider now has the keyboard.",
+            (
+                f"The editor camera now moves at {speed} blocks per second. "
+                if applied
+                else f"The Studio viewport is set to {speed} blocks per second; "
+                "no 3D editor is attached to take it. "
+            )
+            + "The status bar slider has the keyboard.",
         )
 
     def _cmd_set_dimension(self, _key: str) -> None:
-        value = self._ribbon_value("Dimension")
-        navigator = self.workspace.navigator
-        target = self._dimension_key(value)
+        """Switch the world -- and the renderer -- to another dimension."""
+        wanted = self._ribbon_dimension()
+        ctx = context.current()
+        target = self._dimension_key(wanted, ctx.dimensions)
         if not target:
+            listed = ", ".join(ctx.dimensions) if ctx.dimensions else ""
             self.notify(
-                studio_text("That dimension is not in this project", "呢個維度唔喺度"),
+                studio_text("That dimension is not in this world", "呢個維度唔喺度"),
                 (
-                    f"No dimension matching {value!r} is loaded."
-                    if value
+                    f"{wanted!r} is not a dimension of {self.doc_title}."
+                    if wanted
                     else "Choose a dimension in the ribbon first."
+                )
+                + (
+                    f" This world reports {listed}."
+                    if listed
+                    else " This world reports no dimensions at all."
                 ),
                 severity="warning",
             )
             return
-        navigator.select_dimension(target)
-        self.workspace.refresh_state()
-        entry = navigator.dimension(target)
+        canvas = self._canvas()
+        applied = False
+        if canvas is not None:
+            try:
+                canvas.dimension = target
+                applied = True
+            except Exception:
+                log.exception("The editor refused to switch to dimension %r", target)
+        context.set_dimension(target)
+        self._select_navigator_dimension(target)
+        self._record(
+            "set-dimension",
+            {"path": self.project_path, "dimension": target, "renderer": applied},
+        )
+        self._sync_world_state()
+        info = context.current().dimension_named(target)
+        detail = ""
+        if info is not None and info.counted:
+            detail = f" It holds {info.chunk_count:,} chunks"
+            if info.has_range:
+                detail += f" between y {info.min_y} and y {info.max_y}"
+            detail += "."
         self.notify(
             studio_text("Dimension", "維度"),
-            f"Editing {entry.label if entry is not None else target}.",
+            f"Editing {target}."
+            + detail
+            + (
+                ""
+                if applied
+                else " No 3D editor is attached, so the renderer did not move."
+            ),
+            severity="success",
         )
 
-    def _dimension_key(self, value: str) -> str:
-        """Resolve a ribbon dimension value against the loaded dimensions.
+    def _ribbon_dimension(self) -> str:
+        """Return the dimension the ribbon's dropdown is currently showing.
 
-        The ribbon stores short values (``nether``) while the navigator keys are
-        the level's own (``the_nether``), so the match is made against the real
-        list rather than by assuming either spelling.
+        The widget's own value is preferred because it holds the *name* the user
+        picked -- ``minecraft:the_nether`` -- while the ribbon's stored value is
+        the short identifier the shipped option list was written with.  A world
+        whose dimensions the shipped list never anticipated is matchable from
+        the first and not from the second.
+        """
+        choice = self._ribbon_choice("Dimension")
+        if choice is not None:
+            value = str(getattr(choice, "value", "") or "")
+            if value:
+                return value
+        return self._ribbon_value("Dimension")
+
+    @staticmethod
+    def _dimension_key(value: str, dimensions: Tuple[str, ...]) -> str:
+        """Resolve a dropdown value against the dimensions the world reports.
+
+        The ribbon ships short values (``nether``) while a level names its
+        dimensions in full (``minecraft:the_nether``), so the match is made
+        against the world's real list rather than by assuming either spelling.
+        Nothing is invented: a value that matches no real dimension resolves to
+        an empty string and the caller says so.
         """
         wanted = str(value or "").strip().lower()
-        if not wanted:
+        if not wanted or not dimensions:
             return ""
-        entries = self.workspace.navigator.dimensions
-        for entry in entries:
-            if entry.key.lower() == wanted:
-                return entry.key
-        for entry in entries:
-            if entry.key.lower().endswith(wanted) or wanted in entry.label.lower():
-                return entry.key
+        for name in dimensions:
+            if name.lower() == wanted:
+                return name
+        for name in dimensions:
+            tail = name.lower().rpartition(":")[2]
+            if tail == wanted or tail.endswith(f"_{wanted}") or wanted in name.lower():
+                return name
         return ""
+
+    def _select_navigator_dimension(self, name: str) -> None:
+        """Point the navigator at ``name``, whatever spelling its rows use."""
+        try:
+            navigator = self.workspace.navigator
+            for entry in navigator.dimensions:
+                if name in (entry.key, entry.label):
+                    navigator.select_dimension(entry.key)
+                    return
+        except Exception:  # pragma: no cover - a navigator mid-rebuild
+            log.debug("Could not reveal %r in the navigator", name, exc_info=True)
 
     def _cmd_toggle_pane(self, _key: str) -> None:
         self.workspace.toggle_properties()
@@ -758,58 +1219,351 @@ class StudioShell(wx.Panel):
 
     # -- commands the world editor owns --------------------------------------
     def _cmd_editor(self, key: str) -> None:
-        """Hand a command to the live editor, or open the surface that owns it."""
+        """Hand a command to the live editor and report what it did."""
         action = _EDITOR_ACTIONS.get(key)
+        before = self._history_counts()
         if action is not None and self._editor_call(action):
-            if key in _MUTATING_COMMANDS:
-                # An undo can land back on the state that was last written, but
-                # the shell cannot tell from here, and claiming "saved" when the
-                # world differs from disk is the error that loses work.  The
-                # unsaved mark is therefore the conservative claim: the worst it
-                # costs is one save the user did not strictly need.
-                self.set_saved(False)
+            self._after_editor_command(key, before)
             return
         fallback = _COMMAND_SURFACES.get(key)
         if fallback:
+            self.notify(
+                studio_text(commands.label_for(key), ""),
+                "This world's 3D editor could not run that, so its options "
+                "window is opening instead. Nothing has been changed.",
+                severity="warning",
+            )
             self.open_surface(fallback)
             return
-        if not self.project_open:
-            self._require_project(key)
-            return
         self.notify(
-            studio_text(self._command_label(key), ""),
+            studio_text(commands.label_for(key), ""),
             f"The open project has no editor able to run {key!r}. Open the 3D "
             "editor tab for this world and try again.",
             severity="warning",
         )
 
-    def _require_project(self, key: str) -> bool:
-        """Report that a command needs an open project, and return whether one is."""
-        if self.project_open:
-            return True
-        self.notify(
-            studio_text("No project is open", "冇專案開住"),
-            f"{self._command_label(key)} needs an open project. Choose one on the "
-            "project screen first.",
-            severity="warning",
-        )
-        return False
+    def _cmd_tool(self, key: str) -> None:
+        """Put the user in the editor tool that performs this command.
 
-    def _editor_targets(self, descend: bool) -> Iterator[wx.Window]:
+        Importing a file, exporting a selection, and running an operation are
+        all carried out by a tool that asks for a path or a plugin as it opens.
+        Activating that tool *is* the command: it is what the editor's own
+        buttons do, and the alternative -- guessing a path or a plugin on the
+        user's behalf -- would be inventing the one value they came to supply.
+        """
+        name = _COMMAND_TOOLS[key]
+        tool = self._editor_tool(name)
+        if tool is None or not self._activate_tool(name):
+            fallback = _COMMAND_SURFACES.get(key)
+            if fallback:
+                self.notify(
+                    studio_text(commands.label_for(key), ""),
+                    f"This world's editor has no {name} tool, so its options "
+                    "window is opening instead. Nothing has been changed.",
+                    severity="warning",
+                )
+                self.open_surface(fallback)
+                return
+            self.notify(
+                studio_text(commands.label_for(key), ""),
+                f"This world's editor has no {name} tool, so there is nothing "
+                "to run.",
+                severity="warning",
+            )
+            return
+        self._record(
+            key,
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "tool": name,
+                "selection_boxes": len(self._selection_corners()),
+            },
+        )
+        if key == "runOperation":
+            wx.CallAfter(self._run_active_operation, tool)
+            return
+        self.notify(
+            studio_text(commands.label_for(key), ""),
+            self._tool_message(key, name, tool),
+            severity="success",
+        )
+
+    def _tool_message(self, key: str, name: str, tool: Any) -> str:
+        """Return what to say once a tool has been brought to the front."""
+        boxes = len(self._selection_corners())
+        if key == "importFile":
+            return (
+                "The Import tool is asking for a structure file. The file you "
+                "choose is floated in the viewport for you to place."
+            )
+        chosen = str(getattr(tool, "active_operation_id", "") or "")
+        return (
+            f"The {name} tool is now showing, with the "
+            f"{boxes} selected {'box' if boxes == 1 else 'boxes'} as its input"
+            + (f". The selected exporter is {chosen}." if chosen else ".")
+        )
+
+    def _run_active_operation(self, tool: Any) -> None:
+        """Run whatever operation the editor's Operation tool has selected."""
+        active = getattr(tool, "_active_operation", None)
+        runner = getattr(active, "_run_operation", None)
+        chosen = str(getattr(tool, "active_operation_id", "") or "")
+        if not callable(runner):
+            self.notify(
+                studio_text("Operations", "操作"),
+                "The Operation tool is now showing. Choose an operation in it "
+                "and this command will run the one you chose."
+                + (f" Nothing is selected yet." if not chosen else ""),
+                severity="warning" if not chosen else "info",
+            )
+            return
+        before = self._history_counts()
+        runner(None)
+        self._after_editor_command(
+            "runOperation", before, subject=chosen or "operation"
+        )
+
+    def _after_editor_command(
+        self, key: str, before: Tuple[int, int], subject: str = ""
+    ) -> None:
+        """Record, re-read, and report what a delegated command changed.
+
+        The world's own undo depth before and after is the evidence: an
+        operation that created an undo point genuinely changed something, and
+        one that did not says so rather than reporting a success the user cannot
+        see in the viewport.
+        """
+        after = self._history_counts()
+        level = self._level()
+        changed = bool(getattr(level, "changed", False)) if level is not None else False
+        self._record(
+            key,
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "undo_points_before": before[0],
+                "undo_points_after": after[0],
+                "redo_points_after": after[1],
+                "world_changed": changed,
+                "subject": subject,
+            },
+        )
+        # The saved mark and the revision count are both derived from the level
+        # inside the refresh below, so nothing is asserted about them here: a
+        # command that reported "saved" and a world that still says it changed
+        # would be two answers to one question.
+        self._sync_world_state()
+        if key in ("undo", "redo"):
+            self.notify(
+                studio_text("Undo" if key == "undo" else "Redo", ""),
+                f"{self.doc_title} is now {after[0]} undo "
+                f"{'point' if after[0] == 1 else 'points'} deep, with "
+                f"{after[1]} to redo.",
+                severity="success",
+            )
+            return
+        if key == "selectAll":
+            ctx = context.current()
+            self.notify(
+                studio_text("Select all", "全選"),
+                (
+                    f"Selected every generated chunk in {ctx.dimension}: "
+                    f"{ctx.selection_volume:,} blocks."
+                    if ctx.has_selection
+                    else f"{ctx.dimension or 'This dimension'} has no generated "
+                    "chunks, so nothing was selected."
+                ),
+                severity="success" if ctx.has_selection else "warning",
+            )
+            return
+        if key == "goto":
+            location = self._camera_block(self._canvas())
+            self.notify(
+                studio_text("Teleport", "傳送"),
+                (
+                    f"The camera is at {location[0]}, {location[1]}, {location[2]}."
+                    if location is not None
+                    else "The camera did not report a position."
+                ),
+            )
+            return
+        if key in _MUTATING_COMMANDS and after[0] == before[0]:
+            self.notify(
+                studio_text(commands.label_for(key), ""),
+                "The editor ran that but the world recorded no new undo point, "
+                "so nothing in it changed.",
+                severity="warning",
+            )
+            return
+        if key in _MUTATING_COMMANDS or subject:
+            self.notify(
+                studio_text(commands.label_for(key), ""),
+                f"{subject or commands.label_for(key)} finished; "
+                f"{self.doc_title} is now {after[0]} undo "
+                f"{'point' if after[0] == 1 else 'points'} deep.",
+                severity="success",
+            )
+
+    # -- reaching the live editor --------------------------------------------
+    def _canvas(self) -> Any:
+        """Return the live 3D editor canvas, or ``None`` when there is none."""
+        return self._frame_call("active_editor_canvas")
+
+    def _level(self) -> Any:
+        """Return the open ``BaseLevel``, or ``None`` when no world is loaded.
+
+        The canvas answers first because it is what every editing operation runs
+        against; the notebook page is the fallback for a world whose 3D editor
+        is not the selected program, so a surface can still read the world it
+        has open even when there is nothing to edit it with.
+        """
+        canvas = self._canvas()
+        level = getattr(canvas, "world", None)
+        if level is not None:
+            return level
+        page = self._frame_call("active_world_page")
+        return getattr(page, "world", None)
+
+    def _editor_tool(self, name: str) -> Any:
+        """Return one of the editor's tools by name, or ``None``.
+
+        The tools are sizers rather than windows, so the descendant walk below
+        never reaches them; this mapping is the only route and is tried first.
+        """
+        canvas = self._canvas()
+        if canvas is None:
+            return None
+        try:
+            return canvas.tools.get(str(name))
+        except Exception:  # pragma: no cover - a canvas without its tool sizer
+            log.debug("Could not read the editor tools", exc_info=True)
+            return None
+
+    def _activate_tool(self, name: str) -> bool:
+        """Ask the editor to switch to one of its tools; say whether it could."""
+        canvas = self._canvas()
+        if canvas is None or self._editor_tool(name) is None:
+            return False
+        try:
+            from amulet_map_editor.programs.edit.api.events import ToolChangeEvent
+
+            wx.PostEvent(canvas, ToolChangeEvent(tool=str(name)))
+        except Exception:
+            log.exception("Could not switch the editor to the %r tool", name)
+            return False
+        return True
+
+    def _focus_select_tool_button(self, attribute: str) -> bool:
+        """Show the Select tool and focus one of its nudge buttons.
+
+        The tool is switched to first and unconditionally, because that is the
+        part that is genuinely useful on its own: the nudge controls are only on
+        screen while the Select tool is showing.  The button itself is focused
+        afterwards, once the queued tool change has actually been handled, and
+        only if the editor has enabled it -- those buttons stay disabled until a
+        box is being edited, and focusing a disabled control does nothing while
+        looking exactly like it worked.
+        """
+        tool = self._editor_tool("Select")
+        button = getattr(tool, attribute, None) if tool is not None else None
+        if button is None or not hasattr(button, "SetFocus"):
+            return False
+        if not self._activate_tool("Select"):
+            return False
+        wx.CallAfter(self._focus_window, button)
+        return True
+
+    @staticmethod
+    def _focus_window(window: Any) -> None:
+        """Focus a control, ignoring a disabled or already destroyed one."""
+        try:
+            if window.IsEnabled() and window.IsShownOnScreen():
+                window.SetFocus()
+        except RuntimeError:  # pragma: no cover - destroyed before the call ran
+            pass
+
+    def _selection_corners(self) -> Tuple[Tuple[Tuple[int, int, int], ...], ...]:
+        """Return the editor's selection corners, or an empty tuple."""
+        canvas = self._canvas()
+        if canvas is None:
+            return ()
+        try:
+            return tuple(canvas.selection.selection_corners)
+        except Exception:  # pragma: no cover - a canvas mid-teardown
+            log.debug("Could not read the editor selection", exc_info=True)
+            return ()
+
+    def _set_selection_corners(self, canvas: Any, corners: List[Any]) -> bool:
+        """Write a new selection into the editor; report whether it took it."""
+        if canvas is None:
+            return False
+        try:
+            canvas.selection.selection_corners = tuple(corners)
+        except Exception:
+            log.exception("The editor refused a new selection")
+            self.notify(
+                studio_text("The selection did not change", "選取範圍冇改到"),
+                "The 3D editor refused the new selection. The details are in "
+                "the log.",
+                severity="error",
+            )
+            return False
+        return True
+
+    @staticmethod
+    def _camera_block(canvas: Any) -> Optional[Tuple[int, int, int]]:
+        """Return the block the camera is inside, or ``None`` when unreadable."""
+        if canvas is None:
+            return None
+        try:
+            x, y, z = canvas.camera.location
+        except Exception:  # pragma: no cover - a canvas without a camera yet
+            log.debug("Could not read the camera location", exc_info=True)
+            return None
+        return (math.floor(x), math.floor(y), math.floor(z))
+
+    def _dimension_name(self) -> str:
+        """Return the dimension being edited, as the world names it."""
+        canvas = self._canvas()
+        if canvas is not None:
+            try:
+                return str(canvas.dimension or "")
+            except Exception:  # pragma: no cover - a canvas without a renderer
+                pass
+        return context.current().dimension
+
+    def _history_counts(self) -> Tuple[int, int]:
+        """Return the world's real ``(undo, redo)`` depth, or ``(0, 0)``."""
+        history = getattr(self._level(), "history_manager", None)
+        if history is None:
+            return (0, 0)
+        try:
+            return (int(history.undo_count), int(history.redo_count))
+        except Exception:  # pragma: no cover - a history mid-write
+            log.debug("Could not read the world's undo depth", exc_info=True)
+            return (0, 0)
+
+    def _editor_targets(self, action: _EditorAction) -> Iterator[Any]:
         """Yield the objects a delegated command may be carried out by.
 
         The canvas first, because that is where the level's own operations
-        live; then the active program; then -- only when the action asked for
-        it -- the world page's controls, because the chunk and operation tools
-        keep their actions on their own panels.
+        live; then the tool the action names, because the chunk and operation
+        actions are methods on a sizer that no window walk can reach; then the
+        active program; then -- only when the action asked for it -- the world
+        page's controls.
         """
-        canvas = self._frame_call("active_editor_canvas")
+        canvas = self._canvas()
         if canvas is not None:
             yield canvas
+        if action.tool:
+            tool = self._editor_tool(action.tool)
+            if tool is not None:
+                yield tool
         program = self._frame_call("active_editor_program")
         if program is not None:
             yield program
-        if not descend:
+        if not action.descend:
             return
         page = self._frame_call("active_world_page")
         if page is None:
@@ -838,7 +1592,7 @@ class StudioShell(wx.Panel):
 
     def _editor_call(self, action: _EditorAction) -> bool:
         """Run the first matching editor method, reporting whether one ran."""
-        for target in self._editor_targets(action.descend):
+        for target in self._editor_targets(action):
             for name in action.names:
                 method = getattr(target, name, None)
                 if not callable(method):
@@ -857,6 +1611,219 @@ class StudioShell(wx.Panel):
             dict(payload),
             record_type=f"studio {kind}",
         )
+
+    # ------------------------------------------------------------------
+    # what the world can answer, and which controls that leaves live
+    # ------------------------------------------------------------------
+    def _command_state(self) -> _CommandState:
+        """Read, from the live editor, what the open world can do right now."""
+        level = self._level()
+        if level is None:
+            return _CommandState()
+        canvas = self._canvas()
+        undo, redo = self._history_counts()
+        return _CommandState(
+            project=True,
+            editor=canvas is not None,
+            selection=bool(self._selection_corners()),
+            clipboard=self._clipboard_holds_a_structure(),
+            undo=undo > 0,
+            redo=redo > 0,
+        )
+
+    @staticmethod
+    def _clipboard_holds_a_structure() -> bool:
+        """Return whether anything has been copied into the editor's cache."""
+        try:
+            from amulet.api.structure import structure_cache
+
+            return bool(structure_cache)
+        except Exception:  # pragma: no cover - amulet-core unavailable
+            return False
+
+    def _refresh_enablement(self, *, force: bool = False) -> None:
+        """Grey out every ribbon command whose precondition is unmet.
+
+        A tile that stays pressable after its precondition has gone is the
+        defect this exists to stop: the user presses it, the shell explains why
+        it did nothing, and the control has taught them nothing they could not
+        have been shown beforehand.  The disabled tile carries the reason in its
+        own tooltip instead, so the answer is where the question is asked.
+
+        The world's undo depth and its saved state ride along, because they
+        change under exactly the same events -- and because the editor's own
+        buttons change them without ever telling the shell, so a revision count
+        refreshed only by Studio commands would be wrong the first time somebody
+        used the Select tool's Delete button instead of the ribbon's.
+        """
+        try:
+            if self.IsBeingDeleted():
+                return
+            ribbon = self.workspace.ribbon
+        except (AttributeError, RuntimeError):  # pragma: no cover - mid-teardown
+            return
+        state = self._command_state()
+        level = self._level()
+        undo, redo = self._history_counts()
+        changed = bool(getattr(level, "changed", False)) if level is not None else False
+        signature = (
+            state.signature(),
+            undo,
+            redo,
+            changed,
+            getattr(ribbon, "active_tab", ""),
+        )
+        if not force and signature == self._enablement_signature:
+            return
+        self._enablement_signature = signature
+        for group in self._ribbon_groups(ribbon):
+            for tile in getattr(group, "tiles", ()):
+                self._apply_enablement(tile, getattr(tile, "definition", None), state)
+            for select in getattr(group, "selects", {}).values():
+                self._apply_select_enablement(group, select, state)
+        self._sync_dimension_choice(ribbon)
+        self._sync_revision(level, undo, changed)
+
+    def _sync_revision(self, level: Any, undo: int, changed: bool) -> None:
+        """Put the level's own undo depth on the breadcrumb and the status bar.
+
+        The count is the number of undo points the open world holds, which is
+        the same stack the undo command walks; a number the user can act on
+        rather than a tally of something the Studio kept beside it.  With no
+        world open both readouts are emptied rather than left showing the last
+        world's history.
+        """
+        if level is None:
+            marker, count = "", 0
+        else:
+            marker, count = ("unsaved" if changed else "saved"), undo
+            if self.saved != (not changed):
+                self.set_saved(not changed)
+        for target in (
+            getattr(self.workspace, "breadcrumb", None),
+            getattr(self.workspace, "status", None),
+        ):
+            setter = getattr(target, "set_revision", None)
+            if not callable(setter):
+                continue
+            try:
+                setter(marker, count)
+            except RuntimeError:  # pragma: no cover - destroyed mid-update
+                continue
+
+    def _ribbon_groups(self, ribbon: wx.Window) -> List[Any]:
+        """Return the ribbon's built group panels, however deep they sit.
+
+        Found by walking rather than by reading the bar's private list, so a
+        change to how the bar stores its groups cannot silently leave every
+        command enabled: a group panel is recognised by carrying the ribbon
+        group it was built from.
+        """
+        found: List[Any] = []
+        seen = 0
+        stack: List[wx.Window] = [ribbon]
+        while stack and seen < _MAX_DESCENDANTS:
+            window = stack.pop()
+            seen += 1
+            if hasattr(window, "group") and hasattr(window, "tiles"):
+                found.append(window)
+                continue
+            try:
+                stack.extend(window.GetChildren())
+            except RuntimeError:  # pragma: no cover - destroyed mid-walk
+                continue
+        return found
+
+    def _apply_enablement(
+        self, control: Any, definition: Any, state: _CommandState
+    ) -> None:
+        """Enable or disable one control, and keep its tooltip truthful."""
+        key = str(getattr(definition, "command", "") or "")
+        if not key:
+            return
+        unmet = state.unmet(commands.requirements(key))
+        reason = commands.unavailable_hint(key, unmet)
+        # The applied reason is remembered on the control so a tile that stays
+        # disabled while the *reason* changes -- a world closing under a
+        # selection that was already empty -- has its tooltip corrected too.
+        if getattr(control, "_studio_unavailable", None) == reason:
+            return
+        control._studio_unavailable = reason
+        try:
+            control.Enable(not unmet)
+            control.SetToolTip(reason or str(getattr(definition, "hint", "") or ""))
+            control.Refresh()
+        except RuntimeError:  # pragma: no cover - destroyed mid-pass
+            return
+
+    def _apply_select_enablement(
+        self, group: Any, select: Any, state: _CommandState
+    ) -> None:
+        """Do the same for a ribbon dropdown that raises a command."""
+        label = str(getattr(select, "label", "") or "")
+        definition = next(
+            (
+                item
+                for item in getattr(getattr(group, "group", None), "selects", ())
+                if item.label == label
+            ),
+            None,
+        )
+        if definition is None or not getattr(definition, "command", ""):
+            return
+        self._apply_enablement(select, definition, state)
+
+    def _ribbon_choice(self, label: str) -> Any:
+        """Return the live dropdown widget behind one ribbon label."""
+        try:
+            ribbon = self.workspace.ribbon
+        except (AttributeError, RuntimeError):  # pragma: no cover - mid-teardown
+            return None
+        for group in self._ribbon_groups(ribbon):
+            choice = getattr(group, "selects", {}).get(str(label))
+            if choice is not None:
+                return choice
+        return None
+
+    def _sync_dimension_choice(self, _ribbon: wx.Window) -> None:
+        """Offer the dimensions this world really has, not a shipped list.
+
+        The ribbon ships the three vanilla dimensions because that is what the
+        design drew.  A world with a datapack dimension has more, and a
+        structure file has fewer, and offering either of them a choice their
+        world cannot honour is exactly the invented value this interface is
+        meant to stop showing.  The widget's own callback is taken over at the
+        same time, because the shipped option table cannot translate a name it
+        was never given.
+        """
+        choice = self._ribbon_choice("Dimension")
+        if choice is None or not hasattr(choice, "set_options"):
+            return
+        ctx = context.current()
+        if not ctx.open or not ctx.dimensions:
+            return
+        wanted = list(ctx.dimensions)
+        if list(getattr(choice, "options", ())) != wanted:
+            choice.set_options(wanted)
+        if ctx.dimension and getattr(choice, "value", "") != ctx.dimension:
+            choice.set_value(ctx.dimension)
+        if getattr(choice, "on_change", None) is not self._on_dimension_chosen:
+            choice.on_change = self._on_dimension_chosen
+
+    def _on_dimension_chosen(self, _label: str) -> None:
+        """Run the dimension command after a choice made in the ribbon."""
+        self.run_command("setDimension")
+
+    def _sync_world_state(self) -> None:
+        """Re-read the world after a command and repaint what it says.
+
+        Called once a command has finished rather than while it is running, so
+        what every readout shows is what the world holds *now* -- an operation
+        that ran and changed nothing leaves the numbers where they were, and one
+        that changed something moves them.
+        """
+        context.refresh()
+        self._refresh_enablement(force=True)
 
     # ------------------------------------------------------------------
     # accelerators

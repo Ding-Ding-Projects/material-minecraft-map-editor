@@ -1,26 +1,38 @@
 """The workspace status bar: live state, revision, selection, camera, and view.
 
 The design draws this strip as a row of small readouts, but every one of them
-reports something the workspace actually knows and two of them change it: the
-revision pill opens the project history, the speed slider moves the camera, and
-the segmented control switches the projection.  Nothing here is painted
-decoration -- a control that looks operable and is not is the defect this shell
-exists to remove, and a status bar is exactly where that defect hides best.
+reports something the workspace actually knows and three of them change it: the
+revision pill opens the project history, the speed slider moves the renderer's
+own camera, and the segmented control switches its projection.  Nothing here is
+painted decoration -- a control that looks operable and is not is the defect
+this shell exists to remove, and a status bar is exactly where that defect hides
+best.
+
+Every number the bar shows is read from the world the user has open, through
+:mod:`amulet_map_editor.api.studio.context`, and re-read whenever that world
+changes.  With no world open the bar says so rather than keeping the last
+world's figures on screen, because a stale number and a live one look identical.
 
 The bar keeps a fixed height, so every string it shows is collapsed onto one
 line: bilingual copy arrives as two lines and would otherwise be cut in half.
 The full text stays reachable through each control's tooltip and accessible
 name.
+
+This module also holds the shared readers the navigator and the properties pane
+use -- the viewport canvas the world context is attached to, and the project's
+own local-history events -- so the three panes can never disagree about the same
+fact.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 import wx
 
-from amulet_map_editor.api.studio import tokens
+from amulet_map_editor.api import local_history
+from amulet_map_editor.api.studio import context, tokens
 from amulet_map_editor.api.studio.copy import studio_text
 from amulet_map_editor.api.studio.widgets import (
     Divider,
@@ -36,13 +48,30 @@ log = logging.getLogger(__name__)
 #: The design's status bar height, in design pixels.
 BAR_HEIGHT = 34
 
-#: The camera speed slider's bounds and shipped value, in blocks per second.
+#: The renderer advances the camera by ``move_speed`` blocks on every 33ms
+#: frame, so blocks per second is that value scaled by the frame rate.  The
+#: conversion is the editor's own, kept in one place so this slider and the
+#: editor's own speed dialog can never report different numbers for the same
+#: camera.
+CAMERA_FRAME_MS = 33
+
+#: The camera speed slider's bounds, in blocks per second.  The ceiling is well
+#: above the renderer's shipped speed so the slider can reach it rather than
+#: silently clamping the value the editor is actually flying at.
 MIN_CAMERA_SPEED = 1
-MAX_CAMERA_SPEED = 60
-DEFAULT_CAMERA_SPEED = 12
+MAX_CAMERA_SPEED = 200
+
+#: The blocks-per-second the renderer ships with, derived from its own
+#: ``move_speed`` of 2.0 rather than chosen here.
+DEFAULT_CAMERA_SPEED = 61
 
 #: The two projections the segmented control switches between.
 PROJECTIONS: Tuple[Tuple[str, str], ...] = (("3d", "3D"), ("top", "Top"))
+
+#: How many of a project's local-history events are read back at once.  A
+#: project that has more than this says so rather than pretending the older
+#: ones do not exist.
+MAX_PROJECT_REVISIONS = 200
 
 #: The status dot's ink per tone.  A tone never rewrites the message: it only
 #: says how loudly to draw the dot beside it.
@@ -60,6 +89,256 @@ def single_line(text: str) -> str:
     design already uses between facts.
     """
     parts = [part.strip() for part in str(text).splitlines() if part.strip()]
+    return " · ".join(parts)
+
+
+# ----------------------------------------------------------------------
+# shared readers: the renderer canvas and the project's own history
+# ----------------------------------------------------------------------
+
+
+def studio_canvas() -> Any:
+    """Return the viewport canvas the world context is attached to, or ``None``.
+
+    The context module is the one place that is handed the renderer, so the
+    panes ask it rather than each keeping their own reference that could go
+    stale the moment a world is closed.  A public accessor is preferred when
+    the context grows one; until then the attribute it stores the canvas in is
+    read directly, which is still one reader rather than three.
+    """
+    getter = getattr(context, "canvas", None)
+    if callable(getter):
+        try:
+            return getter()
+        except Exception:  # noqa: BLE001 - a canvas mid-teardown answers this
+            return None
+    return getattr(context, "_canvas", None)
+
+
+def project_key_for(ctx: Optional[context.WorldContext] = None) -> str:
+    """Return the key one project's own records are stored under.
+
+    A world's folder identifies it better than its name does -- two worlds can
+    share a name and no two share a path -- so the path is preferred and the
+    name is the fallback for a world that reports no path.
+    """
+    if ctx is None:
+        ctx = context.current()
+    if not ctx.open:
+        return ""
+    return str(ctx.path or ctx.name or "")
+
+
+def project_record_ids(project_key: str) -> Tuple[str, ...]:
+    """Return the local-history record ids one project writes its work under."""
+    key = str(project_key)
+    if not key:
+        return ()
+    return (f"studio-project-{key}", f"studio-note-{key}")
+
+
+def history_store() -> Any:
+    """Return the local history store, or ``None`` when it cannot be opened.
+
+    A profile that cannot hold a repository is a real state -- a read-only
+    home directory, no ``git`` on the path -- and it is reported to the caller
+    so a surface can say the history is unavailable instead of showing an empty
+    list that reads as a project with no history.
+    """
+    return local_history.LocalHistory.try_create()
+
+
+_history_cache: Dict[str, Tuple[Any, ...]] = {}
+_history_available: Dict[str, bool] = {}
+
+
+def invalidate_project_history(project_key: str = "") -> None:
+    """Forget the read-back events for one project, or for every project."""
+    key = str(project_key)
+    if key:
+        _history_cache.pop(key, None)
+        _history_available.pop(key, None)
+        return
+    _history_cache.clear()
+    _history_available.clear()
+
+
+def project_history_events(
+    project_key: str, *, refresh: bool = False
+) -> Tuple[Tuple[Any, ...], bool]:
+    """Return one project's history events, newest first, and whether it read.
+
+    The second value separates "this project has recorded nothing yet" from
+    "the history could not be read at all", which are different things to tell
+    the user and would otherwise both render as an empty list.
+
+    Reading walks every event file the profile holds, so the result is kept
+    until :func:`invalidate_project_history` drops it rather than being redone
+    on every repaint.
+    """
+    key = str(project_key)
+    if not key:
+        return (), True
+    if not refresh and key in _history_cache:
+        return _history_cache[key], _history_available.get(key, True)
+    wanted = set(project_record_ids(key))
+    store = history_store()
+    if store is None:
+        _history_cache[key] = ()
+        _history_available[key] = False
+        return (), False
+    try:
+        found = store.events(limit=MAX_PROJECT_REVISIONS)
+    except Exception:  # noqa: BLE001 - a corrupt event never breaks a pane
+        log.exception("Could not read the local history for project %r", key)
+        _history_cache[key] = ()
+        _history_available[key] = False
+        return (), False
+    events = tuple(event for event in found if event.record_id in wanted)
+    _history_cache[key] = events
+    _history_available[key] = True
+    return events, True
+
+
+def restore_history_event(event_id: str) -> Any:
+    """Restore one history event by appending a new one, or return ``None``.
+
+    Restoring never rewrites the entry it restored from: the store writes the
+    earlier state back as a fresh event, so the state being replaced stays in
+    the list and stays restorable in its turn.
+    """
+    store = history_store()
+    if store is None:
+        return None
+    restored = store.safe_restore(str(event_id))
+    if restored is not None:
+        invalidate_project_history()
+    return restored
+
+
+# ----------------------------------------------------------------------
+# shared readers: the camera
+# ----------------------------------------------------------------------
+
+
+def blocks_per_second(move_speed: float) -> int:
+    """Return a renderer ``move_speed`` as whole blocks per second."""
+    return int(round(float(move_speed) * 1000 / CAMERA_FRAME_MS))
+
+
+def move_speed_for(blocks: float) -> float:
+    """Return the renderer ``move_speed`` that flies at ``blocks`` per second."""
+    return float(blocks) * CAMERA_FRAME_MS / 1000
+
+
+def camera_speed(canvas: Any = None) -> Optional[int]:
+    """Return how fast the renderer's camera is flying, or ``None``.
+
+    ``None`` says there is no camera to ask, which is why the slider disables
+    itself rather than showing a number that would move nothing.
+    """
+    target = studio_canvas() if canvas is None else canvas
+    try:
+        return blocks_per_second(target.camera.move_speed)
+    except Exception:  # noqa: BLE001 - no canvas, or one without a camera yet
+        return None
+
+
+def set_camera_speed(value: int, canvas: Any = None) -> bool:
+    """Fly the renderer's camera at ``value`` blocks per second."""
+    target = studio_canvas() if canvas is None else canvas
+    try:
+        target.camera.move_speed = move_speed_for(value)
+    except Exception as err:  # noqa: BLE001 - a canvas being torn down
+        log.debug("The camera speed could not be set: %s", err)
+        return False
+    return True
+
+
+def camera_projection(canvas: Any = None) -> str:
+    """Return the renderer's projection as this bar's key, or ``""``."""
+    target = studio_canvas() if canvas is None else canvas
+    try:
+        from amulet_map_editor.api.opengl.camera import Projection
+    except Exception:  # noqa: BLE001 - a build with no OpenGL bindings
+        return ""
+    try:
+        return "top" if target.camera.projection_mode is Projection.TOP_DOWN else "3d"
+    except Exception:  # noqa: BLE001 - no canvas to ask
+        return ""
+
+
+def set_camera_projection(key: str, canvas: Any = None) -> bool:
+    """Switch the renderer between its perspective and top-down projections."""
+    target = studio_canvas() if canvas is None else canvas
+    try:
+        from amulet_map_editor.api.opengl.camera import Projection
+    except Exception:  # noqa: BLE001 - a build with no OpenGL bindings
+        return False
+    try:
+        target.camera.projection_mode = (
+            Projection.TOP_DOWN if str(key) == "top" else Projection.PERSPECTIVE
+        )
+    except Exception as err:  # noqa: BLE001 - a canvas being torn down
+        log.debug("The camera projection could not be set: %s", err)
+        return False
+    return True
+
+
+# ----------------------------------------------------------------------
+# shared readers: the selection
+# ----------------------------------------------------------------------
+
+
+def selection_text(ctx: Optional[context.WorldContext] = None) -> str:
+    """Return the selection readout for the world that is open.
+
+    The delta is the distance between the first and last block a box contains,
+    which is one less than its extent, because that is the number a person
+    reads off two opposite corners in the viewport.
+    """
+    if ctx is None:
+        ctx = context.current()
+    if not ctx.open:
+        return "No world open"
+    bounds = ctx.selection_bounds()
+    if bounds is None or not ctx.selection_boxes:
+        return "No selection"
+    low, high = bounds
+    extent = tuple(max(0, high[axis] - low[axis]) for axis in range(3))
+    delta = tuple(max(0, value - 1) for value in extent)
+    size = "x".join(str(value) for value in extent)
+    volume = f"{ctx.selection_volume:,} blocks"
+    if len(ctx.selection_boxes) > 1:
+        # The extent is the box that encloses every selection box, while the
+        # volume is the blocks the boxes actually cover.  Those are different
+        # numbers whenever there is more than one box, so the label says which
+        # is which rather than leaving them side by side to be misread.
+        return f"{len(ctx.selection_boxes)} boxes · bounds {size} · {volume}"
+    return f"dx={delta[0]}, dy={delta[1]}, dz={delta[2]} · {size} · {volume}"
+
+
+def dimension_text(ctx: Optional[context.WorldContext] = None) -> str:
+    """Return the dimension being edited, or an honest absence."""
+    if ctx is None:
+        ctx = context.current()
+    if not ctx.open:
+        return "No dimension"
+    return ctx.dimension or "This world reports no dimensions"
+
+
+def world_status_text(ctx: Optional[context.WorldContext] = None) -> str:
+    """Return what the bar's leftmost readout says about the open world."""
+    if ctx is None:
+        ctx = context.current()
+    if not ctx.open:
+        return studio_text("No world is open", "而家未開世界")
+    parts = [ctx.name or "Unnamed world"]
+    version = ctx.game_version or " ".join(
+        part for part in (ctx.platform, ctx.version) if part
+    )
+    if version:
+        parts.append(version)
     return " · ".join(parts)
 
 
@@ -289,19 +568,33 @@ class StatusReadout(wx.Control):
         del gcdc
 
 
+#: What the revision pill says when the project has recorded nothing yet.  A
+#: project with no history is a real and common state -- a world opened and not
+#: yet edited -- and saying so is the difference between an empty history and a
+#: history nobody could read.
+NO_REVISIONS = "No revisions yet"
+
+#: What it says when the profile could not hold a history repository at all.
+NO_HISTORY_STORE = "History unavailable"
+
+
 class RevisionPill(StudioButton):
     """The tinted monospaced button that names the head revision.
 
     Both the breadcrumb bar and the status bar show the same fact, so they show
     it through the same control: one place decides how a revision reads, and
     clicking either one lands on the same project history.
+
+    A pill with no commit to name says so.  It never falls back to a plausible
+    looking identifier, because a seven-character hash is exactly the kind of
+    value a reader has no way of checking.
     """
 
     def __init__(
         self,
         parent: wx.Window,
-        commit: str,
-        count: int,
+        commit: str = "",
+        count: int = 0,
         *,
         glyph: str = "⟲",
         suffix: str = "",
@@ -311,6 +604,7 @@ class RevisionPill(StudioButton):
         self.commit = str(commit)
         self.count = int(count)
         self.suffix = str(suffix)
+        self.available = True
         super().__init__(
             parent,
             self._compose(),
@@ -329,20 +623,42 @@ class RevisionPill(StudioButton):
         self._rename()
 
     def _compose(self) -> str:
+        if not self.available:
+            return NO_HISTORY_STORE
+        if not self.commit or self.count <= 0:
+            return NO_REVISIONS
         label = f"{self.commit} · {self.count}"
         return f"{label} {self.suffix}".rstrip() if self.suffix else label
 
     def _rename(self) -> None:
+        if not self.available:
+            self.SetName(
+                "The project history could not be read from this profile. "
+                "Opens the project history."
+            )
+            return
+        if not self.commit or self.count <= 0:
+            self.SetName(
+                "No revision has been recorded for this project yet. "
+                "Opens the project history."
+            )
+            return
         plural = "revision" if self.count == 1 else "revisions"
         self.SetName(
             f"Head revision {self.commit}, {self.count} {plural}. "
             "Opens the project history."
         )
 
-    def set_revision(self, commit: str, count: int) -> None:
-        """Show a new head revision and revision count."""
+    def set_revision(self, commit: str, count: int, *, available: bool = True) -> None:
+        """Show a new head revision and revision count.
+
+        ``available`` says whether the history could be read at all, so an
+        unreadable profile reads differently from a project that has simply not
+        been edited yet.
+        """
         self.commit = str(commit)
         self.count = int(count)
+        self.available = bool(available)
         self.SetLabel(self._compose())
         self._rename()
 
@@ -489,12 +805,14 @@ class SegmentedToggle(wx.Panel):
 
 
 class StatusBar(wx.Panel):
-    """The 34px strip under the viewport, wired to the workspace it describes.
+    """The 34px strip under the viewport, wired to the world it describes.
 
-    Every readout is fed by the owner through a setter and every control
-    reports back through a callback, so the bar never holds a second copy of
-    the truth: it shows what the workspace told it and asks the workspace to
-    change what the user changed.
+    The bar holds no copy of the truth.  Its readouts are re-read from the open
+    world every time that world changes, its speed slider moves the renderer's
+    own camera, and its projection toggle switches the renderer's own
+    projection, so what it shows and what the editor is doing cannot drift
+    apart.  The owner may still push a message of its own -- saved or unsaved
+    is the workspace's fact, not the world's -- and those setters remain.
     """
 
     HEIGHT = BAR_HEIGHT
@@ -509,12 +827,12 @@ class StatusBar(wx.Panel):
         on_surface: Optional[Callable[[str], None]] = None,
         on_command: Optional[Callable[[str], None]] = None,
         status: str = "",
-        commit: str = "a91f0c7",
-        revisions: int = 6,
-        selection: str = "dx=15, dy=1, dz=17 · 16x2x18",
-        dimension: str = "minecraft:overworld",
-        speed: int = DEFAULT_CAMERA_SPEED,
-        projection: str = "3d",
+        commit: str = "",
+        revisions: int = 0,
+        selection: str = "",
+        dimension: str = "",
+        speed: Optional[int] = None,
+        projection: str = "",
     ) -> None:
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.on_history = on_history
@@ -525,23 +843,29 @@ class StatusBar(wx.Panel):
         self.SetName("Workspace status bar")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
 
+        ctx = context.current()
+        live_speed = camera_speed()
         self.readout = StatusReadout(
-            self, status or studio_text("Ready", "準備好"), tone="ready"
+            self, status or world_status_text(ctx), tone="ready"
         )
         self.revision = RevisionPill(
             self, commit, revisions, on_click=self._open_history
         )
         self.selection = BarLabel(
             self,
-            selection,
+            selection or selection_text(ctx),
             mono=True,
             name="Selection size",
         )
-        self.dimension = BarLabel(self, dimension, name="Active dimension")
+        self.dimension = BarLabel(
+            self, dimension or dimension_text(ctx), name="Active dimension"
+        )
         self.speed_caption = BarLabel(self, studio_text("Speed"), name="Camera speed")
         self.speed_slider = wx.Slider(
             self,
-            value=self._clamp_speed(speed),
+            value=self._clamp_speed(
+                speed if speed is not None else (live_speed or DEFAULT_CAMERA_SPEED)
+            ),
             minValue=MIN_CAMERA_SPEED,
             maxValue=MAX_CAMERA_SPEED,
             style=wx.SL_HORIZONTAL,
@@ -559,14 +883,15 @@ class StatusBar(wx.Panel):
         self.speed_slider.Bind(wx.EVT_SLIDER, self._on_speed)
         self.speed_value = BarLabel(
             self,
-            f"{self._clamp_speed(speed)} b/s",
+            f"{self.speed()} b/s",
             mono=True,
             name="Camera speed readout",
         )
+        chosen_projection = str(projection) or camera_projection() or "3d"
         self.projection_toggle = SegmentedToggle(
             self,
             PROJECTIONS,
-            projection if projection in dict(PROJECTIONS) else "3d",
+            chosen_projection if chosen_projection in dict(PROJECTIONS) else "3d",
             on_change=self._on_projection,
             name="Viewport projection",
         )
@@ -604,7 +929,96 @@ class StatusBar(wx.Panel):
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
+        context.subscribe(self._on_world_context)
         self._apply_theme()
+        self.apply_context(ctx)
+
+    # -- the open world ------------------------------------------------------
+    def _on_world_context(self, ctx: context.WorldContext) -> None:
+        """Take a world change from any thread onto the one wx paints on."""
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        if wx.IsMainThread():
+            self.apply_context(ctx)
+        else:
+            wx.CallAfter(self.apply_context, ctx)
+
+    def apply_context(self, ctx: Optional[context.WorldContext] = None) -> None:
+        """Re-read every readout from the world that is open right now."""
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        if ctx is None:
+            ctx = context.current()
+        self.readout.set_status(world_status_text(ctx), "ready" if ctx.open else "busy")
+        self.selection.set_text(selection_text(ctx))
+        self.dimension.set_text(dimension_text(ctx))
+        self.refresh_revision(ctx)
+        self.sync_camera()
+        self.Layout()
+
+    def refresh_revision(self, ctx: Optional[context.WorldContext] = None) -> None:
+        """Re-read the head revision and revision count from the project."""
+        key = project_key_for(ctx)
+        if not key:
+            self.revision.set_revision("", 0)
+            self.revision.Enable(False)
+            return
+        events, available = project_history_events(key)
+        self.revision.Enable(True)
+        self.revision.set_revision(
+            events[0].event_id[:7] if events else "",
+            len(events),
+            available=available,
+        )
+
+    def sync_camera(self) -> None:
+        """Show what the renderer's camera is actually doing, or disable both.
+
+        A slider that moves nothing is the defect this bar exists to remove, so
+        with no renderer attached it is disabled and says why rather than
+        sitting there at a number that controls nothing.
+        """
+        canvas = studio_canvas()
+        live_speed = camera_speed(canvas)
+        if live_speed is None:
+            self.speed_slider.Enable(False)
+            self.speed_slider.SetToolTip(
+                single_line(
+                    studio_text(
+                        "No renderer is attached, so there is no camera to speed "
+                        "up or slow down.",
+                        "而家未接住個繪圖器，所以冇鏡頭可以加減速。",
+                    )
+                )
+            )
+            self.speed_value.set_text("no camera")
+        else:
+            self.speed_slider.Enable(True)
+            self.speed_slider.SetToolTip(
+                single_line(
+                    studio_text(
+                        "How fast the camera flies, in blocks per second.",
+                        "鏡頭飛得幾快，每秒幾多格。",
+                    )
+                )
+            )
+            self.speed_slider.SetValue(self._clamp_speed(live_speed))
+            self.speed_value.set_text(f"{self._clamp_speed(live_speed)} b/s")
+        projection = camera_projection(canvas)
+        if projection:
+            self.projection_toggle.set_value(projection)
+
+    def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
+        if event.GetEventObject() is self:
+            context.unsubscribe(self._on_world_context)
+        event.Skip()
 
     # -- state ---------------------------------------------------------------
     @staticmethod
@@ -625,7 +1039,12 @@ class StatusBar(wx.Panel):
         return self.readout.text()
 
     def set_revision(self, commit: str, count: int) -> None:
-        """Show a new head revision on the pill."""
+        """Show a new head revision on the pill.
+
+        The bar reads the head from the project's own history, so this is for
+        an owner that already has the answer; the next world change re-reads it
+        from the record either way.
+        """
         self.revision.set_revision(commit, count)
         self.Layout()
 
@@ -644,10 +1063,11 @@ class StatusBar(wx.Panel):
         return int(self.speed_slider.GetValue())
 
     def set_speed(self, value: int, *, notify: bool = False) -> None:
-        """Move the speed slider and its readout together."""
+        """Fly the renderer's camera at ``value`` blocks per second."""
         clamped = self._clamp_speed(value)
         self.speed_slider.SetValue(clamped)
-        self.speed_value.set_text(f"{clamped} b/s")
+        applied = set_camera_speed(clamped)
+        self.speed_value.set_text(f"{clamped} b/s" if applied else "no camera")
         self.Layout()
         if notify:
             invoke(self.on_speed, clamped)
@@ -657,7 +1077,9 @@ class StatusBar(wx.Panel):
         return self.projection_toggle.value
 
     def set_projection(self, key: str, *, notify: bool = False) -> None:
-        """Choose a projection, optionally reporting it to the owner."""
+        """Switch the renderer's projection, and the toggle showing it."""
+        if key in dict(PROJECTIONS):
+            set_camera_projection(key)
         self.projection_toggle.set_value(key, notify=notify)
 
     # -- events --------------------------------------------------------------
@@ -669,11 +1091,13 @@ class StatusBar(wx.Panel):
 
     def _on_speed(self, _event: wx.CommandEvent) -> None:
         value = self.speed()
-        self.speed_value.set_text(f"{value} b/s")
+        applied = set_camera_speed(value)
+        self.speed_value.set_text(f"{value} b/s" if applied else "no camera")
         self.Layout()
         invoke(self.on_speed, value)
 
     def _on_projection(self, key: str) -> None:
+        set_camera_projection(key)
         invoke(self.on_projection, key)
 
     def _on_context_menu(self, event: wx.ContextMenuEvent) -> None:
@@ -711,16 +1135,36 @@ class StatusBar(wx.Panel):
 
 __all__ = [
     "BAR_HEIGHT",
-    "BarLabel",
+    "CAMERA_FRAME_MS",
     "DEFAULT_CAMERA_SPEED",
     "MAX_CAMERA_SPEED",
+    "MAX_PROJECT_REVISIONS",
     "MIN_CAMERA_SPEED",
+    "NO_HISTORY_STORE",
+    "NO_REVISIONS",
     "PROJECTIONS",
+    "BarLabel",
     "RevisionPill",
     "SegmentedToggle",
     "StatusBar",
     "StatusReadout",
+    "blocks_per_second",
+    "camera_projection",
+    "camera_speed",
     "clear_container",
+    "dimension_text",
+    "history_store",
+    "invalidate_project_history",
+    "move_speed_for",
     "open_studio_menu",
+    "project_history_events",
+    "project_key_for",
+    "project_record_ids",
+    "restore_history_event",
+    "selection_text",
+    "set_camera_projection",
+    "set_camera_speed",
     "single_line",
+    "studio_canvas",
+    "world_status_text",
 ]

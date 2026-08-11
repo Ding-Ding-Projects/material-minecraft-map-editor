@@ -1,24 +1,33 @@
 #!/usr/bin/env python3
-"""Capture a wx window by blitting its own client area, not through PrintWindow.
+"""Capture a wx window by asking each widget to draw, on a desktop or without one.
 
-``PrintWindow``/``WM_PRINT`` asks each window to draw itself into a device
-context.  Native controls implement that; a window that paints in its own
-``EVT_PAINT`` handler with a buffered device context generally does not, so a
-capture of a parent frame comes back with every native child present and every
-owner-drawn child a flat rectangle.
+A screenshot matrix for this interface has to run on a hidden desktop, and the
+two obvious routes both fail there for owner-drawn controls:
 
-That matters here because the whole interface is owner-drawn.  A capture matrix
-built on ``PrintWindow`` would photograph the ribbon, the navigator, the
-properties pane, and every Studio control as empty boxes, and the pictures would
-look exactly like a broken renderer rather than a broken capture.
+``wx.ClientDC`` *reads* a window's on-screen surface.  On a named off-screen
+desktop nothing is ever composited, so there is nothing to read and the copy
+comes back as whatever was in the buffer -- which is how two separate runs
+produced about 130 files each that passed every numeric check and were entirely
+blank.  A colour count cannot tell you the interface drew.
 
-Blitting the window's own client device context asks the window nothing: it
-copies the pixels that are actually on the surface.  Measured on this
-application, the same panels that came back blank through ``PrintWindow`` return
-121, 78, 99 and 40 distinct colours through this route.
+``PrintWindow`` with ``PW_RENDERFULLCONTENT`` does the opposite: it *asks* the
+window to draw, which works whether or not anyone is looking.  Native controls
+answer it, so search fields, checkboxes and table headers come back.  A widget
+that paints in its own ``EVT_PAINT`` handler does not answer ``WM_PRINT``, so
+every Studio button, chip, card, ribbon tile and section label stayed missing --
+and the whole of this interface is owner-drawn.
 
-Use :func:`capture_window` from inside the application process, after the window
-has been shown and the event loop has run at least once.
+The route that works asks neither the desktop nor the operating system.  Every
+painted Studio widget exposes ``render_to(dc, rect)``, which is its ``EVT_PAINT``
+drawing made callable, so a capture invokes it against its own bitmap and
+depends on no compositor and no Win32 message at all.  It is tried first here;
+``PrintWindow`` stays for the native controls that genuinely have no
+``render_to``, and the device-context read stays last for platforms without
+either.
+
+Use :func:`capture_window` or :func:`capture_composite` from inside the
+application process, after the window has been shown and the event loop has run
+at least once.
 """
 
 from __future__ import annotations
@@ -64,21 +73,17 @@ def capture_window(
     Raises ``RuntimeError`` when ``require_content`` is set and the surface came
     back effectively blank, because a blank capture is worse than none: it looks
     like evidence.
+
+    The window is composited with its descendants rather than drawn alone.  On
+    Windows a child window is its own surface, so a container drawn by itself
+    is only ever its own background -- ``PrintWindow`` used to paper over that
+    by rendering a whole subtree at once, and ``render_to`` deliberately does
+    not, because a widget's appearance is its own and not its children's.
+    Compositing is what keeps a container capture meaning what its caller
+    expects.
     """
     settle(window)
-
-    size = window.GetClientSize()
-    if size.width < 1 or size.height < 1:
-        raise RuntimeError(f"{window.GetName() or window!r} has no client area")
-
-    bitmap = wx.Bitmap(size)
-    memory = wx.MemoryDC(bitmap)
-    try:
-        _paint_into(window, memory, wx.Point(0, 0))
-    finally:
-        memory.SelectObject(wx.NullBitmap)
-
-    image = bitmap.ConvertToImage()
+    image, _contributed, _routes, _skipped, _size = _composite(window)
     colours = _distinct_colours(image)
     if require_content and colours < MIN_DISTINCT_COLOURS:
         raise RuntimeError(
@@ -165,28 +170,130 @@ def _print_window(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> b
         return False
 
 
-def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> int:
+def _render_to(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> bool:
+    """Ask ``window`` to draw its own appearance into ``target`` at ``origin``.
+
+    Every owner-drawn Studio widget exposes ``render_to(dc, rect)``: the whole
+    of its ``EVT_PAINT`` drawing, callable directly.  That is the only route
+    here that depends on nothing outside this process -- no desktop, no
+    compositor, no ``WM_PRINT``, no window handle -- which is exactly what a
+    capture on a hidden desktop needs, and it is why it is tried first.
+
+    The device context is wrapped in a ``wx.GCDC`` because that is what a paint
+    handler hands the same code: unwrapped, every rounded corner, focus ring
+    and elevation shadow would render stepped, and the capture would show a
+    worse interface than the one that ships.
+
+    Returns whether the widget drew, so a native control -- which has no
+    ``render_to`` and needs one of the routes below -- falls through.
+    """
+    render = getattr(window, "render_to", None)
+    if not callable(render):
+        return False
+    size = window.GetClientSize()
+    if size.width < 1 or size.height < 1:
+        return False
+    try:
+        wrapper: wx.DC = wx.GCDC(target)
+    except TypeError:
+        # Without the wrapper the drawing is still correct, only unantialiased.
+        wrapper = target
+    try:
+        render(wrapper, wx.Rect(origin.x, origin.y, size.width, size.height))
+    except Exception:
+        log.debug("render_to failed for %s", window.GetName(), exc_info=True)
+        return False
+    finally:
+        if wrapper is not target:
+            del wrapper
+    return True
+
+
+def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> str:
     """Render one window into ``target`` at ``origin``.
 
-    ``PrintWindow`` is tried first because it is the only route that works on a
-    desktop nobody is watching, which is where a capture matrix has to run.  The
-    device-context read stays as the fallback for platforms without it.
-    Returns the number of pixels covered, or 0 when neither route could draw --
-    an OpenGL canvas being the case that matters, since its pixels live in the
-    GL framebuffer rather than in any device context.
+    Three routes, in descending order of how much they have to trust the
+    platform.  ``render_to`` asks the widget's own drawing code and trusts
+    nothing else, so it is tried first and it is the one that works for every
+    owner-drawn control.  ``PrintWindow`` asks the window to draw itself, which
+    is what recovers the native controls -- search fields, checkboxes, table
+    headers -- that have no ``render_to`` of their own.  The device-context
+    read is last: it copies what is on screen, so on a hidden desktop, where
+    nothing is composited, it returns the container's background and produces a
+    file that passes every numeric check while showing nothing.
+
+    Returns the name of the route that drew -- ``render``, ``print``, or
+    ``blit`` -- or an empty string when none could, an OpenGL canvas being the
+    case that matters, since its pixels live in the GL framebuffer rather than
+    in any device context.  Naming the route rather than counting pixels is
+    what lets a report distinguish a surface that drew from one that was
+    copied off a desktop nobody composited.
     """
     size = window.GetClientSize()
     if size.width < 1 or size.height < 1:
-        return 0
+        return ""
+    if _render_to(window, target, origin):
+        return "render"
     if _print_window(window, target, origin):
-        return size.width * size.height
+        return "print"
     try:
         source = wx.ClientDC(window)
         target.Blit(origin.x, origin.y, size.width, size.height, source, 0, 0)
     except Exception:
         log.debug("Could not blit %s", window.GetName(), exc_info=True)
-        return 0
-    return size.width * size.height
+        return ""
+    return "blit"
+
+
+def _composite(
+    window: wx.Window,
+) -> tuple[wx.Image, int, dict, list, wx.Size]:
+    """Draw ``window`` and every visible descendant into one image.
+
+    Returns the image, how many descendants drew, how many took each route,
+    which ones drew by no route at all, and the size everything was drawn at.
+    Both public capture functions go through here so a container and a leaf are
+    photographed by exactly the same code.
+    """
+    size = window.GetClientSize()
+    if size.width < 1 or size.height < 1:
+        raise RuntimeError(f"{window.GetName() or window!r} has no client area")
+
+    bitmap = wx.Bitmap(size)
+    memory = wx.MemoryDC(bitmap)
+    root_origin = window.ClientToScreen(wx.Point(0, 0))
+    contributed = 0
+    routes: dict[str, int] = {"render": 0, "print": 0, "blit": 0}
+    skipped: list[str] = []
+
+    try:
+        _paint_into(window, memory, wx.Point(0, 0))
+        pending = [window]
+        while pending:
+            parent = pending.pop(0)
+            for child in parent.GetChildren():
+                if not child.IsShown():
+                    continue
+                child_origin = child.ClientToScreen(wx.Point(0, 0))
+                offset = wx.Point(
+                    child_origin.x - root_origin.x, child_origin.y - root_origin.y
+                )
+                route = _paint_into(child, memory, offset)
+                if route:
+                    contributed += 1
+                    routes[route] = routes.get(route, 0) + 1
+                else:
+                    name = child.GetName() or ""
+                    skipped.append(
+                        f"{name} ({type(child).__name__})"
+                        if name
+                        else type(child).__name__
+                    )
+                pending.append(child)
+    finally:
+        memory.SelectObject(wx.NullBitmap)
+
+    return bitmap.ConvertToImage(), contributed, routes, skipped, size
 
 
 def capture_composite(
@@ -204,46 +311,21 @@ def capture_composite(
     button on it is missing, and why a colour count is not a usable gate --
     antialiasing on two stray native controls clears any floor worth setting.
 
-    This walks the tree and blits each visible window into one bitmap at its own
-    position, so the picture is assembled from the same surfaces the user sees
-    rather than requested from the operating system.  It returns a report naming
-    how many descendants contributed, so a caller can assert on structure rather
-    than on colour: a ribbon that composites two children is broken no matter
-    how colourful it is.
+    This walks the tree and draws each visible window into one bitmap at its own
+    position, so the picture is assembled from the same drawing code the user
+    sees rather than requested from the operating system.  It returns a report
+    naming how many descendants contributed and by which route, so a caller can
+    assert on structure rather than on colour: a ribbon that composites two
+    children is broken no matter how colourful it is.
+
+    ``skipped`` is the field worth watching.  A window lands there only when it
+    has no ``render_to``, would not answer ``PrintWindow``, and could not be
+    blitted either -- so it is genuinely absent from the picture rather than
+    drawn by a route the report does not mention.  An empty list is the healthy
+    state; a name in it is a hole in the capture, at the place that name says.
     """
     settle(window)
-
-    size = window.GetClientSize()
-    if size.width < 1 or size.height < 1:
-        raise RuntimeError(f"{window.GetName() or window!r} has no client area")
-
-    bitmap = wx.Bitmap(size)
-    memory = wx.MemoryDC(bitmap)
-    root_origin = window.ClientToScreen(wx.Point(0, 0))
-    contributed = 0
-    skipped: list[str] = []
-
-    try:
-        _paint_into(window, memory, wx.Point(0, 0))
-        pending = [window]
-        while pending:
-            parent = pending.pop(0)
-            for child in parent.GetChildren():
-                if not child.IsShown():
-                    continue
-                child_origin = child.ClientToScreen(wx.Point(0, 0))
-                offset = wx.Point(
-                    child_origin.x - root_origin.x, child_origin.y - root_origin.y
-                )
-                if _paint_into(child, memory, offset):
-                    contributed += 1
-                else:
-                    skipped.append(child.GetName() or type(child).__name__)
-                pending.append(child)
-    finally:
-        memory.SelectObject(wx.NullBitmap)
-
-    image = bitmap.ConvertToImage()
+    image, contributed, routes, skipped, size = _composite(window)
     colours = _distinct_colours(image)
     if require_content and contributed < 1:
         raise RuntimeError(
@@ -259,6 +341,11 @@ def capture_composite(
         "path": str(target),
         "colours": colours,
         "descendants": contributed,
+        # How each descendant was drawn.  ``render`` is the owner-drawn widgets
+        # answering directly; ``print`` is the native controls; ``blit`` is a
+        # surface read, which on a hidden desktop reads nothing, so a run with
+        # blits in it deserves a second look at the pictures.
+        "routes": routes,
         "skipped": skipped,
         "size": (size.width, size.height),
         # A colour count says something drew; it cannot say the interface drew.

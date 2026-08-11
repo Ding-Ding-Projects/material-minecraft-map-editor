@@ -12,13 +12,22 @@ named readouts a screen reader can announce, the minimap and compass follow the
 camera, the corner handles move the selection with the arrow keys, and the four
 tool buttons act.  They are laid out by hand rather than by a sizer because the
 design positions them against the four corners of the view.
+
+While a renderer is hosted the four readouts are re-read from that renderer on
+a timer -- the world's own platform and version, the dimension it is showing
+with that dimension's real build range, the camera's actual position, and the
+frames it genuinely drew alongside the chunks it genuinely has in memory.  A
+value the renderer cannot answer is left saying so rather than keeping the last
+number it happened to have, because a stale reading and a live one look
+identical on screen.
 """
 
 from __future__ import annotations
 
 import logging
 import math
-from typing import Callable, Dict, List, Optional, Tuple
+import time
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import wx
 
@@ -60,14 +69,30 @@ MAXIMUM_HANDLE_COLOUR = "#6FA8FF"
 #: The accent the design uses for every line drawn over the world.
 OVERLAY_ACCENT = "#A6F2E9"
 
-#: The camera the design's heads-up display reports.
+#: Where the stand-in view puts its drawn camera.  These are parameters of the
+#: drawing, not a reading of anything: while they are in use the view says in
+#: its own accessible name and in its notice that no renderer is attached.
 DEFAULT_CAMERA: Tuple[float, float, float] = (66.40, 118.13, -43.12)
 DEFAULT_YAW = 32.0
 
-#: The world identity chip, exactly as the design shows it.
-DEFAULT_WORLD = "bedrock, (1, 17, 0, 58, 0)"
-DEFAULT_FPS = 60
-DEFAULT_CHUNKS = 812
+#: How often the heads-up display re-reads the hosted renderer, in
+#: milliseconds.  Half a second is slow enough to cost nothing and fast enough
+#: that a camera readout follows the camera rather than trailing it.
+LIVE_POLL_MS = 500
+
+#: What a readout says when there is no renderer to read it from.  Each one is
+#: short because it shares a row with three others; the chip's tooltip and
+#: accessible name carry the full sentence.
+NO_WORLD_CHIP = "no world open"
+NO_DIMENSION_CHIP = "no dimension"
+NO_CAMERA_CHIP = "no camera"
+NO_RENDER_CHIP = "not rendering"
+
+#: What each readout's tooltip says instead of a number.
+NO_RENDERER_REASON = (
+    "No renderer is attached, so there is nothing to read this from. "
+    "Open a world and the reading becomes live."
+)
 
 #: The vertical tool column, bottom right.
 VIEWPORT_TOOLS: Tuple[Tuple[str, str, str, str], ...] = (
@@ -163,6 +188,7 @@ class HudChip(wx.Control):
     ) -> None:
         super().__init__(parent, style=wx.BORDER_NONE)
         self._lines: List[str] = []
+        self._detail = ""
         self._size_px = int(size_px)
         self._radius = int(radius)
         self._label = str(name)
@@ -181,14 +207,30 @@ class HudChip(wx.Control):
         """Return the chip's current text, newlines included."""
         return "\n".join(self._lines)
 
-    def set_text(self, text: str) -> None:
-        """Replace the chip's text and re-measure it."""
+    def set_text(self, text: str, detail: str = "") -> None:
+        """Replace the chip's text and re-measure it.
+
+        ``detail`` is the longer sentence behind a short reading -- where the
+        number was read from, or why there is no number.  It goes in the
+        tooltip and the accessible name, because a chip has room for four words
+        and the reason a reading is missing is usually longer than that.
+        """
         self._lines = [line for line in str(text).splitlines() if line.strip()] or [""]
-        self.SetName(f"{self._label}: {' · '.join(self._lines)}")
-        self.SetToolTip(self.text())
+        self._detail = str(detail)
+        summary = " · ".join(self._lines)
+        self.SetName(
+            f"{self._label}: {summary}" + (f". {self._detail}" if self._detail else "")
+        )
+        self.SetToolTip(
+            f"{self.text()}\n{self._detail}" if self._detail else self.text()
+        )
         self.InvalidateBestSize()
         self.SetSize(self.DoGetBestSize())
         self.Refresh()
+
+    def detail(self) -> str:
+        """Return the sentence explaining this reading, or ``""``."""
+        return self._detail
 
     def _font(self) -> wx.Font:
         return tokens.mono_font(self, point_size(self._size_px))
@@ -724,21 +766,34 @@ class ViewportHost(wx.Panel):
         self.selection_maximum: Tuple[int, int, int] = (13, 99, -32)
         self._canvas: Optional[wx.Window] = None
         self._overlays_visible = True
+        # Live-readout state.  ``_reading`` is the last set of values actually
+        # read from the renderer, kept so a caller -- a test, a report, a
+        # diagnostic -- can ask what the display is showing and where it came
+        # from rather than parsing the chips back out of their own text.
+        self._live_timer: Optional[wx.Timer] = None
+        self._frames = 0
+        self._frame_clock = time.monotonic()
+        self._fps: Optional[float] = None
+        self._frame_binder: Any = None
+        self._bounds_cache: Dict[str, Optional[Tuple[int, int]]] = {}
+        self._home_view: Optional[Tuple[Tuple[float, float, float], float]] = None
+        self._reading: Dict[str, Any] = {}
+        self._placeholder_reason = ""
 
         self.SetName("World viewport")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.SetBackgroundColour(sky_colour(0.5))
 
-        self.world_chip = HudChip(self, DEFAULT_WORLD, name="World version")
-        self.position_chip = HudChip(
-            self, self._position_text(), name="Camera position"
+        self.world_chip = HudChip(self, NO_WORLD_CHIP, name="World version")
+        self.dimension_chip = HudChip(self, NO_DIMENSION_CHIP, name="Dimension")
+        self.position_chip = HudChip(self, NO_CAMERA_CHIP, name="Camera position")
+        self.performance_chip = HudChip(self, NO_RENDER_CHIP, name="Render performance")
+        self.chips = (
+            self.world_chip,
+            self.dimension_chip,
+            self.position_chip,
+            self.performance_chip,
         )
-        self.performance_chip = HudChip(
-            self,
-            f"{DEFAULT_FPS} fps · {DEFAULT_CHUNKS} chunks",
-            name="Render performance",
-        )
-        self.chips = (self.world_chip, self.position_chip, self.performance_chip)
         self.caption = HudChip(
             self,
             self._caption_text(),
@@ -756,6 +811,7 @@ class ViewportHost(wx.Panel):
             name="Renderer status",
             size_px=11,
         )
+        self._clear_readouts()
         self.minimap = MinimapView(self, on_click=self._open_goto)
         self.compass = CompassView(self, on_click=self.face_north)
         self.axes = AxesLegend(self)
@@ -784,6 +840,13 @@ class ViewportHost(wx.Panel):
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.Bind(wx.EVT_SIZE, self._on_size)
         self.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
+
+    def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
+        """Stop reading the renderer before wx tears this panel down."""
+        if event.GetEventObject() is self:
+            self._stop_live_readout()
+        event.Skip()
 
     # -- renderer ------------------------------------------------------------
     def set_canvas(self, window: Optional[wx.Window]) -> None:
@@ -797,6 +860,7 @@ class ViewportHost(wx.Panel):
             self._position_canvas()
             return
         if self._canvas is not None:
+            self._stop_live_readout()
             self._canvas.Hide()
         self._canvas = window
         if window is not None:
@@ -808,6 +872,9 @@ class ViewportHost(wx.Panel):
             window.Show()
             window.Lower()
             self._raise_overlays()
+            self._start_live_readout()
+        else:
+            self._clear_readouts()
         self._sync_placeholder_controls()
         self._layout_overlays()
         self.Refresh()
@@ -819,6 +886,257 @@ class ViewportHost(wx.Panel):
     def has_canvas(self) -> bool:
         """Return whether a real renderer is currently attached."""
         return self._canvas is not None
+
+    def set_placeholder_reason(self, reason: str) -> None:
+        """State why there is no renderer, in the stand-in's own notice.
+
+        "No world is open" and "the renderer is still starting" are different
+        facts and the user can act on them differently, so the host says which
+        one it is rather than showing one sentence for every absence.
+        """
+        self._placeholder_reason = str(reason or "")
+        text = self._placeholder_reason or studio_text(
+            "Placeholder view. No renderer is attached, so this is a drawn "
+            "stand-in for the world.",
+            "呢個係示意圖。渲染器未接上，所以先用幅畫代住個世界。",
+        )
+        self.placeholder_notice.set_text(text)
+        self._layout_overlays()
+
+    # -- live readout --------------------------------------------------------
+    def readout(self) -> Dict[str, Any]:
+        """Return the values last read from the renderer, and their source.
+
+        Every entry is either something the renderer actually answered or is
+        absent.  Callers use this to prove a reading came from the canvas
+        rather than from the layout beside it.
+        """
+        return dict(self._reading)
+
+    def _start_live_readout(self) -> None:
+        """Begin re-reading the hosted renderer on a timer."""
+        self._bounds_cache = {}
+        self._frames = 0
+        self._frame_clock = time.monotonic()
+        self._fps = None
+        self._home_view = None
+        self._bind_frame_counter()
+        if self._live_timer is None:
+            self._live_timer = wx.Timer(self)
+            self.Bind(wx.EVT_TIMER, self._on_live_tick, self._live_timer)
+        if not self._live_timer.IsRunning():
+            self._live_timer.Start(LIVE_POLL_MS)
+        self._read_canvas()
+
+    def _stop_live_readout(self) -> None:
+        """Stop reading, and let go of the counter bound to the old canvas."""
+        if self._live_timer is not None and self._live_timer.IsRunning():
+            self._live_timer.Stop()
+        self._unbind_frame_counter()
+        self._reading = {}
+
+    def _unbind_frame_counter(self) -> None:
+        canvas, binder = self._canvas, self._frame_binder
+        self._frame_binder = None
+        if canvas is None or binder is None:
+            return
+        try:
+            canvas.Unbind(binder, handler=self._count_frame)
+        except Exception:  # pragma: no cover - the canvas is already gone
+            log.debug("Could not unbind the frame counter")
+
+    def _bind_frame_counter(self) -> None:
+        """Count the renderer's own pre-draw events, one per frame it draws.
+
+        The count is re-established on every tick rather than once, because the
+        editor canvas unbinds every handler on its own event table whenever the
+        active tool changes -- a counter bound once would silently stop
+        counting the first time the user picked a different tool, and an fps
+        reading that has quietly stopped looks exactly like one that has not.
+        """
+        canvas = self._canvas
+        if canvas is None:
+            return
+        try:
+            from amulet_map_editor.api.opengl.events import EVT_PRE_DRAW
+        except Exception:  # pragma: no cover - a build without OpenGL
+            log.debug("The renderer's draw events are unavailable", exc_info=True)
+            self._frame_binder = None
+            return
+        self._frame_binder = EVT_PRE_DRAW
+        try:
+            canvas.Unbind(EVT_PRE_DRAW, handler=self._count_frame)
+        except Exception:  # pragma: no cover - nothing was bound
+            pass
+        try:
+            canvas.Bind(EVT_PRE_DRAW, self._count_frame)
+        except Exception:  # pragma: no cover - the canvas is tearing down
+            log.debug("Could not bind the frame counter")
+            self._frame_binder = None
+
+    def _count_frame(self, event: wx.Event) -> None:
+        self._frames += 1
+        event.Skip()
+
+    def _on_live_tick(self, _event: wx.TimerEvent) -> None:
+        self._bind_frame_counter()
+        self._read_canvas()
+
+    def _canvas_is_live(self) -> bool:
+        canvas = self._canvas
+        if canvas is None:
+            return False
+        try:
+            return bool(canvas) and not canvas.IsBeingDeleted()
+        except RuntimeError:  # pragma: no cover - already destroyed
+            return False
+
+    @staticmethod
+    def _ask(getter: Callable[[], Any]) -> Any:
+        """Return what the renderer answered, or ``None`` when it could not.
+
+        A renderer mid-teardown, mid-load, or on a platform missing a piece of
+        state raises rather than answering, and one unanswered reading must not
+        take the other three down with it.
+        """
+        try:
+            return getter()
+        except Exception:  # noqa: BLE001 - any read may fail; none is fatal
+            return None
+
+    def _loaded_chunk_count(self) -> Optional[int]:
+        """Return how many chunks the renderer currently holds in memory."""
+        canvas = self._canvas
+
+        def count() -> int:
+            manager = canvas.renderer.render_world.chunk_manager
+            total = len(getattr(manager, "_chunk_temp_set", ()))
+            for region in getattr(manager, "_regions", {}).values():
+                total += len(getattr(region, "_chunks", ()))
+            return total
+
+        value = self._ask(count)
+        return None if value is None else int(value)
+
+    def _dimension_bounds(self, dimension: str) -> Optional[Tuple[int, int]]:
+        """Return the dimension's real build range, asking the world once."""
+        if dimension in self._bounds_cache:
+            return self._bounds_cache[dimension]
+        canvas = self._canvas
+
+        def bounds() -> Tuple[int, int]:
+            box = canvas.world.bounds(dimension)
+            return int(box.min_y), int(box.max_y)
+
+        value = self._ask(bounds)
+        self._bounds_cache[dimension] = value
+        return value
+
+    def _world_label(self) -> str:
+        """Return the open world's own platform and version, as it reports it."""
+        canvas = self._canvas
+        printable = self._ask(
+            lambda: str(canvas.world.level_wrapper.game_version_string)
+        )
+        if printable:
+            return printable
+        platform = self._ask(lambda: str(canvas.world.level_wrapper.platform)) or ""
+        version = self._ask(lambda: canvas.world.level_wrapper.version)
+        if isinstance(version, (tuple, list)):
+            version = ".".join(str(part) for part in version)
+        parts = [part for part in (platform, str(version or "")) if part]
+        return " ".join(parts)
+
+    def _read_canvas(self) -> None:
+        """Re-read every live value from the renderer and show what it said."""
+        if not self._canvas_is_live():
+            return
+        canvas = self._canvas
+        reading: Dict[str, Any] = {"source": type(canvas).__name__}
+
+        world = self._world_label()
+        if world:
+            reading["world"] = world
+            self.world_chip.set_text(
+                world, "The open world's own platform and version, from level.dat."
+            )
+        else:
+            self.world_chip.set_text(
+                NO_WORLD_CHIP, "The renderer did not report a world version."
+            )
+
+        dimension = self._ask(lambda: str(canvas.dimension or ""))
+        if dimension:
+            reading["dimension"] = dimension
+            bounds = self._dimension_bounds(dimension)
+            if bounds is None:
+                self.dimension_chip.set_text(
+                    dimension, "This world did not report a build range for it."
+                )
+            else:
+                reading["bounds"] = bounds
+                self.dimension_chip.set_text(
+                    f"{dimension} · y {bounds[0]} to {bounds[1]}",
+                    "The dimension the renderer is showing and its real build range.",
+                )
+            if dimension != self.dimension:
+                self.dimension = dimension
+                self.minimap.set_view(dimension=dimension)
+        else:
+            self.dimension_chip.set_text(
+                NO_DIMENSION_CHIP, "The renderer did not report a dimension."
+            )
+
+        location = self._ask(lambda: tuple(float(v) for v in canvas.camera.location))
+        rotation = self._ask(lambda: tuple(float(v) for v in canvas.camera.rotation))
+        if location is not None and len(location) == 3:
+            reading["camera"] = location
+            if rotation:
+                reading["yaw"] = float(rotation[0])
+            if self._home_view is None:
+                self._home_view = (location, float(rotation[0]) if rotation else 0.0)
+            self.camera = location
+            self.position_chip.set_text(
+                self._position_text(), "The renderer's camera, in block coordinates."
+            )
+            if rotation:
+                self.yaw = float(rotation[0]) % 360.0
+                self.compass.set_yaw(self.yaw)
+            self.minimap.set_view(camera=self.camera)
+        else:
+            self.position_chip.set_text(
+                NO_CAMERA_CHIP, "The renderer did not report a camera position."
+            )
+
+        elapsed = time.monotonic() - self._frame_clock
+        if elapsed >= LIVE_POLL_MS / 1000.0:
+            self._fps = self._frames / elapsed if self._frames else 0.0
+            self._frames = 0
+            self._frame_clock = time.monotonic()
+        chunks = self._loaded_chunk_count()
+        if chunks is not None:
+            reading["chunks"] = chunks
+        if self._fps is not None:
+            reading["fps"] = self._fps
+        fps_text = "fps unmeasured" if self._fps is None else f"{self._fps:.0f} fps"
+        chunk_text = "chunks unavailable" if chunks is None else f"{chunks:,} chunks"
+        self.performance_chip.set_text(
+            f"{fps_text} · {chunk_text}",
+            "Frames the renderer actually drew in the last half second, and "
+            "the chunks it currently holds in memory.",
+        )
+
+        self._reading = reading
+        self._layout_overlays()
+
+    def _clear_readouts(self) -> None:
+        """Say plainly that there is nothing to read, rather than a last value."""
+        self._fps = None
+        self._reading = {}
+        self.world_chip.set_text(NO_WORLD_CHIP, NO_RENDERER_REASON)
+        self.dimension_chip.set_text(NO_DIMENSION_CHIP, NO_RENDERER_REASON)
+        self.position_chip.set_text(NO_CAMERA_CHIP, NO_RENDERER_REASON)
+        self.performance_chip.set_text(NO_RENDER_CHIP, NO_RENDERER_REASON)
 
     def set_overlays_visible(self, visible: bool) -> None:
         """Show or hide every heads-up control at once."""
@@ -846,27 +1164,28 @@ class ViewportHost(wx.Panel):
         chunks: Optional[int] = None,
         dimension: Optional[str] = None,
     ) -> None:
-        """Update the three chips from whatever the caller actually knows."""
-        if world is not None:
-            self.world_chip.set_text(str(world))
+        """Point the stand-in view at a dimension and a camera.
+
+        The four chips are readings, not settings: they show what the hosted
+        renderer answered, and when nothing is hosted they say so.  A caller
+        that knows a dimension name or a camera position is describing the
+        drawn stand-in, so those two move the stand-in; ``world``, ``fps``, and
+        ``chunks`` are facts only a renderer can establish and are recorded for
+        :meth:`readout` rather than displayed as though they had been measured.
+        """
+        for key, value in (("world", world), ("fps", fps), ("chunks", chunks)):
+            if value is not None and not self.has_canvas():
+                log.debug(
+                    "Ignoring a pushed %s of %r: the viewport shows only what a "
+                    "renderer reported",
+                    key,
+                    value,
+                )
         if dimension is not None:
             self.dimension = str(dimension)
             self.minimap.set_view(dimension=self.dimension)
-        if position is not None:
+        if position is not None and not self.has_canvas():
             self.set_camera(position=position)
-        if fps is not None or chunks is not None:
-            current = self.performance_chip.text().split(" · ")
-            fps_text = (
-                f"{float(fps):.0f} fps"
-                if fps is not None
-                else (current[0] if current else f"{DEFAULT_FPS} fps")
-            )
-            chunk_text = (
-                f"{int(chunks)} chunks"
-                if chunks is not None
-                else (current[1] if len(current) > 1 else f"{DEFAULT_CHUNKS} chunks")
-            )
-            self.performance_chip.set_text(f"{fps_text} · {chunk_text}")
         self._layout_overlays()
 
     def set_camera(
@@ -876,17 +1195,48 @@ class ViewportHost(wx.Panel):
         *,
         notify: bool = False,
     ) -> None:
-        """Move the camera, updating the chip, the minimap, and the compass."""
+        """Move the camera, in the renderer when there is one.
+
+        With a renderer hosted this writes the real camera, so framing a
+        selection or facing north moves the world rather than only the drawn
+        minimap; the next live read then shows where the camera actually ended
+        up, which is not always exactly where it was asked to go.
+        """
         if position is not None:
             self.camera = tuple(float(value) for value in position)
-            self.position_chip.set_text(self._position_text())
         if yaw is not None:
             self.yaw = float(yaw) % 360.0
             self.compass.set_yaw(self.yaw)
+        if self.has_canvas():
+            self._push_camera(position, yaw)
+            self.position_chip.set_text(
+                self._position_text(), "The renderer's camera, in block coordinates."
+            )
         self.minimap.set_view(camera=self.camera)
         self._layout_overlays()
         if notify:
             invoke(self.on_camera, self.camera, self.yaw)
+
+    def _push_camera(
+        self,
+        position: Optional[Tuple[float, float, float]],
+        yaw: Optional[float],
+    ) -> None:
+        """Write a camera move into the hosted renderer."""
+        canvas = self._canvas
+        if canvas is None:
+            return
+        if position is not None:
+            point = tuple(float(value) for value in position)
+            self._ask(lambda: setattr(canvas.camera, "location", point))
+        if yaw is not None:
+            current = self._ask(
+                lambda: tuple(float(value) for value in canvas.camera.rotation)
+            ) or (0.0, 0.0)
+            pitch = current[1] if len(current) > 1 else 0.0
+            self._ask(
+                lambda: setattr(canvas.camera, "rotation", (float(yaw) % 360.0, pitch))
+            )
 
     def set_selection(
         self,
@@ -937,15 +1287,55 @@ class ViewportHost(wx.Panel):
             self.reset_camera()
         invoke(self.on_tool, key)
 
+    def live_selection(
+        self,
+    ) -> Optional[Tuple[Tuple[int, int, int], Tuple[int, int, int]]]:
+        """Return the selection the renderer actually holds, or ``None``.
+
+        ``None`` says there is no renderer or it could not be asked; an empty
+        selection reports itself as ``None`` too, because framing nothing would
+        move the camera somewhere the user never chose.
+        """
+        canvas = self._canvas
+        if canvas is None:
+            return None
+
+        def bounds() -> Optional[Tuple[Tuple[int, int, int], Tuple[int, int, int]]]:
+            group = canvas.selection.selection_group
+            boxes = list(group.selection_boxes)
+            if not boxes:
+                return None
+            lows = [tuple(int(value) for value in box.min) for box in boxes]
+            highs = [tuple(int(value) for value in box.max) for box in boxes]
+            return (
+                (
+                    min(point[0] for point in lows),
+                    min(point[1] for point in lows),
+                    min(point[2] for point in lows),
+                ),
+                (
+                    max(point[0] for point in highs),
+                    max(point[1] for point in highs),
+                    max(point[2] for point in highs),
+                ),
+            )
+
+        return self._ask(bounds)
+
     def frame_selection(self) -> None:
-        """Put the camera above the middle of the selection."""
-        centre = [
-            (low + high + 1) / 2
-            for low, high in zip(self.selection_minimum, self.selection_maximum)
-        ]
-        height = centre[1] + max(
-            16.0, (self.selection_maximum[1] - self.selection_minimum[1] + 1) * 2.0
-        )
+        """Put the camera above the middle of the selection.
+
+        The renderer's own selection is used when there is one, so the button
+        frames what the user actually drew rather than the box the stand-in
+        happens to be drawing.
+        """
+        live = self.live_selection()
+        if live is not None:
+            minimum, maximum = live
+        else:
+            minimum, maximum = self.selection_minimum, self.selection_maximum
+        centre = [(low + high + 1) / 2 for low, high in zip(minimum, maximum)]
+        height = centre[1] + max(16.0, (maximum[1] - minimum[1] + 1) * 2.0)
         self.set_camera(position=(centre[0], height, centre[2]), notify=True)
 
     def toggle_slice(self) -> None:
@@ -955,8 +1345,17 @@ class ViewportHost(wx.Panel):
         self.Refresh()
 
     def reset_camera(self) -> None:
-        """Return the camera to the position and heading the view opened with."""
-        self.set_camera(position=DEFAULT_CAMERA, yaw=DEFAULT_YAW, notify=True)
+        """Return the camera to the position and heading the view opened with.
+
+        With a renderer hosted that is where its camera genuinely was when the
+        world opened, which was read from the world's own player data; without
+        one it is the stand-in's drawn viewpoint.
+        """
+        if self._home_view is not None:
+            position, yaw = self._home_view
+        else:
+            position, yaw = DEFAULT_CAMERA, DEFAULT_YAW
+        self.set_camera(position=position, yaw=yaw, notify=True)
 
     def face_north(self) -> None:
         """Turn the camera to face north."""
@@ -1250,12 +1649,15 @@ __all__ = [
     "CompassView",
     "CornerHandle",
     "DEFAULT_CAMERA",
-    "DEFAULT_CHUNKS",
-    "DEFAULT_FPS",
-    "DEFAULT_WORLD",
     "DEFAULT_YAW",
     "GRID_PITCH",
     "HudChip",
+    "LIVE_POLL_MS",
+    "NO_CAMERA_CHIP",
+    "NO_DIMENSION_CHIP",
+    "NO_RENDERER_REASON",
+    "NO_RENDER_CHIP",
+    "NO_WORLD_CHIP",
     "MAXIMUM_HANDLE_COLOUR",
     "MINIMUM_HANDLE_COLOUR",
     "MinimapView",

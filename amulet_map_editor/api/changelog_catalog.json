@@ -1,8 +1,68 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "0621c781e0c8f197a55b0fc1be5c57785907e01e",
+  "source_revision": "3f2f7ed3750f904af3aa7e2c7b493cabcd78daed",
   "entries": [
+    {
+      "version": "0.10.0-dev.521",
+      "released_on": "2026-08-10",
+      "commit_sha": "e27a9f3bb22b9b0aae5392397c2908aa82bc6376",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Ask each window to draw instead of reading a surface nobody composited",
+          "commit_sha": "e27a9f3bb22b9b0aae5392397c2908aa82bc6376"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.519",
+      "released_on": "2026-08-10",
+      "commit_sha": "f484fa9c256fad2b387cec3b61d3f423f9fbd19a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Say what the tests actually did, now that they cannot stop the build",
+          "commit_sha": "f484fa9c256fad2b387cec3b61d3f423f9fbd19a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.516",
+      "released_on": "2026-08-10",
+      "commit_sha": "0621c781e0c8f197a55b0fc1be5c57785907e01e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main'",
+          "commit_sha": "0621c781e0c8f197a55b0fc1be5c57785907e01e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.513",
+      "released_on": "2026-08-10",
+      "commit_sha": "1319374bbde29b7a4de51b7f65f9c11b3133fc96",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "ci(windows): remove the release-gating test step from the build",
+          "commit_sha": "1319374bbde29b7a4de51b7f65f9c11b3133fc96"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.514",
+      "released_on": "2026-08-10",
+      "commit_sha": "1319374bbde29b7a4de51b7f65f9c11b3133fc96",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "ci(windows): remove the release-gating test step from the build",
+          "commit_sha": "1319374bbde29b7a4de51b7f65f9c11b3133fc96"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.512",
       "released_on": "2026-08-10",
