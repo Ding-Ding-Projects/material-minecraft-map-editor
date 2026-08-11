@@ -1,8 +1,27 @@
-"""Material 3-inspired preferences and command palette surfaces.
+"""Material 3 preferences, command palette, and changelog surfaces.
 
-The controls intentionally use native wx widgets so the surface remains usable
-on headless and accessibility-enabled Windows desktops.  Colour, spacing and
-typography are sourced from one persisted :mod:`api.preferences` record.
+Every control on these surfaces is drawn by the product rather than by the
+operating system.  That was not true until recently and the difference is not
+cosmetic: a settings window built from native widgets showed the platform's own
+title bar with the platform's own window buttons across the top of a frameless
+application, native notebook tabs, native text boxes where a theme and a
+density belong in a real select, an accent colour presented as the bare string
+``#6750A4`` with no swatch and no picker behind it, and a native scrollbar down
+the edge of the page.
+
+It also photographed as almost nothing.  A native control on a desktop with no
+compositor answers a capture with an empty rectangle, so the same window that
+looked passable on screen came back from the capture harness as a handful of
+blank boxes -- which is why "the tests are green" was never evidence that this
+surface rendered.
+
+The replacements live in :mod:`amulet_map_editor.api.wx.ui.material_forms` and
+:mod:`amulet_map_editor.api.wx.ui.material_tabs`.  They answer to the same
+``wx`` vocabulary the handlers below already speak -- ``GetValue``,
+``SetSelection``, ``Set``, ``wx.EVT_TEXT``, ``wx.EVT_CHOICE`` -- so what
+changed here is what is drawn and what is explained, not what any control does.
+Colour, spacing and typography are sourced from one persisted
+:mod:`api.preferences` record.
 """
 
 from __future__ import annotations
@@ -30,11 +49,14 @@ from amulet_map_editor.api import (
     scheduled_sources,
     school_mode,
 )
-from amulet_map_editor.api import lang
+from amulet_map_editor.api import config, lang
 from amulet_map_editor.api import scheduled_settings as schedules
 from amulet_map_editor.api.regex_builder import RegexBuilder
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.nonblocking import notify
+from amulet_map_editor.api.wx.ui import material_forms as forms
+from amulet_map_editor.api.wx.ui.material_tabs import MaterialTabs
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 from amulet_map_editor.api.wx.ui.simple import MaterialDateTimeField
@@ -42,10 +64,32 @@ from amulet_map_editor.api.wx.ui.simple import MaterialDateTimeField
 log = logging.getLogger(__name__)
 
 
-def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
-    control = wx.StaticText(parent, label=text)
+def _label(parent: wx.Window, text: str, help_text: str) -> studio.StudioText:
+    """Return one painted caption.
+
+    It replaces ``wx.StaticText``, which took its ink from a native foreground
+    colour rather than a palette role -- so a theme change left it behind --
+    and which painted through the platform, so a capture of this surface came
+    back with every label missing.  ``SetLabel``, ``GetLabel`` and
+    ``SetForegroundColour`` keep their spelling, so the callers below are
+    unchanged.
+    """
+    control = studio.StudioText(parent, text, size_px=13, role="on_surface", name=text)
     control.SetToolTip(help_text)
     return control
+
+
+def _stored_preferences() -> dict:
+    """Return the raw persisted preference record, for the provenance lines.
+
+    A key absent from this dict is a value nobody has written, so the dialog is
+    showing what the application was compiled with.  Saying which of the two a
+    reader is looking at is the whole point of a provenance line; guessing it
+    from the value would be wrong exactly when the stored value happens to
+    equal the shipped one.
+    """
+    raw = config.get(preferences.PREFERENCES_ID, {})
+    return raw if isinstance(raw, dict) else {}
 
 
 def _chrome_copy(key: str, mode: str) -> str:
@@ -67,7 +111,14 @@ class PreferencesDialog(wx.Dialog):
         super().__init__(
             parent,
             title="Preferences",
-            size=wx.Size(620, 480),
+            # Wider and taller than the old surface, because the tab strip is
+            # docked down the left edge and every settings element now carries
+            # a help affordance and a value-source line under it. The window
+            # stays resizable, and the pages scroll, so a smaller display is
+            # still usable -- but opening onto a page whose first row is
+            # already cut off is a bad first impression that costs nothing to
+            # avoid.
+            size=wx.Size(1000, 720),
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._prefs = preferences.load()
@@ -84,8 +135,21 @@ class PreferencesDialog(wx.Dialog):
         except schedules.ScheduleValidationError as exc:
             self._schedule_rules = []
             self._schedule_load_error = str(exc)
+        self._stored = _stored_preferences()
+        # The project's rule is that a desktop window draws its own caption, so
+        # the platform's title bar, system menu, and window boxes come off and
+        # the product's own bar goes on. Leaving the native caption put a strip
+        # of somebody else's design across the top of a frameless application.
+        forms.make_frameless(self)
         root = wx.BoxSizer(wx.VERTICAL)
-        self._tabs = wx.Notebook(self)
+        self.title_bar = forms.MaterialDialogTitleBar(
+            self,
+            "Preferences",
+            subtitle="Settings for this installation",
+            maximise=True,
+        )
+        root.Add(self.title_bar, 0, wx.EXPAND)
+        self._tabs = MaterialTabs(self, "preferences")
         self._build_language_tab()
         self._build_appearance_tab()
         self._build_schedule_tab()
@@ -94,330 +158,506 @@ class PreferencesDialog(wx.Dialog):
             # School mode keeps its own control discoverable, but removes the
             # language/funny controls that are intentionally not applicable.
             self._tabs.RemovePage(self._tabs.GetPageIndex(self._language_page))
-        root.Add(self._tabs, 1, wx.EXPAND | wx.ALL, 12)
-        buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
-        reset = wx.Button(self, label="Reset to shipped values")
-        reset.Bind(wx.EVT_BUTTON, self._reset)
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        row.Add(reset, 0, wx.LEFT | wx.BOTTOM, 12)
-        row.AddStretchSpacer()
-        row.Add(buttons, 0, wx.RIGHT | wx.BOTTOM, 12)
-        root.Add(row, 0, wx.EXPAND)
+        root.Add(self._tabs, 1, wx.EXPAND)
+        root.Add(self._build_action_bar(), 0, wx.EXPAND)
         self.SetSizer(root)
         self.Bind(wx.EVT_BUTTON, self._save, id=wx.ID_OK)
+        # This dialog has already built its own caption above, so the shared
+        # styling pass must not build a second one. Without this flag it did:
+        # ``apply_material3`` fits any captionless dialog with the legacy
+        # ``MaterialTitleBar``, which arrived on top of this one as a blank
+        # 44-pixel strip -- blank because that bar's title is a native
+        # ``wx.StaticText``, which is exactly what this surface stopped using.
+        self._material3_dialog_chrome = True
         # Dialogs can be opened after the frame's one-time shell styling pass.
         # Apply the same M3 roles locally so settings surfaces do not fall back
         # to the native palette when opened from the menu or command palette.
         apply_material3(self)
+        # ``apply_material3`` re-colours every child it walks, including the
+        # painted ones, so the surfaces that own a role of their own are told
+        # again afterwards. Without this the title bar's own text came back
+        # drawn on plain-surface tiles laid over the container-coloured bar.
+        self.title_bar.refresh_theme()
+        self._tabs.refresh_theme()
+        self.Layout()
+
+    def _build_action_bar(self) -> wx.Sizer:
+        """Build the painted OK / Cancel / reset row.
+
+        ``CreateStdDialogButtonSizer`` builds native buttons and puts them in
+        the platform's own order, which is exactly the chrome this surface is
+        removing.  The dialog identifiers stay ``wx.ID_OK`` and
+        ``wx.ID_CANCEL`` so the existing handler bindings and the modal return
+        codes are unchanged.
+        """
+        self.reset_button = studio.StudioButton(
+            self,
+            "Reset to shipped values",
+            variant="text",
+            hint="Discard every stored preference and return to what the app ships with",
+            name="Reset to shipped values",
+        )
+        self.reset_button.Bind(wx.EVT_BUTTON, self._reset)
+        self.cancel_button = studio.StudioButton(
+            self, "Cancel", variant="outlined", name="Cancel"
+        )
+        self.cancel_button.SetId(wx.ID_CANCEL)
+        self.cancel_button.Bind(
+            wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL)
+        )
+        self.ok_button = studio.StudioButton(
+            self, "Save preferences", variant="filled", name="Save preferences"
+        )
+        self.ok_button.SetId(wx.ID_OK)
+        self.SetAffirmativeId(wx.ID_OK)
+        self.SetEscapeId(wx.ID_CANCEL)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(self.reset_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 16)
+        row.AddStretchSpacer()
+        row.Add(self.cancel_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        row.Add(self.ok_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 16)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(studio.Divider(self), 0, wx.EXPAND | wx.BOTTOM, 12)
+        outer.Add(row, 0, wx.EXPAND | wx.BOTTOM, 14)
+        return outer
+
+    def _row(
+        self,
+        parent: wx.Window,
+        label: str,
+        explanation: str,
+        *,
+        key: str = "",
+        default: object = "",
+        unit: str = "",
+        provenance: str = "",
+    ) -> forms.SettingRow:
+        """Return one settings element carrying its help and its value source."""
+        if not provenance and key:
+            provenance = forms.stored_provenance(self._stored, key, default, unit=unit)
+        return forms.SettingRow(
+            parent, label, explanation=explanation, provenance=provenance
+        )
 
     def _build_language_tab(self) -> None:
-        page = wx.Panel(self._tabs)
-        grid = wx.FlexGridSizer(0, 2, 12, 16)
-        grid.AddGrowableCol(1, 1)
-        grid.Add(
-            _label(
-                page,
-                "Language mode",
-                "Choose English, playful Hong Kong-style Cantonese, or both.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        """Build the language mode, the two funny levels, and the emoji switch.
+
+        The rows are stacked rather than laid out in a label/control grid.  A
+        two-column grid puts a long localized label and its control on one
+        line, which is where bilingual mode clips: the same row that fits in
+        English does not fit with the Cantonese underneath it.
+        """
+        page = wx.Panel(self._tabs.host)
+        column = wx.BoxSizer(wx.VERTICAL)
+
+        language_row = self._row(
+            page,
+            "Language mode",
+            "Chooses which language every label, message, and narrated line is "
+            "written in. Bilingual shows English and Cantonese together, with "
+            "the English kept prominent so a narrow window does not crowd.",
+            key="language_mode",
+            default="english",
         )
-        self.language = wx.Choice(
-            page, choices=["English", "Playful Cantonese", "Bilingual"]
+        self.language = forms.MaterialChoice(
+            language_row.body,
+            ["English", "Playful Cantonese", "Bilingual"],
+            label="Language mode",
         )
         self.language.SetSelection(
             preferences.LANGUAGE_MODES.index(self._prefs.language_mode)
         )
-        grid.Add(self.language, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "English funny level",
-                "Styles every English message, including warnings; facts stay unchanged.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
-        )
-        self.funny_en = wx.Slider(
+        language_row.set_control(self.language, 0)
+        column.Add(language_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        english_row = self._row(
             page,
-            minValue=1,
-            maxValue=5,
+            "English funny level",
+            "Styles every English message, including warnings and errors. Only "
+            "the voice changes: what happened, what it affects, and what your "
+            "options are stay exactly as precise at level 5 as at level 1.",
+            key="funny_level_english",
+            default=1,
+        )
+        self.funny_en = forms.MaterialSlider(
+            english_row.body,
             value=self._prefs.funny_level_english,
-            style=wx.SL_LABELS,
-        )
-        grid.Add(self.funny_en, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "Cantonese funny level",
-                "Styles every Cantonese message, including errors; facts stay unchanged.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
-        )
-        self.funny_yue = wx.Slider(
-            page,
             minValue=1,
             maxValue=5,
+            name="English funny level",
+        )
+        english_row.set_control(self.funny_en)
+        column.Add(english_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        cantonese_row = self._row(
+            page,
+            "Cantonese funny level",
+            "Styles every Cantonese message on the same scale, and independently "
+            "of the English one. Humour never mocks you, your data, or your money.",
+            key="funny_level_cantonese",
+            default=1,
+        )
+        self.funny_yue = forms.MaterialSlider(
+            cantonese_row.body,
             value=self._prefs.funny_level_cantonese,
-            style=wx.SL_LABELS,
+            minValue=1,
+            maxValue=5,
+            name="Cantonese funny level",
         )
-        grid.Add(self.funny_yue, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "Dialog emojis",
-                "Show a relevant decorative emoji in dialogs without changing control labels.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        cantonese_row.set_control(self.funny_yue)
+        column.Add(cantonese_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        emoji_row = self._row(
+            page,
+            "Dialog emojis",
+            "Adds one relevant decorative emoji to dialogs and message boxes. "
+            "Buttons, field labels, and accessible names never take one, so "
+            "nothing a screen reader announces changes with this setting.",
+            key="show_dialog_emojis",
+            default=True,
         )
-        self.dialog_emojis = wx.CheckBox(
-            page, label="Show emojis in dialogs and message boxes"
+        self.dialog_emojis = studio.StudioCheckBox(
+            emoji_row.body,
+            "Show emojis in dialogs and message boxes",
+            value=self._prefs.show_dialog_emojis,
+            name="Show emojis in dialogs and message boxes",
         )
-        self.dialog_emojis.SetValue(self._prefs.show_dialog_emojis)
-        grid.Add(self.dialog_emojis, 1, wx.EXPAND)
-        page.SetSizer(wx.BoxSizer(wx.VERTICAL))
-        page.GetSizer().Add(grid, 0, wx.EXPAND | wx.ALL, 18)
+        emoji_row.set_control(self.dialog_emojis, 0)
+        column.Add(emoji_row, 0, wx.EXPAND)
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(column, 1, wx.EXPAND | wx.ALL, 20)
+        page.SetSizer(outer)
         self._language_page = page
         self._tabs.AddPage(page, "Language", True)
 
     def _build_appearance_tab(self) -> None:
-        page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
-        page.SetScrollRate(0, 12)
+        """Build the identity, School mode, theme, colour, font, and preset rows.
+
+        Every control here is painted.  Theme and density are real selects with
+        their own search rather than text boxes somebody has to know the
+        spelling of; the accent colour is a live swatch beside the continuous
+        picker and its translator rather than a hex string in a field; and the
+        page scrolls under a painted bar instead of the platform's own.
+        """
+        scroller = forms.MaterialScrolled(self._tabs.host, name="Appearance settings")
+        # Every row is built on the scroller's content panel rather than on the
+        # scroller itself. A sizer installed on a scrolled window is laid out
+        # into the viewport, and a BoxSizer short of room silently takes the
+        # shortfall out of whatever is last -- which here was every setting
+        # below the fold, sized to zero height while still reporting IsShown().
+        page = scroller.content
         root = wx.BoxSizer(wx.VERTICAL)
-        grid = wx.FlexGridSizer(0, 2, 12, 16)
-        grid.AddGrowableCol(1, 1)
-        grid.Add(
-            _label(
-                page,
-                "App display name",
-                "Changes the name shown in the title bar and app messages only. "
-                "Package, data-folder, and update identities stay unchanged.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
-        )
-        identity_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.display_name = wx.TextCtrl(
+
+        identity = self._row(
             page,
-            value=self._prefs.display_name,
+            "App display name",
+            "Changes only the name this application shows you -- the title bar, "
+            "the About surface, its own messages. The package identity, the "
+            "data folder, and the update feed keep the shipped name, so "
+            "renaming can never orphan your stored profile, and a diagnostic "
+            "report still says which software produced it.",
+            key="display_name",
+            default=preferences.DEFAULT_DISPLAY_NAME,
+        )
+        self.display_name = forms.MaterialTextField(
+            identity.body,
+            "App display name",
+            self._prefs.display_name,
             name="App display name",
         )
         self.display_name.SetMaxLength(preferences.MAX_DISPLAY_NAME_LENGTH)
-        self.display_name_reset = wx.Button(page, label="Reset name")
-        self.display_name_reset.SetToolTip("Restore the shipped name, Amulet.")
+        self.display_name_reset = studio.StudioButton(
+            identity.body,
+            "Reset name",
+            variant="outlined",
+            hint="Restore the shipped name, Amulet.",
+            name="Reset name",
+        )
         self.display_name_reset.Bind(wx.EVT_BUTTON, self._reset_display_name_form)
-        identity_row.Add(self.display_name, 1, wx.EXPAND | wx.RIGHT, 8)
-        identity_row.Add(self.display_name_reset, 0)
-        grid.Add(identity_row, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "School mode",
-                "A shared local presentation lock. It forces English, serious copy, and no dialog emojis while enabled.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        identity.set_control(self.display_name)
+        identity.add_extra(self.display_name_reset)
+        self.identity_status = studio.StudioText(
+            identity, "", size_px=12, name="App display name validation"
         )
-        school_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.school_name = wx.TextCtrl(page, value=self._school.mode_name)
+        identity.GetSizer().Add(self.identity_status, 0, wx.EXPAND | wx.TOP, 4)
+        root.Add(identity, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        school = self._row(
+            page,
+            "School mode",
+            "A shared local presentation lock. While it is on, every app forces "
+            "English, serious copy, and no dialog emojis, and the playful "
+            "capabilities behave as though they were not installed. It is a "
+            "user-experience lock, not a security boundary.",
+            provenance=(
+                "Stored in the shared local application-data record, not in "
+                "this app's preferences file."
+            ),
+        )
+        self.school_name = forms.MaterialTextField(
+            school.body,
+            "Mode name",
+            self._school.mode_name,
+            name="School mode name",
+        )
         self.school_name.SetMaxLength(school_mode.MAX_MODE_NAME_LENGTH)
-        self.school_name.SetName("School mode name")
-        self.school_enabled = wx.CheckBox(page, label="Enabled")
-        self.school_enabled.SetValue(self._school.enabled)
-        school_row.Add(self.school_name, 1, wx.EXPAND | wx.RIGHT, 8)
-        school_row.Add(self.school_enabled, 0, wx.ALIGN_CENTER_VERTICAL)
-        grid.Add(school_row, 1, wx.EXPAND)
+        self.school_enabled = studio.StudioCheckBox(
+            school.body,
+            "Enabled",
+            value=self._school.enabled,
+            name="School mode enabled",
+        )
+        school.set_control(self.school_name)
+        school.add_extra(self.school_enabled)
         if self._school.enabled:
-            active = wx.StaticText(
-                page,
-                label="School mode is active: English-only serious presentation is enforced.",
+            active = studio.StudioText(
+                school,
+                "School mode is active: English-only serious presentation is enforced.",
+                size_px=12,
+                name="School mode active status",
             )
-            active.SetName("School mode active status")
-            grid.AddSpacer(1)
-            grid.Add(active, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "Unlock credential",
-                "Set a local credential used to leave School mode. Only a salted verifier is stored.",
+            school.GetSizer().Add(active, 0, wx.EXPAND | wx.TOP, 4)
+        root.Add(school, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        credential = self._row(
+            page,
+            "Unlock credential",
+            "The local credential that leaves School mode. Only a salted "
+            "verifier is stored, never the credential itself, and it never "
+            "enters an export, a log, or this project's version history. "
+            "Leaving the field blank keeps whatever credential is already set.",
+            provenance=(
+                "Held in the shared local record. Deleting that folder resets it."
             ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
         )
-        self.school_credential = wx.TextCtrl(
-            page, style=wx.TE_PASSWORD, name="School mode unlock credential"
+        self.school_credential = forms.MaterialTextField(
+            credential.body,
+            "Unlock credential",
+            password=True,
+            placeholder="4–128 characters; leave blank to keep the current credential",
+            name="School mode unlock credential",
         )
-        self.school_credential.SetHint(
-            "4–128 characters; leave blank to keep the current credential"
+        credential.set_control(self.school_credential)
+        root.Add(credential, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        theme_row = self._row(
+            page,
+            "Theme",
+            "Light, dark, or whatever the operating system is currently set to. "
+            "The choice is applied live: the shell, its panels, and every open "
+            "dialog re-read the palette without a restart.",
+            key="theme",
+            default="system",
         )
-        grid.Add(self.school_credential, 1, wx.EXPAND)
-        grid.AddSpacer(1)
-        self.identity_status = wx.StaticText(page, label="")
-        self.identity_status.SetName("App display name validation")
-        grid.Add(self.identity_status, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page, "Theme", "Select light, dark, or follow the operating system."
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        self.theme = forms.MaterialChoice(
+            theme_row.body, ["Light", "Dark", "System"], label="Theme"
         )
-        self.theme = wx.Choice(page, choices=["Light", "Dark", "System"])
         self.theme.SetSelection(preferences.THEMES.index(self._prefs.theme))
-        grid.Add(self.theme, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "Density",
-                "Controls spacing throughout tabs, panels, and dialogs.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        theme_row.set_control(self.theme, 0)
+        root.Add(theme_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        density_row = self._row(
+            page,
+            "Density",
+            "How much breathing room controls get. Compact fits more on a small "
+            "display; spacious grows the touch targets. It changes spacing and "
+            "control heights throughout tabs, panels, and dialogs.",
+            key="density",
+            default="comfortable",
         )
-        self.density = wx.Choice(page, choices=["Compact", "Comfortable", "Spacious"])
+        self.density = forms.MaterialChoice(
+            density_row.body, ["Compact", "Comfortable", "Spacious"], label="Density"
+        )
         self.density.SetSelection(
             ("compact", "comfortable", "spacious").index(self._prefs.density)
         )
-        grid.Add(self.density, 1, wx.EXPAND)
-        grid.Add(
-            _label(page, "Accent colour", "Material 3 seed colour in #RRGGBB form."),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        density_row.set_control(self.density, 0)
+        root.Add(density_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        accent_row = self._row(
+            page,
+            "Accent colour",
+            "The Material 3 seed colour every other role is derived from. The "
+            "swatch opens the continuous picker with its spectrum, its entry in "
+            "every supported colour space, its translator, and its contrast "
+            "readout; the field beside it accepts #RRGGBB or #RRGGBBAA directly.",
+            key="accent",
+            default="#6750A4",
         )
-        self.accent = wx.TextCtrl(page, value=self._prefs.accent)
-        self.accent.SetName("Accent colour HEX")
-        self.accent.SetHint("#RRGGBB or #RRGGBBAA")
-        grid.Add(self.accent, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "Colour translator",
-                "Enter RGB or HSL values to update the same persisted Material 3 accent colour.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        self.accent_colour_picker = forms.MaterialColourField(
+            accent_row.body,
+            self._prefs.accent,
+            name="Accent colour picker",
+            subject="Appearance",
         )
-        colour_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.accent_rgb = wx.TextCtrl(
-            page, style=wx.TE_PROCESS_ENTER, name="Accent colour RGB"
+        self.accent = forms.MaterialTextField(
+            accent_row.body,
+            "Accent colour HEX",
+            self._prefs.accent,
+            placeholder="#RRGGBB or #RRGGBBAA",
+            mono=True,
+            name="Accent colour HEX",
         )
-        self.accent_rgb.SetHint("RGB: 103, 80, 164")
-        self.accent_hsl = wx.TextCtrl(
-            page, style=wx.TE_PROCESS_ENTER, name="Accent colour HSL"
+        accent_row.set_control(self.accent_colour_picker, 0)
+        accent_row.add_extra(self.accent, 1)
+        self.accent_swatch = studio.Swatch(
+            accent_row, self._prefs.accent, name="Accent colour preview", size=20
         )
-        self.accent_hsl.SetHint("HSL: 262, 34%, 48%")
-        self.accent_colour_picker = wx.ColourPickerCtrl(
-            page, name="Accent colour picker"
+        self.accent_contrast = studio.StudioText(
+            accent_row, "", size_px=12, name="Accent colour contrast readout"
         )
-        self.accent_swatch = wx.StaticText(page, label="  ")
-        self.accent_swatch.SetName("Accent colour preview")
-        self.accent_contrast = wx.StaticText(page, label="")
-        self.accent_contrast.SetName("Accent colour contrast readout")
-        colour_row.Add(self.accent_rgb, 1, wx.EXPAND | wx.RIGHT, 6)
-        colour_row.Add(self.accent_hsl, 1, wx.EXPAND | wx.RIGHT, 6)
-        colour_row.Add(
-            self.accent_colour_picker, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6
+        contrast_row = wx.BoxSizer(wx.HORIZONTAL)
+        contrast_row.Add(self.accent_swatch, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        contrast_row.Add(self.accent_contrast, 1, wx.ALIGN_CENTER_VERTICAL)
+        accent_row.GetSizer().Add(contrast_row, 0, wx.EXPAND | wx.TOP, 6)
+        root.Add(accent_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        translator = self._row(
+            page,
+            "Colour translator",
+            "The same accent colour, addressed as RGB or as HSL. Press Enter in "
+            "either field and every other reading of the colour -- the hex "
+            "field, the swatch, the picker, the contrast line -- updates to "
+            "match, because all of them are one persisted value.",
+            provenance="Two views of the accent colour above; nothing separate is stored.",
         )
-        colour_row.Add(self.accent_swatch, 0, wx.EXPAND | wx.RIGHT, 6)
-        colour_row.Add(self.accent_contrast, 0, wx.ALIGN_CENTER_VERTICAL)
-        grid.Add(colour_row, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "UI font",
-                "Optional installed font family; blank uses the platform default.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        self.accent_rgb = forms.MaterialTextField(
+            translator.body,
+            "RGB",
+            placeholder="RGB: 103, 80, 164",
+            process_enter=True,
+            mono=True,
+            name="Accent colour RGB",
         )
-        self.font = wx.FontPickerCtrl(page)
-        self.font.SetName("UI font picker")
+        self.accent_hsl = forms.MaterialTextField(
+            translator.body,
+            "HSL",
+            placeholder="HSL: 262, 34%, 48%",
+            process_enter=True,
+            mono=True,
+            name="Accent colour HSL",
+        )
+        translator.set_control(self.accent_rgb)
+        translator.add_extra(self.accent_hsl, 1)
+        root.Add(translator, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        font_row = self._row(
+            page,
+            "UI font",
+            "The typeface the interface is drawn in. Opening it gives the full "
+            "typography editor -- every installed and bundled face, size, "
+            "weight, and the variable-font axes a face exposes -- with a "
+            "CJK-safe fallback so bilingual copy never drops to boxes. Leaving "
+            "it unset uses the platform default.",
+            key="ui_font",
+            default="",
+        )
+        self.font = forms.MaterialFontField(
+            font_row.body, name="UI font picker", subject="Appearance"
+        )
         self._set_appearance_font(self._prefs.ui_font)
         self.font.Bind(wx.EVT_FONTPICKER_CHANGED, self._select_appearance_font)
-        grid.Add(self.font, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "Installed font search",
-                "Search installed family names; selecting one updates the live preview and persisted UI font.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
-        )
-        font_search_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.font_search = wx.TextCtrl(page, name="Installed font search")
-        self.font_search.SetHint("Search installed fonts")
-        self.font_regex = wx.CheckBox(page, label="Regex")
-        self.font_regex.SetName("Installed font regex mode")
-        self.font_regex_button = wx.Button(page, label="Regex…")
-        self.font_regex_button.SetName("Installed font regex builder")
-        self.font_regex_button.SetToolTip(
-            "Build a bounded regular-expression font search"
-        )
-        self.font_choice = wx.Choice(page, choices=[])
-        self.font_choice.SetName("Installed font choices")
-        font_search_row.Add(self.font_search, 1, wx.EXPAND | wx.RIGHT, 8)
-        font_search_row.Add(self.font_regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        font_search_row.Add(
-            self.font_regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8
-        )
-        font_search_row.Add(self.font_choice, 1, wx.EXPAND)
-        grid.Add(font_search_row, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "External editor",
-                "Choose Visual Studio Code or a compatible Code executable. Exported files open directly; folders open as workspace roots.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
-        )
-        editor_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.external_editor_path = wx.TextCtrl(
+        font_row.set_control(self.font, 0)
+        root.Add(font_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        font_search_row = self._row(
             page,
-            value=external_editor.load_selected(),
+            "Installed font search",
+            "Searches the family names this machine actually has. Plain text is "
+            "the default; the builder beside the field composes a bounded "
+            "regular expression when you need groups or quantifiers. Choosing a "
+            "result updates the live preview and the persisted UI font.",
+            provenance="Reads the installed font list; nothing is stored by the search.",
+        )
+        self.font_search = forms.MaterialTextField(
+            font_search_row.body,
+            "Search installed fonts",
+            placeholder="Search installed fonts",
+            name="Installed font search",
+        )
+        self.font_regex = studio.StudioCheckBox(
+            font_search_row.body, "Regex", name="Installed font regex mode"
+        )
+        self.font_regex_button = studio.StudioButton(
+            font_search_row.body,
+            "Regex…",
+            variant="outlined",
+            hint="Build a bounded regular-expression font search",
+            name="Installed font regex builder",
+        )
+        self.font_choice = forms.MaterialChoice(
+            font_search_row.body, [], label="Installed font choices"
+        )
+        font_search_row.set_control(self.font_search)
+        font_search_row.add_extra(self.font_regex)
+        font_search_row.add_extra(self.font_regex_button)
+        font_search_row.add_extra(self.font_choice, 1)
+        self.font_preview = studio.StudioText(
+            font_search_row,
+            "The quick brown fox jumps over the lazy dog · 蝦餃",
+            size_px=14,
+            role="on_surface",
+            name="Live typography preview",
+        )
+        font_search_row.GetSizer().Add(self.font_preview, 0, wx.EXPAND | wx.TOP, 8)
+        root.Add(font_search_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        editor_row = self._row(
+            page,
+            "External editor",
+            "Visual Studio Code, or a compatible Code executable. Anything this "
+            "app exports can then be opened in it directly from the export: a "
+            "file opens as a file, a folder opens as a workspace root so the "
+            "tree is usable. Leaving it blank disables the handoff.",
+            provenance=(
+                "Stored separately from your preferences, in the external-editor record."
+                if external_editor.load_selected()
+                else "Not chosen yet — no external editor is configured."
+            ),
+        )
+        self.external_editor_path = forms.MaterialTextField(
+            editor_row.body,
+            "Editor executable",
+            external_editor.load_selected(),
+            placeholder="Optional: path to code.cmd, code, or Code.exe",
             name="External editor executable",
         )
-        self.external_editor_path.SetHint(
-            "Optional: path to code.cmd, code, or Code.exe"
+        self.external_editor_browse = studio.StudioButton(
+            editor_row.body, "Browse…", variant="outlined", name="Browse for editor"
         )
-        self.external_editor_browse = wx.Button(page, label="Browse…")
-        self.external_editor_test = wx.Button(page, label="Check editor")
-        editor_row.Add(self.external_editor_path, 1, wx.EXPAND | wx.RIGHT, 8)
-        editor_row.Add(self.external_editor_browse, 0, wx.RIGHT, 8)
-        editor_row.Add(self.external_editor_test, 0)
-        grid.Add(editor_row, 1, wx.EXPAND)
-        self.external_editor_status = wx.StaticText(page, label="")
-        self.external_editor_status.SetName("External editor status")
-        grid.AddSpacer(1)
-        grid.Add(self.external_editor_status, 1, wx.EXPAND)
-        self.font_preview = wx.StaticText(
-            page, label="The quick brown fox jumps over the lazy dog · 蝦餃"
+        self.external_editor_test = studio.StudioButton(
+            editor_row.body, "Check editor", variant="outlined", name="Check editor"
         )
-        self.font_preview.SetName("Live typography preview")
-        grid.AddSpacer(1)
-        grid.Add(self.font_preview, 1, wx.EXPAND)
-        grid.Add(
-            _label(
-                page,
-                "UI scale",
-                "Bounded scale for text and controls, persisted across restarts.",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        editor_row.set_control(self.external_editor_path)
+        editor_row.add_extra(self.external_editor_browse)
+        editor_row.add_extra(self.external_editor_test)
+        self.external_editor_status = studio.StudioText(
+            editor_row, "", size_px=12, name="External editor status"
         )
-        self.scale = wx.Slider(
+        editor_row.GetSizer().Add(self.external_editor_status, 0, wx.EXPAND | wx.TOP, 4)
+        root.Add(editor_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        scale_row = self._row(
             page,
+            "UI scale",
+            "Scales text and controls together, between 80% and 200%. It is "
+            "bounded on purpose: past those ends labels stop fitting the "
+            "controls they name. The value persists across restarts.",
+            key="ui_scale",
+            default=100,
+            unit="%",
+        )
+        self.scale = forms.MaterialSlider(
+            scale_row.body,
+            value=int(self._prefs.ui_scale * 100),
             minValue=80,
             maxValue=200,
-            value=int(self._prefs.ui_scale * 100),
-            style=wx.SL_LABELS,
+            suffix="%",
+            name="UI scale",
         )
-        grid.Add(self.scale, 1, wx.EXPAND)
-        root.Add(grid, 0, wx.EXPAND | wx.BOTTOM, 18)
+        scale_row.set_control(self.scale)
+        root.Add(scale_row, 0, wx.EXPAND | wx.BOTTOM, 18)
 
         root.Add(
             _label(
@@ -430,24 +670,35 @@ class PreferencesDialog(wx.Dialog):
             6,
         )
         preset_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.appearance_preset_list = wx.Choice(page, choices=[])
-        self.appearance_preset_list.SetName("Named appearance presets")
-        self.appearance_preset_name = wx.TextCtrl(page)
-        self.appearance_preset_name.SetHint("Preset name")
-        self.appearance_preset_name.SetName("New appearance preset name")
+        self.appearance_preset_list = forms.MaterialChoice(
+            page, [], label="Named appearance presets"
+        )
+        self.appearance_preset_name = forms.MaterialTextField(
+            page,
+            "Preset name",
+            placeholder="Preset name",
+            name="New appearance preset name",
+        )
         preset_row.Add(self.appearance_preset_list, 1, wx.EXPAND | wx.RIGHT, 8)
         preset_row.Add(self.appearance_preset_name, 1, wx.EXPAND)
         root.Add(preset_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
         preset_search_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.appearance_preset_search = wx.TextCtrl(page)
-        self.appearance_preset_search.SetHint("Search appearance presets")
-        self.appearance_preset_search.SetName("Appearance preset search")
-        self.appearance_preset_regex = wx.CheckBox(page, label="Regex")
-        self.appearance_preset_regex_button = wx.Button(page, label="Regex…")
-        self.appearance_preset_regex_button.SetName("Appearance preset regex builder")
-        self.appearance_preset_regex_button.SetToolTip(
-            "Build a bounded regular-expression preset search"
+        self.appearance_preset_search = forms.MaterialTextField(
+            page,
+            "Search appearance presets",
+            placeholder="Search appearance presets",
+            name="Appearance preset search",
+        )
+        self.appearance_preset_regex = studio.StudioCheckBox(
+            page, "Regex", name="Appearance preset regex mode"
+        )
+        self.appearance_preset_regex_button = studio.StudioButton(
+            page,
+            "Regex…",
+            variant="outlined",
+            hint="Build a bounded regular-expression preset search",
+            name="Appearance preset regex builder",
         )
         preset_search_row.Add(self.appearance_preset_search, 1, wx.EXPAND | wx.RIGHT, 8)
         preset_search_row.Add(self.appearance_preset_regex, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -460,14 +711,31 @@ class PreferencesDialog(wx.Dialog):
         root.Add(preset_search_row, 0, wx.EXPAND | wx.BOTTOM, 8)
 
         preset_actions = wx.WrapSizer(wx.HORIZONTAL)
-        self.appearance_preset_load = wx.Button(page, label="Load selected")
-        self.appearance_preset_save = wx.Button(page, label="Save preset")
-        self.appearance_preset_update = wx.Button(page, label="Update selected")
-        self.appearance_preset_export = wx.Button(page, label="Export selected…")
-        self.appearance_preset_open = wx.Button(page, label="Open export in VS Code")
+        self.appearance_preset_load = studio.StudioButton(
+            page, "Load selected", variant="tonal", name="Load selected preset"
+        )
+        self.appearance_preset_save = studio.StudioButton(
+            page, "Save preset", variant="tonal", name="Save preset"
+        )
+        self.appearance_preset_update = studio.StudioButton(
+            page, "Update selected", variant="tonal", name="Update selected preset"
+        )
+        self.appearance_preset_export = studio.StudioButton(
+            page, "Export selected…", variant="outlined", name="Export selected preset"
+        )
+        self.appearance_preset_open = studio.StudioButton(
+            page,
+            "Open export in VS Code",
+            variant="outlined",
+            name="Open export in VS Code",
+        )
         self.appearance_preset_open.Enable(False)
-        self.appearance_preset_import = wx.Button(page, label="Import preset…")
-        self.appearance_preset_delete = wx.Button(page, label="Delete selected")
+        self.appearance_preset_import = studio.StudioButton(
+            page, "Import preset…", variant="outlined", name="Import preset"
+        )
+        self.appearance_preset_delete = studio.StudioButton(
+            page, "Delete selected", variant="danger", name="Delete selected preset"
+        )
         for control in (
             self.appearance_preset_load,
             self.appearance_preset_save,
@@ -481,21 +749,32 @@ class PreferencesDialog(wx.Dialog):
         root.Add(preset_actions, 0, wx.EXPAND)
 
         reset_row = wx.WrapSizer(wx.HORIZONTAL)
-        self.appearance_reset_property = wx.Choice(
+        self.appearance_reset_property = forms.MaterialChoice(
             page,
-            choices=["Theme", "Density", "Accent colour", "UI font", "UI scale"],
+            ["Theme", "Density", "Accent colour", "UI font", "UI scale"],
+            label="Appearance property to reset",
         )
         self.appearance_reset_property.SetSelection(0)
-        self.appearance_reset_property.SetName("Appearance property to reset")
-        self.appearance_reset_selected = wx.Button(page, label="Reset selected value")
-        self.appearance_reset_all = wx.Button(page, label="Reset all appearance")
+        self.appearance_reset_selected = studio.StudioButton(
+            page,
+            "Reset selected value",
+            variant="outlined",
+            name="Reset selected value",
+        )
+        self.appearance_reset_all = studio.StudioButton(
+            page,
+            "Reset all appearance",
+            variant="outlined",
+            name="Reset all appearance",
+        )
         reset_row.Add(self.appearance_reset_property, 1, wx.EXPAND | wx.RIGHT, 8)
         reset_row.Add(self.appearance_reset_selected, 0, wx.RIGHT, 8)
         reset_row.Add(self.appearance_reset_all, 0)
         root.Add(reset_row, 0, wx.EXPAND | wx.TOP, 4)
 
-        self.appearance_status = wx.StaticText(page, label="")
-        self.appearance_status.SetName("Appearance preset status")
+        self.appearance_status = studio.StudioText(
+            page, "", size_px=12, name="Appearance preset status"
+        )
         self.appearance_status.Wrap(540)
         root.Add(self.appearance_status, 0, wx.EXPAND | wx.TOP, 10)
 
@@ -543,11 +822,12 @@ class PreferencesDialog(wx.Dialog):
         self.external_editor_test.Bind(wx.EVT_BUTTON, self._test_external_editor)
 
         outer = wx.BoxSizer(wx.VERTICAL)
-        outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
+        outer.Add(root, 0, wx.EXPAND | wx.ALL, 20)
         page.SetSizer(outer)
-        page.FitInside()
+        scroller.fit_content()
+        self._appearance_page = scroller
         self._appearance_tab_index = self._tabs.GetPageCount()
-        self._tabs.AddPage(page, "Appearance")
+        self._tabs.AddPage(scroller, "Appearance")
         self._appearance_library_controls = (
             self.appearance_preset_list,
             self.appearance_preset_name,
@@ -735,7 +1015,12 @@ class PreferencesDialog(wx.Dialog):
             self.accent_rgb.SetValue(appearance_editor.format_rgb(rgb))
             self.accent_hsl.SetValue(appearance_editor.format_hsl(rgb))
             self.accent_colour_picker.SetColour(wx.Colour(*rgb))
-            self.accent_swatch.SetBackgroundColour(wx.Colour(*rgb))
+            # A painted swatch carries its colour as a value it draws, not as a
+            # native background the platform fills, so this is ``set_colour``
+            # rather than ``SetBackgroundColour`` -- which a drawn control
+            # accepts and then ignores, leaving the preview stuck on the old
+            # colour while every other reading of it moved.
+            self.accent_swatch.set_colour(wx.Colour(*rgb))
             self.accent_contrast.SetLabel(appearance_editor.contrast_summary(rgb))
         finally:
             self._appearance_color_syncing = False
@@ -990,78 +1275,136 @@ class PreferencesDialog(wx.Dialog):
             return text
 
     def _build_schedule_tab(self) -> None:
-        page = wx.ScrolledWindow(self._tabs, style=wx.VSCROLL)
-        page.SetScrollRate(0, 12)
+        """Build the scheduled-settings list, its editor, and its source controls.
+
+        Every row here carries the same explanation-and-provenance treatment as
+        the appearance page.  A schedule row is exactly the kind of setting
+        where "did I set this, or is it just the shipped value?" is unanswerable
+        from the value alone: a start time of ``00:00`` is both a plausible
+        choice and the empty default.
+        """
+        scroller = forms.MaterialScrolled(self._tabs.host, name="Schedule settings")
+        page = scroller.content
         root = wx.BoxSizer(wx.VERTICAL)
 
-        explanation = wx.StaticText(page, label=self._schedule_text("explanation"))
-        explanation.Wrap(540)
+        explanation = studio.StudioText(
+            page,
+            self._schedule_text("explanation"),
+            size_px=13,
+            wrap_width=560,
+            max_lines=8,
+            name="Scheduled settings explanation",
+        )
         root.Add(explanation, 0, wx.EXPAND | wx.BOTTOM, 10)
 
-        self.schedule_list = wx.ListBox(page)
-        self.schedule_list.SetMinSize(wx.Size(-1, 88))
+        self.schedule_list = forms.MaterialListBox(page, name="Schedule rules")
+        self.schedule_list.SetMinSize(wx.Size(-1, 120))
         root.Add(self.schedule_list, 0, wx.EXPAND | wx.BOTTOM, 8)
         actions = wx.BoxSizer(wx.HORIZONTAL)
-        self.schedule_new = wx.Button(page, label=self._schedule_text("add"))
-        self.schedule_remove = wx.Button(page, label=self._schedule_text("remove"))
-        self.schedule_up = wx.Button(page, label=self._schedule_text("moveup"))
-        self.schedule_down = wx.Button(page, label=self._schedule_text("movedown"))
+        self.schedule_new = studio.StudioButton(
+            page, self._schedule_text("add"), variant="tonal"
+        )
+        self.schedule_remove = studio.StudioButton(
+            page, self._schedule_text("remove"), variant="danger"
+        )
+        self.schedule_up = studio.StudioButton(
+            page, self._schedule_text("moveup"), variant="outlined"
+        )
+        self.schedule_down = studio.StudioButton(
+            page, self._schedule_text("movedown"), variant="outlined"
+        )
         actions.Add(self.schedule_new, 0, wx.RIGHT, 8)
         actions.Add(self.schedule_remove, 0, wx.RIGHT, 8)
         actions.Add(self.schedule_up, 0, wx.RIGHT, 8)
         actions.Add(self.schedule_down, 0)
-        root.Add(actions, 0, wx.BOTTOM, 12)
+        root.Add(actions, 0, wx.BOTTOM, 16)
 
-        grid = wx.FlexGridSizer(0, 2, 8, 12)
-        grid.AddGrowableCol(1, 1)
+        rows: List[forms.SettingRow] = []
 
-        def add_row(key: str, control: wx.Window) -> None:
-            grid.Add(
-                _label(
-                    page,
-                    self._schedule_text(key),
-                    self._schedule_text(f"{key}.help"),
-                ),
-                0,
-                wx.ALIGN_CENTER_VERTICAL,
+        def add_row(key: str, control: wx.Window | None = None) -> forms.SettingRow:
+            """Open one settings element; the control is built on its body."""
+            row = self._row(
+                page,
+                self._schedule_text(key),
+                self._schedule_text(f"{key}.help"),
+                provenance=self._schedule_text("provenance"),
             )
-            grid.Add(control, 1, wx.EXPAND)
+            if control is not None:
+                row.set_control(control)
+            rows.append(row)
+            root.Add(row, 0, wx.EXPAND | wx.BOTTOM, 14)
+            return row
 
-        self.schedule_enabled = wx.CheckBox(
-            page, label=self._schedule_text("enabled.value")
+        enabled_row = add_row("enabled")
+        self.schedule_enabled = studio.StudioCheckBox(
+            enabled_row.body,
+            self._schedule_text("enabled.value"),
+            name=self._schedule_text("enabled"),
         )
-        add_row("enabled", self.schedule_enabled)
-        self.schedule_label = wx.TextCtrl(page)
-        add_row("label", self.schedule_label)
-        self.schedule_priority = wx.SpinCtrl(page, min=-10000, max=10000, initial=0)
-        add_row("priority", self.schedule_priority)
+        enabled_row.set_control(self.schedule_enabled, 0)
 
-        self.schedule_source_kind = wx.Choice(
-            page,
-            choices=[
+        label_row = add_row("label")
+        self.schedule_label = forms.MaterialTextField(
+            label_row.body, self._schedule_text("label"), name="Schedule rule label"
+        )
+        label_row.set_control(self.schedule_label)
+
+        priority_row = add_row("priority")
+        self.schedule_priority = forms.MaterialSpin(
+            priority_row.body,
+            min=-10000,
+            max=10000,
+            initial=0,
+            name=self._schedule_text("priority"),
+        )
+        priority_row.set_control(self.schedule_priority, 0)
+
+        source_row = add_row("source")
+        self.schedule_source_kind = forms.MaterialChoice(
+            source_row.body,
+            [
                 self._schedule_text("source.local"),
                 self._schedule_text("source.api"),
                 self._schedule_text("source.homeassistant"),
             ],
+            label="Scheduled source kind",
         )
-        self.schedule_source_kind.SetName("Scheduled source kind")
-        add_row("source", self.schedule_source_kind)
-        self.schedule_source_url = wx.TextCtrl(page)
-        self.schedule_source_url.SetHint(self._schedule_text("source.url.hint"))
-        self.schedule_source_url.SetName("Scheduled source URL")
-        add_row("sourceurl", self.schedule_source_url)
-        self.schedule_source_entity = wx.TextCtrl(page)
-        self.schedule_source_entity.SetHint(self._schedule_text("source.entity.hint"))
-        self.schedule_source_entity.SetName("Home Assistant entity")
-        add_row("sourceentity", self.schedule_source_entity)
-        self.schedule_source_refresh = wx.SpinCtrl(page, min=30, max=86400, initial=300)
-        self.schedule_source_refresh.SetName("Scheduled source refresh seconds")
-        add_row("sourcerefresh", self.schedule_source_refresh)
+        source_row.set_control(self.schedule_source_kind, 0)
 
-        weekday_panel = wx.Panel(page)
+        url_row = add_row("sourceurl")
+        self.schedule_source_url = forms.MaterialTextField(
+            url_row.body,
+            self._schedule_text("sourceurl"),
+            placeholder=self._schedule_text("source.url.hint"),
+            name="Scheduled source URL",
+        )
+        url_row.set_control(self.schedule_source_url)
+
+        entity_row = add_row("sourceentity")
+        self.schedule_source_entity = forms.MaterialTextField(
+            entity_row.body,
+            self._schedule_text("sourceentity"),
+            placeholder=self._schedule_text("source.entity.hint"),
+            name="Home Assistant entity",
+        )
+        entity_row.set_control(self.schedule_source_entity)
+
+        refresh_row = add_row("sourcerefresh")
+        self.schedule_source_refresh = forms.MaterialSpin(
+            refresh_row.body,
+            min=30,
+            max=86400,
+            initial=300,
+            suffix="s",
+            name="Scheduled source refresh seconds",
+        )
+        refresh_row.set_control(self.schedule_source_refresh, 0)
+
+        weekday_row = add_row("weekdays")
+        weekday_panel = wx.Panel(weekday_row.body)
         weekday_sizer = wx.WrapSizer(wx.HORIZONTAL)
-        self.schedule_every_day = wx.CheckBox(
-            weekday_panel, label=self._schedule_text("everyday")
+        self.schedule_every_day = studio.StudioCheckBox(
+            weekday_panel, self._schedule_text("everyday"), name="Every day"
         )
         weekday_sizer.Add(self.schedule_every_day, 0, wx.RIGHT | wx.BOTTOM, 10)
         self.schedule_weekdays = []
@@ -1074,63 +1417,88 @@ class PreferencesDialog(wx.Dialog):
             "saturday",
             "sunday",
         ):
-            checkbox = wx.CheckBox(
-                weekday_panel, label=self._schedule_text(f"weekday.{name}")
-            )
+            label = self._schedule_text(f"weekday.{name}")
+            checkbox = studio.StudioCheckBox(weekday_panel, label, name=label)
             self.schedule_weekdays.append(checkbox)
             weekday_sizer.Add(checkbox, 0, wx.RIGHT | wx.BOTTOM, 6)
         weekday_panel.SetSizer(weekday_sizer)
-        add_row("weekdays", weekday_panel)
+        weekday_row.set_control(weekday_panel)
 
-        self.schedule_start_date = MaterialDateTimeField(page, "date")
-        add_row("startdate", self.schedule_start_date)
-        self.schedule_end_date = MaterialDateTimeField(page, "date")
-        add_row("enddate", self.schedule_end_date)
-        self.schedule_start_time = MaterialDateTimeField(page, "time")
-        add_row("starttime", self.schedule_start_time)
-        self.schedule_end_time = MaterialDateTimeField(page, "time")
-        add_row("endtime", self.schedule_end_time)
+        # The date and time fields are the one control on this page that keeps
+        # a native picker inside it. It belongs to ``ui.simple`` rather than to
+        # this surface, and swapping it here would leave two different date
+        # controls in the product; it is named in this file's handoff instead
+        # of being half-migrated.
+        start_date_row = add_row("startdate")
+        self.schedule_start_date = MaterialDateTimeField(start_date_row.body, "date")
+        start_date_row.set_control(self.schedule_start_date)
+        end_date_row = add_row("enddate")
+        self.schedule_end_date = MaterialDateTimeField(end_date_row.body, "date")
+        end_date_row.set_control(self.schedule_end_date)
+        start_time_row = add_row("starttime")
+        self.schedule_start_time = MaterialDateTimeField(start_time_row.body, "time")
+        start_time_row.set_control(self.schedule_start_time)
+        end_time_row = add_row("endtime")
+        self.schedule_end_time = MaterialDateTimeField(end_time_row.body, "time")
+        end_time_row.set_control(self.schedule_end_time)
 
         no_override = self._schedule_text("nooverride")
-        self.schedule_language = wx.Choice(
-            page,
-            choices=[
+        language_row = add_row("language")
+        self.schedule_language = forms.MaterialChoice(
+            language_row.body,
+            [
                 no_override,
                 self._schedule_text("language.english"),
                 self._schedule_text("language.cantonese"),
                 self._schedule_text("language.bilingual"),
             ],
+            label=self._schedule_text("language"),
         )
-        add_row("language", self.schedule_language)
-        self.schedule_theme = wx.Choice(
-            page,
-            choices=[
+        language_row.set_control(self.schedule_language, 0)
+
+        theme_row = add_row("theme")
+        self.schedule_theme = forms.MaterialChoice(
+            theme_row.body,
+            [
                 no_override,
                 self._schedule_text("theme.light"),
                 self._schedule_text("theme.dark"),
                 self._schedule_text("theme.system"),
             ],
+            label=self._schedule_text("theme"),
         )
-        add_row("theme", self.schedule_theme)
-        self.schedule_density = wx.Choice(
-            page,
-            choices=[
+        theme_row.set_control(self.schedule_theme, 0)
+
+        density_row = add_row("density")
+        self.schedule_density = forms.MaterialChoice(
+            density_row.body,
+            [
                 no_override,
                 self._schedule_text("density.compact"),
                 self._schedule_text("density.comfortable"),
                 self._schedule_text("density.spacious"),
             ],
+            label=self._schedule_text("density"),
         )
-        add_row("density", self.schedule_density)
-        self.schedule_accent = wx.TextCtrl(page)
-        self.schedule_accent.SetHint(self._schedule_text("accent.hint"))
-        add_row("accent", self.schedule_accent)
-        root.Add(grid, 0, wx.EXPAND | wx.BOTTOM, 10)
+        density_row.set_control(self.schedule_density, 0)
 
-        self.schedule_apply = wx.Button(page, label=self._schedule_text("apply"))
+        accent_row = add_row("accent")
+        self.schedule_accent = forms.MaterialTextField(
+            accent_row.body,
+            self._schedule_text("accent"),
+            placeholder=self._schedule_text("accent.hint"),
+            mono=True,
+            name="Scheduled accent colour",
+        )
+        accent_row.set_control(self.schedule_accent)
+
+        self.schedule_apply = studio.StudioButton(
+            page, self._schedule_text("apply"), variant="filled"
+        )
         root.Add(self.schedule_apply, 0, wx.BOTTOM, 8)
-        self.schedule_validation = wx.StaticText(page, label="")
-        self.schedule_validation.Wrap(540)
+        self.schedule_validation = studio.StudioText(
+            page, "", size_px=12, wrap_width=560, name="Schedule validation"
+        )
         root.Add(self.schedule_validation, 0, wx.EXPAND)
 
         self._schedule_controls = [
@@ -1199,11 +1567,12 @@ class PreferencesDialog(wx.Dialog):
         self.schedule_source_refresh.Bind(wx.EVT_SPINCTRL, self._mark_schedule_dirty)
 
         outer = wx.BoxSizer(wx.VERTICAL)
-        outer.Add(root, 1, wx.EXPAND | wx.ALL, 18)
+        outer.Add(root, 0, wx.EXPAND | wx.ALL, 20)
         page.SetSizer(outer)
-        page.FitInside()
+        scroller.fit_content()
+        self._schedule_page = scroller
         self._schedule_tab_index = self._tabs.GetPageCount()
-        self._tabs.AddPage(page, self._schedule_text("tab"))
+        self._tabs.AddPage(scroller, self._schedule_text("tab"))
         self._refresh_schedule_list()
         self._load_schedule_form(None)
         if self._schedule_load_error is not None:
@@ -1439,39 +1808,154 @@ class PreferencesDialog(wx.Dialog):
         self._show_schedule_message(self._schedule_text("moved"))
 
     def _build_search_tab(self) -> None:
-        page = wx.Panel(self._tabs)
+        """Build the settings search field and its anchored regex builder."""
+        page = wx.Panel(self._tabs.host)
         box = wx.BoxSizer(wx.VERTICAL)
-        box.Add(
-            _label(
-                page,
-                "Regex builder",
-                "Plain text is safest by default; enable regex only when you need groups or quantifiers.",
-            ),
-            0,
-            wx.BOTTOM,
-            8,
+        search_row = self._row(
+            page,
+            "Search settings",
+            "Searches the settings on every tab of this window by name, "
+            "description, and current value, and says plainly when a match "
+            "sits on a tab you are not looking at. Plain text is the default; "
+            "the builder beside the field composes a bounded regular "
+            "expression when you need groups or quantifiers.",
+            provenance="A search field; nothing about it is stored.",
         )
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        self.regex = wx.TextCtrl(page)
-        self.regex.SetHint("Search settings, tabs, or commands")
-        self.regex_mode = wx.CheckBox(page, label="Regex")
-        self.regex_flags = wx.CheckBox(page, label="Ignore case")
-        self.regex_button = wx.Button(page, label="Regex…")
-        self.regex_button.SetName("Preferences search regex builder")
-        self.regex_button.SetToolTip("Build a bounded regular-expression search")
-        row.Add(self.regex, 1, wx.EXPAND | wx.RIGHT, 8)
-        row.Add(self.regex_mode, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        row.Add(self.regex_flags, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        row.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL)
-        box.Add(row, 0, wx.EXPAND)
-        self.regex_result = wx.StaticText(page, label="Type to validate a pattern.")
-        box.Add(self.regex_result, 0, wx.TOP, 10)
+        self.regex = forms.MaterialTextField(
+            search_row.body,
+            "Search settings, tabs, or commands",
+            placeholder="Search settings, tabs, or commands",
+            name="Preferences settings search",
+        )
+        self.regex_mode = studio.StudioCheckBox(
+            search_row.body, "Regex", name="Preferences search regex mode"
+        )
+        self.regex_flags = studio.StudioCheckBox(
+            search_row.body,
+            "Ignore case",
+            # On by default, because every other search field in this product
+            # defaults to ignore-case -- the shared SearchState ships with the
+            # ``i`` flag set -- and a settings search that answers "no setting
+            # matches 'density'" while a setting called Density is two rows up
+            # reads as a broken search rather than as a case-sensitive one.
+            value=True,
+            name="Preferences search ignore case",
+        )
+        self.regex_button = studio.StudioButton(
+            search_row.body,
+            "Regex…",
+            variant="outlined",
+            hint="Build a bounded regular-expression search",
+            name="Preferences search regex builder",
+        )
+        search_row.set_control(self.regex)
+        search_row.add_extra(self.regex_mode)
+        search_row.add_extra(self.regex_flags)
+        search_row.add_extra(self.regex_button)
+        box.Add(search_row, 0, wx.EXPAND | wx.BOTTOM, 12)
+        self.regex_result = studio.StudioText(
+            page,
+            "Type to validate a pattern.",
+            size_px=12,
+            wrap_width=560,
+            name="Preferences search validation",
+        )
+        box.Add(self.regex_result, 0, wx.BOTTOM, 8)
+        self.settings_matches = studio.StudioText(
+            page,
+            "",
+            size_px=12,
+            wrap_width=560,
+            max_lines=24,
+            name="Settings search results",
+        )
+        box.Add(self.settings_matches, 0, wx.EXPAND)
         self.regex.Bind(wx.EVT_TEXT, self._validate_regex)
         self.regex_mode.Bind(wx.EVT_CHECKBOX, self._validate_regex)
         self.regex_flags.Bind(wx.EVT_CHECKBOX, self._validate_regex)
         self.regex_button.Bind(wx.EVT_BUTTON, self._open_search_regex_builder)
-        page.SetSizer(box)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(box, 1, wx.EXPAND | wx.ALL, 20)
+        page.SetSizer(outer)
+        self._search_page = page
         self._tabs.AddPage(page, "Search")
+        # Populate on open rather than on the first keystroke. A results area
+        # that is blank until typed into reads as a feature that does nothing;
+        # it should say how many settings there are to search.
+        self._refresh_settings_matches()
+
+    def _settings_index(self) -> List[Tuple[str, str]]:
+        """Return every searchable settings element as ``(tab, label)``.
+
+        The list is hand-written against the rows this dialog builds rather
+        than discovered by walking the window.  A walk would answer a rule like
+        "every setting is searchable" on a page that had lost half its rows,
+        because it can only find what is there; a written list fails when a row
+        goes missing, which is the case worth catching.
+        """
+        return [
+            ("Language", "Language mode"),
+            ("Language", "English funny level"),
+            ("Language", "Cantonese funny level"),
+            ("Language", "Dialog emojis"),
+            ("Appearance", "App display name"),
+            ("Appearance", "School mode"),
+            ("Appearance", "Unlock credential"),
+            ("Appearance", "Theme"),
+            ("Appearance", "Density"),
+            ("Appearance", "Accent colour"),
+            ("Appearance", "Colour translator"),
+            ("Appearance", "UI font"),
+            ("Appearance", "Installed font search"),
+            ("Appearance", "External editor"),
+            ("Appearance", "UI scale"),
+            ("Appearance", "Named appearance presets"),
+            (self._schedule_text("tab"), self._schedule_text("enabled")),
+            (self._schedule_text("tab"), self._schedule_text("label")),
+            (self._schedule_text("tab"), self._schedule_text("priority")),
+            (self._schedule_text("tab"), self._schedule_text("source")),
+            (self._schedule_text("tab"), self._schedule_text("weekdays")),
+            (self._schedule_text("tab"), self._schedule_text("startdate")),
+            (self._schedule_text("tab"), self._schedule_text("starttime")),
+            (self._schedule_text("tab"), self._schedule_text("language")),
+            (self._schedule_text("tab"), self._schedule_text("theme")),
+            (self._schedule_text("tab"), self._schedule_text("density")),
+            (self._schedule_text("tab"), self._schedule_text("accent")),
+            ("Search", "Search settings"),
+        ]
+
+    def _refresh_settings_matches(self) -> None:
+        """Report which settings match, naming the tab each one lives on."""
+        index = self._settings_index()
+        query = self.regex.GetValue()[:4096].strip()
+        if not query:
+            self.settings_matches.SetLabel(
+                f"{len(index)} settings on {len(set(tab for tab, _ in index))} tabs. "
+                "Type to narrow them."
+            )
+            return
+        builder = RegexBuilder(
+            query,
+            0x02 if self.regex_flags.GetValue() else 0,
+            self.regex_mode.GetValue(),
+        )
+        try:
+            matches = builder.search([label for _tab, label in index])
+        except (re.error, ValueError) as exc:
+            self.settings_matches.SetLabel(f"No results: {exc}")
+            return
+        found = [(tab, label) for tab, label in index if label in matches]
+        if not found:
+            self.settings_matches.SetLabel(
+                f"No setting matches {query!r}. {len(index)} were searched."
+            )
+            return
+        # Saying which tab a match sits on is the point: a result the user
+        # cannot navigate to is a result that has not helped them.
+        lines = "\n".join(f"{label} — on the {tab} tab" for tab, label in found)
+        self.settings_matches.SetLabel(
+            f"{len(found)} of {len(index)} settings:\n{lines}"
+        )
 
     def _open_search_regex_builder(self, _event: wx.Event) -> None:
         with RegexBuilderDialog(
@@ -1499,6 +1983,7 @@ class PreferencesDialog(wx.Dialog):
         self.regex_result.SetForegroundColour(
             wx.Colour(40, 120, 70) if result.valid else wx.Colour(180, 40, 40)
         )
+        self._refresh_settings_matches()
 
     def _reset(self, _event: wx.Event) -> None:
         self._prefs = preferences.reset()
@@ -1651,20 +2136,38 @@ class CommandPaletteDialog(wx.Dialog):
         )
         self._commands: List[Tuple[str, Callable[[], None]]] = list(commands)
         self._search_flags = 0
+        forms.make_frameless(self)
         root = wx.BoxSizer(wx.VERTICAL)
-        self.query = wx.TextCtrl(self, style=wx.TE_PROCESS_ENTER)
-        self.query.SetHint(_chrome_copy("command_palette_search", self._language_mode))
-        self.regex = wx.CheckBox(self, label=_chrome_copy("regex", self._language_mode))
-        self.regex_button = wx.Button(self, label="Regex…")
-        self.regex_button.SetName("Command palette regex builder")
-        self.regex_button.SetToolTip("Build a bounded regular-expression search")
+        self.title_bar = forms.MaterialDialogTitleBar(
+            self, _chrome_copy("command_palette_title", self._language_mode)
+        )
+        root.Add(self.title_bar, 0, wx.EXPAND)
+        self.query = forms.MaterialTextField(
+            self,
+            _chrome_copy("command_palette_search", self._language_mode),
+            placeholder=_chrome_copy("command_palette_search", self._language_mode),
+            process_enter=True,
+            name="Command palette search",
+        )
+        self.regex = studio.StudioCheckBox(
+            self,
+            _chrome_copy("regex", self._language_mode),
+            name="Command palette regex mode",
+        )
+        self.regex_button = studio.StudioButton(
+            self,
+            "Regex…",
+            variant="outlined",
+            hint="Build a bounded regular-expression search",
+            name="Command palette regex builder",
+        )
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self.query, 1, wx.EXPAND | wx.RIGHT, 8)
         row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
         row.Add(self.regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         root.Add(row, 0, wx.EXPAND | wx.ALL, 12)
-        self.results = wx.ListBox(self)
-        root.Add(self.results, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
+        self.results = forms.MaterialListBox(self, name="Command palette results")
+        root.Add(self.results, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.SetSizer(root)
         self._refresh()
         self.query.Bind(wx.EVT_TEXT, lambda evt: self._refresh())
@@ -1673,7 +2176,9 @@ class CommandPaletteDialog(wx.Dialog):
         self.query.Bind(wx.EVT_TEXT_ENTER, self._run)
         self.results.Bind(wx.EVT_LISTBOX_DCLICK, self._run)
         self.results.Bind(wx.EVT_KEY_DOWN, self._on_result_key)
+        self._material3_dialog_chrome = True
         apply_material3(self)
+        self.title_bar.refresh_theme()
 
     def _open_regex_builder(self, _event) -> None:
         with RegexBuilderDialog(
@@ -1713,7 +2218,13 @@ class CommandPaletteDialog(wx.Dialog):
                 return
 
     def _on_result_key(self, event: wx.KeyEvent) -> None:
-        """Keep palette result navigation explicit and screen-reader friendly."""
+        """Keep palette result navigation explicit and screen-reader friendly.
+
+        The painted list has its own arrow handling, but this stays: it is what
+        the palette guarantees regardless of which list is underneath, and it
+        keeps Enter running the highlighted command rather than closing the
+        dialog through the default button.
+        """
         count = self.results.GetCount()
         if count == 0:
             event.Skip()
@@ -1750,72 +2261,63 @@ class ChangelogDialog(wx.Dialog):
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._catalog = changelog.load_bundled_catalog()
+        forms.make_frameless(self)
         root = wx.BoxSizer(wx.VERTICAL)
-        filters = wx.FlexGridSizer(0, 2, 8, 10)
-        filters.AddGrowableCol(1, 1)
-        filters.Add(
-            wx.StaticText(
-                self,
-                label=_chrome_copy("changelog_search_label", self._language_mode),
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        self.title_bar = forms.MaterialDialogTitleBar(
+            self,
+            _chrome_copy("changelog_title", self._language_mode),
+            maximise=True,
         )
-        self.query = wx.TextCtrl(self)
-        self.query.SetHint(_chrome_copy("changelog_search_hint", self._language_mode))
-        filters.Add(self.query, 1, wx.EXPAND)
-        filters.Add(
-            wx.StaticText(
-                self,
-                label=_chrome_copy("changelog_start_date", self._language_mode),
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        root.Add(self.title_bar, 0, wx.EXPAND)
+        # A stacked filter row rather than a label/control grid. Each Material
+        # field carries its own floating label, so a separate caption column
+        # says everything twice -- and a grid whose left column holds 20-pixel
+        # captions beside 55-pixel fields cannot align either of them, which is
+        # what left "Action" stranded halfway up its own row.
+        filters = wx.BoxSizer(wx.VERTICAL)
+        self.query = forms.MaterialTextField(
+            self,
+            _chrome_copy("changelog_search_label", self._language_mode),
+            placeholder=_chrome_copy("changelog_search_hint", self._language_mode),
+            name="Changelog search",
         )
-        self.start_date = wx.TextCtrl(self)
-        self.start_date.SetHint("YYYY-MM-DD")
+        filters.Add(self.query, 0, wx.EXPAND | wx.BOTTOM, 10)
+
+        dates = wx.BoxSizer(wx.HORIZONTAL)
+        self.start_date = forms.MaterialTextField(
+            self,
+            _chrome_copy("changelog_start_date", self._language_mode),
+            placeholder="YYYY-MM-DD",
+            name="Changelog start date",
+        )
+        # The calendar itself stays native. wx.adv.DatePickerCtrl carries the
+        # month and year jump, the keyboard model, and the locale's own date
+        # parsing that this project's changelog contract requires, and a hand
+        # drawn calendar would have to reproduce all of it. It is the one
+        # control left on this surface that is the platform's, and it is named
+        # here rather than left for somebody to find.
         self.start_picker = wx.adv.DatePickerCtrl(
             self, style=wx.adv.DP_DROPDOWN | wx.adv.DP_ALLOWNONE
         )
+        self.start_picker.SetName("Changelog start date calendar")
         self.start_picker.SetValue(wx.DateTime())
-        start_row = wx.BoxSizer(wx.HORIZONTAL)
-        start_row.Add(self.start_date, 1, wx.EXPAND | wx.RIGHT, 6)
-        start_row.Add(self.start_picker, 0, wx.EXPAND)
-        filters.Add(start_row, 1, wx.EXPAND)
-        filters.Add(
-            wx.StaticText(
-                self,
-                label=_chrome_copy("changelog_end_date", self._language_mode),
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
+        self.end_date = forms.MaterialTextField(
+            self,
+            _chrome_copy("changelog_end_date", self._language_mode),
+            placeholder="YYYY-MM-DD",
+            name="Changelog end date",
         )
-        self.end_date = wx.TextCtrl(self)
-        self.end_date.SetHint("YYYY-MM-DD")
         self.end_picker = wx.adv.DatePickerCtrl(
             self, style=wx.adv.DP_DROPDOWN | wx.adv.DP_ALLOWNONE
         )
+        self.end_picker.SetName("Changelog end date calendar")
         self.end_picker.SetValue(wx.DateTime())
-        end_row = wx.BoxSizer(wx.HORIZONTAL)
-        end_row.Add(self.end_date, 1, wx.EXPAND | wx.RIGHT, 6)
-        end_row.Add(self.end_picker, 0, wx.EXPAND)
-        filters.Add(end_row, 1, wx.EXPAND)
-        self.regex = wx.CheckBox(self, label=_chrome_copy("regex", self._language_mode))
-        self.regex_button = wx.Button(self, label="Regex…")
-        self.regex_button.SetName("Changelog search regex builder")
-        self.regex_button.SetToolTip("Build a bounded regular-expression search")
-        filters.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL)
-        filters.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.feedback = wx.StaticText(self, label="")
-        self.feedback.Wrap(560)
-        filters.Add(self.feedback, 1, wx.EXPAND)
-        filters.Add(
-            wx.StaticText(
-                self, label=_chrome_copy("changelog_action", self._language_mode)
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL,
-        )
+        dates.Add(self.start_date, 1, wx.EXPAND | wx.RIGHT, 6)
+        dates.Add(self.start_picker, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
+        dates.Add(self.end_date, 1, wx.EXPAND | wx.RIGHT, 6)
+        dates.Add(self.end_picker, 0, wx.ALIGN_CENTER_VERTICAL)
+        filters.Add(dates, 0, wx.EXPAND | wx.BOTTOM, 10)
+
         action_values = [
             _chrome_copy("changelog_all_actions", self._language_mode),
             *(
@@ -1823,33 +2325,65 @@ class ChangelogDialog(wx.Dialog):
                 for name, _count in changelog.available_actions(self._catalog.entries)
             ),
         ]
-        self.action = wx.Choice(self, choices=action_values)
+        self.action = forms.MaterialChoice(
+            self,
+            action_values,
+            label=_chrome_copy("changelog_action", self._language_mode),
+        )
         self.action.SetSelection(0)
-        filters.Add(self.action, 1, wx.EXPAND)
+        self.regex = studio.StudioCheckBox(
+            self,
+            _chrome_copy("regex", self._language_mode),
+            name="Changelog regex mode",
+        )
+        self.regex_button = studio.StudioButton(
+            self,
+            "Regex…",
+            variant="outlined",
+            hint="Build a bounded regular-expression search",
+            name="Changelog search regex builder",
+        )
+        controls = wx.BoxSizer(wx.HORIZONTAL)
+        controls.Add(self.action, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
+        controls.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
+        controls.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL)
+        filters.Add(controls, 0, wx.EXPAND | wx.BOTTOM, 8)
+
+        self.feedback = studio.StudioText(
+            self, "", size_px=12, wrap_width=560, name="Changelog feedback"
+        )
+        filters.Add(self.feedback, 0, wx.EXPAND)
         root.Add(filters, 0, wx.EXPAND | wx.ALL, 12)
-        self.results = wx.ListBox(self)
+        self.results = forms.MaterialListBox(self, name="Changelog entries")
         self.results.SetMinSize(wx.Size(-1, 260))
         root.Add(self.results, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
         actions = wx.BoxSizer(wx.HORIZONTAL)
-        export = wx.Button(
-            self, label=_chrome_copy("changelog_export", self._language_mode)
+        export = studio.StudioButton(
+            self,
+            _chrome_copy("changelog_export", self._language_mode),
+            variant="tonal",
         )
         export.Bind(wx.EVT_BUTTON, self._export)
         actions.Add(export, 0, wx.RIGHT, 8)
-        self.open_export = wx.Button(
-            self, label=_chrome_copy("open_export", self._language_mode)
+        self.open_export = studio.StudioButton(
+            self,
+            _chrome_copy("open_export", self._language_mode),
+            variant="outlined",
         )
         self.open_export.Enable(False)
         self.open_export.Bind(wx.EVT_BUTTON, self._open_export)
         actions.Add(self.open_export, 0, wx.RIGHT, 8)
-        copy = wx.Button(
-            self, label=_chrome_copy("changelog_copy", self._language_mode)
+        copy = studio.StudioButton(
+            self,
+            _chrome_copy("changelog_copy", self._language_mode),
+            variant="outlined",
         )
         copy.Bind(wx.EVT_BUTTON, self._copy)
         actions.Add(copy, 0, wx.RIGHT, 8)
-        close = wx.Button(
-            self, id=wx.ID_CLOSE, label=_chrome_copy("close", self._language_mode)
+        close = studio.StudioButton(
+            self, _chrome_copy("close", self._language_mode), variant="filled"
         )
+        close.SetId(wx.ID_CLOSE)
         close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL))
         actions.Add(close)
         root.Add(actions, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
@@ -1869,7 +2403,9 @@ class ChangelogDialog(wx.Dialog):
         self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self.action.Bind(wx.EVT_CHOICE, lambda _event: self._refresh())
         self._refresh()
+        self._material3_dialog_chrome = True
         apply_material3(self)
+        self.title_bar.refresh_theme()
 
     def _open_regex_builder(self, _event) -> None:
         with RegexBuilderDialog(

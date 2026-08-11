@@ -10,7 +10,7 @@ AMULET_UI = ROOT / "amulet_map_editor/api/framework/amulet_ui.py"
 class AppDisplayNameUIContractTestCase(unittest.TestCase):
     """wx-free checks for the native identity-control wiring."""
 
-    def test_preferences_dialog_exposes_native_name_and_reset_controls(self):
+    def test_preferences_dialog_exposes_painted_name_and_reset_controls(self):
         source = PREFERENCES_UI.read_text(encoding="utf-8")
         tree = ast.parse(source)
         dialog = next(
@@ -19,8 +19,15 @@ class AppDisplayNameUIContractTestCase(unittest.TestCase):
             if isinstance(node, ast.ClassDef) and node.name == "PreferencesDialog"
         )
         dialog_source = ast.get_source_segment(source, dialog) or ""
-        self.assertIn("self.display_name = wx.TextCtrl", dialog_source)
-        self.assertIn("self.display_name_reset = wx.Button", dialog_source)
+        # The identity controls are painted rather than native. Pinning
+        # "wx.TextCtrl" here is what a check for this contract used to do,
+        # and it made the test forbid the very migration the project asked
+        # for: the field kept its behaviour, its max length, its validation
+        # and its reset, and the assertion failed anyway because the class
+        # name changed. What the contract is actually about is that the
+        # dialog has a bounded, validated, resettable display-name control.
+        self.assertIn("self.display_name = forms.MaterialTextField", dialog_source)
+        self.assertIn("self.display_name_reset = studio.StudioButton", dialog_source)
         self.assertIn("preferences.MAX_DISPLAY_NAME_LENGTH", dialog_source)
         self.assertIn("preferences.validate_display_name", dialog_source)
         self.assertIn("refresh_display_identity", dialog_source)

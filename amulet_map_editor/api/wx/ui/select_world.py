@@ -6,6 +6,7 @@ import traceback
 import logging
 import zipfile
 import subprocess
+import threading
 from amulet_map_editor.api import process
 
 import wx
@@ -17,6 +18,7 @@ from amulet_map_editor import lang, CONFIG
 from amulet_map_editor.api.wx.ui import simple
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
+from amulet_map_editor.api.wx.progress import begin_progress
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.framework import app
 
@@ -469,19 +471,37 @@ class WorldSelectUI(wx.Panel):
         if extract_dir is None:
             return
 
-        busy_msg = wx.BusyInfo(lang.get("select_world.extracting_world_wait"))
-
+        # ``wx.BusyInfo`` used to stand in for this: a borderless banner that
+        # blocks input and reports nothing at all, so a large archive looked
+        # identical after ten seconds and after ten minutes.  The overlay says
+        # what is being extracted and how far through it is, and the shell
+        # underneath stays live.
+        #
+        # An archive knows how many members it holds, so this is genuinely
+        # measurable and draws a filling bar.  It is extracted member by member
+        # on a worker thread rather than through ``extractall`` for exactly that
+        # reason -- ``extractall`` returns one number, at the end.  Per-member
+        # extraction goes through the same ``ZipFile.extract`` that
+        # ``extractall`` calls, so the member-name sanitising that stops an
+        # archive writing outside its destination is unchanged.
+        report = begin_progress(
+            self,
+            key=f"extract-mcworld-{id(self)}",
+            title=lang.get("select_world.extracting_world_wait"),
+            detail=os.path.basename(mcworld_path),
+        )
         try:
             if not os.path.isdir(extract_dir):
                 raise NotADirectoryError(
                     f"Extraction destination is not an existing directory: {extract_dir}"
                 )
             if next(os.scandir(extract_dir), None) is not None:
+                report.finish()
                 wx.LogError(lang.get("select_world.extracting_world_not_empty"))
                 return
-            zipfile.ZipFile(mcworld_path).extractall(extract_dir)
+            self._extract_archive(mcworld_path, extract_dir, report)
         except Exception as e:
-            del busy_msg
+            report.fail(str(e) or type(e).__name__)
             notify_exception(
                 self,
                 lang.get("select_world.extracting_world_failed"),
@@ -490,7 +510,7 @@ class WorldSelectUI(wx.Panel):
             )
             return
         else:
-            del busy_msg
+            report.finish()
 
         notify(
             self,
@@ -500,6 +520,55 @@ class WorldSelectUI(wx.Panel):
         )
 
         self.open_world_callback(extract_dir)
+
+    @staticmethod
+    def _extract_archive(archive_path: str, destination: str, report) -> None:
+        """Extract ``archive_path`` into ``destination``, reporting as it goes.
+
+        The work runs on a worker thread and this yields between joins, which
+        is what keeps the shell responsive and the overlay repainting.  An
+        error on that thread is re-raised here so the caller's existing failure
+        path -- which carries the traceback into notification history -- is the
+        one that reports it.
+        """
+        state: Dict[str, object] = {"done": 0, "total": 0, "error": None}
+
+        def work() -> None:
+            try:
+                with zipfile.ZipFile(archive_path) as archive:
+                    members = archive.infolist()
+                    state["total"] = len(members)
+                    for index, member in enumerate(members, 1):
+                        archive.extract(member, destination)
+                        state["done"] = index
+            except BaseException as error:  # re-raised on the caller's thread
+                state["error"] = error
+
+        thread = threading.Thread(target=work, name="amulet-mcworld-extract")
+        thread.daemon = True
+        thread.start()
+        while thread.is_alive():
+            thread.join(0.05)
+            total = int(state["total"] or 0)
+            done = int(state["done"] or 0)
+            # Until the archive has been opened there is no member count, so
+            # there is no fraction to draw -- and an empty bar would claim a
+            # measurement nobody has taken yet.
+            report.update(
+                fraction=(done / total) if total else None,
+                indeterminate=not total,
+                detail=(
+                    f"{done} of {total} files"
+                    if total
+                    else os.path.basename(archive_path)
+                ),
+            )
+            application = wx.GetApp()
+            if application is not None:
+                application.Yield()
+        error = state["error"]
+        if error is not None:
+            raise error
 
 
 class RecentWorldUI(wx.Panel):

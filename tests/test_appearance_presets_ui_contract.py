@@ -24,10 +24,12 @@ class AppearancePresetsUiContractTestCase(unittest.TestCase):
     def method_source(self, name: str) -> str:
         return ast.get_source_segment(self.source, self.methods[name])
 
-    def test_appearance_tab_has_native_preset_and_reset_controls(self):
+    def test_appearance_tab_has_painted_preset_and_reset_controls(self):
         build = self.method_source("_build_appearance_tab")
         for required in (
-            "wx.ScrolledWindow",
+            # A painted scrolling page, not wx.ScrolledWindow directly: the
+            # platform scrollbar is chrome this surface no longer shows.
+            "forms.MaterialScrolled",
             "appearance_preset_list",
             "appearance_preset_name",
             "appearance_preset_load",
@@ -39,8 +41,11 @@ class AppearancePresetsUiContractTestCase(unittest.TestCase):
             "appearance_reset_selected",
             "appearance_reset_all",
             "appearance_status",
-            "SetName",
-            "SetScrollRate",
+            # Accessible names are constructor arguments on the painted
+            # controls rather than a later SetName call. The contract is
+            # that the controls on this tab are named, not which of the two
+            # spellings does the naming.
+            "name=",
             "wx.WrapSizer",
         ):
             self.assertIn(required, build)

@@ -470,9 +470,17 @@ def _composite(
 
     try:
         _paint_into(window, memory, wx.Point(0, 0))
-        pending = [window]
+        # Each entry is a window and the rectangle, in the root's coordinates,
+        # that its own ancestors leave visible.  A child is drawn clipped to
+        # that rectangle, because a window is clipped by its parent on screen
+        # and a capture that ignores it shows the user something the user
+        # cannot see.  It is not hypothetical: the rows below the fold of a
+        # scrolling settings page composited at their true offsets and landed
+        # on top of the dialog's button bar, so the picture showed a field
+        # overlapping the Save button in a window where nothing overlaps.
+        pending = [(window, wx.Rect(0, 0, size.width, size.height))]
         while pending:
-            parent = pending.pop(0)
+            parent, parent_clip = pending.pop(0)
             for child in parent.GetChildren():
                 # IsShown() is relative: it reports the flag on this window
                 # alone, so a control inside a hidden tab still answers True
@@ -487,7 +495,22 @@ def _composite(
                 offset = wx.Point(
                     child_origin.x - root_origin.x, child_origin.y - root_origin.y
                 )
-                route = _paint_into(child, memory, offset)
+                child_size = child.GetClientSize()
+                child_clip = wx.Rect(
+                    offset.x, offset.y, child_size.width, child_size.height
+                ).Intersect(parent_clip)
+                if child_clip.width < 1 or child_clip.height < 1:
+                    # Entirely outside what its ancestors show: scrolled past
+                    # the end of a page, or behind a collapsed section. It is
+                    # not skipped-and-missing, it is genuinely not on screen,
+                    # so it is neither drawn nor reported as a hole.
+                    pending.append((child, child_clip))
+                    continue
+                memory.SetClippingRegion(child_clip)
+                try:
+                    route = _paint_into(child, memory, offset)
+                finally:
+                    memory.DestroyClippingRegion()
                 if route:
                     contributed += 1
                     routes[route] = routes.get(route, 0) + 1
@@ -508,7 +531,7 @@ def _composite(
                         if name
                         else type(child).__name__
                     )
-                pending.append(child)
+                pending.append((child, child_clip))
     finally:
         memory.SelectObject(wx.NullBitmap)
 
