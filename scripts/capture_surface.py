@@ -33,6 +33,7 @@ at least once.
 from __future__ import annotations
 
 import ctypes
+import ctypes.wintypes
 import logging
 import os
 from pathlib import Path
@@ -44,6 +45,28 @@ log = logging.getLogger(__name__)
 
 _IS_WINDOWS = os.name == "nt"
 _user32 = ctypes.windll.user32 if _IS_WINDOWS else None
+
+if _IS_WINDOWS:
+    # Declare the handle types. Without this ctypes marshals a Python int as a
+    # 32-bit C int, and an HWND or HDC on 64-bit Windows does not fit in one --
+    # so the call arrives at a truncated handle, addresses nothing, and fails
+    # in the one way that looks exactly like "this control cannot draw itself".
+    # It is intermittent by nature: a handle whose value happens to fit works
+    # fine, which is why some controls captured and others did not, in the same
+    # run, with no pattern anyone could see.
+    _user32.PrintWindow.argtypes = [
+        ctypes.wintypes.HWND,
+        ctypes.wintypes.HDC,
+        ctypes.wintypes.UINT,
+    ]
+    _user32.PrintWindow.restype = ctypes.wintypes.BOOL
+    _user32.SendMessageW.argtypes = [
+        ctypes.wintypes.HWND,
+        ctypes.wintypes.UINT,
+        ctypes.wintypes.WPARAM,
+        ctypes.wintypes.LPARAM,
+    ]
+    _user32.SendMessageW.restype = ctypes.c_void_p
 
 #: A capture with fewer distinct colours than this is almost certainly blank.
 #: It is a smoke threshold, not a quality bar: a real surface in this interface
