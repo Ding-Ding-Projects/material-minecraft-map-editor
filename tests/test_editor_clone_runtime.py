@@ -243,6 +243,13 @@ class Session:
         self.marker_after: List[Tuple[int, int, int]] = []
         self.overlays: List[Dict[str, Any]] = []
         self.notes: List[str] = []
+        # the arrow-key nudge, driven through the pane's real key binding
+        self.key_focus: str = ""
+        self.before_key: Any = None
+        self.after_key: Any = None
+        self.before_key_in_box: Any = None
+        self.after_key_in_box: Any = None
+        self.nudge_sentence_shown: bool = False
 
 
 @pytest.fixture(scope="module")
@@ -308,6 +315,8 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         _pump(0.5)
         record.pending_before = editor_tools.pending_object()
 
+        _drive_arrow_key(record)
+
         editor_tools.set_pending_location(DESTINATION)
         _pump(0.3)
         record.pending_after = editor_tools.pending_object()
@@ -326,6 +335,122 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         _pump(0.3)
         context.clear()
     yield record
+
+
+#: Where the pending object is put before the arrow key is pressed.  Well away
+#: from the paste destination, so the nudge and the confirmed clone cannot be
+#: mistaken for one another.
+NUDGE_START = (20, 30, 20)
+
+
+def _first_focusable(pane: Any) -> Any:
+    """Return a control in ``pane`` that is not a value box, or ``None``.
+
+    The nudge keys deliberately stand aside for text and spin controls, so a
+    press has to be delivered from somewhere else in the pane to test the
+    thing that moves rather than the thing that refuses.
+    """
+    from amulet_map_editor.api.studio.properties_pane import _TEXT_ENTRY_CLASSES
+
+    stack = [pane]
+    while stack:
+        node = stack.pop()
+        if (
+            node is not pane
+            and not isinstance(node, _TEXT_ENTRY_CLASSES)
+            and node.AcceptsFocus()
+        ):
+            return node
+        try:
+            stack.extend(node.GetChildren())
+        except Exception:  # noqa: BLE001 - a control mid-teardown
+            continue
+    return None
+
+
+def _find_value_box(pane: Any) -> Any:
+    """Return a text or spin control inside ``pane``, or ``None``."""
+    stack = [pane]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (wx.TextCtrl, wx.SpinCtrl, wx.SpinCtrlDouble)):
+            return node
+        try:
+            stack.extend(node.GetChildren())
+        except Exception:  # noqa: BLE001
+            continue
+    return None
+
+
+def _press(pane: Any, key: int) -> None:
+    """Send one real key press through the pane's own event handler.
+
+    A synthesised ``EVT_CHAR_HOOK`` rather than a direct call to the handler,
+    so what is exercised is the binding as well as the code behind it: a
+    handler that was never bound would pass a direct-call test and do nothing
+    for a user.
+    """
+    event = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
+    event.SetKeyCode(key)
+    event.SetEventObject(pane)
+    pane.GetEventHandler().ProcessEvent(event)
+    _pump(0.2)
+
+
+def _drive_arrow_key(record: "Session") -> None:
+    """Press the left arrow with the pane focused, and with a value box focused."""
+    from amulet_map_editor.api.studio import properties_pane as pane_module
+
+    pane = editor_tools.host()
+    if pane is None:
+        record.notes.append("no properties pane is hosting the tool options")
+        return
+    record.nudge_sentence_shown = _pane_says(pane, pane_module.NUDGE_KEY_SENTENCE)
+
+    editor_tools.set_pending_location(NUDGE_START)
+    _pump(0.3)
+
+    target = _first_focusable(pane)
+    if target is None:
+        record.notes.append("the pane offered no focusable control to press a key on")
+        return
+    target.SetFocus()
+    _pump(0.2)
+    record.key_focus = type(wx.Window.FindFocus()).__name__
+    record.before_key = editor_tools.pending_object()
+    _press(pane, wx.WXK_LEFT)
+    record.after_key = editor_tools.pending_object()
+
+    box = _find_value_box(pane)
+    if box is not None:
+        box.SetFocus()
+        _pump(0.2)
+        record.before_key_in_box = editor_tools.pending_object()
+        _press(pane, wx.WXK_LEFT)
+        record.after_key_in_box = editor_tools.pending_object()
+
+
+def _pane_says(pane: Any, sentence: str) -> bool:
+    """Whether ``sentence`` is rendered anywhere in the pane."""
+    needle = " ".join(str(sentence).split())
+    stack = [pane]
+    while stack:
+        node = stack.pop()
+        for getter in ("GetLabel", "GetName"):
+            method = getattr(node, getter, None)
+            if not callable(method):
+                continue
+            try:
+                value = method()
+            except Exception:  # noqa: BLE001
+                continue
+            if isinstance(value, str) and needle in " ".join(value.split()):
+                return True
+        try:
+            stack.extend(node.GetChildren())
+        except Exception:  # noqa: BLE001
+            continue
+    return False
 
 
 def _describe_overlays(frame: Any, canvas: Any) -> List[Dict[str, Any]]:
@@ -472,6 +597,72 @@ def test_every_editor_panel_follows_the_canvas_into_the_viewport(
     assert not stranded, (
         "these editor panels did not follow the canvas into the viewport, so "
         f"the controls on them cannot be reached: {stranded}"
+    )
+
+
+def test_an_arrow_key_moves_the_pending_object_by_the_stated_step(
+    session: Session,
+) -> None:
+    """Pressing left really moves the copy, through the pane's own key binding.
+
+    The press is a synthesised ``EVT_CHAR_HOOK`` put through the pane's event
+    handler rather than a call to the handler function, so a handler that was
+    written and never bound fails here instead of passing.
+    """
+    from amulet_map_editor.api.studio import properties_pane as pane_module
+
+    assert session.before_key is not None and session.after_key is not None, (
+        "the arrow key was never delivered, so nothing about it is proven: "
+        f"{session.notes}"
+    )
+    assert session.key_focus, "no control in the pane took focus for the key press"
+
+    axis, direction = pane_module.NUDGE_KEYS[wx.WXK_LEFT]
+    expected = list(session.before_key.location)
+    expected[axis] += direction * pane_module.DEFAULT_NUDGE_STEP
+    assert list(session.after_key.location) == expected, (
+        f"the left arrow should have moved the copy from "
+        f"{session.before_key.location} to {tuple(expected)} and it is at "
+        f"{session.after_key.location}"
+    )
+
+
+def test_an_arrow_key_inside_a_value_box_belongs_to_that_box(
+    session: Session,
+) -> None:
+    """Typing a coordinate must not move the object at the same time.
+
+    This is the half of the key handling that is easy to leave out and
+    impossible to notice from the code: without the refusal, arrowing along a
+    number being typed also drags the object, and the value the user is
+    editing stops agreeing with where the object is.
+    """
+    if session.before_key_in_box is None:
+        pytest.skip("the pane rendered no value box to test the refusal against")
+    assert session.after_key_in_box is not None, "the pending object vanished"
+    # Without this, the whole test passes on a key binding that does nothing at
+    # all: "the object did not move" is exactly what a dead handler produces,
+    # and a refusal that cannot tell itself apart from a no-op proves nothing.
+    assert (
+        session.after_key is not None
+        and session.before_key is not None
+        and session.after_key.location != session.before_key.location
+    ), (
+        "the arrow key does not move the object even outside a value box, so "
+        "this test cannot tell a working refusal from a dead binding"
+    )
+    assert session.after_key_in_box.location == session.before_key_in_box.location, (
+        "an arrow key pressed inside a value box moved the pending object as "
+        f"well: {session.before_key_in_box.location} -> "
+        f"{session.after_key_in_box.location}"
+    )
+
+
+def test_the_pane_says_the_arrow_keys_exist(session: Session) -> None:
+    """A shortcut nobody is told about is a shortcut nobody uses."""
+    assert session.nudge_sentence_shown, (
+        "the pending controls do not state that the arrow keys nudge, so the "
+        "only way to find them is to press one and hope"
     )
 
 

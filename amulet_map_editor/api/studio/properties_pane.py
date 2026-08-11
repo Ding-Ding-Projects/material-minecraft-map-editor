@@ -154,6 +154,48 @@ TAB_LABELS: Dict[str, str] = dict(PANE_TABS + (TOOL_TAB,))
 DEFAULT_NUDGE_STEP = 1
 MAX_NUDGE_STEP = 512
 
+#: Which axis each nudge key moves the pending object along, as
+#: ``key: (axis, direction)`` with the axis indexed x, y, z.
+#:
+#: Left and right are x and up and down are z, which is the horizontal plane
+#: as it is seen from above with north up -- and north is negative z, so the
+#: up arrow decreases it.  Height has no third pair of arrows on a keyboard,
+#: so it takes Page Up and Page Down.
+#:
+#: Kept as data rather than a chain of comparisons so a test can assert on the
+#: mapping itself instead of pressing six keys to discover it.
+NUDGE_KEYS: Dict[int, Tuple[int, int]] = {
+    wx.WXK_LEFT: (0, -1),
+    wx.WXK_RIGHT: (0, 1),
+    wx.WXK_PAGEUP: (1, 1),
+    wx.WXK_PAGEDOWN: (1, -1),
+    wx.WXK_UP: (2, -1),
+    wx.WXK_DOWN: (2, 1),
+}
+
+
+#: How the nudge keys read to a person, in the order they are described.
+NUDGE_KEY_SENTENCE = (
+    "With this panel focused, the arrow keys nudge by the step above: left "
+    "and right along x, up and down along z, Page Up and Page Down for "
+    "height. Inside a value box the arrow keys belong to that box instead."
+)
+
+#: The controls whose own arrow-key behaviour must win over nudging.  An arrow
+#: press inside one of these moves a caret or changes a value, and doing that
+#: and moving the object from one press would be two edits the user asked for
+#: once.
+_TEXT_ENTRY_CLASSES: Tuple[type, ...] = (
+    wx.TextCtrl,
+    wx.SpinCtrl,
+    wx.SpinCtrlDouble,
+    wx.SpinButton,
+    wx.Choice,
+    wx.ComboBox,
+    wx.ListBox,
+    wx.Slider,
+)
+
 #: How wide one component of a coordinate is in this column, in design pixels.
 #: Three of them plus the gaps between fit inside :data:`MIN_PANEL_WIDTH`, so a
 #: coordinate stays whole when the pane is dragged to its narrowest.
@@ -1015,6 +1057,12 @@ class PropertiesPane(wx.Panel):
         self.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
         self.Bind(wx.EVT_SIZE, self._on_resize)
         self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
+        # A hook rather than a key event on each control: the nudge keys have
+        # to work wherever the focus is inside this pane, and binding them to
+        # the buttons alone would mean they only worked once a nudge button
+        # already had focus -- which is the one moment the user does not need
+        # them.
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_tool_key)
         self.scroller.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
         context.subscribe(self._on_world_context)
         # This pane is where a tool's options are shown, so it says so once and
@@ -1705,6 +1753,9 @@ class PropertiesPane(wx.Panel):
                     tokens.scaled(4),
                 )
             self.body.Add(row, 0, wx.EXPAND | wx.BOTTOM, gap)
+        # The buttons announce themselves; the keys cannot, so they are said
+        # here.  A shortcut nobody is told about is a shortcut nobody uses.
+        self._tool_note(studio_text(NUDGE_KEY_SENTENCE), gap)
         sentence = editor_tools.movement_sentence()
         if sentence:
             self._tool_note(sentence, gap)
@@ -1750,6 +1801,46 @@ class PropertiesPane(wx.Panel):
             self._report_tool_gone()
             return
         self._refresh_tool_live()
+
+    def nudge_key_applies(self, key: int, focus: Optional[wx.Window]) -> bool:
+        """Whether a key press should nudge, given what currently has focus.
+
+        Split out from the event handler so the decision can be asserted on
+        directly.  The half that matters is the refusal: an arrow key inside a
+        value box belongs to that box, and nudging as well would move the
+        object on the way to typing a coordinate for it.
+        """
+        if key not in NUDGE_KEYS:
+            return False
+        if self.tab != TOOL_TAB[0]:
+            return False
+        activation = self.activation
+        if activation is None or not activation.ok or activation.kind != "pending":
+            return False
+        if focus is None:
+            return False
+        if isinstance(focus, _TEXT_ENTRY_CLASSES):
+            return False
+        # A composite value control puts focus on an inner text box whose class
+        # is checked above, but some platforms focus the wrapper instead.
+        node = focus
+        while node is not None and node is not self:
+            if isinstance(node, _TEXT_ENTRY_CLASSES):
+                return False
+            node = node.GetParent()
+        # Focus outside this pane is somebody else's key press -- the viewport
+        # moves the camera with the same arrows.
+        return node is self
+
+    def _on_tool_key(self, event: wx.KeyEvent) -> None:
+        """Nudge the pending object with the arrow keys."""
+        if event.HasAnyModifiers() or not self.nudge_key_applies(
+            event.GetKeyCode(), wx.Window.FindFocus()
+        ):
+            event.Skip()
+            return
+        axis, direction = NUDGE_KEYS[event.GetKeyCode()]
+        self._nudge(axis, direction)
 
     def _pending_to_camera(self) -> None:
         """Put the pending object where the camera is standing."""
