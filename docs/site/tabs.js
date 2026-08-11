@@ -907,6 +907,9 @@
     node.addEventListener("drop", function (event) {
       if (!dragging) return;
       event.preventDefault();
+      // The flow is this node's parent and its own drop handler moves a tab out
+      // of every group. Letting this bubble would undo the drop that just landed.
+      event.stopPropagation();
       markDrop(node, false);
       moveTabTo(dragging, gid, null);
       dragging = null;
@@ -2335,7 +2338,10 @@
     renderGroupsList();
     openPanel(groupsPanel, {
       anchor: anchor,
-      trigger: anchor,
+      // Only a toolbar button's aria-expanded describes this panel. A group's
+      // collapse toggle also carries one, and it means something else entirely.
+      trigger: isToolButton(anchor) ? anchor : null,
+      returnTo: anchor,
       focus: function () {
         groupsSearch.input.focus();
       }
