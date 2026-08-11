@@ -36,6 +36,7 @@ import ctypes
 import ctypes.wintypes
 import logging
 import os
+from collections import Counter
 from pathlib import Path
 from typing import Optional
 
@@ -74,13 +75,35 @@ if _IS_WINDOWS:
 MIN_DISTINCT_COLOURS = 8
 
 
-def _distinct_colours(image: wx.Image, step: int = 7) -> int:
-    """Return how many distinct colours a coarse grid sample finds."""
-    seen = set()
+def _sample(image: wx.Image, step: int = 7) -> Counter:
+    """Return how often each colour appears in a coarse grid sample."""
+    seen: Counter = Counter()
     for x in range(0, image.GetWidth(), step):
         for y in range(0, image.GetHeight(), step):
-            seen.add((image.GetRed(x, y), image.GetGreen(x, y), image.GetBlue(x, y)))
-    return len(seen)
+            seen[(image.GetRed(x, y), image.GetGreen(x, y), image.GetBlue(x, y))] += 1
+    return seen
+
+
+def _distinct_colours(image: wx.Image, step: int = 7) -> int:
+    """Return how many distinct colours a coarse grid sample finds."""
+    return len(_sample(image, step))
+
+
+def _uniform_fraction(image: wx.Image, step: int = 7) -> float:
+    """Return the share of the sample taken by its single commonest colour.
+
+    ``1.0`` is one flat colour edge to edge.  This is the measurement that sees
+    the one kind of hole the structural fields cannot: a route that reports
+    success and paints nothing.  ``skipped`` and ``blitted_leaves`` only ever
+    name a window that *said* it could not draw, so a ``PrintWindow`` that
+    returns true over an empty rectangle leaves both of them clean and the
+    picture empty.
+    """
+    sample = _sample(image, step)
+    total = sum(sample.values())
+    if not total:
+        return 1.0
+    return sample.most_common(1)[0][1] / total
 
 
 def capture_window(
@@ -488,10 +511,25 @@ def capture_composite(
     blitted either -- so it is genuinely absent from the picture rather than
     drawn by a route the report does not mention.  An empty list is the healthy
     state; a name in it is a hole in the capture, at the place that name says.
+
+    **A clean ``skipped`` is not evidence that the picture shows anything.**
+    Both it and ``blitted_leaves`` can only name a window that *said* it could
+    not draw, so a route that reports success over an empty rectangle leaves
+    both lists empty and the file blank.  That is not hypothetical: compositing
+    the viewport that hosts the 3D canvas returns ``descendants: 37``,
+    ``routes: {render: 12, print: 25}``, ``skipped: []`` and
+    ``blitted_leaves: []`` -- every structural field healthy -- and a PNG that
+    is one flat grey with none of the 25 printed controls in it.
+    ``uniform_fraction`` is the field that sees that: near ``1.0`` with a
+    nonzero ``descendants`` means every descendant claimed to draw and nothing
+    arrived.  It is reported rather than raised on, because a legitimately
+    plain surface exists; it is a number for a reader to weigh, and the gate is
+    still a person looking at the file.
     """
     settle(window)
     image, contributed, routes, skipped, size, blitted_leaves = _composite(window)
     colours = _distinct_colours(image)
+    uniform = _uniform_fraction(image)
     if require_content and contributed < 1:
         raise RuntimeError(
             f"{window.GetName() or window!r} composited no descendants; the "
@@ -517,6 +555,10 @@ def capture_composite(
         # CONTAINER is not listed: its visual is a background and its
         # children are drawn separately by the same walk.
         "blitted_leaves": blitted_leaves,
+        # How much of the picture is its single commonest colour. The one
+        # measurement that catches a route reporting success while painting
+        # nothing, which is invisible to every field above it.
+        "uniform_fraction": round(uniform, 3),
         "size": (size.width, size.height),
         # A colour count says something drew; it cannot say the interface drew.
         # Antialiasing on two stray native controls clears any floor worth

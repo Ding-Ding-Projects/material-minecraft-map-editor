@@ -677,12 +677,44 @@ def set_pending_scale(scale: Sequence[float], target: Any = None) -> bool:
     return True
 
 
+def _undo_depth(active: Any) -> Optional[int]:
+    """Return how many undo points the open world has, or ``None``.
+
+    ``None`` means the question could not be asked at all -- no world, or a
+    build whose level keeps no history -- which is different from an answer of
+    zero and has to stay different, because one is "nothing was written" and
+    the other is "nobody knows".
+    """
+    history = getattr(getattr(active, "world", None), "history_manager", None)
+    if history is None:
+        return None
+    try:
+        return int(history.undo_count)
+    except Exception:  # noqa: BLE001 - a history mid-write
+        log.debug("Could not read the world's undo depth", exc_info=True)
+        return None
+
+
 def confirm_pending(target: Any = None) -> bool:
     """Write the pending object into the world through the paste tool.
 
     The tool's own confirm is what runs, so the blocks written are the ones the
     renderer has been drawing, with the editor's progress reporting and its
     undo point.
+
+    **Why the undo depth is read.**  ``confirm_paste`` returns nothing, and the
+    canvas's ``run_operation`` catches ``BaseException`` unless it is asked not
+    to -- so a paste that raised and a paste that wrote the world are the same
+    ``None`` to the caller.  Reporting success from "the call returned" would
+    therefore say the blocks landed whenever the confirm was merely *attempted*,
+    which is the one thing a caller cannot check for itself without reading the
+    world back.  ``run_operation`` creates its undo point only on the path where
+    nothing was raised, so a depth that did not move is proof the write did not
+    happen.
+
+    When the depth cannot be read at all this reports the confirm as run and
+    says so in the log, rather than inventing a failure: an unanswerable
+    question is not a negative answer.
     """
     active = _resolve(target)
     tool = _paste_tool(active)
@@ -692,8 +724,23 @@ def confirm_pending(target: Any = None) -> bool:
     if not callable(confirm):
         log.error("This build's paste tool exposes no confirm")
         return False
+    before = _undo_depth(active)
     confirm()
     _settle()
+    after = _undo_depth(active)
+    if before is None or after is None:
+        log.warning(
+            "The world kept no undo history, so the paste was run without its "
+            "outcome being checked"
+        )
+        return True
+    if after <= before:
+        log.error(
+            "The paste tool's confirm raised: the world's undo depth is still "
+            "%d, so nothing was written",
+            after,
+        )
+        return False
     return True
 
 

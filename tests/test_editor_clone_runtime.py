@@ -250,6 +250,13 @@ class Session:
         self.before_key_in_box: Any = None
         self.after_key_in_box: Any = None
         self.nudge_sentence_shown: bool = False
+        # where the sentence actually is, rather than merely that it exists
+        self.nudge_note_rect: Tuple[int, int, int, int] = (0, 0, 0, 0)
+        self.pane_visible_rect: Tuple[int, int, int, int] = (0, 0, 0, 0)
+        self.pane_column: List[Tuple[int, int, str]] = []
+        # the Operations route, driven separately from the pending one
+        self.operation_activation: Any = None
+        self.operation_controls: List[Dict[str, Any]] = []
 
 
 @pytest.fixture(scope="module")
@@ -327,6 +334,15 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         level = context.current().level
         if level is not None:
             record.marker_after = _marker_points(level)
+
+        # Last, because it leaves the paste tool: everything above is recorded
+        # before the Operation tool takes over.  This is the route the panel
+        # move was made for -- Operations > Clone and its four siblings -- and
+        # until it is driven here, a regression that stranded only the
+        # Operation tool's own panels would leave every assertion above green.
+        record.operation_activation = editor_tools.activate("operationOptions", frame)
+        _pump(1.0)
+        record.operation_controls = _describe_operation_controls(record.canvas)
     finally:
         try:
             frame.Destroy()
@@ -406,6 +422,18 @@ def _drive_arrow_key(record: "Session") -> None:
         record.notes.append("no properties pane is hosting the tool options")
         return
     record.nudge_sentence_shown = _pane_says(pane, pane_module.NUDGE_KEY_SENTENCE)
+    note = _pane_widget_saying(pane, pane_module.NUDGE_KEY_SENTENCE)
+    if note is not None:
+        record.nudge_note_rect = _rect(note)
+        # The scroller rather than the pane.  The pane's rectangle takes in the
+        # title, the tabs and the search bar above the column and the action
+        # button below it, so a note measured against it could sit behind the
+        # header and still be reported as visible.  The scroller's own
+        # rectangle is the viewport, and a scrolled child's screen position
+        # already carries the scroll offset, so containment in it is exactly
+        # the question "can this be read right now".
+        record.pane_visible_rect = _rect(note.GetParent())
+        record.pane_column = _column_of(note.GetParent())
 
     editor_tools.set_pending_location(NUDGE_START)
     _pump(0.3)
@@ -430,8 +458,13 @@ def _drive_arrow_key(record: "Session") -> None:
         record.after_key_in_box = editor_tools.pending_object()
 
 
-def _pane_says(pane: Any, sentence: str) -> bool:
-    """Whether ``sentence`` is rendered anywhere in the pane."""
+def _pane_widget_saying(pane: Any, sentence: str) -> Any:
+    """Return the widget in ``pane`` whose text is ``sentence``, or ``None``.
+
+    Separate from :func:`_pane_says` because "a widget exists carrying this
+    text" and "a person can read this text" are different claims, and only the
+    widget itself can answer the second one -- it knows where it is.
+    """
     needle = " ".join(str(sentence).split())
     stack = [pane]
     while stack:
@@ -445,12 +478,124 @@ def _pane_says(pane: Any, sentence: str) -> bool:
             except Exception:  # noqa: BLE001
                 continue
             if isinstance(value, str) and needle in " ".join(value.split()):
-                return True
+                return node
         try:
             stack.extend(node.GetChildren())
         except Exception:  # noqa: BLE001
             continue
-    return False
+    return None
+
+
+def _pane_says(pane: Any, sentence: str) -> bool:
+    """Whether a widget carrying ``sentence`` exists anywhere in the pane.
+
+    Deliberately weak, and named for what it can actually prove: it walks the
+    widget tree, so it answers the same ``True`` whether the sentence is on
+    screen, scrolled hundreds of pixels below the fold, zero-height or clipped.
+    Anything claiming the user was *told* something needs :func:`_rect` as well.
+    """
+    return _pane_widget_saying(pane, sentence) is not None
+
+
+def _column_of(scroller: Any) -> List[Tuple[int, int, str]]:
+    """Return every shown child of ``scroller`` as ``(top, bottom, name)``.
+
+    Recorded so a failure below can say what is taking the room rather than
+    only that something is: "the note is off the bottom" is a symptom, and the
+    list of what sits above it is the cause.
+    """
+    column: List[Tuple[int, int, str]] = []
+    try:
+        children = list(scroller.GetChildren())
+    except Exception:  # noqa: BLE001
+        return column
+    for child in children:
+        try:
+            if not child.IsShown():
+                continue
+            rect = child.GetScreenRect()
+            name = child.GetName() or type(child).__name__
+        except Exception:  # noqa: BLE001
+            continue
+        column.append(
+            (rect.GetTop(), rect.GetBottom(), " ".join(str(name).split())[:60])
+        )
+    column.sort()
+    return column
+
+
+def _rect(window: Any) -> Tuple[int, int, int, int]:
+    """Return a window's position on screen as ``(left, top, right, bottom)``.
+
+    Screen coordinates rather than the parent's, because the note and the pane
+    are several levels apart in the tree and the scroller between them carries
+    an offset of its own.
+    """
+    try:
+        rect = window.GetScreenRect()
+    except Exception:  # noqa: BLE001 - a window mid-teardown
+        return (0, 0, 0, 0)
+    return (rect.GetLeft(), rect.GetTop(), rect.GetRight(), rect.GetBottom())
+
+
+#: What has to be reachable before a single stock operation can be run: the
+#: list you pick the operation from, and the button that runs it.  Matched on
+#: what a user sees rather than on an attribute name, because a control renamed
+#: in the source is still the same control to the person looking for it.
+OPERATION_CONTROLS: Tuple[Tuple[str, str], ...] = (
+    ("chooser", "the list of installed operations"),
+    ("Run Operation", "the button that runs the chosen one"),
+)
+
+
+def _inside(inner: Any, outer: Any) -> bool:
+    """Whether ``inner``'s rectangle is inside ``outer``'s, on screen."""
+    try:
+        a, b = inner.GetScreenRect(), outer.GetScreenRect()
+    except Exception:  # noqa: BLE001
+        return False
+    return bool(b.Contains(a))
+
+
+def _describe_operation_controls(canvas: Any) -> List[Dict[str, Any]]:
+    """Record where the Operation tool's own two controls ended up.
+
+    Walked from the tool's own windows rather than from a search of the whole
+    frame, so a control found here is one the Operation tool built: a stray
+    ``Run Operation`` button belonging to something else could not stand in for
+    the one that is missing.
+    """
+    described: List[Dict[str, Any]] = []
+    tool = editor_tools.tool_named("Operation", canvas)
+    if tool is None:
+        return described
+    viewport = canvas.GetParent()
+    stack: List[Any] = []
+    try:
+        stack.extend(tool.windows())
+    except Exception:  # noqa: BLE001 - a tool without its panels yet
+        return described
+    while stack:
+        node = stack.pop()
+        try:
+            label = str(node.GetLabel() or "")
+            kind = "chooser" if isinstance(node, wx.Choice) else label
+            if kind in dict(OPERATION_CONTROLS):
+                described.append(
+                    {
+                        "control": kind,
+                        "class": type(node).__name__,
+                        "parent": type(node.GetParent()).__name__,
+                        "parent_name": str(node.GetParent().GetName() or ""),
+                        "shown_to_the_user": _shown_to_the_user(node),
+                        "inside_the_viewport": _inside(node, viewport),
+                        "rect": _rect(node),
+                    }
+                )
+            stack.extend(node.GetChildren())
+        except Exception:  # noqa: BLE001 - a control mid-teardown
+            continue
+    return described
 
 
 def _describe_overlays(frame: Any, canvas: Any) -> List[Dict[str, Any]]:
@@ -658,12 +803,60 @@ def test_an_arrow_key_inside_a_value_box_belongs_to_that_box(
     )
 
 
-def test_the_pane_says_the_arrow_keys_exist(session: Session) -> None:
-    """A shortcut nobody is told about is a shortcut nobody uses."""
+def test_the_pane_holds_a_widget_saying_the_arrow_keys_exist(
+    session: Session,
+) -> None:
+    """The sentence is built at all.
+
+    Named for exactly what it proves.  It walks the widget tree, so it cannot
+    tell a sentence on screen from one scrolled below the fold -- which is why
+    the test below it exists and why this one no longer claims the user was
+    told anything.
+    """
     assert session.nudge_sentence_shown, (
         "the pending controls do not state that the arrow keys nudge, so the "
         "only way to find them is to press one and hope"
     )
+
+
+def test_the_arrow_key_note_is_on_screen_without_scrolling(
+    session: Session,
+) -> None:
+    """A shortcut nobody is told about is a shortcut nobody uses.
+
+    The sentence existing in the widget tree is not being told: the pending
+    pane is a scroller, and a note placed after the six nudge buttons sits
+    hundreds of pixels below the bottom of the visible column, reachable only
+    by a user who scrolls looking for something they do not yet know is there.
+    So this asserts the note's rectangle against the pane's, in screen
+    coordinates, with the pane at rest where the tool left it.
+    """
+    left, top, right, bottom = session.nudge_note_rect
+    pane_left, pane_top, pane_right, pane_bottom = session.pane_visible_rect
+    assert (right, bottom) != (0, 0) and (pane_right, pane_bottom) != (0, 0), (
+        "no rectangle was measured for the arrow-key note, so this proves "
+        f"nothing: note={session.nudge_note_rect} pane={session.pane_visible_rect}"
+    )
+    assert top >= pane_top and bottom <= pane_bottom, (
+        "the arrow-key note is not on screen when the pending controls open. "
+        f"The note occupies y {top}..{bottom} and the visible pane is y "
+        f"{pane_top}..{pane_bottom}, so it is "
+        f"{max(0, bottom - pane_bottom)}px of it is below the fold -- a user "
+        "has to scroll to be told the keys exist. What is above it, as "
+        f"(top, bottom, name): {session.pane_column}"
+    )
+    assert left >= pane_left, (
+        f"the arrow-key note starts left of the visible column: it occupies x "
+        f"{left}..{right} and the column is x {pane_left}..{pane_right}"
+    )
+    # The right edge is deliberately not asserted.  The note is added with
+    # ``wx.EXPAND``, so the sizer stretches the *control* to the widest
+    # honest minimum in the column -- a coordinate field, here -- while the
+    # *text* inside it is wrapped to ``_note_width()``, which is the scroller's
+    # client width less a margin.  A control wider than the viewport is
+    # therefore normal in this pane, which enables horizontal scrolling on
+    # purpose rather than cutting rows off at the edge, and asserting on it
+    # fails against correct code.
 
 
 def test_the_panel_of_a_running_tool_is_actually_visible(session: Session) -> None:
@@ -677,3 +870,51 @@ def test_the_panel_of_a_running_tool_is_actually_visible(session: Session) -> No
         "not one of the editor's panels is visible all the way up to the "
         f"frame, so nothing can be pressed: {session.overlays}"
     )
+
+
+# ----------------------------------------------------------------------
+# the Operations route, which is the one the panel move was made for
+# ----------------------------------------------------------------------
+
+
+def test_the_operations_route_starts_the_operation_tool(session: Session) -> None:
+    """``Operations > Clone`` and its siblings reach the Operation tool at all.
+
+    The pending-paste route above was already working before the panels were
+    moved.  This one was not: it started the tool, selected the operation, and
+    showed the user none of it.  So the route is activated here by its own
+    surface key rather than being assumed to behave like the paste one.
+    """
+    activation = session.operation_activation
+    assert activation is not None and activation.ok, (
+        "the Run operation surface did not start the Operation tool: "
+        f"{getattr(activation, 'message', activation)}"
+    )
+
+
+def test_the_operation_chooser_and_its_run_button_are_reachable(
+    session: Session,
+) -> None:
+    """Both controls exist, are shown to the user, and are inside the viewport.
+
+    This is the assertion the panel move exists to hold up.  Without it a
+    regression that stranded only the Operation tool's panels -- leaving the
+    paste tool's own working, which is what the rest of this module drives --
+    passes the whole suite green while there is again no way to run a single
+    stock operation from the Studio.
+    """
+    found = {entry["control"]: entry for entry in session.operation_controls}
+    for control, description in OPERATION_CONTROLS:
+        entry = found.get(control)
+        assert entry is not None, (
+            f"the Operation tool built no {description}, so there is no way to "
+            f"run an operation. What it did build: {session.operation_controls}"
+        )
+        assert entry["shown_to_the_user"], (
+            f"{description} is not shown all the way up to the frame, so it "
+            f"cannot be clicked: {entry}"
+        )
+        assert entry["inside_the_viewport"], (
+            f"{description} is outside the viewport that hosts the canvas, so "
+            f"it is drawn somewhere the user is not looking: {entry}"
+        )
