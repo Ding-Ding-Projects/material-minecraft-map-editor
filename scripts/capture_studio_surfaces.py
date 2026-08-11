@@ -44,7 +44,7 @@ import wx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from capture_surface import capture_window  # noqa: E402
+from capture_surface import capture_composite, settle  # noqa: E402
 
 from amulet_map_editor.api.studio import ribbon_defs  # noqa: E402
 from amulet_map_editor.api.studio import specs as spec_registry  # noqa: E402
@@ -73,13 +73,13 @@ class Driver:
         sizer.Add(self.shell, 1, wx.EXPAND)
         host.SetSizer(sizer)
         self.frame.Show()
-        for _ in range(4):
-            wx.Yield()
+        settle(self.shell)
 
     def shoot(self, name: str, window, *, group: str, alt: str, surface: str) -> None:
         filename = f"{name}-{self.short}-{self.stamp}.png"
         try:
-            colours = capture_window(window, self.out / filename)
+            settle(window)
+            report = capture_composite(window, self.out / filename)
         except Exception as error:  # a blank or absent surface, reported not shipped
             self.failures.append(
                 {"name": name, "reason": f"{type(error).__name__}: {error}"}
@@ -93,7 +93,10 @@ class Driver:
                 "theme": "light",
                 "density": "comfortable",
                 "viewport": f"{window.GetClientSize().width}x{window.GetClientSize().height}",
-                "colours": colours,
+                "colours": report["colours"],
+                "descendants": report["descendants"],
+                "skipped": report.get("skipped", 0),
+                "gate": report.get("gate", ""),
                 "alt": alt,
                 "verified": self.commit,
             }
@@ -102,8 +105,7 @@ class Driver:
     def run(self) -> None:
         for tab in BACKSTAGE_TABS:
             self.shell.show_backstage(tab)
-            for _ in range(3):
-                wx.Yield()
+            settle(self.shell)
             self.shoot(
                 f"backstage-{tab}",
                 self.shell.backstage,
@@ -114,8 +116,7 @@ class Driver:
 
         self.shell.open_project(title="Capture World", platform="java")
         self.shell.show_workspace()
-        for _ in range(4):
-            wx.Yield()
+        settle(self.shell)
 
         workspace = self.shell.workspace
         for pane in PANES:
@@ -135,8 +136,7 @@ class Driver:
         if ribbon is not None and hasattr(ribbon, "set_tab"):
             for key in ribbon_defs.TAB_KEYS:
                 ribbon.set_tab(key)
-                for _ in range(3):
-                    wx.Yield()
+                settle(ribbon)
                 self.shoot(
                     f"ribbon-{key}",
                     ribbon,
@@ -155,8 +155,7 @@ class Driver:
             dialog = SpecDialog(self.frame, spec)
             dialog.Layout()
             dialog.Show()
-            for _ in range(3):
-                wx.Yield()
+            settle(dialog)
             self.shoot(
                 key.lower(),
                 dialog,
@@ -179,11 +178,13 @@ class Driver:
             "commit": self.commit,
             "captured": self.stamp,
             "wxPython": wx.version(),
-            "method": "in-process client-DC blit (capture_surface.capture_window)",
+            "method": "capture_surface.capture_composite after settle()",
             "note": (
-                "PrintWindow cannot see this interface: it is owner-drawn end to end "
-                "and returns empty boxes. Colour counts are recorded so a capture "
-                "near the floor can be retaken rather than shipped."
+                "Captured by compositing each container's visible descendants, after "
+                "settle(). An unsettled capture returns the container background with "
+                "a few stray native controls on it and a plausible colour count -- the "
+                "counts and descendant totals here are evidence, not a pass. A person "
+                "has to look at a sample of every run."
             ),
             "captures": self.rows,
             "failures": self.failures,
