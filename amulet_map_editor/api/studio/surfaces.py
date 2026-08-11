@@ -112,6 +112,11 @@ _GROUP_MEMBERS: Mapping[str, Tuple[str, ...]] = MappingProxyType(
             "importChunks",
             "exportStructure",
             "operationOptions",
+            "operationClone",
+            "operationFill",
+            "operationReplace",
+            "operationSetBiome",
+            "operationWaterlog",
         ),
         "MCEdit2 tools": (
             "brushTool",
@@ -331,7 +336,12 @@ _LABELS: Mapping[str, str] = MappingProxyType(
         "nbtSearch": "NBT search and replace",
         "noiseGen": "Noise fill",
         "notifications": "Notification history",
+        "operationClone": "Clone operation",
+        "operationFill": "Fill operation",
         "operationOptions": "Operations",
+        "operationReplace": "Replace operation",
+        "operationSetBiome": "Set biome operation",
+        "operationWaterlog": "Waterlog operation",
         "oreAudit": "Ore distribution",
         "palette": "Command palette",
         "patternMask": "Pattern and mask",
@@ -459,7 +469,12 @@ _HINTS: Mapping[str, str] = MappingProxyType(
         "nbtSearch": "Tag-path search across the selection",
         "noiseGen": "Seeded heightmaps, caves, and scatter",
         "notifications": "Search, bulk dismissal, Markdown export",
+        "operationClone": "The stock Clone operation, selected and ready to run",
+        "operationFill": "The stock Fill operation, selected and ready to run",
         "operationOptions": "Clone, fill, replace, set biome, waterlog, plugins",
+        "operationReplace": "The stock Replace operation, selected and ready to run",
+        "operationSetBiome": "The stock Set Biome operation, selected and ready to run",
+        "operationWaterlog": "The stock Waterlog operation, selected and ready to run",
         "oreAudit": "Per-Y peaks, counts, and x-ray overlay",
         "palette": "Ctrl+Shift+F over every command and setting",
         "patternMask": "Weighted block sets, masks, and gradients",
@@ -886,6 +901,25 @@ def _open_spec(parent: Any, key: str) -> Any:
     return open_spec(_top_level(parent), key)
 
 
+def _open_editor_tool(key: str) -> Callable[[Any], Any]:
+    """Return an opener that starts the editor tool one key stands for.
+
+    The stock operations are not windows and never were: each one is the
+    editor's Operation tool with that operation selected.  They are routed here
+    rather than left to :func:`editor_tools.install_surface_routes` so the key
+    resolves to the same thing before the properties pane exists -- a surface
+    that opens one thing at start-up and another once a pane has been built is
+    two surfaces wearing one name.
+    """
+
+    def open_tool(parent: Any) -> Any:
+        from amulet_map_editor.api.studio import editor_tools
+
+        return editor_tools.activate(key, parent)
+
+    return open_tool
+
+
 #: Surfaces whose implementation is not the spec renderer.
 _ROUTES: Mapping[str, Callable[[Any], Any]] = MappingProxyType(
     {
@@ -899,6 +933,11 @@ _ROUTES: Mapping[str, Callable[[Any], Any]] = MappingProxyType(
         "memory": _open_memory,
         "nbt": _open_nbt,
         "notifications": _open_notifications,
+        "operationClone": _open_editor_tool("operationClone"),
+        "operationFill": _open_editor_tool("operationFill"),
+        "operationReplace": _open_editor_tool("operationReplace"),
+        "operationSetBiome": _open_editor_tool("operationSetBiome"),
+        "operationWaterlog": _open_editor_tool("operationWaterlog"),
         "palette": _open_palette,
         "prefs": _open_preferences,
         "regex": lambda parent: _open_local_spec(parent, "regex"),

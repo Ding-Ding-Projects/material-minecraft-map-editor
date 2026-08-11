@@ -175,6 +175,16 @@ UNSCANNED_ROUTED_SURFACES = frozenset(
         "memory",
         "nbt",
         "notifications",
+        # The five stock operations are not descriptions and never were: each
+        # one is the editor's own Operation tool with that operation selected,
+        # so there is nothing here to render and nothing here to compare a
+        # design fixture against.  What they actually do is proven against a
+        # real editor in tests/test_editor_operations_runtime.py.
+        "operationClone",
+        "operationFill",
+        "operationReplace",
+        "operationSetBiome",
+        "operationWaterlog",
         "palette",
         "prefs",
         "regex",

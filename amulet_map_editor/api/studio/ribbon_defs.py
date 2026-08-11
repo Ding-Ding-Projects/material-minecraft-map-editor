@@ -468,36 +468,40 @@ _OPERATIONS = RibbonTab(
         RibbonGroup(
             "Stock operations",
             buttons=(
+                # One surface key each.  They shared ``operationOptions`` until
+                # the five keys below existed, which meant every tile started
+                # the Operation tool on whichever operation its list sorted
+                # first: Clone looked right and its four siblings opened Clone.
                 _button(
                     "Clone",
                     "⧉",
                     "Copy the selection to another location",
-                    surface="operationOptions",
+                    surface="operationClone",
                     primary=True,
                 ),
                 _button(
                     "Fill",
                     "▧",
                     "Fill the selection with one block",
-                    surface="operationOptions",
+                    surface="operationFill",
                 ),
                 _button(
                     "Replace",
                     "⇄",
                     "Swap one block for another in the selection",
-                    surface="operationOptions",
+                    surface="operationReplace",
                 ),
                 _button(
                     "Set biome",
                     "❋",
                     "Apply a biome across the selection",
-                    surface="operationOptions",
+                    surface="operationSetBiome",
                 ),
                 _button(
                     "Waterlog",
                     "≈",
                     "Waterlog eligible blocks in the selection",
-                    surface="operationOptions",
+                    surface="operationWaterlog",
                 ),
             ),
             launcher="operationOptions",
