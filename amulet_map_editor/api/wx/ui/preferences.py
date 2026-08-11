@@ -1843,7 +1843,7 @@ class PreferencesDialog(wx.Dialog):
         )
         self.regex_button = studio.StudioButton(
             search_row.body,
-            "Regex…",
+            label="Regex…",
             variant="outlined",
             hint="Build a bounded regular-expression search",
             name="Preferences search regex builder",
@@ -2156,7 +2156,7 @@ class CommandPaletteDialog(wx.Dialog):
         )
         self.regex_button = studio.StudioButton(
             self,
-            "Regex…",
+            label="Regex…",
             variant="outlined",
             hint="Build a bounded regular-expression search",
             name="Command palette regex builder",
@@ -2338,7 +2338,7 @@ class ChangelogDialog(wx.Dialog):
         )
         self.regex_button = studio.StudioButton(
             self,
-            "Regex…",
+            label="Regex…",
             variant="outlined",
             hint="Build a bounded regular-expression search",
             name="Changelog search regex builder",
