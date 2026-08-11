@@ -108,7 +108,8 @@ class Fill(wx.Panel, DefaultOperationUI):
         )
 
     def _run_operation(self, _):
-        self.canvas.run_operation(self._fill)
+        """Fill the selection and return the outcome; see ``SimpleOperationPanel``."""
+        return self.canvas.run_operation(self._fill)
 
     def _fill(self):
         world = self.world

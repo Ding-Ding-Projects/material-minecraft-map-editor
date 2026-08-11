@@ -177,7 +177,8 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         )
 
     def _run_operation(self, _):
-        self.canvas.run_operation(lambda: self._waterlog())
+        """Waterlog and return the outcome; see ``SimpleOperationPanel``."""
+        return self.canvas.run_operation(lambda: self._waterlog())
 
     def _waterlog(self):
         mode = self._mode.GetString(self._mode.GetSelection())

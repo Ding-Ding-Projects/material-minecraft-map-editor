@@ -49,6 +49,7 @@ from amulet_map_editor.programs.edit.api.key_config import ACT_BOX_CLICK
 
 if TYPE_CHECKING:
     from amulet_map_editor.programs.edit.api.canvas import EditCanvas
+    from amulet_map_editor.programs.edit.api.canvas.edit_canvas import OperationOutcome
 
 log = logging.getLogger(__name__)
 
@@ -780,8 +781,16 @@ class PasteTool(wx.BoxSizer, DefaultBaseToolUI):
     def _paste_confirm(self, evt):
         self.confirm_paste()
 
-    def confirm_paste(self) -> None:
-        self.canvas.run_operation(self._paste_operation)
+    def confirm_paste(self) -> "OperationOutcome":
+        """Write the held structure into the world and say what happened.
+
+        This returned ``None`` whether the paste landed or was contained, which
+        is why ``editor_tools.confirm_pending`` had to infer the answer from the
+        world's undo depth.  The depth check stays -- it is the only evidence
+        available from a build whose paste tool predates this -- but a caller
+        that gets an outcome here now gets the real reason instead of a guess.
+        """
+        return self.canvas.run_operation(self._paste_operation)
 
     def _on_resize(self, evt):
         self._resize()

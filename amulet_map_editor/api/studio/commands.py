@@ -318,6 +318,18 @@ REQUIREMENTS: Mapping[str, Tuple[str, ...]] = MappingProxyType(
         "rotate": ("editor", "selection"),
         "flip": ("editor", "selection"),
         # -- Operations ------------------------------------------------------
+        # ``editor`` alone, and not ``("editor", "selection")`` like its
+        # neighbours, is a decision rather than an omission.  This command does
+        # two things: it brings the Operation tool to the front, and it runs
+        # whatever that tool has chosen.  Only the second half needs a
+        # selection -- every operation is handed ``selection.selection_group``
+        # and an empty group means it acts on nothing -- and gating the whole
+        # command would leave the user unable to reach the list of operations
+        # until after they had selected something, which is the wrong way
+        # round.  So the requirement stays at ``editor`` and
+        # ``StudioShell._run_active_operation`` declines the *run* when nothing
+        # is selected, naming the tool's own Run button so an operation that
+        # genuinely ignores the selection is still reachable.
         "runOperation": ("editor",),
         "reloadPlugins": ("editor",),
         # -- View ------------------------------------------------------------

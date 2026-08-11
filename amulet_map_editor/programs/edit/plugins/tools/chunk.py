@@ -36,6 +36,24 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+def _log_failure(action: str, outcome: object) -> None:
+    """Record that a chunk operation did not complete, naming which one.
+
+    ``run_operation`` reports the error to the user itself, so this deliberately
+    does not raise a second notification for the same fault.  What it adds is the
+    name of the button that was pressed: the canvas's own message says an
+    operation failed, and the log then said nothing at all about *which* of the
+    four chunk operations it was.  A deliberate abort -- the user cancelling the
+    progress dialog -- is not a failure and is not logged as one.
+
+    ``outcome`` is typed loosely on purpose: a build whose canvas predates
+    :class:`OperationOutcome` answers ``None`` here, and an absent answer is not
+    evidence of a failure.
+    """
+    if getattr(outcome, "failed", False):
+        log.warning("%s did not complete: %s", action, getattr(outcome, "message", ""))
+
+
 class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
     def __init__(self, canvas: "EditCanvas"):
         wx.BoxSizer.__init__(self, wx.HORIZONTAL)
@@ -249,36 +267,45 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
                 if not world.has_chunk(cx, cz, dimension):
                     world.put_chunk(Chunk(cx, cz), dimension)
 
-        self.canvas.run_operation(
-            lambda: create_chunks(
-                self.canvas.world,
-                self.canvas.dimension,
-                self.canvas.selection.selection_group,
-            )
+        _log_failure(
+            "Creating chunks",
+            self.canvas.run_operation(
+                lambda: create_chunks(
+                    self.canvas.world,
+                    self.canvas.dimension,
+                    self.canvas.selection.selection_group,
+                )
+            ),
         )
 
     def _delete_chunks(self, evt):
         load_original = self._ask_delete_chunks()
         if load_original is not None:
-            self.canvas.run_operation(
-                lambda: delete_chunk(
-                    self.canvas.world,
-                    self.canvas.dimension,
-                    self.canvas.selection.selection_group,
-                    load_original,
-                )
+            _log_failure(
+                "Deleting chunks",
+                self.canvas.run_operation(
+                    lambda: delete_chunk(
+                        self.canvas.world,
+                        self.canvas.dimension,
+                        self.canvas.selection.selection_group,
+                        load_original,
+                    )
+                ),
             )
 
     def _prune_chunks(self, evt):
         load_original = self._ask_delete_chunks()
         if load_original is not None:
-            self.canvas.run_operation(
-                lambda: prune_chunks(
-                    self.canvas.world,
-                    self.canvas.dimension,
-                    self.canvas.selection.selection_group,
-                    load_original,
-                )
+            _log_failure(
+                "Pruning chunks",
+                self.canvas.run_operation(
+                    lambda: prune_chunks(
+                        self.canvas.world,
+                        self.canvas.dimension,
+                        self.canvas.selection.selection_group,
+                        load_original,
+                    )
+                ),
             )
 
     def _import_chunks(self, evt):
@@ -311,8 +338,11 @@ class ChunkTool(wx.BoxSizer, DefaultBaseToolUI):
                 finally:
                     src_level.close()
 
-            self.canvas.run_operation(
-                operation, rollback_on_error=lambda: destination_changed
+            _log_failure(
+                "Importing chunks",
+                self.canvas.run_operation(
+                    operation, rollback_on_error=lambda: destination_changed
+                ),
             )
 
         with WorldSelectDialog(self.canvas, on_world_selected) as select_world:

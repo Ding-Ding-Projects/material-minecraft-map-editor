@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from amulet_map_editor.api.outcome import Outcome
 from amulet_map_editor.api.studio import context
 
 log = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ __all__ = [
     "Activation",
     "BRIDGES",
     "Outcome",
+    "PASTE_OUTCOME_REASONS",
     "PendingObject",
     "STOCK_OPERATIONS",
     "SelectionState",
@@ -556,34 +558,30 @@ def _say_label(english: str, cantonese: str) -> str:
         return english
 
 
-@dataclass(frozen=True)
-class Outcome:
-    """What one attempt to change the world actually did.
-
-    ``bool(outcome)`` is ``ok``, so a caller that only wants a yes or no still
-    reads it as one and the older ``if not confirm_pending():`` shape keeps
-    working.  A caller that has to tell the user *what* went wrong reads
-    ``title`` and ``message``, which are already in the reader's language and
-    tone, and ``reason``, which is a stable token so a surface can decide what
-    to do without matching on prose.
-
-    ``reason`` is empty on success.  The failures are ``nothing-pending`` (the
-    paste tool is not holding anything, so the surface showing it is stale),
-    ``no-confirm`` (this build's paste tool has no confirm at all),
-    ``not-written`` (the confirm ran and the world did not change) and
-    ``still-held`` (the object was not dropped and is still drawn).  Those four
-    want four different things from the interface, which is exactly why a bare
-    ``False`` was not enough: it made "the tool went away" and "your blocks were
-    not written" the same answer.
-    """
-
-    ok: bool
-    reason: str = ""
-    title: str = ""
-    message: str = ""
-
-    def __bool__(self) -> bool:
-        return bool(self.ok)
+#: This module's own :class:`Outcome` reason tokens, all of them failures.
+#:
+#: ``nothing-pending`` -- the paste tool is not holding anything, so the surface
+#: showing it is stale.  ``no-confirm`` -- this build's paste tool has no
+#: confirm at all.  ``not-written`` -- the confirm ran and the world did not
+#: change.  ``still-held`` -- the object was not dropped and is still drawn.
+#: ``aborted`` -- the paste was stopped on purpose, by the user cancelling its
+#: progress dialog or by the operation ending itself, so nothing went wrong and
+#: there is nothing to report as an error.
+#:
+#: Those five want five different things from the interface, which is exactly
+#: why a bare ``False`` was not enough: it made "the tool went away" and "your
+#: blocks were not written" the same answer.
+#:
+#: The class itself lives in :mod:`amulet_map_editor.api.outcome` so the canvas
+#: can return the same shape without importing Studio, and is re-exported here
+#: because ``editor_tools.Outcome`` is what every caller and test already reads.
+PASTE_OUTCOME_REASONS: Tuple[str, ...] = (
+    "nothing-pending",
+    "no-confirm",
+    "not-written",
+    "still-held",
+    "aborted",
+)
 
 
 def _refused(
@@ -1183,10 +1181,14 @@ def confirm_pending(target: Any = None, parent: Any = None) -> Outcome:
     renderer has been drawing, with the editor's progress reporting and its
     undo point.
 
-    **Why the undo depth is read.**  ``confirm_paste`` returns nothing, and the
-    canvas's ``run_operation`` catches ``BaseException`` unless it is asked not
-    to -- so a paste that raised and a paste that wrote the world are the same
-    ``None`` to the caller.  Reporting success from "the call returned" would
+    **Why the undo depth is read.**  ``confirm_paste`` used to return nothing,
+    and the canvas's ``run_operation`` contains an operation's exceptions unless
+    it is asked not to -- so a paste that raised and a paste that wrote the world
+    were the same ``None`` to the caller.  Both now report an outcome and it is
+    believed when it arrives, but the depth check stays: it is the only evidence
+    available from a build whose paste tool predates that, and it is what
+    ``test_editor_confirm_outcome`` exercises.  Reporting success from "the call
+    returned" would
     therefore say the blocks landed whenever the confirm was merely *attempted*,
     which is the one thing a caller cannot check for itself without reading the
     world back.  ``run_operation`` creates its undo point only on the path where
@@ -1239,7 +1241,7 @@ def confirm_pending(target: Any = None, parent: Any = None) -> Outcome:
         )
     before = _undo_depth(active)
     try:
-        confirm()
+        reported = confirm()
     except Exception:  # noqa: BLE001 - a confirm that raised before run_operation
         # ``confirm_paste`` normally hands the work to ``run_operation``, which
         # swallows.  A raise arriving here therefore means it did not even get
@@ -1261,6 +1263,36 @@ def confirm_pending(target: Any = None, parent: Any = None) -> Outcome:
             ),
         )
     _settle()
+    # A paste tool that reports its own outcome is believed over the undo-depth
+    # inference below, because it knows *why* rather than only *that*: a user who
+    # cancelled the progress dialog and a paste that broke both leave the depth
+    # unmoved, and the depth check has to call both of them an error.  A tool
+    # that answers ``None`` -- every build before ``confirm_paste`` returned one,
+    # and every stand-in -- falls through to the depth exactly as before.
+    if reported is not None and not reported:
+        if getattr(reported, "reason", "") == "aborted":
+            # Stopped on purpose.  ``_run_operation`` says nothing about a silent
+            # abort by design, and a notification here would turn the user's own
+            # cancel into a red error about a paste that did what they asked.
+            log.info("The paste was cancelled before it wrote anything")
+            return Outcome(ok=False, reason="aborted")
+        detail = str(getattr(reported, "message", "") or "")
+        return _refused(
+            parent,
+            "not-written",
+            ("Confirm placement wrote nothing", "確認擺位乜都冇寫入"),
+            (
+                "Confirm placement ran and the paste was stopped before any blocks "
+                "were written, so the world is unchanged"
+                + (f": {detail}. " if detail else ". ")
+                + "The object is still being held: try Confirm placement again, or "
+                "Cancel to drop it. The error is in the application log.",
+                "「確認擺位」行咗，但係貼上喺寫入之前就俾人攔住咗，個世界冇變過"
+                + (f"：{detail}。" if detail else "。")
+                + "嗰嚿嘢仲揸喺手：可以再撳一次「確認擺位」，或者撳「取消」放低佢。"
+                "錯誤詳情喺程式嘅 log 度。",
+            ),
+        )
     after = _undo_depth(active)
     if before is None or after is None:
         log.warning(
@@ -1635,13 +1667,36 @@ def _lift_selection(entry: ToolBridge, active: Any, parent: Any) -> Activation:
         _report(parent, f"{entry.label} did not start", message, severity="error")
         return _failed(entry, message)
     try:
-        lift()
+        lifted = lift()
     except Exception:
         log.exception("Could not %s the selection for %r", entry.lift, entry.key)
         message = (
             f"The selection could not be {entry.lift}. The details are in the log."
         )
         _report(parent, f"{entry.label} did not start", message, severity="error")
+        return _failed(entry, message)
+    # The canvas contains the operation's own exceptions, so the ``except``
+    # above only ever catches a failure to *call* the copy -- never a copy that
+    # failed while it ran, which is every real one.  Without this the structure
+    # cache still holds whatever was copied last, so the paste tool would take
+    # the *previous* copy and the pane would report the wrong blocks as lifted.
+    # A canvas that answers ``None`` is one that cannot say, and is not treated
+    # as a refusal.
+    if lifted is not None and not lifted:
+        detail = str(getattr(lifted, "message", "") or "")
+        # ``entry.lift`` is the verb -- "copy" or "cut" -- and this sentence
+        # needs the past participle, or it reads "the selection was not copy".
+        done = "copied" if entry.lift == "copy" else "cut"
+        message = (
+            f"The selection was not {done}, so nothing was handed to the "
+            "paste tool" + (f": {detail}" if detail else ".")
+        )
+        _report(
+            parent,
+            f"{entry.label} did not start",
+            message,
+            severity="error" if getattr(lifted, "failed", False) else "warning",
+        )
         return _failed(entry, message)
     try:
         active.paste_from_cache()

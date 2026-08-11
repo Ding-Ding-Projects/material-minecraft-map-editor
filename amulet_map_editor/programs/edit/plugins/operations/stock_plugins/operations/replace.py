@@ -137,7 +137,8 @@ class Replace(SimpleScrollablePanel, DefaultOperationUI):
         )
 
     def _run_operation(self, _):
-        self.canvas.run_operation(self._replace)
+        """Replace and return the outcome; see ``SimpleOperationPanel``."""
+        return self.canvas.run_operation(self._replace)
 
     def _replace(self):
         world = self.world
