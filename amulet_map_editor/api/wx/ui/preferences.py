@@ -7,6 +7,8 @@ typography are sourced from one persisted :mod:`api.preferences` record.
 
 from __future__ import annotations
 
+import logging
+
 from datetime import date
 from dataclasses import asdict
 from pathlib import Path
@@ -36,6 +38,8 @@ from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 from amulet_map_editor.api.wx.ui.simple import MaterialDateTimeField
+
+log = logging.getLogger(__name__)
 
 
 def _label(parent: wx.Window, text: str, help_text: str) -> wx.StaticText:
@@ -1603,6 +1607,30 @@ class PreferencesDialog(wx.Dialog):
         )
         apply_material3(self.GetParent())
         parent = self.GetParent()
+
+        # apply_material3 restyles native controls, and the Studio shell opts
+        # out of that traversal on purpose because it paints itself. Without
+        # telling it, saving preferences moved zero owner-drawn widgets:
+        # language, theme, density and accent were stored values that only took
+        # effect on the next launch. A setting the user changed and cannot see
+        # change reads as a setting that does not work.
+        try:
+            from amulet_map_editor.api.studio import tokens as studio_tokens
+
+            studio_tokens.notify_theme_changed()
+        except Exception:
+            # The Studio layer is optional for a headless or partial install;
+            # the native restyle above still applies.
+            log.debug("Could not notify the Studio theme listeners", exc_info=True)
+
+        studio = getattr(parent, "_studio", None)
+        refresh = getattr(studio, "refresh_theme", None)
+        if callable(refresh):
+            try:
+                refresh()
+            except RuntimeError:
+                log.debug("The Studio shell was closing during a refresh")
+
         if hasattr(parent, "refresh_display_identity"):
             parent.refresh_display_identity(saved_preferences.display_name)
         self.EndModal(wx.ID_OK)

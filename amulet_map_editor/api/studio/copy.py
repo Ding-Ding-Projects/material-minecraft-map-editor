@@ -30,9 +30,19 @@ _FACT_TOKEN = re.compile(r"^\S*(?:\d|[:/\\#]|\.[0-9A-Za-z])\S*$")
 #: Sentence punctuation in both languages, used to tell prose from a label.
 _SENTENCE_END = re.compile(r"[.!?…。！？]")
 
+#: A trailing ellipsis on a control means "this opens a further surface". It is
+#: a convention, not sentence punctuation, and treating it as the latter made
+#: every "Remove from list…" and "Export list…" read as prose -- so they were
+#: the only two strings in the entire interface that received a funny-level
+#: aside, which is precisely the case the label rule exists to prevent.
+_TRAILING_ELLIPSIS = re.compile(r"(\.\.\.|…)\s*$")
+
 #: A string of at most this many words with no sentence punctuation is a
-#: control label, not a message, and is left alone.
-_MAX_LABEL_WORDS = 3
+#: control label, not a message, and is left alone. Five rather than three
+#: because real labels reach that length -- "Restart to install update" is four,
+#: "Select all matches" is three -- while a genuine message almost always
+#: carries sentence punctuation and is caught by that test instead.
+_MAX_LABEL_WORDS = 5
 
 
 def _presentation() -> preferences.Preferences:
@@ -80,7 +90,12 @@ def is_verbatim(text: str) -> bool:
     words = value.split()
     if all(_FACT_TOKEN.match(word) for word in words):
         return True
-    return len(words) <= _MAX_LABEL_WORDS and _SENTENCE_END.search(value) is None
+    # Judge the label without its "opens something" ellipsis.
+    without_ellipsis = _TRAILING_ELLIPSIS.sub("", value).strip()
+    return (
+        len(words) <= _MAX_LABEL_WORDS
+        and _SENTENCE_END.search(without_ellipsis) is None
+    )
 
 
 def _style(text: str, language: str, level: int) -> str:
