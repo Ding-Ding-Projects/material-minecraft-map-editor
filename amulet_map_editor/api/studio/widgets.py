@@ -804,7 +804,18 @@ class StudioButton(wx.Control, _Interactive):
     well so a surface can bind either way.  A label containing a newline is
     drawn as a prominent first line above a compact second one, which is what
     bilingual mode produces and what keeps it from crowding a control.
+
+    A button given an explicit ``name`` keeps it when its label changes.  That
+    matters wherever the label is a *reading* rather than a name: an undo
+    button whose label is the depth counter would otherwise introduce itself to
+    a screen reader as "0", and then as "1", and be a different control every
+    time the count moved.
     """
+
+    #: Class level, because wx can reach ``SetLabel`` before ``__init__`` has
+    #: bound the instance attribute, and an ``AttributeError`` raised there
+    #: surfaces as a button that cannot be constructed at all.
+    _named: bool = False
 
     def __init__(
         self,
@@ -831,6 +842,10 @@ class StudioButton(wx.Control, _Interactive):
         self._height = height
         wx.Control.SetLabel(self, str(label))
         self._install(name or str(label) or self.hint or "Button")
+        # After ``_install``, which goes through the ``SetName`` override below
+        # and would otherwise mark every button as explicitly named -- including
+        # the ones whose name is only the label echoed back.
+        self._named = bool(name)
         self._bind_interaction()
         if self.hint:
             self.SetToolTip(self.hint)
@@ -950,10 +965,16 @@ class StudioButton(wx.Control, _Interactive):
 
     def SetLabel(self, label: str) -> None:  # noqa: N802 - wx API spelling
         super().SetLabel(str(label))
-        self.SetName(str(label) or self.hint or "Button")
+        if not self._named:
+            self.SetName(str(label) or self.hint or "Button")
         self.InvalidateBestSize()
         self.SetMinSize(self.DoGetBestSize())
         self.Refresh()
+
+    def SetName(self, name: str) -> None:  # noqa: N802 - wx API spelling
+        """Set the accessible name, and stop deriving it from the label."""
+        self._named = bool(name)
+        super().SetName(name)
 
     def activate(self) -> None:
         if not self.IsEnabled():
@@ -978,7 +999,17 @@ class StudioButton(wx.Control, _Interactive):
             else:
                 self._paint_label(dc, rect, padding, size_px, weight, ink)
             if self.HasFocus():
-                draw_focus_ring(dc, rect, scaled_radius, palette.primary)
+                draw_focus_ring(dc, rect, scaled_radius, self._focus_ink(palette))
+
+    def _focus_ink(self, palette: tokens.StudioPalette) -> wx.Colour:
+        """Return the ink the focus ring is drawn in.
+
+        A subclass drawn on something other than a Studio surface -- an overlay
+        floating over a rendered world, say -- overrides this, because a primary
+        ring on a dark scrim is the one part of the focus indicator that
+        disappears exactly when a keyboard user needs it.
+        """
+        return palette.primary
 
     def _paint_label(
         self,
@@ -1271,6 +1302,12 @@ class StudioText(wx.Control, _Themed):
     rather than a rewrite of everything that talks to it afterwards.  Setting a
     foreground colour explicitly wins over the palette role, because a caller
     that paints its own error ink means it; :meth:`set_role` hands control back.
+
+    A tooltip is given as ``hint`` rather than set from outside.  This control
+    owns its own tooltip: :func:`note_elision` rewrites it on every paint so the
+    whole of a shortened line stays reachable, and a tooltip set by a caller
+    afterwards is therefore erased the first time the control draws -- silently,
+    and with nothing in the source to say why.
     """
 
     # Class-level defaults, because wx may call an overridden setter from
@@ -1298,9 +1335,11 @@ class StudioText(wx.Control, _Themed):
         max_lines: int = 64,
         ellipsize: bool = False,
         name: str = "",
+        hint: str = "",
     ) -> None:
         super().__init__(parent, style=wx.BORDER_NONE)
         wx.Control.SetLabel(self, str(label))
+        self.hint = str(hint)
         self._size_px = float(size_px)
         self._weight = weight
         self._role = str(role)
@@ -1319,6 +1358,8 @@ class StudioText(wx.Control, _Themed):
         # would otherwise mark every control as explicitly named -- including
         # the ones whose name is only the label echoed back.
         self._named = bool(name)
+        if self.hint:
+            self.SetToolTip(self.hint)
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self._relayout()
@@ -1511,7 +1552,7 @@ class StudioText(wx.Control, _Themed):
                 else:
                     dc.DrawText(text, 0, y)
                 y += leading
-            note_elision(self, "\n".join(self._lines), "\n".join(drawn))
+            note_elision(self, "\n".join(self._lines), "\n".join(drawn), hint=self.hint)
 
 
 class Card(wx.Panel, _Themed):
@@ -3594,8 +3635,10 @@ class SearchableChoice(wx.Panel, _Interactive):
         *,
         on_change: Optional[Callable[[str], None]] = None,
         swatches: Optional[Mapping[str, str] | Sequence[str]] = None,
+        hint: str = "",
     ) -> None:
         super().__init__(parent, style=wx.WANTS_CHARS)
+        self.hint = str(hint)
         self.label = str(label)
         self.options: List[str] = [str(option) for option in options]
         self.value = str(value) or (self.options[0] if self.options else "")
@@ -3607,6 +3650,10 @@ class SearchableChoice(wx.Panel, _Interactive):
         self._highlight = 0
         self._install(f"{self.label}: {self.value}")
         self._bind_interaction()
+        # The combo owns its tooltip: ``note_elision`` rewrites it on every
+        # paint so an elided value stays readable, which silently erases one set
+        # from outside.  ``hint`` is how a caller gets one that survives.
+        self.SetToolTip(self.hint or self.label)
         self.SetInitialSize(self.DoGetBestSize())
 
     def _normalise_swatches(
@@ -3816,7 +3863,7 @@ class SearchableChoice(wx.Panel, _Interactive):
             dc.SetTextForeground(palette.on_surface)
             available = max(0, box.width - tokens.scaled(46))
             value = elide(dc, self.value, available)
-            note_elision(self, self.value, value, hint=self.label)
+            note_elision(self, self.value, value, hint=self.hint or self.label)
             dc.DrawText(
                 value,
                 tokens.scaled(15),
@@ -3849,6 +3896,338 @@ class SearchableChoice(wx.Panel, _Interactive):
                 dc.DrawText(label, notch.x + tokens.scaled(4), 0)
             if self.HasFocus():
                 draw_focus_ring(dc, box, tokens.scaled(4), palette.primary)
+
+
+# ----------------------------------------------------------------------------
+# floating overlays over a rendered view
+# ----------------------------------------------------------------------------
+
+#: The ink everything on an overlay surface is drawn in.  An overlay is a scrim
+#: -- dark in both themes, because what is behind it is a rendered world rather
+#: than a Studio surface -- so its ink is fixed rather than a palette role that
+#: would go dark on a dark backdrop and vanish.  This is the same white the
+#: heads-up chips use, which is what makes a toolbar and the chips under it read
+#: as one family instead of two.
+OVERLAY_INK = wx.Colour(255, 255, 255)
+
+#: The state-layer opacities M3 specifies, as alpha out of 255: hover 8%,
+#: pressed 12%, plus the outline and disabled ink strengths an on-scrim control
+#: needs to stay legible.
+_OVERLAY_HOVER_ALPHA = 20
+_OVERLAY_PRESSED_ALPHA = 36
+_OVERLAY_OUTLINE_ALPHA = 110
+_OVERLAY_DISABLED = 0.55
+
+
+def overlay_fill(backdrop: wx.Colour, palette: tokens.StudioPalette) -> wx.Colour:
+    """Return the opaque colour the scrim resolves to over ``backdrop``.
+
+    The scrim role is translucent, and a child window cannot see through its
+    parent: on Windows a sibling of an OpenGL canvas is its own surface, so
+    "translucent" would mean "translucent over whatever the parent last
+    painted" rather than over the world.  Compositing the scrim here gives one
+    opaque colour that the bar paints and that every control inside it clears
+    to, so the bar reads as a single surface instead of a patchwork of
+    rectangles each guessing at its own backdrop.
+    """
+    scrim = palette.scrim
+    opaque = wx.Colour(scrim.Red(), scrim.Green(), scrim.Blue(), 255)
+    return tokens.blend(backdrop, opaque, scrim.Alpha() / 255.0)
+
+
+class OverlayBar(wx.Panel, _Themed):
+    """A floating M3 surface for controls drawn over a rendered view.
+
+    It is the toolbar counterpart of the heads-up chips: same scrim, same
+    corner radius family, same elevation, so a row of controls at the top of a
+    3D view belongs with the readouts under it rather than looking like the
+    platform's own chrome someone forgot to style.
+
+    The surface is drawn inset by :attr:`MARGIN` so its shadow has somewhere to
+    fall -- :func:`tokens.draw_elevation` paints *outside* the rectangle it is
+    given, and a bar filling its whole client area clips its own elevation away.
+    """
+
+    #: Room left around the painted surface for the shadow, in design pixels.
+    MARGIN = 3
+    #: Shape and lift, both taken from the heads-up chips rather than chosen
+    #: afresh, because the whole point of this surface is to sit beside them.
+    RADIUS = tokens.RADIUS_SM
+    ELEVATION = 1
+    #: A scrim floats over *rendered content*, not over a Studio surface, so its
+    #: shadow is the dark one in either theme -- the same call the chips make.
+    SHADOW_IS_DARK = True
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        name: str = "Overlay",
+        radius: Optional[int] = None,
+        elevation: Optional[int] = None,
+    ) -> None:
+        super().__init__(parent, style=wx.TAB_TRAVERSAL)
+        self.radius = int(self.RADIUS if radius is None else radius)
+        self.elevation = int(self.ELEVATION if elevation is None else elevation)
+        self._install(name or "Overlay")
+        self._apply_theme(self.palette())
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
+
+    def surface_colour(self) -> wx.Colour:
+        """Return the opaque colour this bar paints its surface in.
+
+        The bar's own shadow is part of the answer.  ``draw_elevation`` covers
+        the interior of the rectangle it lifts as well as the ground around it,
+        and the heads-up chips paint their scrim translucently on top of that --
+        so a bar that composited the scrim over the bare backdrop alone would
+        come out visibly paler than a chip sitting two pixels beneath it, at
+        the same elevation, in the same theme.
+        """
+        palette = self.palette()
+        backdrop = self._parent_colour()
+        if backdrop is None or not backdrop.IsOk():
+            backdrop = palette.surface
+        lifted = tokens.elevation_tint(backdrop, self.elevation, self.SHADOW_IS_DARK)
+        return overlay_fill(lifted, palette)
+
+    def _parent_colour(self) -> Optional[wx.Colour]:
+        """Return what the host paints behind this bar.
+
+        A host that draws a gradient answers per rectangle through
+        ``background_colour_at``, which is how the heads-up readouts already
+        sample the sky they float over.  Asking the same question the same way
+        is what keeps a toolbar and the chips beneath it the same shade instead
+        of two guesses at one backdrop.
+        """
+        parent = self.GetParent()
+        if parent is None:
+            return None
+        sampler = getattr(parent, "background_colour_at", None)
+        if callable(sampler):
+            try:
+                return sampler(self.GetRect())
+            except Exception:  # noqa: BLE001 - the host is mid-teardown
+                log.debug("Could not sample the backdrop behind %s", self.GetName())
+        return parent.GetBackgroundColour()
+
+    def _backdrop(self) -> wx.Colour:
+        # The few pixels of shadow margin around the surface, which show what
+        # is behind the bar rather than the bar itself.
+        colour = self._parent_colour()
+        return (
+            colour if colour is not None and colour.IsOk() else self.palette().surface
+        )
+
+    def _apply_theme(self, palette: tokens.StudioPalette) -> None:
+        # Every Studio child clears itself to its parent's background colour, so
+        # this has to be the colour the bar actually paints -- otherwise each
+        # control paints a rectangle of the wrong shade inside the surface.
+        self.SetBackgroundColour(self.surface_colour())
+
+    def Reparent(self, parent: wx.Window) -> bool:  # noqa: N802 - wx API spelling
+        """Move the bar, and re-resolve the surface against its new backdrop.
+
+        An overlay is routinely reparented: the editor builds its panels beside
+        its own canvas and the shell then borrows them onto the viewport.  The
+        scrim is composited against whatever is behind it, so a bar that kept
+        the old parent's colour would paint the shade of a window it no longer
+        sits on.
+        """
+        moved = super().Reparent(parent)
+        self._apply_theme(self.palette())
+        self.Refresh()
+        return moved
+
+    def surface_rect(self, rect: wx.Rect) -> wx.Rect:
+        """Return the painted surface inside ``rect``, shadow margin removed."""
+        margin = tokens.scaled(self.MARGIN)
+        return wx.Rect(
+            rect.x + margin,
+            rect.y + margin,
+            max(0, rect.width - margin * 2),
+            max(0, rect.height - margin * 2),
+        )
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the bar's shadow and its rounded scrim surface.
+
+        The surface goes down opaque rather than as a translucent scrim, and
+        :meth:`surface_colour` has already folded the shadow into that colour.
+        Painting it opaque is what lets a child window clear itself to exactly
+        the same value: a child is a separate surface and cannot see through to
+        what its parent composited.
+        """
+        with self._painting(dc, rect) as rect:
+            surface = self.surface_rect(rect)
+            if surface.width <= 0 or surface.height <= 0:
+                return
+            radius = tokens.scaled(self.radius)
+            tokens.draw_elevation(
+                dc, surface, radius, self.elevation, self.SHADOW_IS_DARK
+            )
+            tokens.draw_round_rect(dc, surface, radius, self.surface_colour())
+
+
+def overlay_backdrop(window: wx.Window) -> Optional[wx.Colour]:
+    """Return the surface colour of the :class:`OverlayBar` above ``window``.
+
+    Read live rather than taken from the parent's stored background colour,
+    because an overlay is reparented in normal use and a control that cached
+    its backdrop would clear itself to the shade of a window it left.
+    """
+    parent = window.GetParent()
+    while parent is not None:
+        if isinstance(parent, OverlayBar):
+            return parent.surface_colour()
+        parent = parent.GetParent()
+    return None
+
+
+class _OnOverlay:
+    """Backdrop resolution shared by every control drawn on an overlay bar."""
+
+    def _backdrop(self) -> wx.Colour:
+        colour = overlay_backdrop(self)
+        return colour if colour is not None else super()._backdrop()
+
+
+class OverlayButton(_OnOverlay, StudioButton):
+    """A :class:`StudioButton` drawn on an :class:`OverlayBar`.
+
+    Everything a Studio button already does is kept -- ``on_click`` and the
+    emitted ``wx.EVT_BUTTON``, Enter and Space activation, the focus ring, the
+    tooltip, the accessible name, the measured best size, and one ``render_to``
+    that both the screen and a capture go through.  Only the palette changes:
+    resting is transparent so the scrim shows, ink is the overlay white, and
+    hover and press are white state layers rather than surface containers that
+    would be invisible on a dark bar.
+    """
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        label: str = "",
+        *,
+        variant: str = "text",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(parent, label, variant=variant, **kwargs)
+
+    def _variant_colours(
+        self, palette: tokens.StudioPalette
+    ) -> Tuple[Optional[wx.Colour], wx.Colour, Optional[wx.Colour]]:
+        if not self.IsEnabled():
+            return (
+                None,
+                tokens.blend(OVERLAY_INK, self._backdrop(), _OVERLAY_DISABLED),
+                None,
+            )
+        return None, OVERLAY_INK, None
+
+    def _state_colours(
+        self, palette: tokens.StudioPalette
+    ) -> Tuple[Optional[wx.Colour], wx.Colour, Optional[wx.Colour]]:
+        fill, ink, border = self._variant_colours(palette)
+        if self.IsEnabled() and (self._pressed or self._hovered):
+            alpha = _OVERLAY_PRESSED_ALPHA if self._pressed else _OVERLAY_HOVER_ALPHA
+            fill = wx.Colour(255, 255, 255, alpha)
+        return fill, ink, border
+
+    def _focus_ink(self, palette: tokens.StudioPalette) -> wx.Colour:
+        return OVERLAY_INK
+
+
+class OverlayText(_OnOverlay, StudioText):
+    """A :class:`StudioText` reading in the overlay ink rather than a role.
+
+    It exists so a caller does not have to remember to recolour every readout
+    it puts on a bar, and so the ink survives a theme change: a role-coloured
+    caption on a scrim is legible in one theme and gone in the other.
+    """
+
+    def __init__(self, parent: wx.Window, label: str = "", **kwargs: Any) -> None:
+        super().__init__(parent, label, **kwargs)
+        self.SetForegroundColour(OVERLAY_INK)
+
+
+class OverlayChoice(_OnOverlay, SearchableChoice):
+    """The compact dropdown an :class:`OverlayBar` carries.
+
+    It is a :class:`SearchableChoice` throughout -- the same popup, the same
+    search field, the same regex opt-in and builder, the same keyboard path --
+    drawn small enough to sit in a toolbar and inked for a scrim.  The floating
+    label a full-height combo carries is dropped, because a toolbar row has no
+    vertical room for one; the label it was given still names the control to a
+    screen reader and still titles the popup, so nothing is lost but the pixels.
+    """
+
+    WIDTH = 132
+    MAX_WIDTH = 280
+
+    def _row_height(self) -> int:
+        """Return the closed combo's height.
+
+        The density's control height, so the combo lines up with the buttons
+        beside it and clears the touch-target floor at every density rather
+        than being sized to whatever a toolbar happened to have room for.
+        """
+        return tokens.control_height()
+
+    def set_value(self, value: str, *, notify: bool = False) -> None:
+        """Choose an option, and re-measure: the combo is sized to its value."""
+        super().set_value(value, notify=notify)
+        self.InvalidateBestSize()
+        self.SetMinSize(self.DoGetBestSize())
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            # Only the current value is measured, not the longest option: a
+            # toolbar has a fixed width to spend and a dimension list can be
+            # arbitrarily long, so the popup is where a long name is read.
+            value_width = dc.GetTextExtent(self.value or " ")[0]
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(
+                tokens.scaled(self.WIDTH),
+                value_width + tokens.scaled(42) + TEXT_SLACK * 2,
+            ),
+        )
+        return wx.Size(width, self._row_height())
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the closed combo: its outline, current value, and caret."""
+        palette = self.palette()
+        with self._painting(dc, rect) as rect:
+            radius = tokens.scaled(tokens.RADIUS_SM)
+            opened = self._popup is not None
+            focused = self.HasFocus() or opened
+            fill = None
+            if opened or self._pressed:
+                fill = wx.Colour(255, 255, 255, _OVERLAY_PRESSED_ALPHA)
+            elif self._hovered:
+                fill = wx.Colour(255, 255, 255, _OVERLAY_HOVER_ALPHA)
+            border = (
+                OVERLAY_INK
+                if focused
+                else wx.Colour(255, 255, 255, _OVERLAY_OUTLINE_ALPHA)
+            )
+            tokens.draw_round_rect(
+                dc, rect, radius, fill, border, border_width=2 if focused else 1
+            )
+            left = tokens.scaled(11)
+            dc.SetFont(tokens.font(self, point_size(10)))
+            caret_width, caret_height = dc.GetTextExtent("▾")
+            caret_x = rect.width - tokens.scaled(10) - caret_width
+            dc.SetTextForeground(OVERLAY_INK)
+            dc.DrawText("▾", caret_x, (rect.height - caret_height) // 2)
+            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            value = elide(dc, self.value, max(0, caret_x - left - tokens.scaled(6)))
+            note_elision(self, self.value, value, hint=self.hint or self.label)
+            dc.DrawText(value, left, (rect.height - dc.GetCharHeight()) // 2)
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, radius, OVERLAY_INK)
 
 
 # ----------------------------------------------------------------------------
@@ -5163,7 +5542,12 @@ __all__ = [
     "KeyGate",
     "ListRow",
     "MAX_IMAGE_BYTES",
+    "OVERLAY_INK",
     "OutlinedField",
+    "OverlayBar",
+    "OverlayButton",
+    "OverlayChoice",
+    "OverlayText",
     "PathField",
     "ProgressRow",
     "RangeRow",
@@ -5188,6 +5572,7 @@ __all__ = [
     "elide",
     "format_number",
     "invoke",
+    "overlay_fill",
     "paint_context",
     "point_size",
     "reduced_motion",
