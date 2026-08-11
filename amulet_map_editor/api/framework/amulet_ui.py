@@ -63,6 +63,9 @@ NOTEBOOK_MENU_STYLE = (
 )
 NOTEBOOK_STYLE = NOTEBOOK_MENU_STYLE | flatnotebook.FNB_X_ON_TAB
 UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+#: How long an informational toast stays before retiring itself.
+#: Warnings and errors are exempt: they persist until dismissed.
+NOTIFICATION_DISMISS_MS = 8000
 
 #: How long to wait before looking again for an editor canvas that is still
 #: being built, and how long to keep looking before saying it never arrived.
@@ -305,16 +308,62 @@ class AmuletUI(wx.Frame):
         toast = NotificationToast(
             self._shell, title, body, severity, self._dismiss_notification
         )
+        # Float it over the interface rather than inserting it into the shell's
+        # sizer. As a sizer child a toast became a full-width banner across the
+        # top that reflowed the whole window and pushed the application down --
+        # which is displacement, not notification, and it is what a
+        # non-blocking surface must never do.
         self._notification_toasts.append(toast)
-        self._shell_sizer.Insert(
-            1, toast, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8
-        )
-        self._shell.Layout()
+        toast.SetName(f"Notification toast: {title}")
+        self._position_notification_toasts()
+        toast.Raise()
+        toast.Show()
+        # Informational toasts retire themselves; warnings and errors stay until
+        # they are read, because those are the ones that matter after the moment
+        # has passed.
+        if severity not in ("warning", "error"):
+            wx.CallLater(
+                NOTIFICATION_DISMISS_MS,
+                lambda: self._dismiss_notification(toast),
+            )
+
+    def _position_notification_toasts(self) -> None:
+        """Stack the live toasts up from the bottom-right of the interface.
+
+        They are positioned, never laid out: a toast must not take space from
+        the surface it is reporting about, and it must not move anything the
+        reader is currently looking at.
+        """
+        if self.IsBeingDeleted():
+            return
+        shell = getattr(self, "_shell", None)
+        if shell is None:
+            return
+        margin = 16
+        width, height = shell.GetClientSize()
+        bottom = height - margin
+        for toast in reversed(self._notification_toasts):
+            try:
+                if toast.IsBeingDeleted():
+                    continue
+                toast.Fit()
+                size = toast.GetSize()
+                toast_width = min(max(size.width, 280), max(280, width - margin * 2))
+                toast.SetSize(wx.Size(toast_width, size.height))
+                bottom -= size.height
+                toast.SetPosition(wx.Point(width - toast_width - margin, bottom))
+                bottom -= 8
+                toast.Raise()
+            except RuntimeError:
+                # A toast destroyed between the list and here is not an error;
+                # the next reposition drops it.
+                continue
 
     def _dismiss_notification(self, toast: NotificationToast) -> None:
         if toast not in self._notification_toasts:
             return
         self._notification_toasts.remove(toast)
+        self._position_notification_toasts()
         self._shell_sizer.Detach(toast)
         toast.Destroy()
         self._shell.Layout()
@@ -627,8 +676,13 @@ class AmuletUI(wx.Frame):
             "and building its texture atlas. Nothing here is read from the "
             "world yet."
         )
-        if self._canvas_host_timer is not None and self._canvas_host_timer.IsRunning():
-            return
+        # A fresh one-shot each time rather than a guard on the old one being
+        # idle: a `wx.CallLater` still reports itself as running while it is
+        # inside its own callback, so a guard would let the very first retry
+        # cancel the whole chain and the canvas would never be looked for
+        # again -- which looks exactly like a renderer that failed to start.
+        if self._canvas_host_timer is not None:
+            self._canvas_host_timer.Stop()
         self._canvas_host_timer = wx.CallLater(
             CANVAS_HOST_RETRY_MS, self.sync_studio_project
         )
@@ -639,12 +693,16 @@ class AmuletUI(wx.Frame):
         self._canvas_host_timer = None
         self._canvas_host_deadline = None
 
-    def release_hosted_canvas(self, page: Optional[WorldPageUI] = None) -> None:
+    def release_hosted_canvas(
+        self, page: Optional[WorldPageUI] = None, *, closing: bool = False
+    ) -> None:
         """Give a borrowed canvas back to the extension that owns it.
 
         Called before a world page closes and whenever the viewport is about to
         show a different one.  ``page`` narrows it to one world's canvas, so
-        closing one world never takes the renderer away from another.
+        closing one world never takes the renderer away from another, and
+        ``closing`` says the extension is about to destroy it rather than use
+        it again.
         """
         record = self._hosted_canvas
         if record is None:
@@ -667,6 +725,16 @@ class AmuletUI(wx.Frame):
                 sizer = owner.GetSizer()
                 if sizer is not None and sizer.GetItem(canvas) is None:
                     sizer.Add(canvas, 1, wx.EXPAND)
+                if not closing:
+                    # The viewport hides a canvas as it lets go of it, and the
+                    # extension lent it shown. Handing back a hidden canvas
+                    # makes the extension's next `enable()` fail: an OpenGL
+                    # context cannot be made current on a canvas that is not
+                    # shown, and the failure surfaces while closing an
+                    # unrelated world. Showing it is skipped for a canvas whose
+                    # page is closing, because showing queues a deferred resize
+                    # that would then run against a destroyed window.
+                    canvas.Show()
                 owner.Layout()
         except RuntimeError:  # pragma: no cover - either window already gone
             log.debug("The borrowed canvas could not be returned", exc_info=True)
@@ -1405,7 +1473,7 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
         # before anything closes the world, so the canvas is destroyed with the
         # extension that owns it rather than outliving it inside the viewport.
         if self._owner_frame is not None:
-            self._owner_frame.release_hosted_canvas(page)
+            self._owner_frame.release_hosted_canvas(page, closing=True)
         if page is not self._main_menu:
             preapproved = False
             if (
