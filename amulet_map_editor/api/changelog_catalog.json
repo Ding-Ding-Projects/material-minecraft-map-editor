@@ -1,8 +1,56 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "f46c96a710709e5a71153374b32ea7cfaecb5253",
+  "source_revision": "6814487d6a25db3824875fae252e9904f66402b1",
   "entries": [
+    {
+      "version": "0.10.0-dev.505",
+      "released_on": "2026-08-10",
+      "commit_sha": "2a471e688fd32402af3717ac584973826da11bb3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main'",
+          "commit_sha": "2a471e688fd32402af3717ac584973826da11bb3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.503",
+      "released_on": "2026-08-10",
+      "commit_sha": "671802269e9b78ddd7211c811e868fdd152f8a2b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "style(site): run black over the two files stylecheck flagged",
+          "commit_sha": "671802269e9b78ddd7211c811e868fdd152f8a2b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.502",
+      "released_on": "2026-08-10",
+      "commit_sha": "d7cc7c2184857b29ff185daf3d1e2ebcc1c2811b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "feat(site): ship the Day Teet Hui landing page and publish it to Pages",
+          "commit_sha": "d7cc7c2184857b29ff185daf3d1e2ebcc1c2811b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.500",
+      "released_on": "2026-08-10",
+      "commit_sha": "f46c96a710709e5a71153374b32ea7cfaecb5253",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Dew the phase-3 modules the last commit described but never carried",
+          "commit_sha": "f46c96a710709e5a71153374b32ea7cfaecb5253"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.492",
       "released_on": "2026-08-10",

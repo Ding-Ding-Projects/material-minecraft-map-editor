@@ -83,10 +83,13 @@ def notify(
         pass
     try:
         top.SetStatusText(f"{title}: {safe_body}")
-    except (AttributeError, RuntimeError):
-        # The parent may already be tearing down; an ephemeral fallback must
-        # stay best-effort just like the normal toast path.
-        pass
+    except Exception:
+        # Best-effort by design, and the guard has to be broad: a frame with no
+        # status bar raises wx.wxAssertionError, which is neither AttributeError
+        # nor RuntimeError, so a narrow guard turned every notification on such
+        # a frame into the exception path -- and swallowed the error the
+        # notification was reporting in the first place.
+        log.debug("Status-bar notification fallback unavailable", exc_info=True)
     try:
         top.show_notification(title, safe_body, severity=severity)
     except (AttributeError, RuntimeError):
