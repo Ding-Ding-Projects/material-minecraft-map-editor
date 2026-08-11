@@ -2,13 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 import re
 
 import wx
 
 from amulet_map_editor.api import config, local_history
+from amulet_map_editor.api.studio import tokens
+from amulet_map_editor.api.studio.widgets import StudioCheckBox
 from amulet_map_editor.api.wx.material3 import TOKENS
+from amulet_map_editor.api.wx.ui.material_dialog import (
+    DialogChrome,
+    card,
+    heading,
+    studio,
+)
+from amulet_map_editor.api.wx.ui.material_forms import (
+    MaterialChoice,
+    MaterialColourField,
+    MaterialSpin,
+)
 
 APPEARANCE_ID = "amulet_element_appearance"
 MAX_KEY_LENGTH = 160
@@ -132,6 +144,70 @@ def apply_override(control: wx.Window) -> None:
         control.SetFont(font)
 
 
+class _ColourOverride:
+    """Pairs an "Override" toggle with the project's continuous colour picker.
+
+    A native hex text box let a value be blank -- meaning "inherit the M3
+    role colour" -- or any six-digit hex a person could type and mistype.
+    :class:`~amulet_map_editor.api.wx.ui.material_forms.MaterialColourField`
+    always shows a real colour, so blank needs its own control rather than an
+    empty string threaded through it: this toggle is that control.  Turning it
+    off is what "no override" now means, and disables the field beside it
+    rather than hiding it, so its last colour is not lost by unchecking it by
+    mistake.
+    """
+
+    def __init__(self, parent: wx.Window, *, label: str, value: str, name: str) -> None:
+        self._label = str(label)
+        self.toggle = studio(
+            StudioCheckBox(
+                parent,
+                f"Override {self._label.lower()}",
+                value=bool(value),
+                name=f"Override {name}",
+            )
+        )
+        # Opted out of the native styling pass: it is built inside a tinted
+        # ``surface_container`` card, and that pass repaints every ``wx.Panel``
+        # it walks to the plain ``surface`` role, which would leave this field
+        # a shade lighter than the card drawn behind it.
+        self.field = studio(
+            MaterialColourField(
+                parent,
+                value or "#6750A4",
+                name=name,
+                subject="Element appearance",
+            )
+        )
+        self.toggle.Bind(wx.EVT_CHECKBOX, lambda _event: self._sync())
+        self._sync()
+
+    def _sync(self) -> None:
+        enabled = self.toggle.GetValue()
+        self.field.Enable(enabled)
+        self.field.button.SetToolTip(
+            "Open the colour picker, its translator, and its contrast readout"
+            if enabled
+            else f"Turn on “Override {self._label.lower()}” to choose a colour; "
+            "this element currently uses the Material role colour."
+        )
+
+    def add_to(self, sizer: wx.Sizer) -> None:
+        sizer.Add(
+            self.toggle,
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            tokens.scaled(tokens.SPACE_SM),
+        )
+        sizer.Add(self.field, 0, wx.ALIGN_CENTER_VERTICAL)
+
+    def GetValue(self) -> str:  # noqa: N802 - kept for parity with a text box
+        if not self.toggle.GetValue():
+            return ""
+        colour = self.field.GetColour()
+        return "#%02X%02X%02X" % (colour.Red(), colour.Green(), colour.Blue())
+
+
 class ElementAppearanceDialog(wx.Dialog):
     """Modeless-friendly editor for the exact control that opened it."""
 
@@ -139,96 +215,176 @@ class ElementAppearanceDialog(wx.Dialog):
         super().__init__(
             parent,
             title="Edit appearance",
-            size=wx.Size(500, 460),
+            size=wx.Size(tokens.scaled(560), tokens.scaled(660)),
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self.control = control
         values = load_overrides().get(element_key(control), DEFAULTS)
-        root = wx.BoxSizer(wx.VERTICAL)
-        title = wx.StaticText(self, label=f"Edit appearance · {element_key(control)}")
-        title.SetName("Element appearance heading")
-        root.Add(title, 0, wx.ALL | wx.EXPAND, 16)
-        self.background = wx.TextCtrl(
-            self, value=str(values.get("background", "")), name="Element background HEX"
+
+        self.chrome = DialogChrome(self, status_name="Element appearance status")
+        self.chrome.add(
+            heading(
+                self.chrome.body,
+                f"Edit appearance · {element_key(control)}",
+                size_px=16,
+                role="on_surface",
+                name="Element appearance heading",
+            ),
+            0,
+            wx.EXPAND,
         )
-        self.background.SetHint("Background HEX, for example #6750A4")
-        self.foreground = wx.TextCtrl(
-            self, value=str(values.get("foreground", "")), name="Element foreground HEX"
+        self.chrome.gap()
+
+        colours, colours_sizer = card(
+            self.chrome.body,
+            role="surface_container",
+            orientation=wx.VERTICAL,
+            name="Element colour overrides",
         )
-        self.foreground.SetHint("Foreground HEX, or leave blank for the M3 role")
-        self.font_size = wx.SpinCtrl(
-            self,
+        self.background = _ColourOverride(
+            colours,
+            label="Background",
+            value=str(values.get("background", "")),
+            name="Element background colour",
+        )
+        self.foreground = _ColourOverride(
+            colours,
+            label="Foreground",
+            value=str(values.get("foreground", "")),
+            name="Element foreground colour",
+        )
+        for label, override in (
+            ("Background", self.background),
+            ("Foreground", self.foreground),
+        ):
+            row = wx.BoxSizer(wx.HORIZONTAL)
+            row.Add(
+                heading(colours, label, size_px=12, role="on_surface_variant"),
+                0,
+                wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+                tokens.scaled(tokens.SPACE_SM),
+            )
+            override.add_to(row)
+            colours_sizer.Add(row, 0, wx.BOTTOM, tokens.scaled(tokens.SPACE_SM))
+        self.chrome.add(colours, 0, wx.EXPAND)
+        self.chrome.gap()
+
+        typography, typography_sizer = card(
+            self.chrome.body,
+            role="surface_container",
+            orientation=wx.VERTICAL,
+            name="Element typography",
+        )
+        self.font_size = MaterialSpin(
+            typography,
             min=0,
             max=72,
             initial=int(values.get("font_size", 0) or 0),
             name="Element font size",
         )
-        self.weight = wx.Choice(
-            self, choices=["normal", "medium", "bold"], name="Element font weight"
+        # Opted out for the same reason as the colour field above: it is a
+        # ``wx.Panel`` living on a tinted card, and the native pass repaints
+        # every panel it walks to the plain ``surface`` role.
+        self.weight = studio(
+            MaterialChoice(
+                typography,
+                ["normal", "medium", "bold"],
+                label="Font weight",
+                name="Element font weight",
+                value=values.get("weight", "normal"),
+            )
         )
-        self.weight.SetSelection(
-            ["normal", "medium", "bold"].index(values.get("weight", "normal"))
-        )
-        self.italic = wx.CheckBox(self, label="Italic", name="Element italic")
-        self.italic.SetValue(bool(values.get("italic", False)))
-        self.underline = wx.CheckBox(self, label="Underline", name="Element underline")
-        self.underline.SetValue(bool(values.get("underline", False)))
-        self.strikethrough = wx.CheckBox(
-            self, label="Strikethrough", name="Element strikethrough"
-        )
-        self.strikethrough.SetValue(bool(values.get("strikethrough", False)))
-        self.letter_spacing = wx.SpinCtrl(
-            self,
+        self.letter_spacing = MaterialSpin(
+            typography,
             min=-8,
             max=32,
             initial=int(values.get("letter_spacing", 0) or 0),
             name="Element letter spacing",
         )
-        for label, control in (
-            ("Background", self.background),
-            ("Foreground", self.foreground),
+        for label, typo_control in (
             ("Font size (0 = inherited)", self.font_size),
             ("Font weight", self.weight),
             ("Letter spacing (-8 to 32)", self.letter_spacing),
         ):
             row = wx.BoxSizer(wx.HORIZONTAL)
             row.Add(
-                wx.StaticText(self, label=label),
+                heading(typography, label, size_px=12, role="on_surface_variant"),
                 0,
                 wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
-                12,
+                tokens.scaled(tokens.SPACE_SM),
             )
-            row.Add(control, 1, wx.EXPAND)
-            root.Add(row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
+            row.Add(typo_control, 0, wx.ALIGN_CENTER_VERTICAL)
+            typography_sizer.Add(row, 0, wx.BOTTOM, tokens.scaled(tokens.SPACE_SM))
+        self.chrome.add(typography, 0, wx.EXPAND)
+        self.chrome.gap()
+
         style_row = wx.BoxSizer(wx.HORIZONTAL)
-        for control in (self.italic, self.underline, self.strikethrough):
-            style_row.Add(control, 0, wx.RIGHT, 12)
-        root.Add(style_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 16)
-        note = wx.StaticText(
-            self,
-            label="Portable M3 roles are editable here. Italic, underline, and strikethrough apply live. Letter spacing is retained for backends that support it; this wx backend reports it as capability-limited. Unsupported Word-only axes are not silently saved.",
+        self.italic = studio(
+            StudioCheckBox(
+                self.chrome.body,
+                "Italic",
+                value=bool(values.get("italic", False)),
+                name="Element italic",
+            )
         )
-        note.SetName("Element appearance capability note")
-        note.Wrap(430)
-        root.Add(note, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
-        self.feedback = wx.StaticText(self, label="")
-        root.Add(self.feedback, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
-        buttons = self.CreateButtonSizer(wx.OK | wx.CANCEL)
-        reset = wx.Button(self, label="Reset this element")
-        reset.Bind(wx.EVT_BUTTON, self._reset)
-        button_row = wx.BoxSizer(wx.HORIZONTAL)
-        button_row.Add(reset, 0, wx.RIGHT, 8)
-        # A horizontal sizer accepts only vertical alignment flags, and
-        # wxALIGN_RIGHT here raised an assertion that stopped this dialog
-        # being constructed at all. A stretch spacer right-aligns it.
-        button_row.AddStretchSpacer()
-        button_row.Add(buttons, 0, wx.ALIGN_CENTRE_VERTICAL)
-        root.Add(button_row, 0, wx.ALL | wx.EXPAND, 16)
-        self.SetSizerAndFit(root)
-        self.Bind(wx.EVT_BUTTON, self._save, id=wx.ID_OK)
-        self.Bind(
-            wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL), id=wx.ID_CANCEL
+        self.underline = studio(
+            StudioCheckBox(
+                self.chrome.body,
+                "Underline",
+                value=bool(values.get("underline", False)),
+                name="Element underline",
+            )
         )
+        self.strikethrough = studio(
+            StudioCheckBox(
+                self.chrome.body,
+                "Strikethrough",
+                value=bool(values.get("strikethrough", False)),
+                name="Element strikethrough",
+            )
+        )
+        for check in (self.italic, self.underline, self.strikethrough):
+            style_row.Add(
+                check,
+                0,
+                wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+                tokens.scaled(tokens.SPACE_MD),
+            )
+        self.chrome.add(style_row, 0, wx.EXPAND)
+        self.chrome.gap()
+
+        note = heading(
+            self.chrome.body,
+            "Portable M3 roles are editable here. Italic, underline, and "
+            "strikethrough apply live. Letter spacing is retained for backends "
+            "that support it; this wx backend reports it as capability-limited. "
+            "Unsupported Word-only axes are not silently saved.",
+            size_px=12,
+            role="on_surface_variant",
+            name="Element appearance capability note",
+        )
+        note.set_available_width(tokens.scaled(480))
+        self.chrome.add(note, 0, wx.EXPAND)
+
+        self.reset_button = self.chrome.action(
+            "Reset this element",
+            variant="outlined",
+            on_click=self._reset,
+            name="Reset this element",
+        )
+        self.cancel_button = self.chrome.action(
+            "Cancel", variant="text", on_click=self._cancel, name="Cancel"
+        )
+        self.save_button = self.chrome.action(
+            "Save", variant="filled", on_click=self._save, name="Save appearance"
+        )
+        self.save_button.SetId(wx.ID_OK)
+        self.cancel_button.SetId(wx.ID_CANCEL)
+        self.SetAffirmativeId(wx.ID_OK)
+        self.SetEscapeId(wx.ID_CANCEL)
+        self.SetMinSize(wx.Size(tokens.scaled(440), tokens.scaled(560)))
+        self.Layout()
+
         from amulet_map_editor.api.wx.material3 import apply_material3
 
         apply_material3(self)
@@ -245,21 +401,15 @@ class ElementAppearanceDialog(wx.Dialog):
             "letter_spacing": self.letter_spacing.GetValue(),
         }
 
-    def _save(self, _event) -> None:
-        values = self._values()
-        if any(
-            value and not re.fullmatch(r"#[0-9a-fA-F]{6}", value)
-            for value in (values["background"], values["foreground"])
-        ):
-            self.feedback.SetLabel(
-                "Use six-digit HEX colours such as #6750A4, or leave a field blank."
-            )
-            return
-        save_override(element_key(self.control), values)
+    def _save(self) -> None:
+        save_override(element_key(self.control), self._values())
         apply_override(self.control)
         self.EndModal(wx.ID_OK)
 
-    def _reset(self, _event) -> None:
+    def _cancel(self) -> None:
+        self.EndModal(wx.ID_CANCEL)
+
+    def _reset(self) -> None:
         reset_override(element_key(self.control))
         self.control.SetBackgroundColour(TOKENS.surface)
         self.control.SetForegroundColour(TOKENS.on_surface)
