@@ -105,7 +105,9 @@ def test_the_inventories_are_not_empty():
 
 def test_every_documented_widget_still_exists_and_is_exported():
     widgets = _classes("widgets.py")
-    exported = (STUDIO / "widgets.py").read_text(encoding="utf-8").split("__all__", 1)[1]
+    exported = (
+        (STUDIO / "widgets.py").read_text(encoding="utf-8").split("__all__", 1)[1]
+    )
     missing = [name for name in REQUIRED_WIDGETS if name not in widgets]
     unexported = [name for name in REQUIRED_WIDGETS if f'"{name}"' not in exported]
     assert not missing, f"these widgets have gone: {missing}"
@@ -114,9 +116,7 @@ def test_every_documented_widget_still_exists_and_is_exported():
 
 def test_every_widget_gives_its_control_an_accessible_name():
     widgets = _classes("widgets.py")
-    unnamed = [
-        name for name in REQUIRED_WIDGETS if not _names_itself(widgets[name][1])
-    ]
+    unnamed = [name for name in REQUIRED_WIDGETS if not _names_itself(widgets[name][1])]
     assert not unnamed, f"these controls are invisible to a screen reader: {unnamed}"
 
 

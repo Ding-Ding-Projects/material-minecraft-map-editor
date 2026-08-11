@@ -137,7 +137,7 @@ def test_the_shell_exposes_the_contracted_public_surface():
 
 
 def test_the_command_palette_keeps_its_one_global_shortcut():
-    assert "wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord(\"F\")" in FRAME
+    assert 'wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F")' in FRAME
     assert "self._studio.install_accelerators()" in FRAME
 
 

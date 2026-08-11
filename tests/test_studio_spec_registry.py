@@ -275,8 +275,7 @@ def test_every_ribbon_dropdown_raises_a_registered_command():
         for tab in ribbon_defs.RIBBON_TABS
         for group in tab.groups
         for select in group.selects
-        if select.command
-        and commands.command(commands.resolve(select.command)) is None
+        if select.command and commands.command(commands.resolve(select.command)) is None
     ]
     assert not problems, problems
 

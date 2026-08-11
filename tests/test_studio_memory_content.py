@@ -181,7 +181,9 @@ def test_every_article_has_a_path_a_domain_a_summary_and_a_body():
         if not article.path.strip():
             problems.append(f"{article.title}: no path")
         if article.domain not in memory.DOMAINS:
-            problems.append(f"{article.path}: domain {article.domain!r} is not a filter")
+            problems.append(
+                f"{article.path}: domain {article.domain!r} is not a filter"
+            )
         if not article.summary.strip():
             problems.append(f"{article.path}: no summary")
         if len(article.body.strip()) < 200:

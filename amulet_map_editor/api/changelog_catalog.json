@@ -1,8 +1,20 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "2a471e688fd32402af3717ac584973826da11bb3",
+  "source_revision": "0d11ed1fc9b6c4cd100973ba972f089c6211c96f",
   "entries": [
+    {
+      "version": "0.10.0-dev.505",
+      "released_on": "2026-08-10",
+      "commit_sha": "2a471e688fd32402af3717ac584973826da11bb3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main'",
+          "commit_sha": "2a471e688fd32402af3717ac584973826da11bb3"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.503",
       "released_on": "2026-08-10",

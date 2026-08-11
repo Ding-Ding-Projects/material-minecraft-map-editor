@@ -78,7 +78,7 @@ def test_every_sample_document_round_trips_through_snbt(source):
 
 def test_snbt_keeps_the_suffix_that_says_which_numeric_type_a_tag_is():
     text = nbt.to_snbt(
-        nbt.parse_snbt('{a: 1b, b: 2s, c: 3, d: 4L, e: 5.0f, f: 6.0d}'),
+        nbt.parse_snbt("{a: 1b, b: 2s, c: 3, d: 4L, e: 5.0f, f: 6.0d}"),
         pretty=False,
     )
     for fragment in ("1b", "2s", "3", "4L", "5", "6"):
@@ -87,7 +87,9 @@ def test_snbt_keeps_the_suffix_that_says_which_numeric_type_a_tag_is():
 
 
 def test_a_round_trip_preserves_arrays_and_nested_containers():
-    original = "{ints: [I; 1, 2, 3], longs: [L; 9L], bytes: [B; 1b], deep: {list: [{x: 1}]}}"
+    original = (
+        "{ints: [I; 1, 2, 3], longs: [L; 9L], bytes: [B; 1b], deep: {list: [{x: 1}]}}"
+    )
     once = nbt.to_snbt(nbt.parse_snbt(original), pretty=False)
     twice = nbt.to_snbt(nbt.parse_snbt(once), pretty=False)
     assert once == twice
@@ -378,9 +380,10 @@ def test_two_open_documents_never_share_a_tag():
     first = nbt.sample_document("player")
     second = nbt.sample_document("player")
     first.set_value(first.root.child("Health"), 3)
-    assert second.root.child("Health").value_text() != first.root.child(
-        "Health"
-    ).value_text()
+    assert (
+        second.root.child("Health").value_text()
+        != first.root.child("Health").value_text()
+    )
 
 
 def test_every_source_reports_how_many_tags_it_holds():

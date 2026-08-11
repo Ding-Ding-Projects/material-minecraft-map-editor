@@ -117,7 +117,9 @@ def test_the_interface_face_falls_back_locally_and_never_downloads():
     assert mono_faces[0] == "IBM Plex Mono"
     # Bilingual mode has to render Traditional Chinese even when nothing the
     # design named is installed, so the tail of the list carries CJK faces.
-    assert any("JhengHei" in face or "CJK" in face or "PingFang" in face for face in ui_faces)
+    assert any(
+        "JhengHei" in face or "CJK" in face or "PingFang" in face for face in ui_faces
+    )
     source = TOKENS.read_text(encoding="utf-8")
     for forbidden in ("urllib", "requests", "http://", "https://", "urlopen"):
         assert forbidden not in source, f"tokens.py reaches the network: {forbidden}"
@@ -148,9 +150,7 @@ def test_an_unreadable_profile_still_paints_the_shipped_palette():
 
 def _luminance(colour) -> float:
     """Return the same weighted luminance the token module reads ink from."""
-    return (
-        299 * colour.Red() + 587 * colour.Green() + 114 * colour.Blue()
-    ) / 1000
+    return (299 * colour.Red() + 587 * colour.Green() + 114 * colour.Blue()) / 1000
 
 
 def _rgb(hex_value: str):
@@ -166,7 +166,9 @@ def test_the_built_palettes_carry_the_design_values_as_real_colours():
     for palette, table in ((tokens.LIGHT, DESIGN_LIGHT), (tokens.DARK, DESIGN_DARK)):
         for role, (hex_value, alpha) in table.items():
             colour = getattr(palette, role)
-            assert (colour.Red(), colour.Green(), colour.Blue()) == _rgb(hex_value), role
+            assert (colour.Red(), colour.Green(), colour.Blue()) == _rgb(
+                hex_value
+            ), role
             assert colour.Alpha() == alpha, role
     assert tokens.LIGHT.dark is False
     assert tokens.DARK.dark is True
