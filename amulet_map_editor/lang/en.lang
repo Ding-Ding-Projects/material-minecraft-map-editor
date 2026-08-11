@@ -246,6 +246,7 @@ program_3d_edit.paste_tool.location_y_label=y
 program_3d_edit.paste_tool.location_y_tooltip=The y location where the centre of the selection will be placed. Type in a number, scroll wheel over or use the arrows to change.
 program_3d_edit.paste_tool.location_z_label=z
 program_3d_edit.paste_tool.location_z_tooltip=The z location where the centre of the selection will be placed. Type in a number, scroll wheel over or use the arrows to change.
+program_3d_edit.paste_tool.location_note=x, y and z are the CENTRE of the structure, not a corner. It spreads half its own size around this point in every direction.
 program_3d_edit.paste_tool.move_selection_label=Move Selection
 program_3d_edit.paste_tool.move_selection_tooltip=Move the selection with the movement controls, while holding this button or while it has keyboard focus.
 program_3d_edit.paste_tool.rotation_label=Rotation

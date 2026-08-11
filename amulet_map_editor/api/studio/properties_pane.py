@@ -58,6 +58,7 @@ from amulet_map_editor.api.studio.status_bar import (
     single_line,
     studio_canvas,
 )
+from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.studio.widgets import (
     SearchableChoice,
     SearchBar,
@@ -190,6 +191,20 @@ NUDGE_KEY_SENTENCE = (
     "up and down along z, Page Up and Page Down for height."
 )
 
+#: The same sentence in Cantonese.
+#:
+#: This and :data:`NUDGE_BOX_CAVEAT_CANTONESE` below belong to the arrow-key
+#: nudge rather than to the anchor disclosure, and they are translated here
+#: because they sit inside the same Position section.  Half a section in one
+#: language and half in another is not a smaller version of the problem the
+#: disclosure was translated to fix -- it is a reader being told which point
+#: their coordinate names, and then not being told what the arrow keys do to
+#: it, in the same column, three lines apart.
+NUDGE_KEY_SENTENCE_CANTONESE = (
+    "方向鍵會用「微調步長」推郁份複製：左右係 x，上下係 z，"
+    "Page Up / Page Down 就係高低。"
+)
+
 #: The half of the key behaviour that only matters once a value box has focus.
 #:
 #: Split out of :data:`NUDGE_KEY_SENTENCE` and shown beside the value boxes
@@ -198,6 +213,9 @@ NUDGE_KEY_SENTENCE = (
 #: and by then the boxes it is about are the thing on screen.
 NUDGE_BOX_CAVEAT = "Inside a value box the arrow keys belong to that box instead."
 
+#: The same caveat in Cantonese.
+NUDGE_BOX_CAVEAT_CANTONESE = "游標喺個數值格入面嗰陣，方向鍵就歸個格用。"
+
 #: Where the chosen anchor is stored, so it survives a restart like any other
 #: setting.  One record for the profile rather than one per project: which
 #: point a coordinate means is a habit of the person, not a fact about a world.
@@ -205,6 +223,18 @@ PASTE_ANCHOR_CONFIG_ID = "amulet_studio_paste_anchor"
 
 #: The heading over the anchor control, and the label it carries.
 ANCHOR_FIELD_LABEL = "Position refers to"
+
+#: The same label in Cantonese.
+#:
+#: Every visible string this section adds carries one of these.  The section
+#: exists to disclose a rule the interface was keeping to itself, and a
+#: disclosure a Cantonese reader cannot read discloses nothing to them -- it
+#: leaves them exactly where the defect found them, typing a coordinate whose
+#: meaning is never stated.  The English constants stay the canonical ones and
+#: the Cantonese sits beside each, so a later edit that changes one and forgets
+#: the other is a diff a reviewer can see rather than a language that quietly
+#: falls back.
+ANCHOR_FIELD_LABEL_CANTONESE = "位置係指邊一點"
 
 #: What the three Position boxes mean, per anchor.
 #:
@@ -233,6 +263,30 @@ ANCHOR_SENTENCES: Dict[str, str] = {
     ),
 }
 
+#: The same four sentences in Cantonese, keyed the same way.
+#:
+#: Kept as a second mapping rather than folded into :data:`ANCHOR_SENTENCES` so
+#: that dictionary stays the plain key-to-English table the tests read, and so a
+#: missing key here is a :class:`KeyError` at the moment the sentence is built
+#: rather than an English sentence quietly served to a Cantonese reader.
+ANCHOR_SENTENCES_CANTONESE: Dict[str, str] = {
+    editor_tools.ANCHOR_CENTRE: (
+        "x、y、z 係成嚿嘢嘅正中心，唔係隻角。啲磚會落喺下面嗰個範圍，"
+        "四面八方都差成半嚿嘢。"
+    ),
+    editor_tools.ANCHOR_BASE: (
+        "x、y、z 係成嚿嘢底面嗰層嘅中心，即係佢踩住嗰嚿磚。" "啲磚會落喺下面嗰個範圍。"
+    ),
+    editor_tools.ANCHOR_MINIMUM: (
+        "x、y、z 係成嚿嘢最細嗰隻角：最細嘅 x、最細嘅 y、最細嘅 z。"
+        "啲磚會落喺下面嗰個範圍。"
+    ),
+    editor_tools.ANCHOR_MAXIMUM: (
+        "x、y、z 係成嚿嘢最大嗰隻角：最大嘅 x、最大嘅 y、最大嘅 z。"
+        "啲磚會落喺下面嗰個範圍。"
+    ),
+}
+
 #: What the section says when the held object's size could not be read.
 #:
 #: An unknown size is said rather than guessed at.  Without the extent there is
@@ -245,11 +299,31 @@ ANCHOR_SIZE_UNKNOWN = (
     "paste tool holds and the box the blocks will fill cannot be shown."
 )
 
+#: The same admission in Cantonese.
+ANCHOR_SIZE_UNKNOWN_CANTONESE = (
+    "讀唔到成嚿嘢幾大，所以 x、y、z 就係貼上工具本身揸住嗰個位置，"
+    "亦都畫唔到啲磚會填邊個範圍。"
+)
+
 #: The two rows that say where the blocks actually go.
 PASTE_BOX_ROWS: Tuple[Tuple[str, str], ...] = (
     ("paste_from", "Fills from"),
     ("paste_to", "Fills to"),
 )
+
+#: The same two row labels in Cantonese, keyed by the row key above.
+PASTE_BOX_ROW_LABELS_CANTONESE: Dict[str, str] = {
+    "paste_from": "由邊度填起",
+    "paste_to": "填到邊度",
+}
+
+#: What a box row says when the copy's extent could not be read, in both
+#: languages.  An honest unknown is still a sentence the reader has to be able
+#: to read, and "not known" left in English is the one string in the section a
+#: Cantonese reader would most need -- it is what the row says when something
+#: has gone wrong.
+BOX_VALUE_UNKNOWN = "not known"
+BOX_VALUE_UNKNOWN_CANTONESE = "唔知道"
 
 #: An inclusive block box, or ``None`` when the copy's extent is unknown.
 PasteBox = Optional[Tuple[Tuple[int, int, int], Tuple[int, int, int]]]
@@ -1029,6 +1103,11 @@ class PropertiesPane(wx.Panel):
         self._tool_fields: Dict[str, VectorField] = {}
         self._anchor_choice: Optional[SearchableChoice] = None
         self._anchor_note: Optional[StudioText] = None
+        #: What a paste-box row reads when the copy's extent is unknown, in the
+        #: reader's language.  Rebuilt with the section rather than translated
+        #: on the live timer; seeded here so a tick that somehow arrives before
+        #: the first build reads a string rather than raising.
+        self._box_unknown: str = BOX_VALUE_UNKNOWN
         self._tool_timer: Optional[wx.Timer] = None
         #: The width the current contents were wrapped for.  Wrapping is done
         #: once per build, so a pane the user has narrowed keeps paragraphs
@@ -1776,7 +1855,9 @@ class PropertiesPane(wx.Panel):
         # pane opens.  Beside the nudge buttons they describe, which is where
         # they read most naturally, the sentence sat 237px past the bottom of
         # the visible column: a shortcut told below the fold is not told.
-        self._tool_note(studio_text(NUDGE_KEY_SENTENCE), gap)
+        self._tool_note(
+            studio_text(NUDGE_KEY_SENTENCE, NUDGE_KEY_SENTENCE_CANTONESE), gap
+        )
         if pending.size:
             self._tool_row("Size in blocks", pending.size, gap)
         self._tool_row(
@@ -1813,6 +1894,11 @@ class PropertiesPane(wx.Panel):
             )
 
         self._tool_label(studio_label("Position"))
+        # Resolved once here, and read by _box_text on every live tick.  See
+        # that method for why it is not translated where it is used.
+        self._box_unknown = single_line(
+            studio_label(BOX_VALUE_UNKNOWN, BOX_VALUE_UNKNOWN_CANTONESE)
+        )
         values, box = self._anchor_values(pending)
         # The picker first, because it says what the three boxes under it mean.
         # It is only offered when the copy's size is known: without the extent
@@ -1822,9 +1908,14 @@ class PropertiesPane(wx.Panel):
         if box is not None:
             self._anchor_choice = SearchableChoice(
                 self.scroller,
-                studio_label(ANCHOR_FIELD_LABEL),
-                [label for _key, label in editor_tools.ANCHORS],
-                editor_tools.anchor_label(self.position_anchor),
+                single_line(
+                    studio_label(ANCHOR_FIELD_LABEL, ANCHOR_FIELD_LABEL_CANTONESE)
+                ),
+                [
+                    self._anchor_option_label(key)
+                    for key, _label in editor_tools.ANCHORS
+                ],
+                self._anchor_option_label(self.position_anchor),
                 on_change=self._on_anchor_chosen,
             )
             self._anchor_choice.SetToolTip(
@@ -1849,16 +1940,21 @@ class PropertiesPane(wx.Panel):
         # The disclosure, directly under the boxes it is about.  A coordinate
         # control that does not say which point of the object it names is a
         # coordinate control the user has to discover by pasting and looking.
-        self._anchor_note = self._tool_note(
-            studio_text(self._anchor_sentence(box)), gap
-        )
+        # Already in the reader's language and tone: _anchor_sentence styles it,
+        # so styling it again here would append the funny level's aside twice.
+        self._anchor_note = self._tool_note(self._anchor_sentence(box), gap)
         for key, label in PASTE_BOX_ROWS:
-            self._tool_row(label, self._box_text(box, key), gap, live=key)
+            self._tool_row(
+                single_line(studio_label(label, PASTE_BOX_ROW_LABELS_CANTONESE[key])),
+                self._box_text(box, key),
+                gap,
+                live=key,
+            )
         # Beside the boxes it is about, rather than in the sentence above: it
         # describes what an arrow key does once one of these has focus, which
         # is a thing a user meets while typing here and not a shortcut they
         # have to be told about before they can find it.
-        self._tool_note(studio_text(NUDGE_BOX_CAVEAT), gap)
+        self._tool_note(studio_text(NUDGE_BOX_CAVEAT, NUDGE_BOX_CAVEAT_CANTONESE), gap)
         if editor_tools.camera_location() is not None:
             self.body.Add(
                 StudioButton(
@@ -2017,30 +2113,88 @@ class PropertiesPane(wx.Panel):
             return [str(value) for value in pending.location], box
         return [str(value) for value in point], box
 
-    def _anchor_sentence(self, box: PasteBox) -> str:
-        """Return the sentence that says what x, y and z mean right now."""
-        if box is None:
-            return ANCHOR_SIZE_UNKNOWN
-        return ANCHOR_SENTENCES[editor_tools.normalise_anchor(self.position_anchor)]
-
     @staticmethod
-    def _box_text(box: PasteBox, key: str) -> str:
-        """Return one corner of the paste box, or an honest unknown."""
+    def _anchor_option_label(anchor: str) -> str:
+        """Return one anchor's name as the picker shows it, in the live language.
+
+        Every place that needs an option string goes through here -- the list of
+        options, the value the picker opens holding, and
+        :meth:`_on_anchor_chosen` turning a chosen string back into a key.  One
+        function rather than three is the whole point: the reverse lookup used
+        to match against ``editor_tools.ANCHORS`` directly, which agreed with
+        the displayed list only while the display was English.  Translating the
+        options alone would have left every Cantonese choice matching nothing
+        and falling back to the centre, so picking "最細嗰隻角" would silently
+        have selected the centre instead -- a control quietly doing something
+        other than what it says, which is the defect this section was built to
+        remove rather than one to add to it.
+        """
+        return single_line(
+            studio_label(
+                editor_tools.anchor_label(anchor),
+                editor_tools.anchor_label_cantonese(anchor),
+            )
+        )
+
+    def _anchor_sentence(self, box: PasteBox) -> str:
+        """Return the sentence that says what x, y and z mean right now.
+
+        Returned already styled and in the reader's language, because every
+        caller shows it as-is.
+        """
         if box is None:
-            return "not known"
+            return studio_text(ANCHOR_SIZE_UNKNOWN, ANCHOR_SIZE_UNKNOWN_CANTONESE)
+        key = editor_tools.normalise_anchor(self.position_anchor)
+        return studio_text(ANCHOR_SENTENCES[key], ANCHOR_SENTENCES_CANTONESE[key])
+
+    def _box_text(self, box: PasteBox, key: str) -> str:
+        """Return one corner of the paste box, or an honest unknown.
+
+        The unknown reading is taken from :attr:`_box_unknown` rather than
+        translated here, because this runs on the live timer.  ``studio_label``
+        reads the profile, and the profile is a gzipped pickle read from disk
+        every call -- so translating in place would put two disk reads into
+        every 300ms tick for as long as an object's extent stays unreadable.
+        Resolving it once when the section is built is also how every other
+        string in this pane behaves, and a language change rebuilds the tab.
+        """
+        if box is None:
+            return self._box_unknown
         corner = box[0] if key == PASTE_BOX_ROWS[0][0] else box[1]
         return ", ".join(str(value) for value in corner)
 
     def _on_anchor_chosen(self, label: str) -> None:
         """Remember which point the Position boxes name, and re-read them."""
         chosen = next(
-            (key for key, name in editor_tools.ANCHORS if name == label),
+            (
+                key
+                for key, _name in editor_tools.ANCHORS
+                if self._anchor_option_label(key) == label
+            ),
             editor_tools.ANCHOR_CENTRE,
         )
         if chosen == self.position_anchor:
             return
         self.position_anchor = chosen
-        store_paste_anchor(chosen)
+        if not store_paste_anchor(chosen):
+            # The anchor is right for this session either way -- it is already
+            # set above and the boxes are about to be re-read through it.  What
+            # did not happen is the remembering, and a setting that silently
+            # forgets itself overnight is a setting the user will change again
+            # tomorrow without ever learning why.
+            notify(
+                self,
+                studio_label("Anchor not remembered", "記唔到你揀咗邊一點"),
+                studio_text(
+                    "Which point x, y and z name is right for now, but it "
+                    "could not be written to your settings, so it will be back "
+                    "to the centre of the copy next time the editor starts. "
+                    "The log records why.",
+                    "x、y、z 而家係指邊一點係啱嘅，不過寫唔入你嘅設定，"
+                    "所以下次開返編輯器就會變返成嚿嘢嘅正中心。點解寫唔入，log 有記低。",
+                ),
+                severity="warning",
+            )
         note = self._anchor_note
         if note is not None:
             try:
@@ -2055,7 +2209,7 @@ class PropertiesPane(wx.Panel):
                         pending.rotation,
                     )
                 )
-                message = single_line(studio_text(self._anchor_sentence(box)))
+                message = single_line(self._anchor_sentence(box))
                 note.SetLabel(message)
                 note.SetName(message)
                 self._wrap_in_column(note)

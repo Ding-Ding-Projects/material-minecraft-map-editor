@@ -250,6 +250,13 @@ class Session:
         self.marker_before: List[Tuple[int, int, int]] = []
         self.marker_after: List[Tuple[int, int, int]] = []
         self.overlays: List[Dict[str, Any]] = []
+        #: Every line of static text the editor's OWN control panels are showing
+        #: the user once the paste tool is running.  The Studio properties pane
+        #: is not the only place a paste coordinate is typed -- the editor's own
+        #: paste panel is reparented onto the viewport beside it and carries a
+        #: second set of x, y and z boxes -- so what that panel says is a fact
+        #: about this feature and is recorded from the real thing.
+        self.paste_panel_notes: List[str] = []
         self.notes: List[str] = []
         # the arrow-key nudge, driven through the pane's real key binding
         self.key_focus: str = ""
@@ -338,6 +345,10 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         record.activation = editor_tools.activate("cloneTool", frame)
         _pump(0.5)
         record.pending_before = editor_tools.pending_object()
+        # Recorded here rather than beside ``record.overlays`` above: the paste
+        # panel is hidden until its tool runs, so before this line there is
+        # nothing of it on screen to read.
+        record.paste_panel_notes = _visible_panel_text(record.canvas)
 
         _drive_arrow_key(record)
 
@@ -352,7 +363,6 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         record.confirmed = editor_tools.confirm_pending()
         _pump(1.5)
         record.undo_after = editor_tools._undo_depth(editor_tools.canvas())
-
 
         level = context.current().level
         if level is not None:
@@ -710,6 +720,32 @@ def _describe_operation_controls(canvas: Any) -> List[Dict[str, Any]]:
         except Exception:  # noqa: BLE001 - a control mid-teardown
             continue
     return described
+
+
+def _visible_panel_text(canvas: Any) -> List[str]:
+    """Return every static line the editor's own panels are showing the user.
+
+    Walked from the real overlay windows rather than read out of the source,
+    and filtered by :func:`_shown_to_the_user` rather than ``IsShown``: a label
+    on a panel whose parent is hidden answers ``True`` to the latter while
+    being invisible, which would let this record a disclosure nobody can read.
+    """
+    from amulet_map_editor.api.framework.amulet_ui import AmuletUI
+
+    found: List[str] = []
+    for window in AmuletUI.editor_overlay_windows(canvas):
+        stack = [window]
+        while stack:
+            node = stack.pop()
+            try:
+                stack.extend(node.GetChildren())
+                if isinstance(node, wx.StaticText) and _shown_to_the_user(node):
+                    text = " ".join(str(node.GetLabel()).split())
+                    if text:
+                        found.append(text)
+            except Exception:  # noqa: BLE001 - a control mid-teardown
+                continue
+    return found
 
 
 def _describe_overlays(frame: Any, canvas: Any) -> List[Dict[str, Any]]:
@@ -1143,6 +1179,32 @@ def test_the_arrow_key_note_is_on_screen_without_scrolling(
     # therefore normal in this pane, which enables horizontal scrolling on
     # purpose rather than cutting rows off at the edge, and asserting on it
     # fails against correct code.
+
+
+def test_the_editor_paste_panel_says_the_coordinate_is_the_centre(
+    session: Session,
+) -> None:
+    """The editor's OWN paste panel discloses the centre rule, on the panel.
+
+    The Studio properties pane is not the only place this coordinate is typed.
+    The editor's paste panel is shown at the same time -- ``enable()`` shows it
+    and the shell reparents it onto the viewport so it stays visible -- and it
+    carries its own x, y and z boxes.  Its only statement of the rule used to
+    be a hover tooltip, and a reader who types a coordinate, confirms, walks
+    over and finds bare stone is exactly the reader who never hovered.
+
+    Read off the running editor rather than out of the source, and filtered to
+    text whose whole ancestor chain is shown, so a note added to a panel nobody
+    can see does not satisfy this.
+    """
+    if not session.paste_panel_notes:
+        pytest.skip("the editor's own panels showed no static text on this host")
+    said = [line for line in session.paste_panel_notes if "CENTRE" in line.upper()]
+    assert said, (
+        "the editor's own paste panel never says its x, y and z are the centre "
+        "of the structure, so the only disclosure on that panel is a tooltip "
+        "nobody hovers. What it does show: " + repr(session.paste_panel_notes)
+    )
 
 
 def test_the_panel_of_a_running_tool_is_actually_visible(session: Session) -> None:

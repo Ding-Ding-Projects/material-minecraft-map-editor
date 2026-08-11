@@ -56,6 +56,35 @@ BottomLeftRight = wx.BOTTOM | wx.LEFT | wx.RIGHT
 BottomLeftRightCentre = BottomLeftRight | wx.ALIGN_CENTER_HORIZONTAL
 BottomLeftRightExpand = BottomLeftRight | wx.EXPAND
 
+#: The narrowest a wrapped caption on the paste panel may be told to wrap at.
+#:
+#: ``wx.StaticText.Wrap`` treats a width of zero or less as "do not wrap", so a
+#: measurement that came back empty would silently produce the one thing the
+#: wrapping exists to prevent -- a single long line that makes the whole panel
+#: as wide as the sentence and pushes the viewport's controls off the canvas.
+MIN_NOTE_WRAP = 160
+
+
+def _control_width(control) -> int:
+    """Return a sensible wrap width from a control, whether window or sizer.
+
+    The coordinate inputs on this panel are ``wx.FlexGridSizer`` subclasses
+    rather than windows, and a sizer has no ``GetBestSize`` -- asking one for it
+    raises ``AttributeError`` and takes the whole panel down with it, so the
+    paste tool would not build at all.  ``CalcMin`` is the sizer's answer to the
+    same question; ``GetBestSize`` is kept for a real window, and a floor
+    catches either returning nothing useful before layout has run.
+    """
+    for name in ("GetBestSize", "CalcMin"):
+        method = getattr(control, name, None)
+        if method is None:
+            continue
+        try:
+            return max(MIN_NOTE_WRAP, int(method().GetWidth()))
+        except Exception:  # noqa: BLE001 - a control that cannot measure itself
+            continue
+    return MIN_NOTE_WRAP
+
 
 class TupleInput(wx.FlexGridSizer):
     WindowCls: Union[Type[wx.SpinCtrl], Type[wx.SpinCtrlDouble]]
@@ -300,6 +329,28 @@ class PasteTool(wx.BoxSizer, DefaultBaseToolUI):
             )
             self._paste_sizer.Add(label, 0, BottomLeftRightCentre, 5)
 
+        def add_note(name: str, wrap_at: int):
+            """Add one wrapped sentence of explanation under a control.
+
+            Wrapped at a width taken from the control it explains rather than
+            left to size itself.  ``_resize`` gives this panel its own best
+            size, so an unwrapped sentence would not be a caption under the
+            boxes -- it would make the whole panel as wide as the sentence, and
+            push the viewport's own controls off the edge of the canvas.
+            """
+            note = wx.StaticText(self._paste_panel, label=name)
+            note.SetFont(
+                wx.Font(
+                    8,
+                    wx.FONTFAMILY_DEFAULT,
+                    wx.FONTSTYLE_NORMAL,
+                    wx.FONTWEIGHT_NORMAL,
+                )
+            )
+            note.Wrap(wrap_at)
+            self._paste_sizer.Add(note, 0, BottomLeftRight, 5)
+            return note
+
         self._paste_sizer.AddSpacer(5)
         add_label(lang.get("program_3d_edit.paste_tool.location_label"))
         self._location = TupleIntInput(
@@ -321,6 +372,19 @@ class PasteTool(wx.BoxSizer, DefaultBaseToolUI):
             self._location,
             flag=BottomLeftRightExpand,
             border=5,
+        )
+        # What these three boxes actually mean, said on the panel rather than
+        # only in each box's hover tooltip.  The location is the CENTRE of the
+        # structure -- ``paste_iter`` displaces it by
+        # ``location - (min + max) // 2`` -- so a 4x1x4 slab sent to 8, 40, 8
+        # fills 6, 40, 6 to 9, 40, 9, half a structure away from the numbers
+        # that were typed.  A tooltip discloses that only to somebody who
+        # already suspects it and hovers to check; the reader who types a
+        # coordinate, confirms, walks over and finds bare stone is precisely
+        # the reader who never hovered.
+        self._location_note = add_note(
+            lang.get("program_3d_edit.paste_tool.location_note"),
+            _control_width(self._location),
         )
 
         self._move_button = MoveButton(

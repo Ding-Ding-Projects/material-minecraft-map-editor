@@ -47,6 +47,7 @@ __all__ = [
     "ANCHORS",
     "ANCHOR_BASE",
     "ANCHOR_CENTRE",
+    "ANCHOR_LABELS_CANTONESE",
     "ANCHOR_MAXIMUM",
     "ANCHOR_MINIMUM",
     "Activation",
@@ -60,6 +61,7 @@ __all__ = [
     "active_operation_name",
     "active_tool_name",
     "anchor_label",
+    "anchor_label_cantonese",
     "anchor_offset",
     "anchor_point",
     "bridge",
@@ -681,6 +683,22 @@ ANCHORS: Tuple[Tuple[str, str], ...] = (
     (ANCHOR_MAXIMUM, "Highest corner, +x +y +z"),
 )
 
+#: The same four names in Cantonese, kept beside the English rather than folded
+#: into :data:`ANCHORS` so the tuple stays the two-column table every caller and
+#: test already reads.  They live in this module because the anchors themselves
+#: do: a surface that offers them should not have to keep its own second list
+#: that can drift out of step with the keys.
+#:
+#: This module deliberately imports nothing from the copy pipeline -- it carries
+#: no wx and no preferences -- so it publishes both languages and lets the
+#: surface drawing the control decide which one the reader gets.
+ANCHOR_LABELS_CANTONESE: Dict[str, str] = {
+    ANCHOR_CENTRE: "成嚿嘢嘅正中心",
+    ANCHOR_BASE: "底面嘅中心",
+    ANCHOR_MINIMUM: "最細嗰隻角，-x -y -z",
+    ANCHOR_MAXIMUM: "最大嗰隻角，+x +y +z",
+}
+
 #: Bigger than any real structure, and far below the +/-30,000,000 a whole
 #: world's bounds report.  A pending object whose extent exceeds this is one
 #: whose bounds were not the structure's, so no box is claimed for it.
@@ -696,6 +714,17 @@ def normalise_anchor(anchor: Any) -> str:
 def anchor_label(anchor: Any) -> str:
     """Return the human name of an anchor key."""
     return dict(ANCHORS)[normalise_anchor(anchor)]
+
+
+def anchor_label_cantonese(anchor: Any) -> str:
+    """Return the Cantonese name of an anchor key.
+
+    Every key in :data:`ANCHORS` has one, so this never falls back to English;
+    a missing translation would be a silently English option sitting in a list
+    of Cantonese ones, which is the defect this pair of functions exists to
+    prevent rather than reproduce.
+    """
+    return ANCHOR_LABELS_CANTONESE[normalise_anchor(anchor)]
 
 
 def _rotate(

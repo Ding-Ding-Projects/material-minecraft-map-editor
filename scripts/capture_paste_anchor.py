@@ -1,10 +1,25 @@
 #!/usr/bin/env python3
-"""Photograph the Position section of the pending controls, both anchors.
+"""Photograph the Position section of the pending controls, in both languages.
 
-Run it with no arguments; it writes ``docs/huishots/paste-anchor-centre.png``
-and ``docs/huishots/paste-anchor-corner.png`` and prints the composite report
+Run it with no arguments; it writes ``docs/huishots/paste-anchor-centre.png``,
+``docs/huishots/paste-anchor-corner.png`` and
+``docs/huishots/paste-anchor-cantonese.png``, and prints the composite report
 for each, so a reader can see whether anything was skipped before looking at
 the files.
+
+**The Cantonese one is not decoration.**  Every string in this section reaches
+the reader through ``studio_label`` or ``studio_text``, and both return the
+English untouched when no Cantonese was supplied -- a silent failure that an
+English-only capture cannot show, because in English the two are the same
+picture.  A reader of these files should be able to see that the picker, its
+options, the disclosure sentence and the two box rows are all in the language
+that was asked for.
+
+A note for whoever reads that file: the Cantonese-specific characters (嚿, 嘢,
+啲, 喺, 嗰) come from a fallback face and render with colour fringing where the
+rest of the text does not.  That is the platform picking a font for glyphs the
+primary face lacks, it predates this section, and it applies to every Cantonese
+string in the product rather than these.
 
 The pane is built around a stand-in pending object rather than a loaded world:
 this captures a surface, and opening a world would make it a two-minute run for
@@ -48,6 +63,7 @@ import wx  # noqa: E402
 
 from capture_surface import capture_composite  # noqa: E402
 
+from amulet_map_editor.api import preferences  # noqa: E402
 from amulet_map_editor.api.studio import editor_tools  # noqa: E402
 from amulet_map_editor.api.studio import properties_pane as pane_module  # noqa: E402
 from amulet_map_editor.api.studio.widgets import SearchableChoice  # noqa: E402
@@ -86,11 +102,24 @@ def _install_stand_in() -> None:
 
 
 def _anchor_picker(pane):
+    """Find the anchor picker whatever language its label is in.
+
+    Matched on the shape of its option list rather than on the English label.
+    A ``startswith(ANCHOR_FIELD_LABEL)`` finder silently returns nothing the
+    moment the pane is not English, and this script would then report "no
+    picker" for a picker sitting right there -- which is exactly what it did
+    the first time the Cantonese capture was added.
+    """
+    names = {editor_tools.anchor_label(key) for key, _label in editor_tools.ANCHORS} | {
+        editor_tools.anchor_label_cantonese(key) for key, _label in editor_tools.ANCHORS
+    }
     stack = [pane]
     while stack:
         node = stack.pop()
-        if isinstance(node, SearchableChoice) and str(node.label).startswith(
-            pane_module.ANCHOR_FIELD_LABEL
+        if (
+            isinstance(node, SearchableChoice)
+            and len(node.options) == len(editor_tools.ANCHORS)
+            and set(node.options) <= names
         ):
             return node
         stack.extend(node.GetChildren())
@@ -142,7 +171,11 @@ def main() -> int:
         ("centre", editor_tools.ANCHOR_CENTRE),
         ("corner", editor_tools.ANCHOR_MINIMUM),
     ):
-        picker.set_value(editor_tools.anchor_label(anchor), notify=True)
+        # Through the pane's own label helper rather than the English table:
+        # in a non-English mode the picker's options are not the English names,
+        # so setting an English value would match nothing and this script would
+        # quietly photograph whatever was already selected.
+        picker.set_value(pane._anchor_option_label(anchor), notify=True)
         wx.Yield()
         _scroll_to(pane, picker)
         pane.Layout()
@@ -160,7 +193,38 @@ def main() -> int:
         report["position_boxes"] = list(pane._tool_fields["location"].values())
         reports[name] = report
 
-    print(json.dumps(reports, indent=2, default=str))
+    # And the same section for a reader who asked for Cantonese, which is the
+    # half a capture taken only in English cannot show.  The tab is rebuilt
+    # rather than refreshed: every string in it is resolved when it is built,
+    # so a language change that did not rebuild would photograph the old one.
+    preferences.update(language_mode="cantonese")
+    pane.rebuild()
+    pane.Layout()
+    wx.Yield()
+    picker = _anchor_picker(pane)
+    if picker is None:
+        print("no anchor picker after the language change", file=sys.stderr)
+        return 1
+    picker.set_value(pane._anchor_option_label(editor_tools.ANCHOR_CENTRE), notify=True)
+    wx.Yield()
+    _scroll_to(pane, picker)
+    pane.Layout()
+    wx.Yield()
+    report = capture_composite(pane, OUTPUT / "paste-anchor-cantonese.png")
+    report["anchor"] = pane.position_anchor
+    report["language_mode"] = preferences.load().language_mode
+    report["picker_label"] = picker.label
+    report["picker_value"] = picker.value
+    report["picker_options"] = list(picker.options)
+    report["picker_on_screen"] = bool(picker.IsShownOnScreen())
+    report["box_rows"] = {
+        pane._tool_rows[key].label: pane._tool_rows[key].value
+        for key, _label in pane_module.PASTE_BOX_ROWS
+        if key in pane._tool_rows
+    }
+    reports["cantonese"] = report
+
+    print(json.dumps(reports, indent=2, default=str, ensure_ascii=False))
     frame.Destroy()
     return 0
 
