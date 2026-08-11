@@ -1,8 +1,68 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "3f2f7ed3750f904af3aa7e2c7b493cabcd78daed",
+  "source_revision": "678a4ea1d77b223a3f6e048a76a8b08fa54f95dc",
   "entries": [
+    {
+      "version": "0.10.0-dev.534",
+      "released_on": "2026-08-10",
+      "commit_sha": "ede9c6cdaf6b79e7309d4bb82fb1d331b7c0e001",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep the funny level out of control labels",
+          "commit_sha": "ede9c6cdaf6b79e7309d4bb82fb1d331b7c0e001"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.531",
+      "released_on": "2026-08-10",
+      "commit_sha": "fa628178cc8ebfbd15bdf69631041fe46a39fca2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Track the design source the interface is built to match",
+          "commit_sha": "fa628178cc8ebfbd15bdf69631041fe46a39fca2"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.530",
+      "released_on": "2026-08-10",
+      "commit_sha": "34077a91360432f92bac462eb3ac7d50ddaa08f6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Give the world-folder dialog a button the user can actually reach",
+          "commit_sha": "34077a91360432f92bac462eb3ac7d50ddaa08f6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.528",
+      "released_on": "2026-08-10",
+      "commit_sha": "b7c21fcd0cae12a791c4b1b331aca1874ab47969",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw every widget on demand, and bind the interface to the real world",
+          "commit_sha": "b7c21fcd0cae12a791c4b1b331aca1874ab47969"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.524",
+      "released_on": "2026-08-10",
+      "commit_sha": "3f2f7ed3750f904af3aa7e2c7b493cabcd78daed",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Declare the YAML dependency the workflow contract needs",
+          "commit_sha": "3f2f7ed3750f904af3aa7e2c7b493cabcd78daed"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.521",
       "released_on": "2026-08-10",
@@ -106,7 +166,7 @@
       "changes": [
         {
           "action": "changed",
-          "summary": "feat(site): ship the Day Teet Hui landing page and publish it to Pages",
+          "summary": "feat(site): ship the GitHub Pages landing page and publish it to Pages",
           "commit_sha": "d7cc7c2184857b29ff185daf3d1e2ebcc1c2811b"
         }
       ]
@@ -118,7 +178,7 @@
       "changes": [
         {
           "action": "changed",
-          "summary": "Dew the phase-3 modules the last commit described but never carried",
+          "summary": "Push the phase-3 modules the last commit described but never carried",
           "commit_sha": "f46c96a710709e5a71153374b32ea7cfaecb5253"
         }
       ]
