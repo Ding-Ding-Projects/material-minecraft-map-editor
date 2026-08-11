@@ -696,15 +696,27 @@ _STRUCTURES = RibbonTab(
     ),
 )
 
+# The Chunks tab had a "Draw range" group in front of this one: two editable
+# boxes, Min Y = -64 and Max Y = 320, sized and labelled exactly like renderer
+# controls.  They were not.  Measured by typing into the real widget, all that
+# moved was one entry in ``RibbonBar.field_values``, whose only reader is the
+# group panel that re-seeds the box with what it last stored.
+#
+# They could not have done anything, because there is no vertical draw limit in
+# this application to be wired to.  ``RenderLevel`` owns ``render_distance`` (a
+# horizontal radius in chunks) and the construction-time booleans ``draw_floor``
+# and ``draw_ceil``; the only Y-wise filter in the geometry path is
+# ``RenderChunk._limit_bounds``, which clips to the level's own build range and
+# is a fixed argument the edit renderer leaves false.
+#
+# So the group is gone rather than given a renderer feature invented to justify
+# it.  ``heightLimits``, which it launched, is still reached by its own button on
+# the Worldgen tab.  ``tests/test_chunks_draw_range.py`` holds both halves: the
+# tab offers no box, and the renderer still owns nothing for one to set.
 _CHUNKS = RibbonTab(
     "chunks",
     "Chunks",
     (
-        RibbonGroup(
-            "Draw range",
-            fields=(RibbonField("Min Y", "-64"), RibbonField("Max Y", "320")),
-            launcher="heightLimits",
-        ),
         RibbonGroup(
             "Chunks",
             buttons=(
