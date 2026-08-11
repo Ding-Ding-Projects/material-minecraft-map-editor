@@ -51,7 +51,7 @@ _APPEARANCE_TARGET = (
 )
 
 
-def _controls_spec() -> Spec:
+def _controls_spec(read_keys: bool = True) -> Spec:
     """Build the Key Select surface from the key group the editor listens to.
 
     **Every key on this surface is read, never written down.**  It had been
@@ -74,8 +74,10 @@ def _controls_spec() -> Spec:
     that failed to load, and filling it from the shipped defaults would print
     exactly the keys a user who rebound them no longer presses.
     """
-    groups = studio_keys.read_key_groups()
-    bindings = studio_keys.editor_bindings() or (KeyBinding(*studio_keys.UNREADABLE),)
+    groups = studio_keys.read_key_groups() if read_keys else studio_keys.KeyGroups()
+    bindings = (studio_keys.editor_bindings() if read_keys else ()) or (
+        KeyBinding(*studio_keys.UNREADABLE),
+    )
 
     selects = []
     if groups.ids:
@@ -201,7 +203,16 @@ SPECS: Dict[str, Spec] = {
             Action("Open repository in VS Code", "outlined"),
         ),
     ),
-    "controls": _controls_spec(),
+    # Built WITHOUT reading the key table. The rebuilder below reads it on
+    # every open, so this snapshot is only ever the fallback -- and reading at
+    # import time cost the "registries are readable without a display"
+    # contract: importing the registry on a host with no wx made the reader
+    # warn to stderr about a key configuration nobody had asked for yet.
+    #
+    # The fallback stays honest rather than becoming a stub: it keeps its
+    # bindings section and says in it that the keys are unknown, which is
+    # exactly what should be shown if the rebuilder ever fails too.
+    "controls": _controls_spec(read_keys=False),
     "goto": Spec(
         key="goto",
         eyebrow="Camera",
