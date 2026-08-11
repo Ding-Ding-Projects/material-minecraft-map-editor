@@ -27,6 +27,25 @@ CACHE_SECONDS = 0.25
 #: corrupt file is not re-opened on every call either.
 _cache: Dict[str, Tuple[float, Optional[bytes]]] = {}
 
+#: Bumped by every call to :func:`invalidate`, including the one :func:`put`
+#: makes on every write.  A caller layering its own cache on top of this
+#: module -- :func:`amulet_map_editor.api.studio.tokens._presentation` does --
+#: can compare this against a remembered value to notice an in-process write
+#: at once, instead of only after :data:`CACHE_SECONDS` lapses.  The counter is
+#: process-local on purpose: a write from *another* process does not touch it,
+#: and that gap is exactly what the time-based window above still covers.
+_generation = 0
+
+
+def generation() -> int:
+    """Return a counter that increases on every local write or invalidation.
+
+    A caller may safely hold this alongside a cached value it derived from
+    :func:`get`: unchanged means nothing this process wrote could have made
+    that value stale.
+    """
+    return _generation
+
 
 def invalidate(identifier: Optional[str] = None) -> None:
     """Forget cached profile data, for one identifier or for all of them.
@@ -34,6 +53,8 @@ def invalidate(identifier: Optional[str] = None) -> None:
     Anything that writes a profile file behind :func:`put`'s back must call
     this, or the write is invisible until the read window lapses.
     """
+    global _generation
+    _generation += 1
     if identifier is None:
         _cache.clear()
     else:

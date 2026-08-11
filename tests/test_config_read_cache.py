@@ -169,6 +169,36 @@ class ConfigReadCacheTestCase(unittest.TestCase):
         self.config.invalidate("watched")
         self.assertEqual(self.config.get("watched"), "after")
 
+    def test_generation_advances_on_every_write_and_invalidation(self):
+        # A cache layered on top of this module (tokens._presentation, for
+        # one) needs a cheap, immediate "did something local just change"
+        # signal that does not depend on CACHE_SECONDS lapsing.  This is it.
+        before = self.config.generation()
+        self.config.put("watched", "one")
+        after_put = self.config.generation()
+        self.assertGreater(
+            after_put, before, "put() must advance the generation counter"
+        )
+        self.config.invalidate("watched")
+        after_invalidate = self.config.generation()
+        self.assertGreater(
+            after_invalidate,
+            after_put,
+            "invalidate() must advance the generation counter too",
+        )
+
+    def test_generation_does_not_advance_on_a_plain_read(self):
+        self.config.put("watched", "one")
+        before = self.config.generation()
+        for _ in range(50):
+            self.config.get("watched")
+        self.assertEqual(
+            self.config.generation(),
+            before,
+            "reading must not look like a local write to a caller watching "
+            "the generation counter",
+        )
+
     def test_a_corrupt_file_falls_back_without_being_re_read(self):
         path = os.path.join(self._dir.name, "corrupt.config")
         with open(path, "wb") as handle:

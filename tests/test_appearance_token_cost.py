@@ -118,8 +118,7 @@ class AppearanceTokenCostTestCase(unittest.TestCase):
         self.assertIsNot(
             first,
             second,
-            "each caller must get its own font, as it did when every call "
-            "built one",
+            "each caller must get its own font, as it did when every call " "built one",
         )
         first.SetPointSize(72)
         self.assertNotEqual(
@@ -165,6 +164,12 @@ class AppearanceTokenCostTestCase(unittest.TestCase):
 
     def test_control_height_resolves_the_presentation_once(self):
         self.tokens.control_height()
+        # A warm presentation cache would answer the very next call for free,
+        # which would make the assertion below trivially true with zero
+        # reads.  Force a cold resolution so this is still a test of the
+        # real contract: one control_height() call must not read the
+        # persisted presentation twice to answer one question.
+        self.tokens._invalidate_presentation()
         calls = []
         real = self.preferences.load
 
@@ -180,6 +185,72 @@ class AppearanceTokenCostTestCase(unittest.TestCase):
             1,
             "control_height asked for the persisted presentation "
             f"{len(calls)} times to answer one question",
+        )
+
+    def test_repeated_calls_serve_the_presentation_from_cache(self):
+        # This is the burst a real paint makes: several token functions,
+        # each resolving the presentation on its own, inside one repaint.
+        # The whole point of caching it is that only the first of these
+        # actually reads and rebuilds ``Preferences``.
+        self.tokens._invalidate_presentation()
+        calls = []
+        real = self.preferences.load
+
+        def counting_load():
+            calls.append(1)
+            return real()
+
+        with mock.patch.object(self.preferences, "load", counting_load):
+            for _ in range(25):
+                self.tokens.control_height()
+                self.tokens.scaled(self.tokens.SPACE_MD)
+                self.tokens.density()
+                self.tokens.emoji("*")
+
+        self.assertEqual(
+            len(calls),
+            1,
+            "100 appearance-token calls inside one burst should resolve the "
+            f"persisted presentation once, not {len(calls)} times",
+        )
+
+    def test_a_theme_write_repaints_with_the_real_colour_at_once(self):
+        # The read window is what config.get() promises for a write from
+        # *another* process.  A write this process makes must not wait on it:
+        # config.put() bumps config.generation() the moment it runs, and that
+        # is what the presentation cache actually keys on.  A cached palette
+        # that survives the very next call is a worse defect than a slow one,
+        # so this checks the actual resolved colour, not just a flag.
+        self.preferences.update(theme="light")
+        light = self.tokens.palette()  # warm the cache on the old value
+        self.preferences.update(theme="dark")
+        dark = self.tokens.palette()
+        self.assertEqual(light.surface, self.tokens.LIGHT.surface)
+        self.assertEqual(
+            dark.surface,
+            self.tokens.DARK.surface,
+            "a theme change must repaint with the real colour on the very "
+            "next call, not only after the presentation cache's read "
+            "window lapses",
+        )
+        self.assertTrue(self.tokens.is_dark())
+        self.preferences.update(theme="system")
+
+    def test_a_ui_scale_write_reaches_scaled_at_once(self):
+        self.preferences.update(ui_scale=1.0)
+        base = self.tokens.scaled(self.tokens.SPACE_MD)
+        self.preferences.update(ui_scale=2.0)
+        self.assertGreater(
+            self.tokens.scaled(self.tokens.SPACE_MD),
+            base,
+            "scaled() must reflect a ui_scale write on the very next call, "
+            "not only after the presentation cache's read window lapses",
+        )
+        self.preferences.update(ui_scale=1.0)
+        self.assertEqual(
+            self.tokens.scaled(self.tokens.SPACE_MD),
+            base,
+            "changing the scale back must restore the original size",
         )
 
     def test_control_height_still_follows_density_and_scale(self):
