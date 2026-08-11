@@ -91,6 +91,7 @@ class _Recorder:
         return self.ribbon_format if label == "Format" else ""
 
     _export_operation = StudioShell._export_operation
+    _shown_operation_name = StudioShell._shown_operation_name
 
 
 def _report(before: int, after: int, key: str, subject: str = "") -> Dict[str, str]:

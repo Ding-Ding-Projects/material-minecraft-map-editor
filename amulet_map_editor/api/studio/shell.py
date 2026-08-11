@@ -1885,12 +1885,25 @@ class StudioShell(wx.Panel):
         operation = ribbon_defs.structure_format_operation(value)
         label = ribbon_defs.structure_format_label(value) or value
         if not operation:
+            # The same two refusals ``_tool_message`` tells apart, told apart
+            # here for the same reason: listing the writable formats at somebody
+            # whose dropdown could not be read sends them to pick again, which
+            # is the one thing that cannot help.
             self.notify(
                 studio_label("Export format", "匯出格式"),
                 studio_text(
-                    f"No exporter is registered for the format {value!r}, so "
-                    "Export cannot write it. The formats this build can write "
-                    "are " + ", ".join(ribbon_defs.structure_format_values()) + "."
+                    (
+                        f"No exporter is registered for the format {value!r}, so "
+                        "Export cannot write it. The formats this build can "
+                        "write are "
+                        + ", ".join(ribbon_defs.structure_format_values())
+                        + "."
+                    )
+                    if value
+                    else (
+                        "The ribbon's Format dropdown could not be read, so no "
+                        "format is chosen and Export has nothing to write."
+                    )
                 ),
                 severity="warning",
             )
@@ -1946,12 +1959,18 @@ class StudioShell(wx.Panel):
         exporter, because a silent default here is exactly what shipped: four
         options, one destination, and a success toast naming the destination
         back at somebody who had chosen one of the other three.
+
+        Reading *nothing* is refused on the same grounds, and used not to be.
+        An unreadable ribbon fell back to ``STRUCTURE_FORMATS[0]``, which built
+        that defect again one layer up: the tool was asked for ``Export
+        Construction``, the history entry recorded ``format: construction``, and
+        the toast said "writing construction (.construction)" -- three confident
+        statements about a choice nobody had made.  ``_ribbon_value`` answers
+        ``""`` when the read raises, so this is the shape a workspace whose
+        ribbon has gone, or one still building when a command arrives, arrives
+        in.  Nothing is now nothing, and every caller already handles it.
         """
-        value = self._ribbon_value("Format") or (
-            ribbon_defs.STRUCTURE_FORMATS[0].value
-            if ribbon_defs.STRUCTURE_FORMATS
-            else ""
-        )
+        value = self._ribbon_value("Format")
         return (
             value,
             ribbon_defs.structure_format_label(value) or value,
@@ -2053,10 +2072,19 @@ class StudioShell(wx.Panel):
             "tool": name,
             "selection_boxes": len(self._selection_corners()),
         }
+        severity = "success"
         if key == "export":
             value, _label, operation = self._export_operation()
             payload["format"] = value
             payload["exporter"] = operation
+            # The colour has to agree with the sentence.  Both refusals below
+            # explain themselves in the body and were posted green, which reads
+            # to a user exactly as the original defect did: the words said
+            # nothing had been written and the severity said it had worked.
+            if not operation or not _same_operation(
+                self._shown_operation_name(tool), operation
+            ):
+                severity = "warning"
         self._record(key, payload)
         if key == "runOperation":
             wx.CallAfter(self._run_active_operation, tool)
@@ -2064,7 +2092,23 @@ class StudioShell(wx.Panel):
         self.notify(
             studio_label(commands.label_for(key), ""),
             studio_text(self._tool_message(key, name, tool)),
-            severity="success",
+            severity=severity,
+        )
+
+    def _shown_operation_name(self, tool: Any) -> str:
+        """Return the operation name a tool's chooser is showing a user.
+
+        The *name*, not the identifier behind it.  The identifier is a dotted
+        module path, so the sentence built from it read "The selected exporter
+        is amulet_map_editor.programs.edit.plugins.operations.stock_plugins.
+        export_operations.construction." to somebody who had picked
+        "construction (.construction)" from a list.  ``active_operation_name``
+        exists for exactly this and says so in its own docstring; the identifier
+        is kept as the fallback so a tool that has one and no name still names
+        something.
+        """
+        return str(getattr(tool, "active_operation_name", "") or "") or str(
+            getattr(tool, "active_operation_id", "") or ""
         )
 
     def _tool_message(self, key: str, name: str, tool: Any) -> str:
@@ -2083,17 +2127,7 @@ class StudioShell(wx.Panel):
                 "The Import tool is asking for a structure file. The file you "
                 "choose is floated in the viewport for you to place."
             )
-        # The *name* the chooser is showing, not the identifier behind it.  The
-        # identifier is a dotted module path, so this sentence read "The
-        # selected exporter is amulet_map_editor.programs.edit.plugins.
-        # operations.stock_plugins.export_operations.construction." -- a Python
-        # import path shown to somebody who picked "construction (.construction)"
-        # from a list.  ``active_operation_name`` exists for exactly this and
-        # says so in its own docstring; the identifier is kept as the fallback
-        # so a tool that has one and no name still names something.
-        chosen = str(getattr(tool, "active_operation_name", "") or "") or str(
-            getattr(tool, "active_operation_id", "") or ""
-        )
+        chosen = self._shown_operation_name(tool)
         opening = (
             f"The {name} tool is now showing, with the "
             f"{boxes} selected {'box' if boxes == 1 else 'boxes'} as its input"
@@ -2102,12 +2136,22 @@ class StudioShell(wx.Panel):
             return opening + (
                 f". The selected exporter is {chosen}." if chosen else "."
             )
-        _value, label, wanted = self._export_operation()
+        value, label, wanted = self._export_operation()
         if not wanted:
+            # Two different refusals, and telling a user the wrong one sends
+            # them to fix the wrong thing: an unreadable ribbon is not a format
+            # they picked badly, and there is no other format they could pick
+            # that would help.
+            reason = (
+                f"No exporter is registered for the format {value!r}"
+                if value
+                else "The ribbon's Format dropdown could not be read, so no "
+                "format is chosen"
+            )
             return (
-                f"{opening}. No exporter is registered for the chosen format, so "
-                f"the tool is showing {chosen or 'no exporter'}; choose another "
-                "format in the ribbon."
+                f"{opening}. {reason}. The tool is showing "
+                f"{chosen or 'no exporter'}; check the exporter in the tool "
+                "before running it."
             )
         if not _same_operation(chosen, wanted):
             return (
@@ -2121,12 +2165,7 @@ class StudioShell(wx.Panel):
         """Run whatever operation the editor's Operation tool has selected."""
         active = getattr(tool, "_active_operation", None)
         runner = getattr(active, "_run_operation", None)
-        # The visible name, for the same reason as in ``_tool_message``: this
-        # string is announced to the user, and the identifier behind it is a
-        # dotted module path rather than the words they chose from the list.
-        chosen = str(getattr(tool, "active_operation_name", "") or "") or str(
-            getattr(tool, "active_operation_id", "") or ""
-        )
+        chosen = self._shown_operation_name(tool)
         if not callable(runner):
             self.notify(
                 studio_label("Operations", "操作"),
