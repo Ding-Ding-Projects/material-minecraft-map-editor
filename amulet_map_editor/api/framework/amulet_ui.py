@@ -210,7 +210,9 @@ class AmuletUI(wx.Frame):
         self._update_banner_sizer.Add(self._update_banner_actions_sizer, 0, wx.EXPAND)
         self._update_banner.SetSizer(self._update_banner_sizer)
         self._update_banner.Hide()
-        self._shell_sizer.Add(self._update_banner, 0, wx.EXPAND | wx.ALL, 8)
+        # Deliberately not added to the shell sizer: see
+        # _position_notification_toasts. A sizer child here is a banner
+        # that displaces the interface; this is an overlay that does not.
         self._tab_content = wx.Panel(self._shell)
         self._tab_content_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._level_notebook = AmuletLevelNotebook(
@@ -342,6 +344,23 @@ class AmuletUI(wx.Frame):
         margin = 16
         width, height = shell.GetClientSize()
         bottom = height - margin
+
+        # The update card sits lowest so a burst of toasts never pushes a
+        # standing offer off the bottom of the window.
+        banner = getattr(self, "_update_banner", None)
+        if banner is not None and banner.IsShown():
+            try:
+                banner.Fit()
+                size = banner.GetSize()
+                banner_width = min(max(size.width, 320), max(320, width - margin * 2))
+                banner.SetSize(wx.Size(banner_width, size.height))
+                bottom -= size.height
+                banner.SetPosition(wx.Point(width - banner_width - margin, bottom))
+                bottom -= 8
+                banner.Raise()
+            except RuntimeError:
+                pass
+
         for toast in reversed(self._notification_toasts):
             try:
                 if toast.IsBeingDeleted():
@@ -1273,7 +1292,7 @@ class AmuletUI(wx.Frame):
 
     def _hide_update_banner(self, _event=None) -> None:
         self._update_banner.Hide()
-        self._shell.Layout()
+        self._position_notification_toasts()
 
     def _render_update_banner(self, state: SquirrelUpdateState) -> None:
         title, body = update_copy.update_copy(
@@ -1305,7 +1324,13 @@ class AmuletUI(wx.Frame):
         else:
             self._update_banner_action.SetToolTip("Retry the bounded update check.")
         self._update_banner.Show()
-        self._shell.Layout()
+        # Positioned, not laid out. As a sizer child under the Studio shell this
+        # card collapsed to twenty pixels square and was never seen, so the
+        # updater worked perfectly and reported into nothing. It now floats in
+        # the same corner stack as the notifications, above them, and persists
+        # until acted on -- an update is a standing offer, not a passing message.
+        self._position_notification_toasts()
+        self._update_banner.Raise()
 
     def _show_update_state(
         self, state: SquirrelUpdateState, generation: int | None = None
