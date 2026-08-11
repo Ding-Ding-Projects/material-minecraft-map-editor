@@ -5,14 +5,8 @@ from typing import List
 
 import PyMCTranslate
 
-from amulet_map_editor.api.image import (
-    UP_CARET,
-    DOWN_CARET,
-    TRASH,
-    ADD_ICON,
-    MAXIMIZE,
-    MINIMIZE,
-)
+from amulet_map_editor.api.studio import tokens
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.ui.block_select import BlockDefine, EVT_PROPERTIES_CHANGE
 
 
@@ -25,7 +19,13 @@ class MultiBlockDefine(wx.lib.scrolledpanel.ScrolledPanel):
 
         self._sizer = wx.BoxSizer(wx.VERTICAL)
 
-        self._add_button = wx.BitmapButton(self, bitmap=ADD_ICON.bitmap(18, 18))
+        self._add_button = studio.StudioButton(
+            self,
+            variant="icon",
+            glyph="+",
+            name="Add block definition",
+            hint="Add another block definition",
+        )
         self._sizer.Add(self._add_button, 0, wx.TOP | wx.LEFT | wx.RIGHT | wx.EXPAND, 5)
 
         self._block_picker_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -110,9 +110,6 @@ class _CollapsibleBlockDefine(wx.Panel):
     def __init__(self, parent: MultiBlockDefine, translation_manager, collapsed=False):
         super().__init__(parent, style=wx.BORDER_SIMPLE)
 
-        self.EXPAND = MAXIMIZE.bitmap(18, 18)
-        self.COLLAPSE = MINIMIZE.bitmap(18, 18)
-
         self._collapsed = collapsed
 
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -121,18 +118,50 @@ class _CollapsibleBlockDefine(wx.Panel):
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(header_sizer, 0, wx.ALL, 5)
 
-        self.expand_button = wx.BitmapButton(self, bitmap=self.EXPAND)
+        # The four bitmap buttons this header used to draw -- expand, move up,
+        # move down, delete -- are the same glyph-only icon buttons the rest
+        # of this design system already reaches for in a compact row, using
+        # the exact glyphs this project already uses for the same actions
+        # elsewhere: "▾"/"▸" for expand/collapse (``CollapsibleSection``),
+        # "+"/"−" for add/remove (the block property editor beside this one),
+        # and "×" for a dismissing delete (the properties pane's own close
+        # button).
+        self.expand_button = studio.StudioButton(
+            self,
+            variant="icon",
+            glyph="▸",
+            name="Expand block definition",
+            hint="Show or hide this block's fields",
+        )
         header_sizer.Add(self.expand_button, 0, 5)
 
-        self.up_button = wx.BitmapButton(self, bitmap=UP_CARET.bitmap(18, 18))
+        self.up_button = studio.StudioButton(
+            self,
+            variant="icon",
+            glyph="▲",
+            name="Move block definition up",
+            hint="Move this block definition up",
+        )
         header_sizer.Add(self.up_button, 0, wx.LEFT, 5)
         self.up_button.Bind(wx.EVT_BUTTON, lambda evt: parent.move_up(self))
 
-        self.down_button = wx.BitmapButton(self, bitmap=DOWN_CARET.bitmap(18, 18))
+        self.down_button = studio.StudioButton(
+            self,
+            variant="icon",
+            glyph="▼",
+            name="Move block definition down",
+            hint="Move this block definition down",
+        )
         header_sizer.Add(self.down_button, 0, wx.LEFT, 5)
         self.down_button.Bind(wx.EVT_BUTTON, lambda evt: parent.move_down(self))
 
-        self.delete_button = wx.BitmapButton(self, bitmap=TRASH.bitmap(18, 18))
+        self.delete_button = studio.StudioButton(
+            self,
+            variant="icon",
+            glyph="×",
+            name="Delete block definition",
+            hint="Remove this block definition",
+        )
         header_sizer.Add(self.delete_button, 0, wx.LEFT, 5)
         self.delete_button.Bind(wx.EVT_BUTTON, lambda evt: parent.delete(self))
 
@@ -140,11 +169,19 @@ class _CollapsibleBlockDefine(wx.Panel):
         sizer.Add(self.block_define, 1, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 5)
         self.collapsed = collapsed
 
-        self.block_label = wx.StaticText(
+        # The floating-width cap the native ``wx.StaticText`` used to get from
+        # a fixed ``size=(500, -1)`` -- so a long block string still elides
+        # rather than pushing the header wider than the list it sits in --
+        # comes from ``wrap_width`` here: the label is not wrapped into extra
+        # lines, only measured and painted no wider than the cap.
+        self.block_label = studio.StudioText(
             self,
-            label=self._gen_block_string(),
-            style=wx.ST_ELLIPSIZE_END | wx.ST_NO_AUTORESIZE,
-            size=(500, -1),
+            self._gen_block_string(),
+            size_px=13,
+            role="on_surface",
+            wrap_width=tokens.scaled(500),
+            ellipsize=True,
+            name="Block definition summary",
         )
         header_sizer.Add(self.block_label, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
 
@@ -161,11 +198,14 @@ class _CollapsibleBlockDefine(wx.Panel):
     def collapsed(self, collapsed: bool):
         self._collapsed = collapsed
         if self._collapsed:
-            self.expand_button.SetBitmap(self.EXPAND)
+            self.expand_button.glyph = "▸"
+            self.expand_button.SetName("Expand block definition")
             self.block_define.Hide()
         else:
-            self.expand_button.SetBitmap(self.COLLAPSE)
+            self.expand_button.glyph = "▾"
+            self.expand_button.SetName("Collapse block definition")
             self.block_define.Show()
+        self.expand_button.Refresh()
         self.TopLevelParent.Layout()
 
     def _toggle_block_expand(self, parent: MultiBlockDefine):
