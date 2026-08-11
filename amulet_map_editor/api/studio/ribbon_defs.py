@@ -829,16 +829,22 @@ _TERRAIN = RibbonTab(
             ),
             launcher="surfacePaint",
         ),
-        RibbonGroup(
-            "Brush",
-            fields=(
-                RibbonField("Radius", "12"),
-                RibbonField("Strength", "0.45"),
-                RibbonField("Falloff", "smooth"),
-                RibbonField("Height", "98"),
-            ),
-            launcher="brushSettings",
-        ),
+        # A fourth group, titled "Brush", used to sit here: four outlined boxes
+        # holding Radius 12, Strength 0.45, Falloff smooth and Height 98.  They
+        # were removed rather than relabelled because of what they claimed to
+        # configure.  ``editor_tools`` records that this build has no brush tool
+        # at all -- the editor ships Select, Paste, Operation, Import, Export and
+        # Chunk, and none of them paints a shape along the pointer -- so the four
+        # boxes were enabled, editable, on screen, and offering to tune a feature
+        # the application does not have.  They tuned nothing even in principle:
+        # ``field_values`` is written by ``set_field`` and read by exactly one
+        # caller, the group panel that re-seeds the box with what it last stored.
+        # A static preview would have kept ribbon width to advertise something
+        # unbuilt; the space is better empty.  Neither surface was orphaned by
+        # this -- ``brushSettings`` is the Tools tab's Paint > Brush tile, and
+        # ``terrainBrush`` is the Sculpt group's launcher above.
+        # ``tests/test_terrain_brush_group.py`` holds both halves: the tab offers
+        # no box, and the brush tool is still missing for one to configure.
     ),
 )
 
