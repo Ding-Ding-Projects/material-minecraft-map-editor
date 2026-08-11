@@ -12,7 +12,11 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+# Anchored to the repository root on purpose. An unanchored 'build/' matches
+# at any depth, which silently swallowed docs/features/build/README.md: the
+# article existed locally, the tests passed locally, and CI failed because the
+# file had never been committed.
+/build/
 develop-eggs/
 dist/
 downloads/
