@@ -20,10 +20,17 @@ application is the failure this repository has already shipped once.  So the
 press and the release go in as real events, through the canvas, dispatched by
 wx: a handler that was written and never bound fails here instead of passing.
 
-What is *not* covered, said plainly: nothing here draws a pixel.  The mesh tests
-assert the vertex array, which is what the GPU is handed, not what a GPU makes
-of it.  Looking at the picture is done by ``scripts/capture_selection_handles.py``,
-which renders the real mesh through the real shader in a real context.
+**The draw call.**  A vertex array that is right and a draw call that never
+happens look identical to every test that reads ``verts``, so the last two run
+the shipped ``draw`` with only the boundary to the GPU replaced and record the
+ranges it asks for.  Delete the handle draw and they go red; issue it
+unconditionally and they go red the other way.
+
+What is *not* covered, said plainly: nothing here draws a pixel.  These tests
+assert what the GPU is handed, not what a GPU makes of it.  Looking at the
+picture is done by ``scripts/capture_selection_handles.py``, which renders the
+real mesh through the real shader in a real context, driven by the real
+behaviour, and counts the pixels each handle colour actually reaches.
 """
 
 from __future__ import annotations
@@ -426,3 +433,78 @@ def test_the_handles_do_not_disturb_the_box_they_sit_on() -> None:
     assert numpy.array_equal(
         plain.verts[:HANDLE_VERTS_START], with_handles.verts[:HANDLE_VERTS_START]
     )
+
+
+# ---------------------------------------------------------------------------
+# the draw call, rather than the vertices it would issue
+#
+# Every test above reads ``verts``.  All of them pass with the handle draw call
+# deleted: the cubes are still written into the array, correctly, and are simply
+# never handed to the GPU.  That is a whole feature disappearing from the screen
+# with a green suite behind it, so the two tests below run the shipped ``draw``
+# and record the ranges it asks for.
+# ---------------------------------------------------------------------------
+
+
+def issued_draw_ranges(box: RenderSelectionEditable, monkeypatch) -> list:
+    """Run the real ``draw`` and return the (start, count) pairs it issued.
+
+    What is replaced is exactly the boundary to the GPU -- the five GL calls
+    this module makes by name, the buffer upload, and ``_draw`` itself -- and
+    nothing above it.  The branching, the ordering and the ranges are the
+    shipped ones, which is the whole of what is being asserted: a vertex array
+    that is right and a draw call that never happens look identical to every
+    other test in this file.
+    """
+    from amulet_map_editor.api.opengl.mesh.selection.box import (
+        render_selection_editable as module,
+    )
+    from amulet_map_editor.api.opengl.mesh.tri_mesh import TriMesh
+
+    ranges: list = []
+    monkeypatch.setattr(module, "glGetBooleanv", lambda *a: True)
+    monkeypatch.setattr(module, "glGetIntegerv", lambda *a: 0)
+    monkeypatch.setattr(module, "glEnable", lambda *a: None)
+    monkeypatch.setattr(module, "glDisable", lambda *a: None)
+    monkeypatch.setattr(module, "glCullFace", lambda *a: None)
+    # On the class, not the instance: ``draw`` reaches this through ``super()``,
+    # which walks the MRO and never looks in the instance dictionary.
+    monkeypatch.setattr(
+        TriMesh,
+        "_draw",
+        lambda self, matrix: ranges.append((self.draw_start, self.draw_count)),
+    )
+
+    box._setup = lambda: None
+    # The real geometry still gets built; only its upload to the GPU is skipped.
+    box._create_geometry = lambda: (
+        box._create_geometry_(),
+        setattr(box, "_needs_rebuild", False),
+    )
+
+    box.draw(numpy.eye(4, dtype=numpy.float64))
+    return ranges
+
+
+def test_the_handles_are_actually_issued_to_the_gpu(monkeypatch) -> None:
+    """Drawn, not merely computed."""
+    ranges = issued_draw_ranges(mesh(), monkeypatch)
+
+    assert (HANDLE_VERTS_START, HANDLE_VERTS_TOTAL) in ranges, (
+        "the handle vertices were built and never drawn -- "
+        f"the frame issued {ranges}"
+    )
+
+
+def test_a_box_with_its_handles_off_issues_no_handle_draw(monkeypatch) -> None:
+    """And the precondition that keeps the test above honest.
+
+    Without this, a ``draw`` that issued the handle range unconditionally would
+    pass the test above while showing handles through a box being dragged out.
+    """
+    box = mesh()
+    box.show_handles = False
+    ranges = issued_draw_ranges(box, monkeypatch)
+
+    assert (HANDLE_VERTS_START, HANDLE_VERTS_TOTAL) not in ranges
+    assert ranges, "the box itself stopped drawing too"

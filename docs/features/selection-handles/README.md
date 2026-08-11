@@ -123,6 +123,15 @@ read as being at the centre of the screen. Dragging across either centre line
 stuck. The same construction is now shared by the drag and by the editor's own
 block picking, so the fix reaches both.
 
+**Turning the camera does not cost the pointer its hand.** While the camera is
+being orbited it owns the cursor outright — blank for the duration, reset to the
+default the moment it lets go — so the hover cannot put a hand on screen then.
+The record of what was applied is therefore forced back to "no hand" for the
+duration, rather than quietly noting the hand that never appeared. The first
+version noted it, and the consequence was permanent: the "nothing changed" check
+then matched every later attempt, so a handle the pointer stopped on at the end
+of an orbit stayed a plain arrow until the pointer left it and came back.
+
 ## What this does not cover
 
 **The paste tool's pending object has no handles.** It is moved by clicking to
@@ -147,12 +156,49 @@ and never bound fails instead of passing.
 `tests/test_selection_keyboard_equivalence.py` — the keyboard routes, including
 the focus gate that had to be built.
 
-Every one of those guards was watched failing against a deliberate break before
-it was kept — including one that had to be rewritten because it passed against
-the break it existed to catch: it compared the hover size against the constant
-that sets the hover size, so setting that constant to 1.0 satisfied it.
+### The call sites, which were the gap
 
-`scripts/capture_selection_handles.py` renders the real mesh through the real
-shader in a real OpenGL context and reads the framebuffer back. The three images
-above came from it. It exits non-zero when the frame comes back empty, because a
-capture harness that reports success over a blank rectangle is worse than none.
+The tests above all aim at a function that does the work, and every one of them
+passes with the *call* to that function deleted — because the test makes the
+call itself. That left six seams unguarded at once: `draw` could force the
+handles off, or stop refreshing which of them this camera can offer; the pointer
+update could stop refreshing the hover, or stop letting a handle win over the
+face behind it; the drag could stop unlocking the box; and the mesh could build
+all fourteen cubes and never issue the draw call. Each of those is the feature
+disappearing from the screen with a green suite behind it.
+
+So `test_selection_box_handle_wiring.py` also drives `draw` and `_update_pointer`
+— the two methods the editor calls every frame — and asserts what they do to the
+real mesh, and `test_selection_box_handles.py` runs the shipped `draw` with only
+the boundary to the GPU replaced and records the vertex ranges it asks for.
+
+Every guard here was watched failing against a deliberate break before it was
+kept, and three had to be rewritten because they passed against the break they
+existed to catch:
+
+- one compared the hover size against the constant that sets the hover size, so
+  setting that constant to `1.0` satisfied it;
+- the handle-wins-over-face test aimed at a *corner* handle, where the ray only
+  grazes the box and may miss it entirely — so the face highlight was off for a
+  reason that had nothing to do with handles. It aims at a face handle now, and
+  asserts the highlight really does come on over bare face first;
+- the orbit test left the pointer off-centre, but an orbit locks the pointer to
+  the middle of the viewport, so no handle was hovered during the turn and the
+  latch was never reached.
+
+### The picture
+
+`scripts/capture_selection_handles.py` renders through the real shader in a real
+OpenGL context and reads the framebuffer back. **The frame is drawn by
+`BlockSelectionBehaviour`**, which decides whether the handles are up, which of
+them this camera can offer, and which one the pointer is on. The first version
+set those three on the mesh by hand, which made the picture evidence that the
+mesh *can* draw handles and no evidence at all that the editor asks it to — it
+came out identical with the behaviour's own draw turning them off.
+
+It counts the pixels carrying each handle colour, predicted from the tint
+through the shader's own arithmetic, and exits non-zero when they are missing —
+so a deleted draw call, a collapsed cube or a behaviour that never turns the
+handles on fails the capture instead of producing a picture that looks fine. A
+requested hover that the behaviour does not agree with also fails, rather than
+mislabelling the image.

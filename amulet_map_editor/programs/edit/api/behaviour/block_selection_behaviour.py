@@ -327,14 +327,24 @@ class BlockSelectionBehaviour(PointerBehaviour):
         )
 
     def _set_handle_cursor(self, over: bool):
-        """Say through the pointer itself whether there is something to grab."""
+        """Say through the pointer itself whether there is something to grab.
+
+        ``_handle_cursor`` records what was actually *applied*, not what was
+        last wanted, and the difference is the whole of this method.  While the
+        camera is being turned it owns the cursor outright -- blank for the
+        duration, reset to the default the moment it lets go -- so nothing can
+        be applied here, and whatever was applied before has already been
+        taken away.  Recording "over" anyway would leave the flag claiming a
+        hand that is not on screen, and the equality test below would then
+        never put one there: hover a handle, orbit, stop with the pointer still
+        on it, and the hand is gone for good.
+        """
+        if self.canvas.camera.rotating:
+            self._handle_cursor = False
+            return
         if over == self._handle_cursor:
             return
         self._handle_cursor = over
-        if self.canvas.camera.rotating:
-            # The camera hides the cursor entirely while it is being turned.
-            # Putting a hand back would undo that.
-            return
         self.canvas.SetCursor(wx.Cursor(wx.CURSOR_HAND) if over else wx.NullCursor)
 
     def _refresh_handle_hover(self):

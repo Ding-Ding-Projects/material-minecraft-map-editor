@@ -24,6 +24,7 @@ import pytest
 
 wx = pytest.importorskip("wx")
 
+from amulet.api.errors import ChunkLoadError  # noqa: E402
 from amulet.api.selection import SelectionBox, SelectionGroup  # noqa: E402
 
 from amulet_map_editor.api.opengl.camera import Projection  # noqa: E402
@@ -101,6 +102,23 @@ class StubRenderer:
         self.opengl_resource_pack = StubPack()
 
 
+class StubWorld:
+    """A world with no chunks loaded, which is a state the editor really has.
+
+    ``closest_block_3d`` walks the ray asking for each chunk it crosses and
+    treats a load failure as "nothing solid here", so this makes the block
+    picking answer honestly rather than being bypassed.  That matters because
+    the hover refresh sits in the same branch as the block picking: stub the
+    picking out and the branch never runs, which is exactly how a deleted
+    ``_refresh_handle_hover`` call went unnoticed.
+    """
+
+    sub_chunk_size = 16
+
+    def get_chunk(self, cx, cz, dimension):
+        raise ChunkLoadError(f"no chunk {cx},{cz} in {dimension}")
+
+
 class StubCanvas(wx.Frame):
     """A real wx window -- so binding and dispatch are real -- and no more."""
 
@@ -111,6 +129,8 @@ class StubCanvas(wx.Frame):
         self.camera = StubCamera()
         self.mouse = StubMouse()
         self.selection = StubSelection()
+        self.world = StubWorld()
+        self.dimension = "minecraft:overworld"
         self.buttons = type("Buttons", (), {"pressed_actions": frozenset()})()
         self.cursors = []
 
@@ -154,6 +174,13 @@ def grabbed_corner(behaviour_) -> numpy.ndarray:
     """The world position of a corner handle that is in view from the camera."""
     box = behaviour_._active_selection
     return H.handle_centre(H.BOX_HANDLES[-1], box.min, box.max)
+
+
+def handle_position(behaviour_, name: str) -> numpy.ndarray:
+    """The world position of the named handle on the active box."""
+    box = behaviour_._active_selection
+    handle = next(each for each in H.BOX_HANDLES if each.name == name)
+    return H.handle_centre(handle, box.min, box.max)
 
 
 def test_pressing_on_a_handle_starts_a_drag(behaviour) -> None:
@@ -296,3 +323,211 @@ def test_a_top_down_camera_withholds_the_vertical_handles(behaviour) -> None:
     offered = {handle.name for handle in behaviour._active_selection.visible_handles}
     assert "face:+y" not in offered and "face:-y" not in offered
     assert {"face:+x", "face:-z"} <= offered
+
+
+# ----------------------------------------------------------------------
+# the call sites, rather than the things they call
+#
+# Every test above aims at a function that does the work.  Each one of them
+# passes with the *call* to that function deleted, because the test makes the
+# call itself.  These do not: they drive ``draw`` and ``_update_pointer`` -- the
+# two methods the editor calls every frame -- and assert what those methods do
+# to the real mesh.  Delete a line from either and one of these goes red.
+# ----------------------------------------------------------------------
+
+
+def record_gl(behaviour_) -> list:
+    """Silence the three GL draw calls, and say which meshes were asked to draw.
+
+    Only ``draw`` is replaced, and only on the mesh instances.  ``show_handles``,
+    ``set_handle_view`` and ``visible_handles`` stay the shipped ones, so the
+    assertions land on real state that the real ``draw`` really set -- a
+    recording double in place of the whole mesh would happily accept whatever it
+    was told and prove nothing.
+    """
+    drawn: list = []
+
+    def recorder(name, mesh):
+        def draw(*args, **kwargs):
+            drawn.append(name)
+
+        mesh.draw = draw
+
+    recorder("group", behaviour_._selection)
+    recorder("pointer", behaviour_._pointer)
+    if behaviour_._active_selection is not None:
+        recorder("active", behaviour_._active_selection)
+    return drawn
+
+
+def test_drawing_a_settled_box_puts_its_handles_up(behaviour) -> None:
+    """The frame that follows an ordinary idle moment shows the handles.
+
+    ``draw`` is where that is decided, and nothing else asserts it: the geometry
+    knows where a handle goes and the mesh knows how to draw one, but if the
+    behaviour never asks, fourteen handles are computed every frame and none of
+    them reach the screen.
+    """
+    behaviour._active_selection.show_handles = False  # a state a previous edit leaves
+    drawn = record_gl(behaviour)
+
+    behaviour.draw()
+
+    assert behaviour._active_selection.show_handles is True
+    assert "active" in drawn, "the box mesh was never asked to draw"
+
+
+def test_drawing_mid_creation_takes_the_handles_off(behaviour) -> None:
+    """While a box is being dragged out they would sit under the pointer."""
+    behaviour.canvas.mouse.mouse_xy_relative = (-0.95, -0.95)
+    send(behaviour, InputPressEvent(ACT_BOX_CLICK))
+    assert behaviour._editing and behaviour._handle_drag is None
+    record_gl(behaviour)
+
+    behaviour.draw()
+
+    assert behaviour._active_selection.show_handles is False
+
+
+def test_drawing_mid_handle_drag_keeps_the_handles_up(behaviour) -> None:
+    """The one edit the handles are for must not make them vanish.
+
+    ``_editing`` is true throughout a handle drag -- it is what stops the rest
+    of the editor touching the box -- so a rule of "hide them while editing"
+    written without the drag in mind would blank the handle being held.
+    """
+    look_at(behaviour, grabbed_corner(behaviour))
+    send(behaviour, InputPressEvent(ACT_BOX_CLICK))
+    assert behaviour._handle_drag is not None and behaviour._editing
+    record_gl(behaviour)
+
+    behaviour.draw()
+
+    assert behaviour._active_selection.show_handles is True
+
+
+def test_grabbing_a_handle_unlocks_the_box(behaviour) -> None:
+    """The colour that says "this is moving", and its return.
+
+    Locked is the state the box is drawn in when nothing is happening to it.  A
+    drag that never unlocks it looks identical to one that never started.
+    """
+    look_at(behaviour, grabbed_corner(behaviour))
+    assert behaviour._active_selection.locked is True
+
+    send(behaviour, InputPressEvent(ACT_BOX_CLICK))
+    assert behaviour._active_selection.locked is False, "the box never went live"
+
+    send(behaviour, InputReleaseEvent(ACT_BOX_CLICK))
+    assert behaviour._active_selection.locked is True
+
+
+def test_drawing_refreshes_the_withheld_set_as_the_camera_orbits(behaviour) -> None:
+    """Orbiting changes which handles work, and the mouse need not have moved.
+
+    That is the whole reason the refresh is in ``draw`` as well as in the
+    pointer update: a camera swinging overhead under keyboard control fires no
+    motion event, so without this the offered set would be whatever it was when
+    the pointer last moved, and a face handle pointing straight at the viewer
+    would still be drawn and still be grabbable.
+    """
+    record_gl(behaviour)
+    behaviour.draw()
+    before = {handle.name for handle in behaviour._active_selection.visible_handles}
+    assert {"face:+y", "face:-y"} <= before, "nothing was withheld to begin with"
+
+    behaviour.canvas.camera.location = (6.0, 200.0, 5.0)  # straight overhead
+    behaviour.draw()
+
+    after = {handle.name for handle in behaviour._active_selection.visible_handles}
+    assert "face:+y" not in after and "face:-y" not in after
+    assert {"face:+x", "face:-x", "face:+z", "face:-z"} <= after
+
+
+def hover_via_pointer_update(behaviour_, world_point) -> None:
+    """Point at a world position and run one frame the way the editor does."""
+    look_at(behaviour_, world_point)
+    send(behaviour_, wx.MouseEvent(wx.wxEVT_MOTION))
+    send(behaviour_, PreDrawEvent())
+
+
+def test_moving_the_pointer_lights_the_handle_under_it(behaviour) -> None:
+    """Hover through ``_update_pointer``, not by calling the refresh directly.
+
+    Calling ``_refresh_handle_hover`` in a test proves the refresh works and
+    says nothing about whether anything calls it.  This goes in as a motion
+    event and a frame, so the branch that actually reaches it -- the one with
+    the block picking in it -- has to run.
+    """
+    hover_via_pointer_update(behaviour, grabbed_corner(behaviour))
+
+    assert behaviour._active_selection.hovered_handle is not None
+    assert behaviour.canvas.cursors, "the pointer never offered a hand"
+
+    hover_via_pointer_update(behaviour, numpy.array([300.0, 300.0, 300.0]))
+    assert behaviour._active_selection.hovered_handle is None
+
+
+def test_a_handle_wins_over_the_face_behind_it(behaviour) -> None:
+    """A handle sits on a face, so both are under the pointer at once.
+
+    Whichever the box highlights is the one the user is being promised, and the
+    press does the handle.  A *face* handle is the case that matters: it sits in
+    the middle of a face the ray unambiguously hits, so the resize highlight
+    would certainly come on without the rule.  A corner handle would not prove
+    it -- the ray only grazes the box there and may miss it altogether, leaving
+    the highlight off for a reason that has nothing to do with handles.
+
+    The first half is the precondition that keeps the second honest: aim at bare
+    face and the highlight really does come on, so its absence over a handle
+    means something.
+    """
+    hover_via_pointer_update(behaviour, numpy.array([3.0, 2.0, 0.0]))
+    assert (
+        behaviour._active_selection.hovered_handle is None
+    ), "aim at bare face, not at a handle"
+    assert behaviour._highlight is True, "the face highlight never came on at all"
+
+    hover_via_pointer_update(behaviour, handle_position(behaviour, "face:-z"))
+
+    assert behaviour._active_selection.hovered_handle == "face:-z"
+    assert behaviour._highlight is False, "the box offered a resize under the handle"
+
+
+def test_the_hand_comes_back_after_an_orbit_that_ended_on_a_handle(behaviour) -> None:
+    """Turning the camera must not cost the pointer its shape for good.
+
+    The camera takes the cursor away while it is being turned -- blank during,
+    default afterwards -- so the behaviour's record of what it applied is stale
+    the moment an orbit starts.  Recording a hand it never got to apply makes
+    the "nothing changed" early-out swallow every later attempt, and the handle
+    under the pointer stays a plain arrow until the pointer leaves it and comes
+    back.
+    """
+    # An orbit locks the pointer to the middle of the viewport, so the ray that
+    # decides what is hovered mid-turn is the one through dead centre -- not
+    # wherever the mouse was.  Aiming the camera straight down it is the only
+    # way to reach the latch at all: leave the pointer off-centre and nothing is
+    # hovered during the orbit, the flag never moves, and a test built that way
+    # passes against the broken code.
+    corner = handle_position(behaviour, "corner:+x+y-z")
+    behaviour.canvas.camera.location = (
+        float(corner[0]),
+        float(corner[1]),
+        float(corner[2]) - 20.0,
+    )
+    behaviour.canvas.camera.rotation = (0.0, 0.0)
+    behaviour.canvas.mouse.mouse_xy_relative = (0.0, 0.0)
+
+    behaviour.canvas.camera.rotating = True
+    behaviour._refresh_handle_hover()
+    assert (
+        behaviour._active_selection.hovered_handle is not None
+    ), "the centre ray missed every handle, so the orbit case was never reached"
+    assert not behaviour.canvas.cursors, "a hand was drawn over a hidden cursor"
+
+    behaviour.canvas.camera.rotating = False
+    behaviour._refresh_handle_hover()
+
+    assert behaviour._active_selection.hovered_handle is not None
+    assert behaviour.canvas.cursors, "the hand never came back after the orbit"
