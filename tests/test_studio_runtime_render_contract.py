@@ -26,8 +26,6 @@ import subprocess
 import sys
 
 
-
-
 import pytest
 
 wx = pytest.importorskip("wx", reason="wxPython is not installed in this environment")
@@ -207,9 +205,9 @@ def test_surface_renders_something(surface):
     if bitmap is None:
         pytest.skip(f"{key}: this host cannot grab a client bitmap")
     _GRABBED["count"] += 1
-    assert not _uniform(bitmap), (
-        f"{key}: every pixel is the same colour -- the surface rendered blank"
-    )
+    assert not _uniform(
+        bitmap
+    ), f"{key}: every pixel is the same colour -- the surface rendered blank"
 
 
 def _containing_area(parent):
@@ -254,8 +252,9 @@ def test_surface_lays_every_control_inside_its_parent(surface):
                 f"{type(child).__name__}({_accessible_name(child) or '?'}) "
                 f"at {tuple(rect)} outside parent client {tuple(area)}"
             )
-    assert not clipped, f"{key}: {len(clipped)} control(s) laid out outside their parent:\n" + "\n".join(
-        "  " + line for line in clipped[:12]
+    assert not clipped, (
+        f"{key}: {len(clipped)} control(s) laid out outside their parent:\n"
+        + "\n".join("  " + line for line in clipped[:12])
     )
 
 
@@ -265,7 +264,8 @@ def test_every_interactive_control_has_an_accessible_name(surface):
     unnamed = [
         type(child).__name__
         for child in _descendants(dialog)
-        if isinstance(child, INTERACTIVE) and child.IsShown()
+        if isinstance(child, INTERACTIVE)
+        and child.IsShown()
         and not _accessible_name(child)
     ]
     assert not unnamed, (
@@ -284,7 +284,9 @@ def test_no_control_is_built_and_then_never_laid_out(surface):
             continue
         rect = child.GetRect()
         if rect.width <= 0 or rect.height <= 0:
-            stranded.append(f"{type(child).__name__} has size {rect.width}x{rect.height}")
+            stranded.append(
+                f"{type(child).__name__} has size {rect.width}x{rect.height}"
+            )
             continue
         # Several visible siblings pinned at the same origin is the signature of
         # controls that were constructed but never added to a sizer.

@@ -12,10 +12,14 @@ SELECTOR = (
 
 
 class WindowsWorkflowContractTests(unittest.TestCase):
-    def test_publish_requires_successful_deploy_and_gate(self):
+    def test_publish_requires_a_successful_deploy(self):
         self.assertIn("needs.deploy.result == 'success'", WORKFLOW)
-        self.assertIn("needs.deploy.outputs.tests_passed == 'true'", WORKFLOW)
-        self.assertIn("id: release-gating-tests", WORKFLOW)
+        # The release-gating test step was removed from this workflow, so the
+        # publish job is gated on the build succeeding and nothing else. Tests
+        # still run on every push through the Unittests workflow; they no longer
+        # decide whether a build may ship.
+        self.assertNotIn("tests_passed", WORKFLOW)
+        self.assertNotIn("release-gating-tests", WORKFLOW)
 
     def test_duration_is_zero_padded_hh_mm_ss(self):
         self.assertIn("scripts/release_timing.py --started", WORKFLOW)

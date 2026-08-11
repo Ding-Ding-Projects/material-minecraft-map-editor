@@ -1,129 +1,228 @@
-"""Hold one Amulet Studio surface open so a headless capture can photograph it.
+"""Walk the Amulet Studio interface and photograph it, writing a manifest.
 
-This is deliberately a *launcher*, not a renderer, and that is the whole lesson
-of building it. Rendering in-process -- blitting a `wx.ClientDC` of the shell
-into a bitmap -- looks like the tidy answer and produces a **blank white image**:
-on Windows a device context for a composite panel does not include its child
-windows, so everything the user actually looks at is missing. `PrintWindow` does
-include them, which is what the headless screenshot route uses, so the
-application is held open here and captured from outside.
+Runs in-process on purpose. Two capture routes look plausible here and only one
+of them tells the truth about this interface:
 
-The opposite trap is worth stating beside it, because both produce a plausible
-picture. Before the paint path was fixed, a `PrintWindow` capture came back with
-every native control drawn and every owner-drawn control a flat grey rectangle.
-That was not a limitation of the capture: the paint handlers were raising. A
-capture that looks half-broken is evidence about the application, not about the
-camera -- check which before concluding either.
+* ``PrintWindow`` (what an out-of-process screenshot uses) asks each window to
+  draw itself. Native controls answer; a window that paints in its own
+  ``EVT_PAINT`` with a buffered device context generally does not. This
+  interface is owner-drawn end to end, so that route returns a plausible-looking
+  grid of empty boxes and reads as a broken renderer rather than a broken
+  capture.
+* Blitting the window's own client device context copies the pixels actually on
+  the surface, asking the window nothing. That is what ``capture_surface``
+  does, and it is the only route that sees this interface.
+
+One further trap, which cost a blank white file before it was understood: blit
+the *individual* windows, not the composite panel that contains them. A device
+context for a parent does not include its child windows on Windows, so
+capturing the shell as one object omits everything inside it.
+
+Every capture records its distinct-colour count in the manifest. A number near
+the floor is a picture to retake rather than ship, because a blank capture is
+worse than none: it looks like evidence.
 
 Nothing here retouches an image. If a face renders as Segoe rather than the
-design's IBM Plex, the capture shows Segoe and the manifest says Segoe.
+design's IBM Plex, the capture shows Segoe and the manifest says so.
 
 Usage:
-    pythonw -3.11 scripts/capture_studio_surfaces.py backstage home
-    pythonw -3.11 scripts/capture_studio_surfaces.py workspace
-    pythonw -3.11 scripts/capture_studio_surfaces.py ribbon terrain
-    pythonw -3.11 scripts/capture_studio_surfaces.py surface railTunnel
-
-The window is titled ``AMULET_CAPTURE::<name>`` so the capture driver can find
-it by title. Resolve it by class as well: a wx Frame is ``wxWindowNR`` and a wx
-Dialog is ``#32770``, and one wx process publishes roughly ten other top-level
-windows -- IME, Cicero and UAC helpers -- several of them zero by zero.
+    pythonw -3.11 scripts/capture_studio_surfaces.py --out resource/img
 """
 
 from __future__ import annotations
 
+import argparse
+import json
+import subprocess
 import sys
+import traceback
+from datetime import date
+from pathlib import Path
+from typing import List
 
 import wx
 
-from amulet_map_editor.api.studio import ribbon_defs, specs as spec_registry
-from amulet_map_editor.api.studio.shell import StudioShell
-from amulet_map_editor.api.studio.spec_dialog import SpecDialog
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-#: Surfaces whose known layout defects are being fixed. Photographing one now
-#: would put a picture of a defect into the README.
-HELD = frozenset(
-    {
-        "brushTool",
-        "editChunkTool",
-        "layerSlice",
-        "nbtLegacy",
-        "structureLocator",
-        "portalBuilder",
-        "presets",
-        "docs",
-        "elementAppearance",
-        "entityEdit",
-        "errorReport",
-        "pluginsDialog",
-        "pythonConsole",
-        "scriptConsole",
-    }
-)
+from capture_surface import capture_window  # noqa: E402
+
+from amulet_map_editor.api.studio import ribbon_defs  # noqa: E402
+from amulet_map_editor.api.studio import specs as spec_registry  # noqa: E402
+from amulet_map_editor.api.studio.shell import StudioShell  # noqa: E402
+from amulet_map_editor.api.studio.spec_dialog import SpecDialog  # noqa: E402
 
 BACKSTAGE_TABS = ("home", "open", "info", "convert", "features", "account")
+PANES = ("ribbon", "navigator", "viewport", "properties", "status")
 
 
-class ShellFrame(wx.Frame):
-    def __init__(self, name: str) -> None:
-        super().__init__(None, title=f"AMULET_CAPTURE::{name}", size=(1600, 1000))
-        host = wx.Panel(self)
+class Driver:
+    def __init__(self, out: Path, commit: str, stamp: str) -> None:
+        self.out = out
+        self.commit = commit
+        self.short = commit[:8]
+        self.stamp = stamp
+        self.rows: List[dict] = []
+        self.failures: List[dict] = []
+        self.app = wx.App(False)
+        self.frame = wx.Frame(
+            None, title="Amulet Studio", size=(1600, 1000), pos=(-32000, -32000)
+        )
+        host = wx.Panel(self.frame)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.shell = StudioShell(host, self)
+        self.shell = StudioShell(host, self.frame)
         sizer.Add(self.shell, 1, wx.EXPAND)
         host.SetSizer(sizer)
-        self.Show()
+        self.frame.Show()
+        for _ in range(4):
+            wx.Yield()
 
+    def shoot(self, name: str, window, *, group: str, alt: str, surface: str) -> None:
+        filename = f"{name}-{self.short}-{self.stamp}.png"
+        try:
+            colours = capture_window(window, self.out / filename)
+        except Exception as error:  # a blank or absent surface, reported not shipped
+            self.failures.append(
+                {"name": name, "reason": f"{type(error).__name__}: {error}"}
+            )
+            return
+        self.rows.append(
+            {
+                "filename": filename,
+                "surface": surface,
+                "group": group,
+                "theme": "light",
+                "density": "comfortable",
+                "viewport": f"{window.GetClientSize().width}x{window.GetClientSize().height}",
+                "colours": colours,
+                "alt": alt,
+                "verified": self.commit,
+            }
+        )
 
-def main(argv: list[str]) -> int:
-    mode = argv[0] if argv else "backstage"
-    target = argv[1] if len(argv) > 1 else "home"
+    def run(self) -> None:
+        for tab in BACKSTAGE_TABS:
+            self.shell.show_backstage(tab)
+            for _ in range(3):
+                wx.Yield()
+            self.shoot(
+                f"backstage-{tab}",
+                self.shell.backstage,
+                group="Backstage",
+                surface=f"backstage.{tab}",
+                alt=f"Amulet Studio backstage, {tab} tab, in the light theme.",
+            )
 
-    app = wx.App(False)
+        self.shell.open_project(title="Capture World", platform="java")
+        self.shell.show_workspace()
+        for _ in range(4):
+            wx.Yield()
 
-    if mode == "surface":
-        if target in HELD:
-            print(f"{target} is held back while its layout defect is fixed")
-            return 2
-        spec = spec_registry.get(target)
-        if spec is None:
-            print(f"no surface registered under {target!r}")
-            return 2
-        host = wx.Frame(None, title="AMULET_CAPTURE::host", pos=(-32000, -32000))
-        host.Show()
-        dialog = SpecDialog(host, spec)
-        dialog.SetTitle(f"AMULET_CAPTURE::{target}")
-        dialog.Layout()
-        dialog.Centre()
-        dialog.Show()
-    else:
-        name = target if mode != "workspace" else "workspace"
-        frame = ShellFrame(name)
-        if mode == "workspace" or mode == "ribbon":
-            frame.shell.open_project(title="Capture World", platform="java")
-            frame.shell.show_workspace()
-            if mode == "ribbon":
-                ribbon = getattr(frame.shell.workspace, "ribbon", None)
-                if ribbon is None or not hasattr(ribbon, "set_tab"):
-                    print("the workspace exposes no ribbon.set_tab")
-                    return 2
-                if target not in ribbon_defs.TAB_KEYS:
-                    print(f"{target!r} is not a ribbon tab")
-                    return 2
-                ribbon.set_tab(target)
-        else:
-            if target not in BACKSTAGE_TABS:
-                print(f"{target!r} is not a backstage tab")
-                return 2
-            frame.shell.show_backstage(target)
-        frame.Layout()
+        workspace = self.shell.workspace
+        for pane in PANES:
+            window = getattr(workspace, pane, None)
+            if window is None:
+                self.failures.append({"name": f"pane-{pane}", "reason": "not exposed"})
+                continue
+            self.shoot(
+                f"workspace-{pane}",
+                window,
+                group="Workspace",
+                surface=f"workspace.{pane}",
+                alt=f"The Amulet Studio workspace {pane}, in the light theme.",
+            )
 
-    # Let every deferred paint run before the driver takes the picture.
-    for _ in range(4):
+        ribbon = getattr(workspace, "ribbon", None)
+        if ribbon is not None and hasattr(ribbon, "set_tab"):
+            for key in ribbon_defs.TAB_KEYS:
+                ribbon.set_tab(key)
+                for _ in range(3):
+                    wx.Yield()
+                self.shoot(
+                    f"ribbon-{key}",
+                    ribbon,
+                    group="Ribbon tabs",
+                    surface=f"ribbon.{key}",
+                    alt=(
+                        f"The Amulet Studio ribbon with the {key} tab selected and "
+                        "its panel open, in the light theme."
+                    ),
+                )
+
+        for key in spec_registry.keys():
+            spec = spec_registry.get(key)
+            if spec is None:
+                continue
+            dialog = SpecDialog(self.frame, spec)
+            dialog.Layout()
+            dialog.Show()
+            for _ in range(3):
+                wx.Yield()
+            self.shoot(
+                key.lower(),
+                dialog,
+                group="Surfaces",
+                surface=key,
+                alt=(
+                    f"The {spec.title} surface ({spec.eyebrow}), showing its window "
+                    f"search and {len(spec.sections)} sections, in the light theme."
+                ),
+            )
+            dialog.Hide()
+            dialog.Destroy()
+            wx.Yield()
+
+    def report(self) -> dict:
+        self.frame.Destroy()
         wx.Yield()
-    app.MainLoop()
+        return {
+            "schemaVersion": 1,
+            "commit": self.commit,
+            "captured": self.stamp,
+            "wxPython": wx.version(),
+            "method": "in-process client-DC blit (capture_surface.capture_window)",
+            "note": (
+                "PrintWindow cannot see this interface: it is owner-drawn end to end "
+                "and returns empty boxes. Colour counts are recorded so a capture "
+                "near the floor can be retaken rather than shipped."
+            ),
+            "captures": self.rows,
+            "failures": self.failures,
+        }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", type=Path, default=Path("resource/img"))
+    parser.add_argument("--manifest", type=Path, default=None)
+    parser.add_argument("--commit", default="")
+    args = parser.parse_args()
+
+    commit = (
+        args.commit
+        or subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True
+        ).stdout.strip()
+    )
+    if not commit:
+        raise SystemExit("could not resolve the commit being captured")
+
+    args.out.mkdir(parents=True, exist_ok=True)
+    driver = Driver(args.out, commit, date.today().strftime("%Y%m%d"))
+    try:
+        driver.run()
+    except Exception:
+        traceback.print_exc()
+    report = driver.report()
+
+    manifest = args.manifest or (args.out / f"capture-manifest-{commit[:8]}.json")
+    manifest.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    print(f"captured {len(report['captures'])}, failed {len(report['failures'])}")
+    for entry in report["failures"][:12]:
+        print(f"  FAILED {entry['name']}: {entry['reason']}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main())
