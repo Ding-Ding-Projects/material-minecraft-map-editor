@@ -177,6 +177,50 @@
       </div>
     </section>
 
+    <section id="changelog" class="page-section" role="tabpanel" aria-labelledby="tab-changelog" data-page="changelog" tabindex="-1" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">RELEASE HISTORY</p>
+          <h1>Every version, with the commit that made it.</h1>
+          <p>Real releases read from the repository's own catalogue. An entry that cannot name its commit says so rather than guessing at a neighbour.</p>
+        </div>
+        <div class="search-stack">
+          <label class="search-field" for="changelog-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="changelog-search" type="search" placeholder="Search the changelog" aria-label="Search the changelog" autocomplete="off" maxlength="256">
+            <span class="count" id="changelog-count"></span>
+            <button class="regex-open" type="button" id="changelog-regex-open" aria-label="Regex builder for the changelog search" aria-expanded="false" aria-controls="changelog-regex">.*</button>
+          </label>
+        </div>
+      </div>
+      <details class="regex-builder" id="changelog-regex" data-search="changelog"><summary>Regex builder · changelog search</summary><div class="regex-controls" data-regex-controls="changelog"></div></details>
+      <div class="filter-row" id="changelog-filters"></div>
+      <div id="changelog-list"></div>
+      <p id="changelog-empty" class="empty-state" hidden>No release matches that search.</p>
+    </section>
+
+    <section id="history" class="page-section" role="tabpanel" aria-labelledby="tab-history" data-page="history" tabindex="-1" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">LOCAL VERSION HISTORY</p>
+          <h1>Every change you made here, undoable.</h1>
+          <p id="history-copy">Append-only, in this browser. Restoring is recorded as a new revision rather than a rewrite, so an undo can itself be undone.</p>
+        </div>
+        <div class="search-stack">
+          <label class="search-field" for="history-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="history-search" type="search" placeholder="Search history" aria-label="Search history" autocomplete="off" maxlength="256">
+            <span class="count" id="history-count"></span>
+            <button class="regex-open" type="button" id="history-regex-open" aria-label="Regex builder for the history search" aria-expanded="false" aria-controls="history-regex">.*</button>
+          </label>
+        </div>
+      </div>
+      <details class="regex-builder" id="history-regex" data-search="history"><summary>Regex builder · history search</summary><div class="regex-controls" data-regex-controls="history"></div></details>
+      <div class="filter-row" id="history-filters"></div>
+      <div id="history-list"></div>
+      <p id="history-empty" class="empty-state" hidden>No revision matches that search.</p>
+    </section>
+
     <section id="settings" class="page-section" role="tabpanel" aria-labelledby="tab-settings" data-page="settings" tabindex="-1" hidden>
       <div class="section-heading">
         <div>
@@ -255,6 +299,14 @@
   <script src="panels.js"></script>
   <script src="settings-panel.js"></script>
   <script src="notifications.js"></script>
+  <script src="history.js"></script>
+  <script src="changelog-data.js"></script>
+  <script src="changelog.js"></script>
+  <script src="exporters.js"></script>
+  <script src="bulk-actions.js"></script>
+  <script src="school-mode.js"></script>
+  <script src="dimsum.js"></script>
+  <script src="panel-resize.js"></script>
   <script src="palette.js"></script>
   <script src="app.js"></script>
 </body>
