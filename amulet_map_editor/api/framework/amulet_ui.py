@@ -1,5 +1,8 @@
 from __future__ import annotations
 import wx
+
+from amulet_map_editor.api.studio import tokens
+
 from wx.lib.agw import flatnotebook
 from typing import Dict, Optional, Union
 import traceback
