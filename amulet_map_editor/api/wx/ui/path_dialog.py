@@ -20,6 +20,14 @@ def _copy(key: str, mode: str) -> str:
     return english
 
 
+def tokens_scaled(value: int) -> int:
+    """Scale a dimension by the persisted UI scale, with a safe fallback."""
+    try:
+        return max(1, round(value * float(preferences.load().ui_scale)))
+    except Exception:
+        return value
+
+
 class MaterialPathDialog(wx.Dialog):
     """A bounded, keyboard-accessible path editor with an explicit Browse action."""
 
@@ -34,7 +42,12 @@ class MaterialPathDialog(wx.Dialog):
         default_path: str = "",
     ):
         self._language_mode = preferences.load().language_mode
-        super().__init__(parent, title=title, size=wx.Size(680, 190))
+        # No fixed height. The shared Material chrome prepends a title bar after
+        # construction, and a hard-coded height pushed the OK and Cancel buttons
+        # below the visible area -- a dialog with no way to confirm it. The
+        # sizer decides the height, so the buttons cannot be clipped off by a
+        # taller title bar, a larger UI scale, or a longer translated label.
+        super().__init__(parent, title=title)
         self._wildcard = wildcard
         self._save = save
         self._directory = directory
@@ -50,7 +63,12 @@ class MaterialPathDialog(wx.Dialog):
             16,
         )
         row = wx.BoxSizer(wx.HORIZONTAL)
-        self.path = wx.TextCtrl(self, value=default_path, name="Path picker value")
+        self.path = wx.TextCtrl(
+            self,
+            value=default_path,
+            name="Path picker value",
+            style=wx.TE_PROCESS_ENTER,
+        )
         self.path.SetHint(_copy("hint", self._language_mode))
         row.Add(self.path, 1, wx.EXPAND | wx.RIGHT, 8)
         self.browse = wx.Button(
@@ -64,7 +82,35 @@ class MaterialPathDialog(wx.Dialog):
         root.Add(actions, 0, wx.ALIGN_RIGHT | wx.LEFT | wx.RIGHT | wx.BOTTOM, 16)
         self.SetSizer(root)
         self.browse.Bind(wx.EVT_BUTTON, self._browse)
+
+        # Typing a path and pressing Enter is the fastest route through this
+        # dialog and the one people reach for first, so it confirms rather than
+        # doing nothing.
+        self.path.Bind(wx.EVT_TEXT_ENTER, self._confirm)
+        confirm = self.FindWindow(wx.ID_OK)
+        if confirm is not None:
+            confirm.SetDefault()
+            confirm.SetName("Confirm path")
+
         apply_material3(self)
+
+        # Size to the content only after the Material chrome has been added, so
+        # the height accounts for the title bar it prepends.
+        self.SetSizerAndFit(self.GetSizer())
+        width, height = self.GetSize()
+        self.SetSize(wx.Size(max(width, tokens_scaled(680)), height))
+        self.SetMinSize(self.GetSize())
+        self.CentreOnParent()
+        self.path.SetFocus()
+        self.path.SetInsertionPointEnd()
+
+    def _confirm(self, _event: wx.Event) -> None:
+        """Accept the typed path, the way the OK button would."""
+        if self.IsModal():
+            self.EndModal(wx.ID_OK)
+        else:
+            self.SetReturnCode(wx.ID_OK)
+            self.Show(False)
 
     def _browse(self, _event: wx.Event) -> None:
         if self._directory:
