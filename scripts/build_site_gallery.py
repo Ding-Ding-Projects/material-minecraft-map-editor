@@ -41,7 +41,9 @@ def load_manifest(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def build_rows(manifest: dict, source: Path, missing: List[str]) -> List[Dict[str, object]]:
+def build_rows(
+    manifest: dict, source: Path, missing: List[str]
+) -> List[Dict[str, object]]:
     commit = str(manifest.get("commit", ""))
     captured = str(manifest.get("captured", ""))
     short = commit[:8]
@@ -84,7 +86,9 @@ def main() -> int:
     missing: List[str] = []
     rows = build_rows(manifest, args.source, missing)
     if not rows:
-        raise SystemExit("the manifest produced no usable rows; refusing to empty the gallery")
+        raise SystemExit(
+            "the manifest produced no usable rows; refusing to empty the gallery"
+        )
 
     # Replace the gallery wholesale: a mixture of current captures and legacy
     # images with no way to tell them apart is worse than either alone.
@@ -102,7 +106,8 @@ def main() -> int:
     data["shots"] = rows
     data["shotsCommit"] = manifest.get("commit", "")
     data_path.write_text(
-        header + "window.AMULET_SITE_DATA = "
+        header
+        + "window.AMULET_SITE_DATA = "
         + json.dumps(data, indent=2, ensure_ascii=False)
         + ";\n",
         encoding="utf-8",
