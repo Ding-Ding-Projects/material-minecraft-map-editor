@@ -4,7 +4,7 @@ import wx
 from amulet_map_editor.api.studio import tokens
 
 from wx.lib.agw import flatnotebook
-from typing import Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 import traceback
 import logging
 import sys
@@ -641,11 +641,14 @@ class AmuletUI(wx.Frame):
         return None if self._hosted_canvas is None else self._hosted_canvas[2]
 
     def _host_editor_canvas(self, page: WorldPageUI, studio) -> None:
-        """Put the active editor's canvas inside the workspace viewport.
+        """Put the active editor's canvas and its own controls in the viewport.
 
-        Only the canvas moves.  Its extension stays where the world notebook
-        put it, so the notebook's page tree is never handed a window that is no
-        longer one of its children.
+        The canvas moves, and so does every panel the editor draws over it.
+        The extension itself stays where the world notebook put it, so the
+        notebook's page tree is never handed a window that is no longer one of
+        its children -- but its panels are not part of that tree's layout, and
+        leaving them behind is what used to strand every editing control on a
+        hidden page.  See :meth:`_host_editor_overlays`.
         """
         program = self.active_editor_program()
         if program is None:
@@ -674,11 +677,103 @@ class AmuletUI(wx.Frame):
             sizer.Detach(canvas)
         self._hosted_canvas = (page, owner, canvas)
         studio.set_canvas(canvas)
+        self._host_editor_overlays(canvas, canvas.GetParent())
         self._set_viewport_reason("")
         # The world pages are outside the Studio's own token traversal, so they
         # are styled from here rather than being left with the default palette.
         apply_material3(self._tab_content)
         self._tab_content.Layout()
+
+    @staticmethod
+    def editor_overlay_windows(canvas: Optional[wx.Window]) -> List[wx.Window]:
+        """Return every panel the editor draws over ``canvas``.
+
+        The editor builds its controls as siblings of the canvas rather than
+        as children of it -- the undo/save panel, the row of tool buttons, and
+        one options panel per tool -- and positions them in canvas
+        coordinates.  They are what a user presses to paste, to place, to pick
+        an operation and to run it.
+
+        Every registered tool is asked, not just the running one.  The tool
+        manager's own ``windows()`` answers for the active tool alone, which
+        would be enough to move what is on screen right now and would strand
+        the next tool the user picks: all six are constructed eagerly at
+        startup, so all six are moved once, here.
+        """
+        windows: List[wx.Window] = []
+        if canvas is None:
+            return windows
+
+        def take(source: Any) -> None:
+            getter = getattr(source, "windows", None)
+            if not callable(getter):
+                return
+            try:
+                found = list(getter())
+            except Exception:  # noqa: BLE001 - a tool mid-teardown answers this
+                log.debug("An editor tool would not list its windows", exc_info=True)
+                return
+            windows.extend(window for window in found if window)
+
+        take(getattr(canvas, "_file_panel", None))
+        manager = getattr(canvas, "_tool_sizer", None)
+        if manager is not None:
+            panel = getattr(manager, "_tool_panel", None)
+            if panel:
+                windows.append(panel)
+            try:
+                tools = list(canvas.tools.values())
+            except Exception:  # noqa: BLE001 - a canvas without its tool manager
+                log.debug("The editor tools could not be listed", exc_info=True)
+                tools = []
+            for tool in tools:
+                take(tool)
+        # One tool can hand back a window another already listed, and
+        # reparenting the same window twice is wasted work rather than an
+        # error; the order is kept so the file panel stays on top.
+        unique: List[wx.Window] = []
+        for window in windows:
+            if not any(window is seen for seen in unique):
+                unique.append(window)
+        return unique
+
+    def _host_editor_overlays(
+        self, canvas: Optional[wx.Window], host: Optional[wx.Window]
+    ) -> int:
+        """Move the editor's own control panels onto ``host``, beside the canvas.
+
+        The viewport gives the canvas its whole client area at ``(0, 0)``, so
+        host coordinates and canvas coordinates are the same numbers.  That is
+        why nothing here repositions anything: each panel's own ``_resize``
+        already places it in canvas coordinates, and it goes on being right.
+
+        Returns how many panels moved, so a caller can tell "there were none"
+        from "they are all still on the hidden page".
+        """
+        if canvas is None or host is None:
+            return 0
+        moved = 0
+        for window in self.editor_overlay_windows(canvas):
+            try:
+                if window.GetParent() is not host:
+                    window.Reparent(host)
+                    moved += 1
+                # Raised whether or not it moved: the viewport raises the
+                # children it knew about at the moment it took the canvas, and
+                # these arrived afterwards, so an unraised panel would sit
+                # behind the GL surface and never be seen.
+                window.Raise()
+            except Exception:  # noqa: BLE001 - a window already being destroyed
+                log.debug("An editor panel could not follow the canvas", exc_info=True)
+        if moved:
+            try:
+                # The panels size themselves from the canvas, which has just
+                # been given the viewport's size; without this they keep the
+                # geometry they were built with on the hidden page.
+                canvas.SendSizeEvent()
+            except Exception:  # noqa: BLE001 - the canvas is tearing down
+                log.debug("The editor canvas refused a resize", exc_info=True)
+        return moved
 
     def _await_editor_canvas(self) -> None:
         """Say the renderer is still starting, and look again shortly.
@@ -749,6 +844,12 @@ class AmuletUI(wx.Frame):
                 return
             if owner and not owner.IsBeingDeleted():
                 canvas.Reparent(owner)
+                # The panels were borrowed alongside the canvas and go back
+                # with it. Left on the viewport they would outlive the page
+                # that owns them, and the extension's next enable() would
+                # rebuild its layout around windows that are no longer its
+                # children.
+                self._host_editor_overlays(canvas, owner)
                 sizer = owner.GetSizer()
                 if sizer is not None and sizer.GetItem(canvas) is None:
                     sizer.Add(canvas, 1, wx.EXPAND)
