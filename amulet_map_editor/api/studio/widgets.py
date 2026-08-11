@@ -385,11 +385,6 @@ def render_via_paint(window: wx.Window, dc: wx.DC, rect: wx.Rect) -> bool:
     if handler is None:
         return False
 
-    try:
-        wrapper: wx.DC = wx.GCDC(dc)
-    except TypeError:
-        wrapper = dc
-
     # wx.PaintEvent() takes an id on wxPython 4.3.1 -- constructing one without
     # arguments raises TypeError. That failure is caught below and looks
     # identical to "this widget cannot draw", so every widget fell silently
@@ -413,21 +408,37 @@ def render_via_paint(window: wx.Window, dc: wx.DC, rect: wx.Rect) -> bool:
 
         event = _StubPaintEvent()
 
+    # The origin is set BEFORE the wrapper is built, and this order is the
+    # whole of it. A wx.GCDC carries its own graphics transform, taken from the
+    # device context at the moment it is constructed; moving the origin
+    # afterwards moves the plain context and leaves the wrapper where it was.
+    #
+    # Owner-drawn widgets do almost all their drawing through the wrapper --
+    # that is what makes a rounded corner a curve rather than a staircase -- so
+    # building it first sent every label, chip and card to the top-left of the
+    # bitmap. The result was a capture with the interface drawn correctly in
+    # one place and every piece of its text piled up in the corner, which reads
+    # as a rendering catastrophe and is really two coordinate systems.
+    origin = dc.GetDeviceOrigin()
+    dc.SetDeviceOrigin(origin.x + rect.x, origin.y + rect.y)
+    try:
+        wrapper: wx.DC = wx.GCDC(dc)
+    except TypeError:
+        wrapper = dc
+
     key = id(window)
     _capture_redirect[key] = (dc, wrapper)
-    origin = dc.GetDeviceOrigin()
     try:
-        dc.SetDeviceOrigin(origin.x + rect.x, origin.y + rect.y)
         handler(event)
         return True
     except Exception:  # noqa: BLE001 - a widget that cannot draw is the finding
         log.debug("render_via_paint failed for %s", window.GetName(), exc_info=True)
         return False
     finally:
-        dc.SetDeviceOrigin(origin.x, origin.y)
         _capture_redirect.pop(key, None)
         if wrapper is not dc:
             del wrapper
+        dc.SetDeviceOrigin(origin.x, origin.y)
 
 
 def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.DC]:

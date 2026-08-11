@@ -42,7 +42,26 @@ from typing import List
 
 import wx
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPTS = Path(__file__).resolve().parent
+_ROOT = _SCRIPTS.parent
+
+# The repository root goes FIRST, ahead of the scripts directory and ahead of
+# anything an editable install has put on the path.
+#
+# Running `py scripts/capture_studio_surfaces.py` puts *scripts/* on sys.path
+# and the current directory nowhere, so `import amulet_map_editor` resolved
+# through an editable-install .pth file -- which on this machine pointed at a
+# different worktree of this same repository, thirteen commits behind. Every
+# capture the harness produced was therefore a photograph of a checkout nobody
+# was working on, while the filenames carried the commit of the checkout
+# nobody had photographed.
+#
+# Nothing failed. The captures came out, the manifest recorded the intended
+# commit, and the pictures showed an interface that no longer existed. Two
+# copies of one package on one path is the whole trap, and it is silent by
+# construction.
+sys.path.insert(0, str(_SCRIPTS))
+sys.path.insert(0, str(_ROOT))
 
 from capture_surface import capture_composite  # noqa: E402
 

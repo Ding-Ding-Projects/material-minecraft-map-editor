@@ -304,7 +304,14 @@ def _composite(
         while pending:
             parent = pending.pop(0)
             for child in parent.GetChildren():
-                if not child.IsShown():
+                # IsShown() is relative: it reports the flag on this window
+                # alone, so a control inside a hidden tab still answers True
+                # and gets drawn. Compositing on that basis painted every
+                # backstage tab's body on top of every other one, producing a
+                # legible-looking capture with three headings overlapping in
+                # the same twenty pixels. IsShownOnScreen() walks the ancestor
+                # chain, which is the question actually being asked here.
+                if not child.IsShownOnScreen():
                     continue
                 child_origin = child.ClientToScreen(wx.Point(0, 0))
                 offset = wx.Point(
