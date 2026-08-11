@@ -64,7 +64,8 @@ The first proves the pane names itself and follows the theme; the second proves
 the append-only history contract the History tab presents. Neither is runtime
 proof of the pane's own rendering.
 
-Suggested articles: [per-project version history](../project-history/README.md),
+Suggested articles: [where a pasted copy lands](../paste-anchor/README.md),
+[per-project version history](../project-history/README.md),
 [navigator](../navigator/README.md),
 [NBT editor](../nbt-editor/README.md), and
 [local version history](../local-history/README.md).

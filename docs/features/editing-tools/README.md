@@ -5,7 +5,7 @@ select, moving to it, describing it, and writing it back out.
 
 ## Behaviour
 
-Seven surfaces make up the group, reached from the Home, Selection, Operations,
+Twelve surfaces make up the group, reached from the Home, Selection, Operations,
 and Structures ribbon tabs, from the command palette, or from the backstage's
 **All surfaces** page:
 
@@ -17,13 +17,27 @@ and Structures ribbon tabs, from the command palette, or from the backstage's
 | **Select version** (`versionSelect`) | Choose the platform and version a value should be interpreted in. |
 | **Import chunks** (`importChunks`) | Bring chunks in from another world or region file. |
 | **Export selection** (`exportStructure`) | Write the selection out as a structure file. |
-| **Replace** (`operationOptions`) | The stock operation form: source, target, and the options that operation takes. |
+| **Operations** (`operationOptions`) | The editor's Operation tool, on whichever operation it was last showing. |
+| **Clone operation** (`operationClone`) | The Operation tool with the stock Clone operation selected. |
+| **Fill operation** (`operationFill`) | The Operation tool with the stock Fill operation selected. |
+| **Replace operation** (`operationReplace`) | The Operation tool with the stock Replace operation selected. |
+| **Set biome operation** (`operationSetBiome`) | The Operation tool with the stock Set Biome operation selected. |
+| **Waterlog operation** (`operationWaterlog`) | The Operation tool with the stock Waterlog operation selected. |
 
-Each is a declarative surface, so its fields, dropdowns, lists, ranges, and
-checks all come from the shared controls: every dropdown is searchable with a
-regex opt-in and a `.*` builder, every path field has a native browse button
-beside the free-text entry, and every coordinate is an axis-coloured vector
-field.
+The first six are declarative surfaces, so their fields, dropdowns, lists,
+ranges, and checks all come from the shared controls: every dropdown is
+searchable with a regex opt-in and a `.*` builder, every path field has a native
+browse button beside the free-text entry, and every coordinate is an
+axis-coloured vector field.
+
+The last six are not windows at all. Each activates the editor's own Operation
+tool in the viewport, and the five that name an operation ask the tool to select
+that operation, so its options and its **Run Operation** button are showing
+without the list having to be searched first. That is why they are five keys and
+not one: they shared `operationOptions` until this build, which meant every tile
+started the same tool and left its list on whatever sorted first — alphabetically
+Clone, so the Clone tile looked correct while Fill, Replace, Set biome and
+Waterlog all quietly opened Clone.
 
 Selection state itself lives in the navigator and the status bar, so a tool
 never has to restate where the selection is; it acts on it.
@@ -46,6 +60,14 @@ height range is refused with the range named. A structure file the format layer
 cannot read is reported with the format it was expected to be, not as a generic
 failure.
 
+An operation tile asks the tool for its operation and then asks the tool back
+which one it is showing. When those disagree — a plugin removed, a group renamed,
+a build without that operation installed — the tile reports which operation was
+asked for and which one arrived, rather than leaving somebody in front of a form
+that edits something else. The tool says the same thing on its own account: an
+operation it cannot find is named in a non-blocking notification alongside the
+one still selected.
+
 Every applied operation is one commit in the project repository, so it can be
 restored — and restoring writes a new revision rather than rewinding.
 
@@ -66,14 +88,23 @@ window scrolls rather than clipping at a high display scale.
 
 ```powershell
 py -3 -m pytest tests/test_studio_spec_registry.py tests/test_studio_surface_index.py -q
+py -3 -m pytest tests/test_editor_operations_runtime.py -q
 ```
 
-Those prove every surface in this group exists, is reachable, is structurally
-complete, and that each footer action opens a real surface or runs a real
-command. The operations themselves run against a loaded world and need a real
-build to exercise.
+The first pair prove every surface in this group exists, is reachable, is
+structurally complete, and that each footer action opens a real surface or runs
+a real command — all of it read from source, so none of it can tell whether an
+operation renders.
 
-Suggested articles: [MCEdit2 tool set](../mcedit2-tools/README.md),
+The second opens a real world in a real frame, presses each of the five stock
+operation tiles through the same `open_surface` route a press takes, and reads
+the operation back off the tool's own list. Five assertions naming five
+different operations, each with the count of visible **Run Operation** controls
+that operation exposes, so a build where the tiles collapse back onto one key
+leaves exactly one of them green.
+
+Suggested articles: [where a pasted copy lands](../paste-anchor/README.md),
+[MCEdit2 tool set](../mcedit2-tools/README.md),
 [navigator](../navigator/README.md),
 [texture previews](../texture-previews/README.md), and
 [exports](../exports/README.md).

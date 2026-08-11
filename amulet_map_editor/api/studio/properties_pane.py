@@ -2137,9 +2137,31 @@ class PropertiesPane(wx.Panel):
         self._nudge(axis, direction)
 
     def _pending_to_camera(self) -> None:
-        """Put the pending object where the camera is standing."""
-        location = editor_tools.camera_location()
-        if location is None or not editor_tools.set_pending_location(location):
+        """Put the copy's anchor point on the block the camera is standing on.
+
+        The same thing as typing the camera position into the boxes, which is
+        what a reader of this section would expect it to be: the sentence above
+        the button says which point x, y and z name, and a button that filled
+        those boxes and then meant a different point would contradict it.  With
+        the centre chosen -- the default -- the two are identical anyway.
+        """
+        camera = editor_tools.camera_location()
+        if camera is None:
+            self._report_tool_gone()
+            return
+        location: Sequence[float] = camera
+        pending = editor_tools.pending_object()
+        if pending is not None:
+            converted = editor_tools.location_for_anchor(
+                camera,
+                pending.extent,
+                pending.scale,
+                pending.rotation,
+                self.position_anchor,
+            )
+            if converted is not None:
+                location = converted
+        if not editor_tools.set_pending_location(location):
             self._report_tool_gone()
             return
         self._refresh_tool_live()
