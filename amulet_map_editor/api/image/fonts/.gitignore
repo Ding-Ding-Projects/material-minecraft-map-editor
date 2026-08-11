@@ -1,0 +1,9 @@
+# Font files dropped here are supplied by a user or a packaging step and are
+# never committed; see README.md for why.  The README itself is kept, because
+# it is what holds this directory in the repository at all.
+*.ttf
+*.otf
+*.ttc
+*.woff
+*.woff2
+!README.md

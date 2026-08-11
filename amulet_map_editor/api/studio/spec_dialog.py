@@ -293,6 +293,101 @@ class _KeyRow(_Painted):
         del gcdc
 
 
+class _WrapRow(wx.Panel):
+    """A row of controls that wraps onto further lines instead of crushing.
+
+    Both of the obvious ways to build such a row fail, and both fail silently.
+    A ``wx.WrapSizer`` puts its children on as many lines as they need, but the
+    height it reports is the height of one line unless wx has told it how wide
+    it is going to be -- and wx only tells a sizer that when it is nested
+    directly inside another sizer, never when it is set on a panel.  A row
+    built that way lays its second line out below its own bottom edge, where
+    every control on it is clipped to zero height.  A horizontal
+    ``wx.BoxSizer`` has no second line to give, so it takes the shortfall out
+    of the last controls instead until they are zero wide.  Either way the
+    controls are still there, still in the tab order, and no longer visible.
+
+    This panel measures the lines itself, at whatever width it is handed, and
+    reports the height they genuinely need, so the row grows downwards and
+    every control on it keeps its own size.
+    """
+
+    def __init__(self, parent: wx.Window, *, gap: int = 0) -> None:
+        super().__init__(parent, style=wx.TAB_TRAVERSAL)
+        self.gap = int(gap)
+        # The last control on a line is deliberately not stretched out to the
+        # margin: a chip reading "Torus" drawn four hundred pixels wide reads
+        # as a different kind of control from the one sitting next to it.
+        self._row = wx.WrapSizer(wx.HORIZONTAL, flags=wx.REMOVE_LEADING_SPACES)
+        self.SetSizer(self._row)
+        self._measured_at = 0
+        self.Bind(wx.EVT_SIZE, self._on_resize)
+
+    def add(self, child: wx.Window) -> wx.Window:
+        """Put one control on the row and hand it back."""
+        self._row.Add(child, 0, wx.RIGHT | wx.BOTTOM, self.gap)
+        return child
+
+    def _height_for(self, width: int) -> int:
+        """Return the height the row needs to lay its controls out in ``width``.
+
+        The line breaks are worked out the way ``wx.WrapSizer`` works them out
+        -- each control claims its own width plus the gap that follows it, and
+        a control that would not fit starts a new line -- so the height
+        reported here is the height wx will actually use rather than a
+        near-miss that clips the bottom line.
+        """
+        limit = max(1, width)
+        used = 0
+        line = 0
+        total = 0
+        for child in self.GetChildren():
+            if not child.IsShown():
+                continue
+            size = child.GetEffectiveMinSize()
+            claim = size.width + self.gap
+            if used and used + claim > limit:
+                total += line
+                used = 0
+                line = 0
+            used += claim
+            line = max(line, size.height + self.gap)
+        return total + line
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        width = self.GetSize().width
+        return wx.Size(width, self._height_for(width or tokens.scaled(560)))
+
+    def _on_resize(self, event: wx.SizeEvent) -> None:
+        """Re-measure once per real width change, as :class:`_Paragraph` does.
+
+        Re-measuring on every size event would re-enter the layout that raised
+        it; comparing against the width the row was last measured at makes the
+        work happen exactly once per real width change.
+        """
+        width = self.GetSize().width
+        if width and width != self._measured_at:
+            self._measured_at = width
+            self.InvalidateBestSize()
+            self.SetMinSize(wx.Size(-1, self._height_for(width)))
+            top = self.GetTopLevelParent()
+            if top is not None:
+                top.Layout()
+        event.Skip()
+
+    def refresh_theme(self) -> None:
+        """Re-read the palette for the row and every control standing on it."""
+        palette = tokens.palette()
+        parent = self.GetParent()
+        backdrop = parent.GetBackgroundColour() if parent else palette.surface
+        self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
+        for child in self.GetChildren():
+            refresh = getattr(child, "refresh_theme", None)
+            if callable(refresh):
+                refresh()
+        self.Refresh()
+
+
 class _CheckRow(wx.Panel):
     """A checkbox with the explanation that says what turning it on does."""
 
@@ -356,6 +451,15 @@ class _CodeBlock(wx.Panel):
     selected and copied; a code sample nobody can copy is a picture of code.
     """
 
+    #: A block stops growing at this many lines and scrolls the rest.
+    VISIBLE_LINES = 24
+
+    #: The widest a block asks to be before its own scrollbar takes over.
+    MAX_WIDTH = 720
+
+    #: The gap between the block's rounded edge and the text inside it.
+    PADDING = 12
+
     def __init__(self, parent: wx.Window, code: str) -> None:
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.code = str(code)
@@ -366,15 +470,50 @@ class _CodeBlock(wx.Panel):
         )
         self.text.SetName("Code")
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.text, 1, wx.EXPAND | wx.ALL, tokens.scaled(12))
+        sizer.Add(self.text, 1, wx.EXPAND | wx.ALL, tokens.scaled(self.PADDING))
         self.SetSizer(sizer)
         self.refresh_theme()
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        # Size and lay the block out now rather than waiting to be laid out.
+        # Every code section is rendered inside a collapsible block that starts
+        # closed, and a hidden panel is never laid out at all -- so without
+        # this the block keeps the 20x20 default wx gives an unsized panel
+        # while the text control inside it sits at its own initial size,
+        # overflowing a container several times smaller than its content.
+        self.SetSize(self.DoGetBestSize())
+        self.Layout()
+        # Keep the height a block needs even when it is squeezed horizontally,
+        # but leave the width free -- and set it after the size above, which
+        # would otherwise pin the minimum width to the content and stop a
+        # narrow window from ever scrolling the code instead of overflowing.
+        self.SetMinSize(wx.Size(-1, self._content_height()))
+
+    def _content_height(self) -> int:
+        """Return the height of the lines this block shows before scrolling."""
         lines = self.code.count("\n") + 1
-        height = tokens.scaled(min(24, max(2, lines)) * 18 + 24)
-        self.SetMinSize(wx.Size(-1, height))
+        rows = min(self.VISIBLE_LINES, max(2, lines))
+        return tokens.scaled(rows * 18 + self.PADDING * 2)
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        """Return the size the code itself asks for, capped so it stays sane.
+
+        Measuring the real text is what makes a one-line snippet and a forty
+        line transcript different sizes; the cap is what stops a single very
+        long line demanding a window nobody can fit on a display, and the text
+        control scrolls past it.
+        """
+        dc = wx.ClientDC(self)
+        dc.SetFont(tokens.mono_font(self, widgets.point_size(12)))
+        widest = max(
+            (dc.GetTextExtent(line)[0] for line in self.code.split("\n")), default=0
+        )
+        padding = tokens.scaled(self.PADDING) * 2
+        return wx.Size(
+            min(tokens.scaled(self.MAX_WIDTH), widest + padding + tokens.scaled(6)),
+            self._content_height(),
+        )
 
     def refresh_theme(self) -> None:
         """Re-read the palette for the block and the text inside it."""
@@ -605,11 +744,17 @@ class SpecDialog(wx.Dialog):
         self.body.SetSizer(self.body_sizer)
 
         self.footer = _EdgePanel(self, edge="top")
+        # The actions wrap and the confirm button keeps the right-hand end.  A
+        # plain horizontal row cannot do that: the surfaces carrying five or
+        # six actions need more width than the window has, and a box sizer
+        # answers a shortfall by shrinking its last children to nothing --
+        # which on those surfaces took the confirm button itself with it.
+        self.actions_row = _WrapRow(self.footer, gap=tokens.scaled(tokens.SPACE_SM))
         self.footer_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.action_buttons: List[widgets.StudioButton] = []
         for action in spec.actions:
             button = widgets.StudioButton(
-                self.footer,
+                self.actions_row,
                 action.label,
                 variant=ACTION_VARIANTS.get(action.kind, "outlined"),
                 on_click=lambda item=action: self.run_action(item),
@@ -618,8 +763,10 @@ class SpecDialog(wx.Dialog):
                 height=40,
             )
             self.action_buttons.append(button)
-            self.footer_sizer.Add(button, 0, wx.RIGHT, tokens.scaled(tokens.SPACE_SM))
-        self.footer_sizer.AddStretchSpacer(1)
+            self.actions_row.add(button)
+        self.footer_sizer.Add(
+            self.actions_row, 1, wx.EXPAND | wx.RIGHT, tokens.scaled(tokens.SPACE_SM)
+        )
         self.confirm_button = widgets.StudioButton(
             self.footer,
             spec.confirm,
@@ -797,6 +944,15 @@ class SpecDialog(wx.Dialog):
             host_sizer.Add(
                 child, 0, (wx.EXPAND if expand else 0) | wx.BOTTOM, tokens.scaled(7)
             )
+        if not host.IsShown():
+            # A collapsed section hides its body, and wx never lays a hidden
+            # panel out: it keeps the 20x20 default it was created with, so
+            # everything inside it overflows a container smaller than one line
+            # of its own content.  Sizing it to what it holds means the section
+            # is already right the moment it is opened, rather than one layout
+            # pass later, and that nothing is measured against a size no part
+            # of the window ever intended.
+            host_sizer.Fit(host)
         return container
 
     def _render_content(
@@ -912,18 +1068,11 @@ class SpecDialog(wx.Dialog):
     def _render_chips(
         self, host: wx.Window, _index: int, section: Section
     ) -> List[tuple]:
-        panel = wx.Panel(host, style=wx.TAB_TRAVERSAL)
-        panel.SetBackgroundColour(tokens.palette().surface)
-        wrap = wx.WrapSizer(wx.HORIZONTAL)
+        row = _WrapRow(host, gap=tokens.scaled(tokens.SPACE_SM))
+        row.SetBackgroundColour(tokens.palette().surface)
         for label in section.chips:
-            wrap.Add(
-                widgets.Chip(panel, label),
-                0,
-                wx.RIGHT | wx.BOTTOM,
-                tokens.scaled(tokens.SPACE_SM),
-            )
-        panel.SetSizer(wrap)
-        return [(panel, True)]
+            row.add(widgets.Chip(row, label))
+        return [(row, True)]
 
     def _render_checks(
         self, host: wx.Window, _index: int, section: Section
@@ -954,18 +1103,11 @@ class SpecDialog(wx.Dialog):
     def _render_swatches(
         self, host: wx.Window, _index: int, section: Section
     ) -> List[tuple]:
-        panel = wx.Panel(host, style=wx.TAB_TRAVERSAL)
-        panel.SetBackgroundColour(tokens.palette().surface)
-        row = wx.WrapSizer(wx.HORIZONTAL)
+        row = _WrapRow(host, gap=tokens.scaled(tokens.SPACE_SM))
+        row.SetBackgroundColour(tokens.palette().surface)
         for swatch in section.swatches:
-            row.Add(
-                widgets.Swatch(panel, swatch.colour, name=swatch.name),
-                0,
-                wx.RIGHT | wx.BOTTOM,
-                tokens.scaled(tokens.SPACE_SM),
-            )
-        panel.SetSizer(row)
-        blocks: List[tuple] = [(panel, True)]
+            row.add(widgets.Swatch(row, swatch.colour, name=swatch.name))
+        blocks: List[tuple] = [(row, True)]
         if section.hint:
             hint = wx.StaticText(host, label=section.hint)
             hint.SetName(section.hint)

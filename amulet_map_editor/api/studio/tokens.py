@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import logging
+from pathlib import Path
 import re
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -118,6 +119,14 @@ UI_FONT_CANDIDATES: Tuple[str, ...] = (
     "PingFang TC",
 )
 
+#: Where a packaging step or a user drops the design's own font files.  The
+#: directory ships empty with a README beside it; nothing here is downloaded,
+#: and an empty directory is the normal case rather than a failure.
+BUNDLED_FONT_DIR: Path = Path(__file__).resolve().parent.parent / "image" / "fonts"
+
+#: The file kinds :func:`wx.Font.AddPrivateFont` accepts.
+BUNDLED_FONT_EXTENSIONS: Tuple[str, ...] = (".ttf", ".otf")
+
 #: Monospaced faces for coordinates, identifiers, tags, and hashes.
 MONO_FONT_CANDIDATES: Tuple[str, ...] = (
     "IBM Plex Mono",
@@ -144,6 +153,7 @@ _HEX_COLOUR = re.compile(r"^#?(?P<value>[0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?$")
 
 _theme_listeners: List[Callable[[], None]] = []
 _face_cache: Optional[frozenset] = None
+_bundled_fonts: Optional["BundledFonts"] = None
 
 
 @dataclass(frozen=True)
@@ -381,15 +391,165 @@ def scaled(value: int) -> int:
     return max(1, round(float(value) * prefs.ui_scale))
 
 
+@dataclass(frozen=True)
+class BundledFonts:
+    """What one attempt to load the bundled font files actually achieved.
+
+    Every field is a fact rather than an intention, because the About surface
+    and the documentation both report this and an optimistic summary would
+    claim the design's typography is present when it is not.
+    """
+
+    #: File names found in :data:`BUNDLED_FONT_DIR`, sorted.
+    found: Tuple[str, ...] = ()
+    #: The subset wx accepted as private faces.
+    loaded: Tuple[str, ...] = ()
+    #: Whether this build exposes ``wx.Font.AddPrivateFont`` at all.
+    supported: bool = True
+    #: A short reason the directory could not be read, or "" when it could.
+    error: str = ""
+
+
+def _wx_version() -> str:
+    """Return the wxPython version string, or a placeholder if it is unreadable."""
+    try:
+        return str(wx.version())
+    except Exception:  # pragma: no cover - platform boundary
+        return "an unknown wxPython build"
+
+
+def _bundled_font_files() -> Tuple[List[Path], str]:
+    """List the font files in the bundled directory and any read failure.
+
+    A missing directory is the shipped state, not an error: the repository
+    carries the directory's README and nothing else, so an installation with no
+    supplied faces reports an empty list rather than a fault.
+    """
+    try:
+        if not BUNDLED_FONT_DIR.is_dir():
+            return [], ""
+        files = sorted(
+            path
+            for path in BUNDLED_FONT_DIR.iterdir()
+            if path.is_file() and path.suffix.lower() in BUNDLED_FONT_EXTENSIONS
+        )
+    except OSError as error:
+        return [], str(error)
+    return files, ""
+
+
+def load_bundled_fonts() -> BundledFonts:
+    """Register every bundled font file as a private face, once per process.
+
+    Private faces have to be registered before the faces are enumerated, or the
+    enumerator will not see them and :func:`font` will resolve a substitute.
+    The result is cached for the life of the process because a private face
+    cannot be unregistered; :func:`reset_caches` deliberately leaves it alone so
+    a theme change does not register the same files again on every repaint.
+    """
+    global _bundled_fonts
+    if _bundled_fonts is not None:
+        return _bundled_fonts
+    files, error = _bundled_font_files()
+    if error:
+        log.warning("Could not read the bundled font directory: %s", error)
+        _bundled_fonts = BundledFonts(error=error)
+        return _bundled_fonts
+    if not files:
+        _bundled_fonts = BundledFonts()
+        return _bundled_fonts
+    add_private_font = getattr(wx.Font, "AddPrivateFont", None)
+    if not callable(add_private_font):
+        log.info(
+            "%s has no private font support, so the %s in %s cannot be used",
+            _wx_version(),
+            _file_count(len(files)),
+            BUNDLED_FONT_DIR,
+        )
+        _bundled_fonts = BundledFonts(
+            found=tuple(path.name for path in files), supported=False
+        )
+        return _bundled_fonts
+    loaded: List[str] = []
+    for path in files:
+        try:
+            accepted = bool(add_private_font(str(path)))
+        except Exception:  # pragma: no cover - platform boundary
+            log.exception("Loading the bundled font file %s failed", path.name)
+            continue
+        if accepted:
+            loaded.append(path.name)
+        else:
+            log.warning("wx would not load the bundled font file %s", path.name)
+    _bundled_fonts = BundledFonts(
+        found=tuple(path.name for path in files), loaded=tuple(loaded)
+    )
+    return _bundled_fonts
+
+
+def _file_count(count: int) -> str:
+    """Return "1 font file" or "N font files"."""
+    return "1 font file" if count == 1 else f"{count} font files"
+
+
+def _face_count(count: int) -> str:
+    """Return "a private face" or "private faces"."""
+    return "a private face" if count == 1 else "private faces"
+
+
+def bundled_font_status() -> str:
+    """Return an honest one-line summary of the bundled typography.
+
+    The design's type identity is IBM Plex Sans and IBM Plex Mono, and on a
+    machine carrying neither the shell renders something else entirely.  The
+    About surface and the documentation state this string verbatim so a reader
+    learns which faces are actually on screen rather than which ones the design
+    asked for.
+    """
+    state = load_bundled_fonts()
+    interface = _resolve_face(UI_FONT_CANDIDATES, _presentation().ui_font)
+    monospaced = _resolve_face(MONO_FONT_CANDIDATES)
+    using = (
+        f"Rendering with {interface or 'the system interface face'} and "
+        f"{monospaced or 'the system monospaced face'}."
+    )
+    if state.error:
+        return f"The bundled font directory could not be read ({state.error}). {using}"
+    if not state.found:
+        return f"No bundled font files in {BUNDLED_FONT_DIR}. {using}"
+    if not state.supported:
+        return (
+            f"{_file_count(len(state.found))} bundled, but {_wx_version()} cannot "
+            f"load private faces. {using}"
+        )
+    if not state.loaded:
+        return (
+            f"{_file_count(len(state.found))} bundled, none of which wx would "
+            f"load. {using}"
+        )
+    if len(state.loaded) < len(state.found):
+        return (
+            f"{len(state.loaded)} of {_file_count(len(state.found))} loaded as "
+            f"{_face_count(len(state.loaded))}. {using}"
+        )
+    return (
+        f"{_file_count(len(state.loaded))} loaded as "
+        f"{_face_count(len(state.loaded))}. {using}"
+    )
+
+
 def _available_faces() -> frozenset:
     """Return the installed face names, cached once they can be enumerated.
 
     Enumeration needs a live wx application; an empty result is not cached so
-    the first call made from a real window still finds the design's faces.
+    the first call made from a real window still finds the design's faces.  The
+    bundled private faces are registered first, because a face the enumerator
+    has not been told about is a face :func:`_resolve_face` will skip.
     """
     global _face_cache
     if _face_cache:
         return _face_cache
+    load_bundled_fonts()
     try:
         faces = frozenset(wx.FontEnumerator.GetFacenames())
     except Exception:  # pragma: no cover - platform boundary
@@ -637,7 +797,13 @@ def theme_listener_count() -> int:
 
 
 def reset_caches() -> None:
-    """Drop the derived palette and installed-face caches."""
+    """Drop the derived palette and installed-face caches.
+
+    The bundled private faces are deliberately left registered: wx offers no
+    way to unregister one, and a theme change calls this on every switch, so
+    clearing that state would re-register the same files for the life of the
+    session.  The next enumeration still sees them.
+    """
     global _face_cache
     _build_palette.cache_clear()
     _face_cache = None
@@ -664,6 +830,9 @@ def notify_theme_changed() -> None:
 
 
 __all__ = [
+    "BUNDLED_FONT_DIR",
+    "BUNDLED_FONT_EXTENSIONS",
+    "BundledFonts",
     "DARK",
     "DARK_ROLES",
     "DEFAULT_ACCENT",
@@ -685,6 +854,7 @@ __all__ = [
     "StudioPalette",
     "UI_FONT_CANDIDATES",
     "blend",
+    "bundled_font_status",
     "control_height",
     "density",
     "draw_elevation",
@@ -692,6 +862,7 @@ __all__ = [
     "emoji",
     "font",
     "is_dark",
+    "load_bundled_fonts",
     "mono_font",
     "notify_theme_changed",
     "on_colour",

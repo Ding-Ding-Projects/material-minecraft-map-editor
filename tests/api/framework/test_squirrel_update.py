@@ -27,6 +27,18 @@ FIXTURE = (
     Path(__file__).parents[2] / "fixtures" / "squirrel_release_inventory_20260809.json"
 )
 
+# ``_remaining_time`` reconstructs the remaining budget as
+# ``deadline - time.monotonic()``, where ``deadline`` was itself computed as
+# ``time.monotonic() + timeout``.  Both operands are large doubles -- on Windows
+# ``time.monotonic()`` counts seconds since boot -- so whenever the two readings
+# straddle a binade boundary the sum rounds up and the reconstructed budget
+# lands a few picoseconds *above* the nominal timeout.  An exact ``<=`` against
+# the nominal value therefore fails for a 900-second stretch of every uptime
+# doubling and passes the rest of the time, on unchanged source.  One
+# microsecond of slack absorbs that rounding for any plausible clock reading
+# while still catching a timeout that is genuinely over budget.
+_TIMEOUT_ROUNDING_TOLERANCE_SECONDS = 1e-6
+
 
 class _Response:
     def __init__(
@@ -476,13 +488,13 @@ def test_default_check_carries_validated_live_release_notes(tmp_path, monkeypatc
 def test_stage_update_is_ready_and_unsigned(tmp_path, monkeypatch):
     updater = tmp_path / "Update.exe"
     updater.write_bytes(b"fixture")
-    calls = []
+    calls: list[tuple[str, tuple[object, ...]]] = []
 
     def apply(*args, **_kwargs):
-        calls.append(args)
+        calls.append(("apply", args))
 
     def check(*args, **_kwargs):
-        calls.append(args)
+        calls.append(("check", args))
         return squirrel_update.SquirrelCheckResult("0.10.100426", "0.10.100426", ())
 
     monkeypatch.setattr(squirrel_update, "_run_apply_update", apply)
@@ -498,11 +510,26 @@ def test_stage_update_is_ready_and_unsigned(tmp_path, monkeypatch):
     assert state.unsigned_warning is True
     assert state.version == "0.10.100426"
     assert state.release_notes_url == notes
-    assert len(calls) == 2
-    assert all(
-        0 < call[2] <= squirrel_update.UPDATE_STAGE_TIMEOUT_SECONDS for call in calls
+    assert [name for name, _args in calls] == ["apply", "check"]
+
+    budget = float(squirrel_update.UPDATE_STAGE_TIMEOUT_SECONDS)
+    timeouts = [(name, args[2]) for name, args in calls]
+    for name, timeout in timeouts:
+        assert timeout > 0, (
+            f"the {name} step received a non-positive timeout {timeout!r}; "
+            "the staging budget must still have time left when it is handed out"
+        )
+        assert timeout <= budget + _TIMEOUT_ROUNDING_TOLERANCE_SECONDS, (
+            f"the {name} step received {timeout!r}, which exceeds the {budget!r} "
+            f"second staging budget by {timeout - budget!r} seconds"
+        )
+
+    (_apply_name, apply_timeout), (_check_name, check_timeout) = timeouts
+    assert check_timeout <= apply_timeout, (
+        f"the post-apply check received {check_timeout!r} seconds, more than the "
+        f"{apply_timeout!r} seconds the earlier apply step received; both draw "
+        "down one shared monotonic deadline, so the budget can only shrink"
     )
-    assert calls[1][2] <= calls[0][2]
 
 
 def test_stage_apply_and_post_check_share_one_900_second_budget(tmp_path, monkeypatch):

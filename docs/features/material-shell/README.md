@@ -1,49 +1,77 @@
 # Material application shell
 
-The Windows shell uses a frameless frame with an app-owned title bar, compact
-owner-drawn caption controls, and a Material command bar. The main menu is one
-rounded surface card with a single product mark and clear filled, tonal,
-outlined, and text action hierarchy. A one-page workspace does not reserve a
-duplicate side tab rail.
+The application frame is frameless, with an app-owned title bar and compact
+owner-drawn window controls. Its content is the **Amulet Studio** shell: a
+backstage view for starting and opening projects, and a ribbon workspace for
+editing one. The operating system's own title bar is never shown as product
+chrome.
 
-Startup makes the editor usable immediately. It does not present an
-acknowledgement, purchase, donation, sponsorship, rating, review, upgrade, or
-other promotional gate. Safety guidance stays attached to the **Open World**
-action and in the offline manual. Update states remain non-blocking operational
-status and retain explicit user control over restart.
+This replaced the earlier single start card plus command bar. That shell is
+still in the tree and is still what a build shows if the Studio package cannot
+be constructed — degrading to the previous interface beats refusing to open a
+window — but it is no longer what the application presents.
+
+## Behaviour
+
+`AmuletUI` (`amulet_map_editor/api/framework/amulet_ui.py`) builds
+`StudioShell` as its only visible child and hides the earlier title bar, command
+bar, and notebook container. The world notebook itself is kept: it owns world
+loading, per-page unsaved-work protection, and the tab dock the tab manager
+edits, and it is handed to the workspace viewport once a world is open, so the
+real renderer draws inside the new shell rather than beside it.
+
+Startup stays immediately usable. There is no acknowledgement, purchase,
+donation, sponsorship, rating, review, or upgrade gate — nobody ever pays to use
+this application, and it does not ask. Safety guidance stays attached to the
+action that opens a world and in the offline manual. Update state remains
+non-blocking operational status with explicit user control over restart.
+
+The shell's own design tokens live in
+`amulet_map_editor/api/studio/tokens.py`: fourteen colour roles in a light and a
+dark palette, three density heights (32, 36, 44), the spacing and radius scales,
+and the local font fallback chain. The legacy Material 3 layer
+(`amulet_map_editor/api/wx/material3.py`) still serves the dialogs that predate
+the Studio, and both read the same persisted appearance profile, so the two
+halves cannot drift into two different themes.
 
 ## Configuration and failure modes
 
-The shell consumes the persisted light/dark theme, density, accent, UI font,
-and scale roles. Owner-drawn buttons expose Return and Space activation, focus,
-hover, pressed, disabled, and minimum-target states. When a persisted appearance
-value is invalid, the existing preference normalizer falls back to shipped
-roles rather than preventing startup.
+The shell consumes the persisted theme, density, accent, interface font, and
+interface scale, projected through School mode and overridden by any active
+scheduled rule. `refresh_theme()` re-resolves the tokens and repaints
+everything, so an appearance change lands live rather than at the next launch.
 
-Legacy editor pages still contain native controls and are being migrated
-incrementally. The shared role projection keeps them readable, but it is not
-evidence that every editor tool has completed component-level M3 migration.
+An invalid persisted appearance value normalises to the shipped roles rather
+than preventing startup. A Studio package that cannot be constructed is logged
+with its traceback and the frame falls back to the notebook.
+
+Legacy dialogs still contain native controls and are reached through the same
+surface keys as everything else. The shared role projection keeps them readable;
+it is not evidence that each one has finished its component migration.
 
 ## Security and accessibility
 
-Window actions resolve the real top-level owner before minimizing, maximizing,
+Window actions resolve the real top-level owner before minimising, maximising,
 or closing, so a decorative child panel cannot receive a frame operation.
-Caption and command controls have accessible names, visible focus, keyboard
+Caption and shell controls have accessible names, visible focus, keyboard
 activation, and bounded targets. No startup route performs a purchase or stores
-payment data.
+payment data, and nothing in the shell reaches the network.
 
 ## Verification
 
-Run:
-
 ```powershell
-py -3 -m pytest tests/test_material_components_contract.py tests/test_nag_free_startup_contract.py -q
+py -3 -m pytest tests/test_studio_shell_hosting_contract.py tests/test_material_components_contract.py tests/test_nag_free_startup_contract.py -q
 ```
 
-The native surface is also exercised on an isolated hidden Windows desktop and
-captured through the real wx window. Static tests are not a substitute for that
-runtime evidence.
+The first proves the frame builds the Studio shell, hides the old chrome rather
+than drawing it alongside, and keeps the fallback. The other two cover the
+owner-drawn control behaviour and the quiet startup path.
 
-Suggested articles: [appearance](../appearance/README.md),
+No runtime capture of the Studio interface exists yet. The tracked captures in
+the README are of the earlier shell and are labelled as such; they are not
+evidence for this one.
+
+Suggested articles: [project shell](../project-shell/README.md),
+[appearance](../appearance/README.md),
 [notification centre](../notification-centre/README.md), and
 [tab groups](../tab-groups/README.md).

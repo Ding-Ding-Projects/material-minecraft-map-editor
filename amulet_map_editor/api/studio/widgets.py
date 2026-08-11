@@ -248,6 +248,13 @@ def draw_dashed_round_rect(
     dc.SetBrush(wx.NullBrush)
 
 
+#: Set the first time :func:`paint_context` falls all the way through to the
+#: unwrapped device context.  The fallback is correct but degraded, and it can
+#: run thousands of times a second, so it is reported once and then stays quiet:
+#: a warning per paint would bury the report it is trying to make.
+_paint_fallback_reported = False
+
+
 def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.DC]:
     """Return a cleared buffered device context and its antialiased wrapper.
 
@@ -267,7 +274,14 @@ def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.D
     fallback, and if a future build rejects the wrapper for both, the plain
     device context is returned as its own wrapper so the control still draws —
     without antialiasing, but visibly, which beats not at all.
+
+    That last path is a real degradation, so it says so: it is logged once per
+    process as a warning naming the wx build.  Every rounded corner, focus ring
+    and elevation shadow renders stepped once it is taken and nothing else about
+    the interface changes, which leaves nobody able to tell a degraded build
+    from a badly drawn one.
     """
+    global _paint_fallback_reported
     for factory in (wx.BufferedPaintDC, wx.PaintDC):
         try:
             dc = factory(window)
@@ -283,6 +297,19 @@ def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.D
         dc.SetBackground(wx.Brush(background))
         dc.Clear()
         return dc, wrapper
+    if not _paint_fallback_reported:
+        _paint_fallback_reported = True
+        try:
+            build = str(wx.version())
+        except Exception:  # pragma: no cover - platform boundary
+            build = "an unknown wxPython build"
+        log.warning(
+            "%s would not wrap either paint device context in wx.GCDC, so Studio "
+            "surfaces are painting without antialiasing: rounded corners, focus "
+            "rings and elevation shadows will look stepped. Reported once per "
+            "session; every later paint takes the same path without logging.",
+            build,
+        )
     dc = wx.PaintDC(window)
     dc.SetBackground(wx.Brush(background))
     dc.Clear()

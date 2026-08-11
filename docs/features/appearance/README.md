@@ -5,6 +5,30 @@ density, accent, UI scale, and selected installed font to the live wx surface.
 It also exposes bounded HEX/RGB/HSL translation, a contrast readout, a live
 type preview, named presets, per-property reset, and a global appearance reset.
 
+## What the Studio shell reads from it
+
+The Amulet Studio shell resolves its own palette from the same profile through
+`amulet_map_editor/api/studio/tokens.py`, so one appearance choice reaches both
+halves of the application:
+
+- **Theme** selects the light or the dark palette; `system` resolves from the
+  platform's own appearance and falls back to light where that cannot be asked.
+- **Density** sets the minimum control height directly — compact 32,
+  comfortable 36, spacious 44 — multiplied by the interface scale.
+- **Accent** reseeds the whole primary family rather than one button colour:
+  the primary, both readable inks, the container, and the surface tint all
+  follow it, so a chosen accent never leaves half the shell on the shipped
+  teal. The inks are recomputed for contrast, so every seed leaves the label on
+  top of it legible.
+- **Interface font** and **scale** feed the shell's font resolution, which falls
+  back through a local candidate list ending in faces that carry Traditional
+  Chinese, so bilingual copy still renders when nothing earlier is installed.
+  Nothing is ever downloaded.
+
+`refresh_theme()` re-resolves the tokens and repaints the whole shell, so a
+change lands live rather than at the next launch. An active scheduled rule
+overrides the persisted theme, accent, or density for as long as it applies.
+
 ## Configuration and failure modes
 
 Values are versioned in the shared preferences profile and normalized on load.
@@ -21,12 +45,16 @@ while preserving recoverable prior preferences.
 
 ## Verification
 
-Run `python -m pytest -q tests/test_appearance_editor.py tests/test_appearance_presets.py tests/test_appearance_editor_ui_contract.py`.
-The native wx surface additionally requires the Windows runtime capture path.
+Run `python -m pytest -q tests/test_appearance_editor.py tests/test_appearance_presets.py tests/test_appearance_editor_ui_contract.py tests/test_studio_tokens.py`.
+The last of those asserts the Studio's light and dark palettes are the design's
+exact values, that the three density heights are 32, 36, and 44, and that
+reseeding from any accent still produces readable inks. The native wx surface
+additionally requires the Windows runtime capture path.
 
-Suggested articles: [scheduled settings](../scheduled-settings/README.md),
+Suggested articles: [settings and appearance](../settings/README.md),
+[scheduled settings](../scheduled-settings/README.md),
 [tab groups](../tab-groups/README.md), and
-[offline documentation](../offline-documentation/README.md).
+[project shell](../project-shell/README.md).
 
 ## Per-element appearance editing
 
