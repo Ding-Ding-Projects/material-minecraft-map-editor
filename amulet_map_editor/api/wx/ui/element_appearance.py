@@ -218,7 +218,11 @@ class ElementAppearanceDialog(wx.Dialog):
         reset.Bind(wx.EVT_BUTTON, self._reset)
         button_row = wx.BoxSizer(wx.HORIZONTAL)
         button_row.Add(reset, 0, wx.RIGHT, 8)
-        button_row.Add(buttons, 1, wx.ALIGN_RIGHT)
+        # A horizontal sizer accepts only vertical alignment flags, and
+        # wxALIGN_RIGHT here raised an assertion that stopped this dialog
+        # being constructed at all. A stretch spacer right-aligns it.
+        button_row.AddStretchSpacer()
+        button_row.Add(buttons, 0, wx.ALIGN_CENTRE_VERTICAL)
         root.Add(button_row, 0, wx.ALL | wx.EXPAND, 16)
         self.SetSizerAndFit(root)
         self.Bind(wx.EVT_BUTTON, self._save, id=wx.ID_OK)

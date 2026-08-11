@@ -1578,6 +1578,20 @@ class PreferencesDialog(wx.Dialog):
                 external_editor_path=self.external_editor_path.GetValue().strip(),
             )
         )
+
+        # Settings are user-managed records too, so a preference change is
+        # recorded like any other edit and can be restored. This call belongs
+        # here, where `saved_preferences` is in scope: it had been pasted into
+        # the changelog viewer's refresh, which raised NameError every time that
+        # window opened AND left preference changes with no history at all --
+        # one misplaced block breaking two things that look unrelated.
+        # A history failure must never block the preference change itself, which
+        # is what safe_record guarantees.
+        local_history.safe_record(
+            "preferences",
+            asdict(saved_preferences),
+            record_type="settings",
+        )
         # Apply the persisted language and appearance choices immediately to
         # the owning frame; reopening the app is not required.
         lang.set_language(
@@ -1891,14 +1905,6 @@ class ChangelogDialog(wx.Dialog):
             _chrome_copy("changelog_match_count", self._language_mode).format(
                 count=len(filtered.entries)
             )
-        )
-        # Settings are user-managed records too: keep an append-only local
-        # snapshot without allowing a history filesystem/git failure to block
-        # the preference change itself.
-        local_history.safe_record(
-            "preferences",
-            asdict(saved_preferences),
-            record_type="settings",
         )
         rows = [
             f"{entry.version} — {entry.released_on.isoformat()} — {entry.changes[0].summary}"
