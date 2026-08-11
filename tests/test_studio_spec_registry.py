@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from amulet_map_editor.api.studio import commands, ribbon_defs, specs, surfaces
 from amulet_map_editor.api.studio import spec as spec_module
 from amulet_map_editor.api.studio.spec import ACTION_KINDS, SECTION_KINDS
@@ -299,30 +301,39 @@ def test_every_ribbon_dropdown_raises_a_registered_command():
     assert not problems, problems
 
 
-def test_every_ribbon_field_raises_a_registered_command():
-    """Every typed box names a command, and that command exists.
+#: A command key nothing registers, for feeding the rules below a binding that
+#: names something real-looking and absent.
+UNREGISTERED_COMMAND = "noCommandIsRegisteredUnderThisName"
 
-    The same rule the dropdowns get one test above, because a text box that
-    raises nothing has exactly the dropdown's defect.  All six of Selection >
-    Coordinates were that: what was typed went into a dictionary whose only
-    reader re-seeded the widget it had come from, so the boxes could be filled
-    in with anything and the world never heard about it -- while displaying six
-    numbers from the design mock as though they described the open selection.
 
-    The empty case is checked first, not skipped, for the reason the dropdown
-    test records: a rule about a thing done wrongly is always satisfied by the
-    thing not being done at all.
+def _field_problems(tabs) -> list:
+    """Return every fault in the field grids of ``tabs``.
+
+    The rule lives in a function rather than inline in its test so that the
+    real ribbon and a definition broken on purpose are judged by *the same
+    code*.  A guard nobody has watched fail is a guard nobody has tested, and
+    the only way to watch this one fail without breaking the shipped ribbon is
+    to hand it something broken -- which requires the rule to be callable.
+
+    Order matters and is the whole point.  The empty binding is the first thing
+    checked, unconditionally; the registration check hangs off it as an
+    ``elif``.  Written the other way round -- ``if entry.command and ...`` --
+    the rule says "a command, if there is one, must be registered", which a
+    field naming no command satisfies perfectly.  That is not hypothetical:
+    :func:`_field_problems_written_the_skipping_way` below is that version, and
+    a test proves it misses exactly this case.
     """
     fields = [
         (f"{tab.key}/{group.title}/{entry.label}", entry)
-        for tab in ribbon_defs.RIBBON_TABS
+        for tab in tabs
         for group in tab.groups
         for entry in group.fields
     ]
-    assert fields, (
-        "the ribbon defines no field grids at all, so every assertion below "
-        "passes on an empty list"
-    )
+    if not fields:
+        return [
+            "the definition holds no field grids at all, so every rule below "
+            "passes on an empty list"
+        ]
     problems = []
     for where, entry in fields:
         if not entry.command:
@@ -334,6 +345,321 @@ def test_every_ribbon_field_raises_a_registered_command():
                 f"{where}: ships the literal value {entry.value!r}, which is "
                 "shown as though it described the open world"
             )
+    return problems
+
+
+def _field_problems_written_the_skipping_way(tabs) -> list:
+    """The same rule as :func:`_field_problems`, in the shape that ships bugs.
+
+    Kept deliberately, and exercised by a test below, because the difference
+    between this function and the real one is one word, no reviewer has ever
+    caught it by reading, and it is the exact shape that let a command-less
+    dropdown pass its own guard for two years.
+    """
+    problems = []
+    for tab in tabs:
+        for group in tab.groups:
+            for entry in group.fields:
+                where = f"{tab.key}/{group.title}/{entry.label}"
+                if (
+                    entry.command
+                    and commands.command(commands.resolve(entry.command)) is None
+                ):
+                    problems.append(
+                        f"{where}: command {entry.command!r} is unregistered"
+                    )
+    return problems
+
+
+def _tabs_with_one_field(command: str) -> tuple:
+    """Return a one-group ribbon whose only control is a single typed box."""
+    return (
+        ribbon_defs.RibbonTab(
+            key="probe",
+            label="Probe",
+            groups=(
+                ribbon_defs.RibbonGroup(
+                    title="Probe",
+                    fields=(ribbon_defs.RibbonField("Probe box", command=command),),
+                    launcher="probeLauncher",
+                ),
+            ),
+        ),
+    )
+
+
+def _tabs_with_one_dropdown(command: str, option_value: str = "probeValue") -> tuple:
+    """Return a one-group ribbon whose only control is a single dropdown."""
+    return (
+        ribbon_defs.RibbonTab(
+            key="probe",
+            label="Probe",
+            groups=(
+                ribbon_defs.RibbonGroup(
+                    title="Probe",
+                    selects=(
+                        ribbon_defs.RibbonSelect(
+                            "Probe list",
+                            options=(
+                                ribbon_defs.RibbonOption(option_value, "Probe option"),
+                            ),
+                            command=command,
+                        ),
+                    ),
+                    launcher="probeLauncher",
+                ),
+            ),
+        ),
+    )
+
+
+def test_every_ribbon_field_raises_a_registered_command():
+    """Every typed box names a command, and that command exists.
+
+    The same rule the dropdowns get one test above, because a text box that
+    raises nothing has exactly the dropdown's defect.  All six of Selection >
+    Coordinates were that: what was typed went into a dictionary whose only
+    reader re-seeded the widget it had come from, so the boxes could be filled
+    in with anything and the world never heard about it -- while displaying six
+    numbers from the design mock as though they described the open selection.
+    """
+    assert _field_problems(ribbon_defs.RIBBON_TABS) == []
+
+
+def test_the_field_rule_refuses_a_box_whose_binding_is_empty():
+    """The empty case, asserted before the present-but-wrong one.
+
+    This is the case the rule exists for and the case the natural way of
+    writing it skips, so it is checked first here and first inside the rule.
+    """
+    problems = _field_problems(_tabs_with_one_field(""))
+    assert problems, "the rule accepted a box that raises nothing at all"
+    assert "raises no command" in problems[0], problems
+
+
+def test_the_field_rule_refuses_a_box_naming_a_binding_nobody_registered():
+    problems = _field_problems(_tabs_with_one_field(UNREGISTERED_COMMAND))
+    assert problems, "the rule accepted a box naming a command that does not exist"
+    assert "is unregistered" in problems[0], problems
+
+
+def test_the_field_rule_notices_a_definition_holding_no_boxes_at_all():
+    """A rule about every box is satisfied completely by there being none.
+
+    So the collection's own emptiness is a fault the rule reports, rather than
+    the silent pass it would otherwise be.
+    """
+    empty = (ribbon_defs.RibbonTab(key="probe", label="Probe", groups=()),)
+    assert _field_problems(empty), "the rule passed on a definition with no boxes"
+
+
+def test_the_field_rule_accepts_a_box_that_is_properly_bound():
+    """The floor for the three tests above.
+
+    Without it they would all pass on a rule that simply complained about
+    everything it was ever shown.
+    """
+    assert _field_problems(_tabs_with_one_field(ribbon_defs.SELECTION_COMMAND)) == []
+
+
+def test_the_skipping_shape_is_what_the_empty_case_check_prevents():
+    """Proof that the shape matters, not merely that the check is present.
+
+    The same unbound box is handed to both versions of the rule.  The shape
+    this project keeps catching it; the shape that reads just as correct does
+    not notice it at all.  If somebody ever rewrites :func:`_field_problems`
+    into the skipping form, the second assertion here is what goes red.
+    """
+    unbound = _tabs_with_one_field("")
+    assert _field_problems_written_the_skipping_way(unbound) == [], (
+        "the demonstration has stopped demonstrating: the skipping form now "
+        "catches the empty case, so this test proves nothing"
+    )
+    assert _field_problems(unbound), (
+        "the real rule has been rewritten into the shape that skips the empty "
+        "case, and an unbound box now ships silently"
+    )
+
+
+def test_validate_itself_refuses_a_field_that_names_no_command(monkeypatch):
+    """The refusal inside ``validate()`` is exercised, not merely written.
+
+    Deleting that refusal used to leave every test in this file green: the
+    shipped ribbon has no unbound field, so ``validate()`` returned ``()``
+    either way and the rule was decoration.  Feeding it a definition broken on
+    purpose is what makes the refusal itself load-bearing.
+    """
+    monkeypatch.setattr(ribbon_defs, "RIBBON_TABS", _tabs_with_one_field(""))
+    problems = ribbon_defs.validate()
+    assert problems, "validate() accepted a field that raises nothing"
+    assert any("raises no command" in problem for problem in problems), problems
+
+
+def test_validate_accepts_the_same_field_once_it_is_bound(monkeypatch):
+    """The floor for the refusal tests: this probe shape is otherwise clean."""
+    monkeypatch.setattr(
+        ribbon_defs, "RIBBON_TABS", _tabs_with_one_field(ribbon_defs.SELECTION_COMMAND)
+    )
+    assert ribbon_defs.validate() == ()
+
+
+def test_validate_itself_refuses_a_dropdown_that_names_no_command(monkeypatch):
+    monkeypatch.setattr(ribbon_defs, "RIBBON_TABS", _tabs_with_one_dropdown(""))
+    problems = ribbon_defs.validate()
+    assert problems, "validate() accepted a dropdown that raises nothing"
+    assert any("raises no command" in problem for problem in problems), problems
+
+
+def test_validate_refuses_a_dropdown_option_that_stores_no_value(monkeypatch):
+    """An option is operable too, and its value is its binding.
+
+    ``RibbonBar.set_select`` returns early on a value it cannot resolve, so a
+    blank one is a row the user can pick that stores nothing and raises the
+    dropdown's command not at all -- silent in a way that reads as the
+    application ignoring the click.
+    """
+    monkeypatch.setattr(
+        ribbon_defs,
+        "RIBBON_TABS",
+        _tabs_with_one_dropdown(ribbon_defs.SELECTION_COMMAND, option_value=""),
+    )
+    problems = ribbon_defs.validate()
+    assert problems, "validate() accepted an option that stores no value"
+    assert any("stores no value" in problem for problem in problems), problems
+
+
+def test_validate_accepts_the_same_dropdown_once_it_is_bound(monkeypatch):
+    monkeypatch.setattr(
+        ribbon_defs,
+        "RIBBON_TABS",
+        _tabs_with_one_dropdown(ribbon_defs.SELECTION_COMMAND),
+    )
+    assert ribbon_defs.validate() == ()
+
+
+def _probe_group(title: str, *, fields=(), selects=()) -> ribbon_defs.RibbonGroup:
+    return ribbon_defs.RibbonGroup(
+        title=title, fields=fields, selects=selects, launcher="probeLauncher"
+    )
+
+
+def _tabs(*groups) -> tuple:
+    """Return a ribbon of one tab per ``(key, group)`` pair."""
+    return tuple(
+        ribbon_defs.RibbonTab(key=key, label=key.title(), groups=(group,))
+        for key, group in groups
+    )
+
+
+def _bound_select(label: str, *options) -> ribbon_defs.RibbonSelect:
+    return ribbon_defs.RibbonSelect(
+        label,
+        options=options or (ribbon_defs.RibbonOption("probeValue", "Probe option"),),
+        command=ribbon_defs.SELECTION_COMMAND,
+    )
+
+
+def _bound_field(label: str) -> ribbon_defs.RibbonField:
+    return ribbon_defs.RibbonField(label, command=ribbon_defs.SELECTION_COMMAND)
+
+
+#: One deliberately broken definition per refusal ``validate()`` makes, beside a
+#: phrase its complaint must contain.  Each of these was watched failing before
+#: the rule that catches it was written: a guard nobody has seen fail is a guard
+#: nobody has tested, and every one of these faults is invisible in the source.
+BROKEN_DEFINITIONS = [
+    pytest.param(
+        _tabs(("probe", _probe_group("Probe", selects=(_bound_select(""),)))),
+        "has no label",
+        id="dropdown-with-no-label-cannot-be-read-back",
+    ),
+    pytest.param(
+        _tabs(
+            (
+                "probe",
+                _probe_group(
+                    "Probe",
+                    selects=(
+                        _bound_select(
+                            "Probe list",
+                            ribbon_defs.RibbonOption("same", "One"),
+                            ribbon_defs.RibbonOption("same", "Two"),
+                        ),
+                    ),
+                ),
+            )
+        ),
+        "lists the value",
+        id="two-rows-that-do-the-same-thing",
+    ),
+    pytest.param(
+        _tabs(
+            (
+                "probe",
+                _probe_group(
+                    "Probe",
+                    selects=(
+                        _bound_select(
+                            "Probe list", ribbon_defs.RibbonOption("probeValue", "")
+                        ),
+                    ),
+                ),
+            )
+        ),
+        "draws a blank row",
+        id="option-with-no-label",
+    ),
+    pytest.param(
+        _tabs(
+            ("one", _probe_group("One", selects=(_bound_select("Format"),))),
+            ("two", _probe_group("Two", selects=(_bound_select("Format"),))),
+        ),
+        "share one entry in select_values",
+        id="two-dropdowns-sharing-one-stored-value",
+    ),
+    pytest.param(
+        _tabs(
+            ("one", _probe_group("Probe", fields=(_bound_field("x1"),))),
+            ("two", _probe_group("Probe", fields=(_bound_field("x1"),))),
+        ),
+        "share one entry in field_values",
+        id="two-fields-sharing-one-stored-value",
+    ),
+]
+
+
+@pytest.mark.parametrize("tabs, expected", BROKEN_DEFINITIONS)
+def test_validate_refuses_each_definition_it_claims_to_refuse(
+    monkeypatch, tabs, expected
+):
+    monkeypatch.setattr(ribbon_defs, "RIBBON_TABS", tabs)
+    problems = ribbon_defs.validate()
+    assert any(expected in problem for problem in problems), (expected, problems)
+
+
+def test_every_ribbon_option_stores_a_value_the_dropdown_can_act_on():
+    """Every row a user can pick names what picking it does.
+
+    The empty case first, as everywhere else in this file: a rule about every
+    option is satisfied entirely by a ribbon that offers none.
+    """
+    options = [
+        (f"{tab.key}/{group.title}/{select.label}", option)
+        for tab in ribbon_defs.RIBBON_TABS
+        for group in tab.groups
+        for select in group.selects
+        for option in select.options
+    ]
+    assert options, (
+        "the ribbon defines no dropdown options at all, so every assertion "
+        "below passes on an empty list"
+    )
+    problems = []
+    for where, option in options:
+        if not option.value.strip():
+            problems.append(f"{where}: an option stores no value")
+        if not option.label.strip():
+            problems.append(f"{where}: an option draws a blank row")
     assert not problems, problems
 
 

@@ -78,6 +78,14 @@ class RibbonOption:
     ``overworld`` and shows ``minecraft:overworld`` -- so a widget that only
     kept the label would have to reverse-engineer the identifier it needs to
     pass on.
+
+    ``value`` is the binding: it is what :meth:`RibbonBar.set_select` stores and
+    what the shell later reads back, so an option carrying none is a row the
+    user can pick that decides nothing.  It does not even raise the dropdown's
+    command -- ``set_select`` returns early on a value it cannot resolve -- so
+    picking it is silent in a way that reads as the application ignoring the
+    click.  :func:`validate` refuses one, for the reason it refuses a dropdown
+    with no command.
     """
 
     value: str
@@ -1925,6 +1933,13 @@ def validate() -> Tuple[str, ...]:
     """
     problems: List[str] = []
     seen: set = set()
+    # The two dictionaries the ribbon keeps a control's live value in are keyed
+    # by these, and by nothing else: ``select_values`` by a dropdown's label
+    # alone, ``field_values`` by (group title, field label).  Two controls
+    # sharing a key share one entry, so typing in one silently overwrites the
+    # other and the shell reading either gets whichever was touched last.
+    select_keys: Dict[str, List[str]] = {}
+    field_keys: Dict[Tuple[str, str], List[str]] = {}
     for item in RIBBON_TABS:
         if item.key in seen:
             problems.append(f"Duplicate ribbon tab key: {item.key}")
@@ -1952,8 +1967,38 @@ def validate() -> Tuple[str, ...]:
                 if not button.hint:
                     problems.append(f"Button {where}/{button.label} has no hint")
             for select in group.selects:
+                select_keys.setdefault(select.label, []).append(where)
+                if not select.label.strip():
+                    # The label is this dropdown's name in ``select_values``,
+                    # so a blank one is a control the shell cannot ask about:
+                    # ``selected_value("")`` is what reading it would look like.
+                    problems.append(f"A dropdown in group {where} has no label")
                 if not select.options:
                     problems.append(f"Dropdown {where}/{select.label} has no options")
+                seen_values: Dict[str, int] = {}
+                for option in select.options:
+                    # Checked before anything conditional on the value, because
+                    # a rule written ``if option.value and ...`` is satisfied
+                    # completely by the value being absent -- the shape that let
+                    # a command-less dropdown ship for two years.
+                    if not option.value.strip():
+                        problems.append(
+                            f"Option {where}/{select.label}/{option.label or '<blank>'}"
+                            " stores no value, so choosing it is silently "
+                            "discarded and raises no command"
+                        )
+                    if not option.label.strip():
+                        problems.append(
+                            f"Option {where}/{select.label}/{option.value or '<blank>'}"
+                            " has no label, so it draws a blank row"
+                        )
+                    seen_values[option.value] = seen_values.get(option.value, 0) + 1
+                for value, count in seen_values.items():
+                    if count > 1:
+                        problems.append(
+                            f"Dropdown {where}/{select.label} lists the value "
+                            f"{value!r} {count} times, so two rows do the same thing"
+                        )
                 if not select.command:
                     # The Format dropdown shipped without one.  It stored the
                     # user's choice, raised nothing, and was read by nobody, so
@@ -1973,6 +2018,7 @@ def validate() -> Tuple[str, ...]:
                         "is not one of its options"
                     )
             for entry in group.fields:
+                field_keys.setdefault((group.title, entry.label), []).append(where)
                 if not entry.label:
                     problems.append(f"A field in group {where} has no label")
                 if not entry.command:
@@ -1987,6 +2033,18 @@ def validate() -> Tuple[str, ...]:
                         "typing in it changes nothing and its value is read by "
                         "nobody"
                     )
+    for label, places in select_keys.items():
+        if len(places) > 1:
+            problems.append(
+                f"Dropdown label {label!r} is used by {len(places)} groups "
+                f"({', '.join(places)}), which share one entry in select_values"
+            )
+    for (title, label), places in field_keys.items():
+        if len(places) > 1:
+            problems.append(
+                f"Field {title}/{label} is defined by {len(places)} groups "
+                f"({', '.join(places)}), which share one entry in field_values"
+            )
     problems.extend(_structure_format_problems())
     problems.extend(_selection_field_problems())
     return tuple(problems)
