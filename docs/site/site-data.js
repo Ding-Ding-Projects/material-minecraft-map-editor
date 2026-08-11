@@ -123,67 +123,67 @@ window.AMULET_SITE_DATA = {
     {
       "category": "Editor",
       "title": "Editing tools",
-      "detail": "The editing surfaces are the ones a selection passes through: choosing what to",
+      "detail": "The editing surfaces are the ones a selection passes through: choosing what to select, moving to it, describing it, and writing it back out.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/editing-tools/README.md"
     },
     {
       "category": "Editor",
       "title": "MCEdit2 tool set",
-      "detail": "Fifteen surfaces carrying the tool set MCEdit2 users expect, so a habit learned",
+      "detail": "Fifteen surfaces carrying the tool set MCEdit2 users expect, so a habit learned in that editor still works here. They live on the Tools, Selection, and Operations ribbon tabs and in the surface index under **MCEdit2 tools**.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/mcedit2-tools/README.md"
     },
     {
       "category": "Editor",
       "title": "Terrain tools",
-      "detail": "Eight surfaces for changing the shape of the ground rather than the blocks in",
+      "detail": "Eight surfaces for changing the shape of the ground rather than the blocks in it. They live on the Terrain ribbon tab.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/terrain/README.md"
     },
     {
       "category": "Editor",
       "title": "Build tools",
-      "detail": "Six surfaces for putting things into a world rather than reshaping what is",
+      "detail": "Six surfaces for putting things into a world rather than reshaping what is there. They live on the Build and Structures ribbon tabs.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/build/README.md"
     },
     {
       "category": "Editor",
       "title": "Entities and world data",
-      "detail": "Thirteen surfaces over the records a world holds that are not blocks: entities,",
+      "detail": "Thirteen surfaces over the records a world holds that are not blocks: entities, players, signs, command blocks, scoreboards, maps, and `level.dat` itself. They live on the Entities and Data ribbon tabs.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/entities-and-data/README.md"
     },
     {
       "category": "Editor",
       "title": "Analysis tools",
-      "detail": "Eight surfaces that answer questions about a world rather than changing it —",
+      "detail": "Eight surfaces that answer questions about a world rather than changing it — except the two that repair, which say so plainly. They live on the Analyze ribbon tab.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/analysis/README.md"
     },
     {
       "category": "Editor",
       "title": "Redstone and mechanics",
-      "detail": "Seven surfaces about the parts of a world that behave rather than sit: circuits,",
+      "detail": "Seven surfaces about the parts of a world that behave rather than sit: circuits, rails, portals, spawning, light, and tick cost. They live on the Redstone ribbon tab.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/redstone/README.md"
     },
     {
       "category": "Editor",
       "title": "World generation tools",
-      "detail": "Eight surfaces about the world the generator produced: where its structures are,",
+      "detail": "Eight surfaces about the world the generator produced: where its structures are, which chunks are special, what the seed implies, and where the world's own limits sit. They live on the Worldgen ribbon tab.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/worldgen/README.md"
     },
     {
       "category": "Editor",
       "title": "Panels and views",
-      "detail": "Nineteen surfaces that show the application's own state or change how the world",
+      "detail": "Nineteen surfaces that show the application's own state or change how the world is drawn. They live on the View, Panels, and Extend ribbon tabs and are the largest group in the surface index.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/panels/README.md"
     },
     {
       "category": "Editor",
       "title": "Automation",
-      "detail": "Three surfaces for doing the same thing many times, or later, rather than once",
+      "detail": "Three surfaces for doing the same thing many times, or later, rather than once now. They live on the Automate ribbon tab.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/automation/README.md"
     },
     {
       "category": "Editor",
       "title": "Settings and appearance",
-      "detail": "Ten surfaces under **Settings** in the surface index, covering everything the",
+      "detail": "Ten surfaces under **Settings** in the surface index, covering everything the user can change about how the application looks, speaks, and behaves.",
       "href": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/blob/main/docs/features/settings/README.md"
     },
     {
@@ -434,12 +434,6 @@ window.AMULET_SITE_DATA = {
     },
     {
       "category": "Product baseline",
-      "title": "Memory Console",
-      "detail": "A local frameless Material 3 Electron control plane for sync, skills, memory, operations, security, searchable settings, history filters, multi-format exports, VS Code handoff, and a two-key destructive-action gate.",
-      "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/docs/features/product/memory-console.md"
-    },
-    {
-      "category": "Product baseline",
       "title": "Control-plane runtime",
       "detail": "Runtime evidence for the console shell: what has been genuinely verified locally, and what remote proof is still pending.",
       "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/docs/features/product/control-plane-runtime.md"
@@ -650,12 +644,6 @@ window.AMULET_SITE_DATA = {
     },
     {
       "category": "Apps",
-      "title": "Memory Console",
-      "detail": "The local frameless Material 3 control plane: sync, skill and memory inventories, operations, security, searchable settings, append-only Git-backed history with restore-as-new-revision, multi-format exports, VS Code handoff, persistent notifications, and a two-key destructive-action gate.",
-      "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/docs/features/product/memory-console.md"
-    },
-    {
-      "category": "Apps",
       "title": "Dim Sum Atlas",
       "detail": "The companion catalog app: the public catalog is its authority, images cache in application data for offline use, loading and image gaps are reported explicitly, and gallery, favourites, history, changelog, tools, settings, tab, export, and regex surfaces are all present.",
       "href": "https://github.com/Ding-Ding-Projects/agent-global-memory/blob/main/docs/features/product/dim-sum-catalog.md"
@@ -814,7 +802,7 @@ window.AMULET_SITE_DATA = {
       "slug": "analysis",
       "title": "Analysis tools",
       "source": "docs/features/analysis/README.md",
-      "summary": "Eight surfaces that answer questions about a world rather than changing it —",
+      "summary": "Eight surfaces that answer questions about a world rather than changing it — except the two that repair, which say so plainly. They live on the Analyze ribbon tab.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -849,7 +837,7 @@ window.AMULET_SITE_DATA = {
       "slug": "appearance",
       "title": "Appearance editor",
       "source": "docs/features/appearance/README.md",
-      "summary": "Theme, density, accent, UI scale, installed fonts, colour translation, contrast readout, presets, and per-element overrides.",
+      "summary": "The native Preferences Appearance tab applies the persisted Material 3 theme, density, accent, UI scale, and selected installed font to the live wx surface. It also exposes bounded HEX/RGB/HSL translation, a contrast readout, a live…",
       "sections": [
         {
           "heading": "What the Studio shell reads from it",
@@ -884,7 +872,7 @@ window.AMULET_SITE_DATA = {
       "slug": "appearance-presets",
       "title": "Appearance preset foundation",
       "source": "docs/features/appearance-presets/README.md",
-      "summary": "Versioned named presets with strict JSON export and import, and staged reset paths.",
+      "summary": "`amulet_map_editor.api.appearance_presets` provides a wx-independent model for named appearance presets. Each preset captures one complete, versioned set of the existing `Preferences` appearance fields: theme, density, accent colour, UI…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -926,7 +914,7 @@ window.AMULET_SITE_DATA = {
       "slug": "automation",
       "title": "Automation",
       "source": "docs/features/automation/README.md",
-      "summary": "Three surfaces for doing the same thing many times, or later, rather than once",
+      "summary": "Three surfaces for doing the same thing many times, or later, rather than once now. They live on the Automate ribbon tab.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -961,7 +949,7 @@ window.AMULET_SITE_DATA = {
       "slug": "backstage",
       "title": "Backstage",
       "source": "docs/features/backstage/README.md",
-      "summary": "The backstage is what Amulet Studio opens on and what it returns to when a",
+      "summary": "The backstage is what Amulet Studio opens on and what it returns to when a project is closed. It is a full view rather than a dialog: starting a project, finding one you had open last week, reading what a world actually contains, and…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -996,7 +984,7 @@ window.AMULET_SITE_DATA = {
       "slug": "build",
       "title": "Build tools",
       "source": "docs/features/build/README.md",
-      "summary": "Six surfaces for putting things into a world rather than reshaping what is",
+      "summary": "Six surfaces for putting things into a world rather than reshaping what is there. They live on the Build and Structures ribbon tabs.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1031,7 +1019,7 @@ window.AMULET_SITE_DATA = {
       "slug": "build-scripts",
       "title": "One-click Windows build scripts",
       "source": "docs/features/build-scripts/README.md",
-      "summary": "One-click Windows bootstrap and installer build, with an exact failure when the canonical route is unavailable.",
+      "summary": "`build.bat` probes Python 3.11, installs it for the current user through `winget` or the official python.org installer when needed, refreshes the current process path, installs declared build/runtime dependencies, and installs the…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1053,7 +1041,7 @@ window.AMULET_SITE_DATA = {
       "slug": "bulk-actions",
       "title": "Bulk actions",
       "source": "docs/features/bulk-actions/README.md",
-      "summary": "Every list, table, and grid in Amulet Studio supports acting on many rows at",
+      "summary": "Every list, table, and grid in Amulet Studio supports acting on many rows at once. Selecting one row and repeating an action forty times is the application failing to do its job.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1092,7 +1080,7 @@ window.AMULET_SITE_DATA = {
       "slug": "changelog",
       "title": "Changelog and offline documentation foundation",
       "source": "docs/features/changelog/README.md",
-      "summary": "Real release history with commit links, composable filters, bounded regex hooks, and Markdown export.",
+      "summary": "The `amulet_map_editor.api.changelog` module is a wx-independent data foundation used by the native `ChangelogDialog`. The desktop View menu and `Ctrl+Shift+F` command palette expose the browser with local filters and Markdown export.…",
       "sections": [
         {
           "heading": "Status and scope",
@@ -1130,7 +1118,7 @@ window.AMULET_SITE_DATA = {
       "slug": "command-palette",
       "title": "Command palette",
       "source": "docs/features/command-palette/README.md",
-      "summary": "Ctrl+Shift+F over commands, feature destinations, settings, appearance controls, and documentation articles.",
+      "summary": "Press `Ctrl+Shift+F` anywhere in the application to open the command palette. It is the one global shortcut for reaching anything by name, and the frame installs it so it stays reachable while any child window has focus.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1165,7 +1153,7 @@ window.AMULET_SITE_DATA = {
       "slug": "destructive-gate",
       "title": "Destructive-action gate",
       "source": "docs/features/destructive-gate/README.md",
-      "summary": "Anything irreversible in Amulet Studio passes through one gate: two",
+      "summary": "Anything irreversible in Amulet Studio passes through one gate: two independently operated keys, then a slider that has to travel its full range, with an emergency exit available the whole time.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1204,7 +1192,7 @@ window.AMULET_SITE_DATA = {
       "slug": "dim-sum-surprise",
       "title": "Dim-sum surprise foundation",
       "source": "docs/features/dim-sum-surprise/README.md",
-      "summary": "A bounded ten-percent startup draw resolving factual bilingual dish metadata from the public catalog.",
+      "summary": "`amulet_map_editor.api.dim_sum_surprise` provides a wx-independent startup controller. Each controller represents one application launch and makes at most one fresh random draw. Values from `0` up to, but not including, `0.10` qualify.…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1234,7 +1222,7 @@ window.AMULET_SITE_DATA = {
       "slug": "editing-tools",
       "title": "Editing tools",
       "source": "docs/features/editing-tools/README.md",
-      "summary": "The editing surfaces are the ones a selection passes through: choosing what to",
+      "summary": "The editing surfaces are the ones a selection passes through: choosing what to select, moving to it, describing it, and writing it back out.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1269,7 +1257,7 @@ window.AMULET_SITE_DATA = {
       "slug": "entities-and-data",
       "title": "Entities and world data",
       "source": "docs/features/entities-and-data/README.md",
-      "summary": "Thirteen surfaces over the records a world holds that are not blocks: entities,",
+      "summary": "Thirteen surfaces over the records a world holds that are not blocks: entities, players, signs, command blocks, scoreboards, maps, and `level.dat` itself. They live on the Entities and Data ribbon tabs.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1304,7 +1292,7 @@ window.AMULET_SITE_DATA = {
       "slug": "exports",
       "title": "Exports",
       "source": "docs/features/exports/README.md",
-      "summary": "Anything Amulet Studio can show, it can write out. A surface that renders data",
+      "summary": "Anything Amulet Studio can show, it can write out. A surface that renders data and offers no way out of it is incomplete, and \"you can copy it off the screen\" is not an export.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1339,7 +1327,7 @@ window.AMULET_SITE_DATA = {
       "slug": "external-editor",
       "title": "External editor integration",
       "source": "docs/features/external-editor/README.md",
-      "summary": "Discovers Visual Studio Code, persists a validated executable, and opens exported folders as workspace roots.",
+      "summary": "Amulet can open an exported file or folder in a locally installed Visual Studio Code-compatible editor. The integration is deliberately wx-independent in `amulet_map_editor.api.external_editor`, so export flows can use the same…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1361,7 +1349,7 @@ window.AMULET_SITE_DATA = {
       "slug": "language-modes",
       "title": "Language modes and funny levels",
       "source": "docs/features/language-modes/README.md",
-      "summary": "Every visible string in Amulet Studio goes through one function, so the language",
+      "summary": "Every visible string in Amulet Studio goes through one function, so the language mode and the tone reach the whole shell rather than the handful of surfaces somebody remembered to wire.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1400,7 +1388,7 @@ window.AMULET_SITE_DATA = {
       "slug": "local-history",
       "title": "Local history",
       "source": "docs/features/local-history/README.md",
-      "summary": "Append-only local Git history for user records, settings, exports, filters, and restores.",
+      "summary": "Amulet's local history is an append-only, Git-backed audit trail for application-owned records such as settings, notifications, and future document metadata. It is deliberately separate from a user's opened project: the default…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1448,7 +1436,7 @@ window.AMULET_SITE_DATA = {
       "slug": "material-shell",
       "title": "Material application shell",
       "source": "docs/features/material-shell/README.md",
-      "summary": "The frameless title bar, app-owned command bar, and shared Material 3 token layer the rest of the app renders against.",
+      "summary": "The application frame is frameless, with an app-owned title bar and compact owner-drawn window controls. Its content is the **Amulet Studio** shell: a backstage view for starting and opening projects, and a ribbon workspace for editing…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1479,7 +1467,7 @@ window.AMULET_SITE_DATA = {
       "slug": "mcedit2-tools",
       "title": "MCEdit2 tool set",
       "source": "docs/features/mcedit2-tools/README.md",
-      "summary": "Fifteen surfaces carrying the tool set MCEdit2 users expect, so a habit learned",
+      "summary": "Fifteen surfaces carrying the tool set MCEdit2 users expect, so a habit learned in that editor still works here. They live on the Tools, Selection, and Operations ribbon tabs and in the surface index under **MCEdit2 tools**.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1514,7 +1502,7 @@ window.AMULET_SITE_DATA = {
       "slug": "memory-console",
       "title": "Memory Console",
       "source": "docs/features/memory-console/README.md",
-      "summary": "The Memory Console is the second surface the spec renderer cannot express. It is",
+      "summary": "The Memory Console is the second surface the spec renderer cannot express. It is a rail of thirteen views over the guidance records this machine keeps and the feature articles this documentation set contains, laid out as a card grid…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1549,7 +1537,7 @@ window.AMULET_SITE_DATA = {
       "slug": "navigator",
       "title": "Navigator",
       "source": "docs/features/navigator/README.md",
-      "summary": "The navigator is the workspace's left pane: which dimension you are in, and",
+      "summary": "The navigator is the workspace's left pane: which dimension you are in, and which selection boxes exist in it. It answers \"where am I and what have I selected\" without needing the viewport to be looked at, which matters because those…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1584,7 +1572,7 @@ window.AMULET_SITE_DATA = {
       "slug": "nbt-editor",
       "title": "NBT editor",
       "source": "docs/features/nbt-editor/README.md",
-      "summary": "The NBT editor is one of the two Studio surfaces the spec renderer cannot",
+      "summary": "The NBT editor is one of the two Studio surfaces the spec renderer cannot express, because what it needs is a different control for every tag type rather than a fixed set of sections. It is three panes: a source rail, the tag tree, and…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1619,7 +1607,7 @@ window.AMULET_SITE_DATA = {
       "slug": "non-blocking-error-reporting",
       "title": "Non-blocking error reporting",
       "source": "docs/features/non-blocking-error-reporting/README.md",
-      "summary": "Operational failures no longer open a traceback dialog over the editor. The",
+      "summary": "Operational failures no longer open a traceback dialog over the editor. The application records an error notification, keeps the active surface usable, and preserves bounded exception details and traceback text in Notification history.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1653,7 +1641,7 @@ window.AMULET_SITE_DATA = {
       "slug": "notification-centre",
       "title": "Notification centre",
       "source": "docs/features/notification-centre/README.md",
-      "summary": "Persisted history with local search, bulk dismissal of visible matches, and Markdown export.",
+      "summary": "The notification history is a bounded local record for non-blocking information, progress, warning, success, and error messages. It keeps dismissed messages reviewable instead of erasing the only explanation of what the app did.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1675,7 +1663,7 @@ window.AMULET_SITE_DATA = {
       "slug": "offline-documentation",
       "title": "Offline documentation browser",
       "source": "docs/features/offline-documentation/README.md",
-      "summary": "Every feature article bundled as a deterministic UTF-8 resource with SHA-256 digests, searchable without a network.",
+      "summary": "The desktop app bundles the feature articles from `docs/features` as a deterministic UTF-8 resource. The native Documentation entry opens those articles without network access, so help remains available when a world is offline or a…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1705,7 +1693,7 @@ window.AMULET_SITE_DATA = {
       "slug": "panels",
       "title": "Panels and views",
       "source": "docs/features/panels/README.md",
-      "summary": "Nineteen surfaces that show the application's own state or change how the world",
+      "summary": "Nineteen surfaces that show the application's own state or change how the world is drawn. They live on the View, Panels, and Extend ribbon tabs and are the largest group in the surface index.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1740,7 +1728,7 @@ window.AMULET_SITE_DATA = {
       "slug": "project-history",
       "title": "Per-project version history",
       "source": "docs/features/project-history/README.md",
-      "summary": "Every project owns an isolated Git repository beside its world data. That is",
+      "summary": "Every project owns an isolated Git repository beside its world data. That is what makes undo depth unlimited: the stack is not a buffer in memory that a restart empties, it is a real commit history.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1775,7 +1763,7 @@ window.AMULET_SITE_DATA = {
       "slug": "project-shell",
       "title": "Project shell",
       "source": "docs/features/project-shell/README.md",
-      "summary": "Amulet Studio is built from exactly two views, and the shell owns both. The",
+      "summary": "Amulet Studio is built from exactly two views, and the shell owns both. The **backstage** is where a project is started, opened, inspected, or converted. The **workspace** is where one is edited. They are swapped rather than stacked, so…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1810,7 +1798,7 @@ window.AMULET_SITE_DATA = {
       "slug": "properties-pane",
       "title": "Properties pane",
       "source": "docs/features/properties-pane/README.md",
-      "summary": "The properties pane is the workspace's right-hand pane: a tabbed inspector for",
+      "summary": "The properties pane is the workspace's right-hand pane: a tabbed inspector for whatever is currently selected, plus the project's own revision history.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1845,7 +1833,7 @@ window.AMULET_SITE_DATA = {
       "slug": "redstone",
       "title": "Redstone and mechanics",
       "source": "docs/features/redstone/README.md",
-      "summary": "Seven surfaces about the parts of a world that behave rather than sit: circuits,",
+      "summary": "Seven surfaces about the parts of a world that behave rather than sit: circuits, rails, portals, spawning, light, and tick cost. They live on the Redstone ribbon tab.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1880,7 +1868,7 @@ window.AMULET_SITE_DATA = {
       "slug": "release-code-name",
       "title": "Release dim-sum code names",
       "source": "docs/features/release-code-name/README.md",
-      "summary": "The Windows release workflow resolves one unused bilingual dish name from the public `Ding-Ding-Projects/dim-sum-photos` catalog. It selects only a dish whose image filename appears in a published `catalog-v1*`…",
+      "summary": "The Windows release workflow resolves one unused bilingual dish name from the public `Ding-Ding-Projects/dim-sum-photos` catalog. It selects only a dish whose image filename appears in a published `catalog-v1*` release asset, then…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1910,7 +1898,7 @@ window.AMULET_SITE_DATA = {
       "slug": "release-delivery",
       "title": "Windows release delivery contract",
       "source": "docs/features/release-delivery/README.md",
-      "summary": "Unsigned Squirrel.Windows Setup.exe, RELEASES, full package, and deltas where a previous package exists.",
+      "summary": "Every successful push or manual dispatch builds the Windows application, runs the release-gating tests, packages an unsigned Squirrel.Windows release, and publishes one unique non-draft release. The required assets are `Setup.exe`,…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1944,7 +1932,7 @@ window.AMULET_SITE_DATA = {
       "slug": "ribbon",
       "title": "Ribbon",
       "source": "docs/features/ribbon/README.md",
-      "summary": "The workspace's command surface is a seventeen-tab ribbon: Home, Tools,",
+      "summary": "The workspace's command surface is a seventeen-tab ribbon: Home, Tools, Selection, Operations, Structures, Chunks, Terrain, Build, Entities, Data, Analyze, Redstone, Worldgen, View, Panels, Extend, Automate.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -1979,7 +1967,7 @@ window.AMULET_SITE_DATA = {
       "slug": "scheduled-settings",
       "title": "Scheduled settings foundation",
       "source": "docs/features/scheduled-settings/README.md",
-      "summary": "A versioned local rule engine for language, theme, density, and accent overrides with deterministic precedence.",
+      "summary": "Amulet has a local schedule contract for four existing user preferences: language mode, theme, density, and accent colour. The native wx Preferences dialog includes a **Schedule** tab for loading, adding, editing, removing, and…",
       "sections": [
         {
           "heading": "Scope",
@@ -2021,7 +2009,7 @@ window.AMULET_SITE_DATA = {
       "slug": "school-mode",
       "title": "Shared School mode",
       "source": "docs/features/school-mode/README.md",
-      "summary": "A renamed shared presentation lock with a salted local unlock verifier and recoverable prior choices.",
+      "summary": "School mode is a shared local presentation switch for user-facing Amulet surfaces. It has a user-renamable label, persists independently of ordinary appearance preferences, and can be disabled only after the locally configured unlock…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2047,7 +2035,7 @@ window.AMULET_SITE_DATA = {
       "slug": "search-and-regex",
       "title": "Search, regular expressions, and the command palette",
       "source": "docs/features/search-and-regex/README.md",
-      "summary": "Every search field in Amulet Studio behaves the same way, because a regex toggle",
+      "summary": "Every search field in Amulet Studio behaves the same way, because a regex toggle that means one thing in the palette and another in a menu is worse than no toggle at all — the user cannot learn it.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2086,7 +2074,7 @@ window.AMULET_SITE_DATA = {
       "slug": "searchable-menus",
       "title": "Searchable menus and dropdowns",
       "source": "docs/features/searchable-menus/README.md",
-      "summary": "Every right-click menu and every dropdown in Amulet Studio carries its own",
+      "summary": "Every right-click menu and every dropdown in Amulet Studio carries its own search field. A menu long enough to need scrolling is a menu whose contents nobody can find, and a dropdown listing every block in a version is exactly that…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2121,7 +2109,7 @@ window.AMULET_SITE_DATA = {
       "slug": "settings",
       "title": "Settings and appearance",
       "source": "docs/features/settings/README.md",
-      "summary": "Ten surfaces under **Settings** in the surface index, covering everything the",
+      "summary": "Ten surfaces under **Settings** in the surface index, covering everything the user can change about how the application looks, speaks, and behaves.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2156,7 +2144,7 @@ window.AMULET_SITE_DATA = {
       "slug": "spec-renderer",
       "title": "Spec renderer, and how to add a surface",
       "source": "docs/features/spec-renderer/README.md",
-      "summary": "Most of Amulet Studio's windows are data. A surface is described by a `Spec` —",
+      "summary": "Most of Amulet Studio's windows are data. A surface is described by a `Spec` — an eyebrow, a title, a width, an introduction, an ordered list of sections, and a list of footer actions — and one renderer turns that description into real…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2195,7 +2183,7 @@ window.AMULET_SITE_DATA = {
       "slug": "tab-groups",
       "title": "Tabs and groups",
       "source": "docs/features/tab-groups/README.md",
-      "summary": "Persisted docking, pinned-first ordering, named groups, four independent searches, and bulk close with an inverse mode.",
+      "summary": "The desktop app exposes **View → Tabs and groups…** and the same destination in the `Ctrl+Shift+F` command palette. The native Material 3 surface searches open tabs in plain-text mode by default and has an adjacent bounded regex builder.",
       "sections": [
         {
           "heading": "Reusable state and four searches",
@@ -2221,7 +2209,7 @@ window.AMULET_SITE_DATA = {
       "slug": "terrain",
       "title": "Terrain tools",
       "source": "docs/features/terrain/README.md",
-      "summary": "Eight surfaces for changing the shape of the ground rather than the blocks in",
+      "summary": "Eight surfaces for changing the shape of the ground rather than the blocks in it. They live on the Terrain ribbon tab.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2256,7 +2244,7 @@ window.AMULET_SITE_DATA = {
       "slug": "texture-previews",
       "title": "Texture previews",
       "source": "docs/features/texture-previews/README.md",
-      "summary": "Wherever Amulet Studio asks you to pick a block, an item, or a texture, it shows",
+      "summary": "Wherever Amulet Studio asks you to pick a block, an item, or a texture, it shows a tile with the top, side, and bottom faces. **That tile is a generated placeholder swatch, and it says so.**",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2291,7 +2279,7 @@ window.AMULET_SITE_DATA = {
       "slug": "tts-narrator",
       "title": "Optional TTS narrator",
       "source": "docs/features/tts-narrator/README.md",
-      "summary": "Opt-in English and Cantonese narration through a serialized queue with debounce and cooldown.",
+      "summary": "The wx-independent `amulet_map_editor.api.tts_narrator` module provides an opt-in spoken event queue. It is deliberately a small integration boundary: the application can announce an update, save, or error without making the event flow…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2321,7 +2309,7 @@ window.AMULET_SITE_DATA = {
       "slug": "updater",
       "title": "Unsigned Squirrel updates",
       "source": "docs/features/updater/README.md",
-      "summary": "A non-blocking Windows update bridge restricted to the project's exact immutable HTTPS release route.",
+      "summary": "The Windows app checks the project's exact immutable HTTPS Squirrel feed after startup and on a bounded six-hour timer. The default `automated` channel selects the highest numeric `dev` sequence without mixing in stable releases or…",
       "sections": [
         {
           "heading": "Configuration and failure modes",
@@ -2347,7 +2335,7 @@ window.AMULET_SITE_DATA = {
       "slug": "viewport",
       "title": "Viewport",
       "source": "docs/features/viewport/README.md",
-      "summary": "The viewport is the middle of the workspace: the rendered world, and the",
+      "summary": "The viewport is the middle of the workspace: the rendered world, and the overlays that say what you are looking at. It hosts the real renderer rather than drawing a picture of one — the world notebook that owns world loading is…",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2382,7 +2370,7 @@ window.AMULET_SITE_DATA = {
       "slug": "worldgen",
       "title": "World generation tools",
       "source": "docs/features/worldgen/README.md",
-      "summary": "Eight surfaces about the world the generator produced: where its structures are,",
+      "summary": "Eight surfaces about the world the generator produced: where its structures are, which chunks are special, what the seed implies, and where the world's own limits sit. They live on the Worldgen ribbon tab.",
       "sections": [
         {
           "heading": "Behaviour",
@@ -2417,10 +2405,10 @@ window.AMULET_SITE_DATA = {
   "shots": [
     {
       "src": "assets/main-frame-material-shell.png",
-      "title": "Current Material shell",
+      "title": "Superseded Material shell",
       "px": "2250×1395",
       "provenance": "Captured 2026-08-09 from exact commit b3cbec1c4b1035dd0c2ebdc9a545266f49c257ef on an isolated hidden desktop",
-      "boundary": "Real owner-drawn Material shell with quiet startup; remaining editor surfaces are still migrating."
+      "boundary": "Real owner-drawn Material shell with quiet startup. This is the shell Amulet Studio replaced; no capture of the Studio interface exists yet."
     },
     {
       "src": "assets/shots/main-frame-baseline.png",

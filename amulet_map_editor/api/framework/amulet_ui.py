@@ -523,14 +523,37 @@ class AmuletUI(wx.Frame):
         if page is None:
             studio.detach_project()
             return
+        # The Studio owns tab management, so the legacy side rail would be a
+        # second, contradictory list of the same tabs inside the viewport.
+        self._tab_rail.Hide()
+        self._select_editor_program(page)
         studio.set_canvas(self._tab_content)
         # The notebook now lives inside the Studio viewport, which the shared
         # Material traversal deliberately does not enter; style it from here so
         # the world pages keep the palette every other native surface uses.
         apply_material3(self._tab_content)
+        self._tab_content.Layout()
         if studio.project_open and studio.project_path == page.path:
             return
         studio.attach_project(page.world_name, page.path, self._world_platform(page))
+
+    @staticmethod
+    def _select_editor_program(page: WorldPageUI) -> None:
+        """Open a world on its 3D editor rather than on the About page.
+
+        The world notebook selects its first extension, which is About.  Inside
+        the Studio viewport that reads as the renderer being broken, because the
+        viewport is showing a text page where the world should be.
+        """
+        try:
+            for index in range(page.GetPageCount()):
+                if page.GetPageText(index) == "3D Editor":
+                    if page.GetSelection() != index:
+                        page.SetSelection(index)
+                    return
+        except RuntimeError:
+            # The page can be mid-teardown; selecting nothing is correct then.
+            return
 
     @staticmethod
     def _world_platform(page: WorldPageUI) -> str:

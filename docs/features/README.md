@@ -45,6 +45,8 @@ If you are new to the interface, start with
 - [Search, regular expressions, and the command palette](search-and-regex/README.md)
 - [Command palette](command-palette/README.md)
 - [Searchable menus and dropdowns](searchable-menus/README.md)
+- [Material command menu contract](material-menu/README.md) — the app-owned
+  popup behind the fallback shell's command bar
 - [Tabs and groups](tab-groups/README.md)
 - [Offline documentation](offline-documentation/README.md)
 - [Memory Console](memory-console/README.md)
