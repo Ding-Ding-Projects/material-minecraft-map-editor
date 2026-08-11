@@ -33,6 +33,16 @@ its visible label — the dimension list stores `overworld` and shows
 `minecraft:overworld` — so a widget never has to reverse-engineer the identifier
 it must pass on.
 
+**Every dropdown also names a command**, under the same rule as a tile. A
+dropdown that raises nothing is a control the user operates and nothing
+observes, and the Structures ▸ Export **Format** dropdown shipped as exactly
+that: four options, no command, a stored value nobody read, and therefore four
+formats that all exported a `.construction`. `validate()` now refuses a
+command-less dropdown, and the check that resolves a dropdown's command against
+the registry no longer skips the case where there is none — that skip was what
+let this pass. See [exports](../exports/README.md) for what the Format dropdown
+now decides.
+
 Right-clicking anywhere on the ribbon opens the ribbon context menu, which is
 searchable like every other context menu and carries **Edit appearance…**.
 
@@ -51,8 +61,11 @@ line naming its label, glyph, hint, and target.
 `ribbon_defs.validate()` returns every structural problem in the definition and
 is asserted to be empty by the suite: a tab with no groups, a group with no
 controls or no launcher, a tile with no glyph or no hint, a tile naming both a
-surface and a command or neither, a dropdown with no options, and a dropdown
-defaulting to a value that is not one of its own options.
+surface and a command or neither, a dropdown with no options, a dropdown that
+raises no command, and a dropdown defaulting to a value that is not one of its
+own options. It also checks the structure-format table the Export dropdown is
+built from: a blank cell, a duplicated value, or two formats pointing at one
+exporter.
 
 A tile pointing at a surface nobody registered, or a command nobody implemented,
 is caught the same way — as a failing check with the exact tab, group, and label

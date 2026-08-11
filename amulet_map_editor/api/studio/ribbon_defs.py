@@ -24,16 +24,22 @@ from amulet_map_editor.api.studio.search import SearchState
 __all__ = [
     "COMMAND_KEYS",
     "RIBBON_TABS",
+    "STRUCTURE_FORMATS",
     "RibbonButton",
     "RibbonField",
     "RibbonGroup",
     "RibbonOption",
     "RibbonSelect",
     "RibbonTab",
+    "StructureFormat",
     "TAB_KEYS",
     "all_buttons",
     "buttons",
     "search",
+    "structure_format",
+    "structure_format_label",
+    "structure_format_operation",
+    "structure_format_values",
     "surface_keys",
     "tab",
     "validate",
@@ -185,6 +191,104 @@ def _button(
 def _options(*pairs: Tuple[str, str]) -> Tuple[RibbonOption, ...]:
     """Build a dropdown's options from ``(value, label)`` pairs."""
     return tuple(RibbonOption(value, label) for value, label in pairs)
+
+
+# ----------------------------------------------------------------------------
+# structure export formats
+# ----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StructureFormat:
+    """One structure file format the Export group offers, and its exporter.
+
+    ``value`` is what the dropdown stores, ``label`` is what it shows, and
+    ``operation`` is the export plugin's own ``export["name"]`` -- the string
+    the editor's Export tool puts in its chooser.  The name rather than the
+    identifier, because the operation loader's identifier is the plugin file's
+    path *on this installation*, so it is different on every machine and cannot
+    be written down here.
+    """
+
+    value: str
+    label: str
+    operation: str
+
+    @property
+    def option(self) -> RibbonOption:
+        """Return this format as the dropdown option it becomes."""
+        return RibbonOption(self.value, self.label)
+
+
+#: Every format the Structures > Export dropdown offers, beside the export
+#: operation each one runs.
+#:
+#: The two halves are written out side by side because neither derives from the
+#: other, and every rule that looks like it could derive one is wrong here.
+#: ``schem`` runs ``Export Sponge Schematic`` while ``schematic`` runs ``Export
+#: Schematic (legacy)``: a suffix, prefix or containment match sends Sponge's
+#: ``.schem`` to the legacy exporter, and does it silently, because both are
+#: real exporters and both write a file the user then has to open to discover is
+#: the wrong one.  A hand-written table can be read and disagreed with; a
+#: derivation cannot.
+#:
+#: A format with no exporter does not belong in this table, and therefore does
+#: not appear in the dropdown: the options below are built from it rather than
+#: listed a second time, so the list a user picks from cannot offer a format
+#: nothing can write.
+STRUCTURE_FORMATS: Tuple[StructureFormat, ...] = (
+    StructureFormat(
+        "construction",
+        "construction (.construction)",
+        "Export Construction",
+    ),
+    StructureFormat(
+        "mcstructure",
+        "mcstructure (.mcstructure)",
+        "Export Bedrock .mcstructure",
+    ),
+    StructureFormat(
+        "schematic",
+        "schematic (.schematic)",
+        "Export Schematic (legacy)",
+    ),
+    StructureFormat(
+        "schem",
+        "Sponge schem (.schem)",
+        "Export Sponge Schematic",
+    ),
+)
+
+_STRUCTURE_FORMATS_BY_VALUE: Dict[str, StructureFormat] = {
+    item.value: item for item in STRUCTURE_FORMATS
+}
+
+
+def structure_format(value: str) -> Optional[StructureFormat]:
+    """Return the structure format stored as ``value``, or ``None``."""
+    return _STRUCTURE_FORMATS_BY_VALUE.get(str(value))
+
+
+def structure_format_operation(value: str) -> str:
+    """Return the export operation ``value`` runs, or ``""`` for an unknown one.
+
+    An empty answer is a refusal, not a default.  Falling back to the first
+    exporter is what the dropdown effectively did before it was wired to
+    anything, and it is indistinguishable from working.
+    """
+    found = structure_format(value)
+    return found.operation if found is not None else ""
+
+
+def structure_format_label(value: str) -> str:
+    """Return the label the dropdown shows for ``value``, or ``""``."""
+    found = structure_format(value)
+    return found.label if found is not None else ""
+
+
+def structure_format_values() -> Tuple[str, ...]:
+    """Return every stored format value, in the order the dropdown lists them."""
+    return tuple(item.value for item in STRUCTURE_FORMATS)
 
 
 # ----------------------------------------------------------------------------
@@ -582,13 +686,9 @@ _STRUCTURES = RibbonTab(
             selects=(
                 RibbonSelect(
                     "Format",
-                    _options(
-                        ("construction", "construction (.construction)"),
-                        ("mcstructure", "mcstructure (.mcstructure)"),
-                        ("schematic", "schematic (.schematic)"),
-                        ("schem", "Sponge schem (.schem)"),
-                    ),
-                    value="construction",
+                    tuple(item.option for item in STRUCTURE_FORMATS),
+                    value=STRUCTURE_FORMATS[0].value,
+                    command="setExportFormat",
                 ),
             ),
             launcher="exportStructure",
@@ -1754,6 +1854,19 @@ def validate() -> Tuple[str, ...]:
             for select in group.selects:
                 if not select.options:
                     problems.append(f"Dropdown {where}/{select.label} has no options")
+                if not select.command:
+                    # The Format dropdown shipped without one.  It stored the
+                    # user's choice, raised nothing, and was read by nobody, so
+                    # picking "schematic (.schematic)" and pressing Export
+                    # exported a .construction and said "Export Construction"
+                    # back.  A control that operates and decides nothing is the
+                    # exact defect a button naming neither a surface nor a
+                    # command is refused for above; a dropdown gets the same
+                    # rule rather than a softer one.
+                    problems.append(
+                        f"Dropdown {where}/{select.label} raises no command, so "
+                        "changing it runs nothing and its value is read by nobody"
+                    )
                 if select.value and not select.label_for(select.value):
                     problems.append(
                         f"Dropdown {where}/{select.label} defaults to a value that "
@@ -1762,7 +1875,43 @@ def validate() -> Tuple[str, ...]:
             for entry in group.fields:
                 if not entry.label:
                     problems.append(f"A field in group {where} has no label")
+    problems.extend(_structure_format_problems())
     return tuple(problems)
+
+
+def _structure_format_problems() -> List[str]:
+    """Return every fault in the hand-written structure format table.
+
+    A hand-written table is the right shape here and has the failure modes of
+    one: a row copied and half edited, two formats left pointing at the same
+    exporter, a blank cell.  Two rows sharing an exporter is the interesting
+    one, because it is what the dropdown effectively was -- four options, one
+    destination -- and it reads as correct to anybody skimming the table.
+    """
+    problems: List[str] = []
+    values: List[str] = []
+    operations: List[str] = []
+    for item in STRUCTURE_FORMATS:
+        where = f"Structure format {item.value or '<blank>'}"
+        if not item.value:
+            problems.append("A structure format has no stored value")
+        if not item.label:
+            problems.append(f"{where} has no dropdown label")
+        if not item.operation:
+            problems.append(
+                f"{where} names no export operation, so choosing it can only "
+                "run whichever exporter the tool was already showing"
+            )
+        values.append(item.value)
+        operations.append(item.operation)
+    for value in {item for item in values if values.count(item) > 1}:
+        problems.append(f"Structure format value {value!r} is listed twice")
+    for operation in {item for item in operations if operations.count(item) > 1}:
+        problems.append(
+            f"Two structure formats both run the export operation "
+            f"{operation!r}, so one of them writes a file it does not name"
+        )
+    return problems
 
 
 def iter_tabs() -> Iterable[RibbonTab]:

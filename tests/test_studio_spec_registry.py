@@ -270,13 +270,32 @@ def test_every_ribbon_group_launcher_opens_an_indexed_surface():
 
 
 def test_every_ribbon_dropdown_raises_a_registered_command():
-    problems = [
-        f"{tab.key}/{group.title}/{select.label}: {select.command!r}"
+    """Every dropdown names a command, and that command exists.
+
+    The ``select.command and`` guard this filter used to open with made the rule
+    "a command, if there is one, must be registered" -- which the Structures tab
+    passed for two years by naming no command at all.  Its Format dropdown stored
+    the user's choice, raised nothing, and was read by nobody, so all four of its
+    options exported a ``.construction``.  A rule about a thing done wrongly is
+    always satisfied by the thing not being done, so the empty case is now the
+    first thing checked rather than the case skipped.
+    """
+    dropdowns = [
+        (f"{tab.key}/{group.title}/{select.label}", select)
         for tab in ribbon_defs.RIBBON_TABS
         for group in tab.groups
         for select in group.selects
-        if select.command and commands.command(commands.resolve(select.command)) is None
     ]
+    assert dropdowns, (
+        "the ribbon defines no dropdowns at all, so every assertion below "
+        "passes on an empty list"
+    )
+    problems = []
+    for where, select in dropdowns:
+        if not select.command:
+            problems.append(f"{where}: raises no command, so changing it runs nothing")
+        elif commands.command(commands.resolve(select.command)) is None:
+            problems.append(f"{where}: command {select.command!r} is unregistered")
     assert not problems, problems
 
 
