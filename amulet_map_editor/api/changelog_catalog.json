@@ -1,8 +1,20 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "fdef6b9191856e485a6a4ad085b70f7f29cd257f",
+  "source_revision": "0621c781e0c8f197a55b0fc1be5c57785907e01e",
   "entries": [
+    {
+      "version": "0.10.0-dev.512",
+      "released_on": "2026-08-10",
+      "commit_sha": "fdef6b9191856e485a6a4ad085b70f7f29cd257f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop .gitignore from swallowing a documentation article",
+          "commit_sha": "fdef6b9191856e485a6a4ad085b70f7f29cd257f"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.505",
       "released_on": "2026-08-10",
@@ -72,6 +84,30 @@
           "action": "changed",
           "summary": "Turn CI green: the collector swap left one stale assertion behind",
           "commit_sha": "6ec9a7d69ada86c71535684f1d3e28c3fc2d4674"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.487",
+      "released_on": "2026-08-10",
+      "commit_sha": "cf4efb8b976383fe6ec57e9adef15328cedccfc5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "feat(site): publish the site to GitHub Pages through the packaging path",
+          "commit_sha": "cf4efb8b976383fe6ec57e9adef15328cedccfc5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.485",
+      "released_on": "2026-08-10",
+      "commit_sha": "9653834e4ba052e8886c2eea98b67d1ab2822194",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "feat(site): evidence-back the download and refuse remote assets",
+          "commit_sha": "9653834e4ba052e8886c2eea98b67d1ab2822194"
         }
       ]
     },

@@ -27,6 +27,8 @@ jobs:
     if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
     outputs:
       build_version: ${{ steps.resolve-version.outputs.build_version }}
+      test_verdict: ${{ steps.report-tests.outputs.verdict }}
+      test_summary: ${{ steps.report-tests.outputs.summary }}
       build_channel: ${{ steps.resolve-version.outputs.build_channel }}
       source_tag: ${{ steps.resolve-version.outputs.source_tag }}
     strategy:
@@ -73,6 +75,45 @@ jobs:
     - name: Generate the changelog catalog
       run: |
         python scripts/generate_changelog.py
+
+    # Reporting only. The user's decision is that a failing test must not
+    # withhold an installer, so this step never blocks: `continue-on-error`
+    # keeps the build going whatever the verdict. What it must not do is let a
+    # release ship silently implying a test state nobody measured, so the exact
+    # result is carried into the release notes below.
+    - name: Run the test suite (report only)
+      id: report-tests
+      continue-on-error: true
+      shell: bash
+      run: |
+        set +e
+        python -m pip install --quiet pytest pytest-timeout
+        python -m pytest tests -q --timeout=600 > test-report.txt 2>&1
+        status=$?
+        tail -40 test-report.txt
+        summary="$(grep -E '[0-9]+ (passed|failed)' test-report.txt | tail -1)"
+        if [ -z "$summary" ]; then
+          summary="the suite produced no summary line"
+        fi
+        if [ "$status" -eq 0 ]; then
+          verdict="passed"
+        else
+          verdict="FAILED"
+        fi
+        echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+        echo "summary=$summary" >> "$GITHUB_OUTPUT"
+        echo "Test verdict: $verdict -- $summary"
+        exit 0
+
+    - name: Upload the test report
+      uses: actions/upload-artifact@v6
+      if: ${{ always() }}
+      continue-on-error: true
+      with:
+        name: test-report-${{ matrix.cfg.architecture }}
+        path: test-report.txt
+        if-no-files-found: warn
+        retention-days: 7
 
     - name: PyInstaller build
       run: |
@@ -319,6 +360,8 @@ jobs:
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
           RUN_SHA: ${{ github.sha }}
+          TEST_VERDICT: ${{ needs.deploy.outputs.test_verdict }}
+          TEST_SUMMARY: ${{ needs.deploy.outputs.test_summary }}
         run: |
           set -euo pipefail
           setup_path="$(find release-assets -type f -name 'Setup.exe' -print -quit)"
@@ -362,6 +405,11 @@ jobs:
               printf '%s\n\n' '```'
               printf '%s\n' "Generated text and deliberately excluded text are separate rows; repository-grand-total is every tracked line-oriented text file counted. Binary assets are not line-counted."
               printf '%s\n' "Agent attribution uses surviving git-blame lines whose commit author or Co-Authored-By trailer identifies an automation agent; person and unattributed lines are reported separately."
+              printf '%s\n' "Test suite: ${TEST_VERDICT:-not run} -- ${TEST_SUMMARY:-no summary was produced}"
+              if [ "${TEST_VERDICT:-}" != "passed" ]; then
+                printf '%s\n' "> [!WARNING]"
+                printf '%s\n' "> This build shipped without a passing test suite. Tests do not gate the installer; the verdict above is the measured result, not an expectation."
+              fi
               printf '%s\n' "Dim-sum code name: $DIM_SUM_CODE_NAME"
               printf '%s\n' "Dim-sum public photo: $DIM_SUM_PHOTO_URL"
             } > "$notes_file"
