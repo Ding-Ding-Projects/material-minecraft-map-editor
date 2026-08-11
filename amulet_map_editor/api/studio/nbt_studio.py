@@ -59,8 +59,21 @@ MODES: Tuple[Tuple[str, str, str], ...] = (
 
 
 def _text(english: str, cantonese: str = "") -> str:
-    """Return one visible string in the reader's language and tone."""
+    """Return one visible MESSAGE in the reader's language and tone."""
     return studio_copy.studio_text(english, cantonese)
+
+
+def _label(english: str, cantonese: str = "") -> str:
+    """Return one CONTROL label in the reader's language, with no tone.
+
+    Button names, tab names, window titles, placeholders, captions, and
+    accessible names go through here.  Most of them are short enough that
+    ``studio_text`` would have left them alone anyway -- but that is a guess
+    about word count, not a statement of intent, and the first six-word button
+    anybody adds is styled the moment it is written.  Saying which function to
+    use is what makes the intent survive the next edit.
+    """
+    return studio_copy.studio_label(english, cantonese)
 
 
 # ---------------------------------------------------------------------------
@@ -628,11 +641,11 @@ class _ModeSwitch(wx.Panel):
         for key, english, cantonese in MODES:
             button = _SegmentButton(
                 self,
-                _text(english, cantonese),
+                _label(english, cantonese),
                 selected=key == self.mode,
                 on_click=lambda name=key: self._choose(name),
             )
-            button.SetName(_text(f"{english} view", f"{cantonese}檢視"))
+            button.SetName(_label(f"{english} view", f"{cantonese}檢視"))
             self.buttons[key] = button
             row.Add(button, 0, wx.RIGHT, tokens.scaled(2))
         outer = wx.BoxSizer(wx.VERTICAL)
@@ -689,7 +702,7 @@ class _SourceButton(_Clickable):
         selected: bool = False,
         on_click: Optional[Callable[[str], None]] = None,
     ) -> None:
-        label = _text(info.label, "")
+        label = _label(info.label, "")
         super().__init__(parent, f"{label} · {count} tags")
         self.info = info
         self.label = label
@@ -1346,7 +1359,7 @@ class _HistoryRow(wx.Panel):
         self.detail.SetName(revision.detail)
         self.button = widgets.StudioButton(
             self,
-            _text("Restore", "還原"),
+            _label("Restore", "還原"),
             variant="tonal",
             on_click=lambda: widgets.invoke(on_restore, revision),
             name=f"Restore {revision.label}",
@@ -1691,10 +1704,10 @@ class _PromptDialog(wx.Dialog):
         buttons.AddStretchSpacer(1)
         self.cancel_button = widgets.StudioButton(
             self,
-            _text("Cancel", "取消"),
+            _label("Cancel", "取消"),
             variant="text",
             on_click=self._cancel,
-            name=_text("Cancel", "取消"),
+            name=_label("Cancel", "取消"),
             height=40,
         )
         self.confirm_button = widgets.StudioButton(
@@ -1765,7 +1778,7 @@ class _DeleteGateDialog(wx.Dialog):
     """
 
     def __init__(self, parent: wx.Window, tag: model.Tag) -> None:
-        title = _text("Delete tag", "刪除標籤")
+        title = _label("Delete tag", "刪除標籤")
         super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE, name=title)
         self.authorized = False
         palette = tokens.palette()
@@ -1823,7 +1836,7 @@ class NbtStudioDialog(wx.Dialog):
     def __init__(
         self, parent: wx.Window, *, source: str = model.DEFAULT_SOURCE
     ) -> None:
-        title = _text("NBT editor", "NBT 編輯器")
+        title = _label("NBT editor", "NBT 編輯器")
         super().__init__(
             parent,
             title=title,
@@ -1889,11 +1902,11 @@ class NbtStudioDialog(wx.Dialog):
 
     def _build_header(self) -> None:
         self.header = _EdgePanel(self, edge="bottom")
-        self.eyebrow = _Eyebrow(self.header, _text("Raw data", "原始資料"))
+        self.eyebrow = _Eyebrow(self.header, _label("Raw data", "原始資料"))
         self.title_text = wx.StaticText(
-            self.header, label=_text("NBT editor", "NBT 編輯器")
+            self.header, label=_label("NBT editor", "NBT 編輯器")
         )
-        self.title_text.SetName(_text("NBT editor", "NBT 編輯器"))
+        self.title_text.SetName(_label("NBT editor", "NBT 編輯器"))
         self.source_pill = _Pill(
             self.header, self.document.source.pill, name="Open data source"
         )
@@ -1903,8 +1916,8 @@ class NbtStudioDialog(wx.Dialog):
             "✕",
             variant="icon",
             on_click=self.close,
-            name=_text("Close this window", "關閉此視窗"),
-            hint=_text("Close this window", "關閉此視窗"),
+            name=_label("Close this window", "關閉此視窗"),
+            hint=_label("Close this window", "關閉此視窗"),
             height=30,
             min_width=34,
         )
@@ -1943,7 +1956,9 @@ class NbtStudioDialog(wx.Dialog):
     def _build_left(self) -> None:
         self.left_pane = _EdgePanel(self, edge="right")
         self.left_pane.SetMinSize(wx.Size(tokens.scaled(LEFT_PANE_WIDTH), -1))
-        self.source_caption = _Caption(self.left_pane, _text("Data source", "資料來源"))
+        self.source_caption = _Caption(
+            self.left_pane, _label("Data source", "資料來源")
+        )
         self.source_buttons: Dict[str, _SourceButton] = {}
         sources = wx.BoxSizer(wx.VERTICAL)
         for info in model.SOURCES:
@@ -1958,7 +1973,7 @@ class NbtStudioDialog(wx.Dialog):
             sources.Add(button, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(3))
         self.tag_search_bar = widgets.SearchBar(
             self.left_pane,
-            _text("Search tags", "搜尋標籤"),
+            _label("Search tags", "搜尋標籤"),
             self.tag_search,
             on_change=self._on_tag_search,
             compact=True,
@@ -2037,7 +2052,7 @@ class NbtStudioDialog(wx.Dialog):
         row = wx.BoxSizer(wx.HORIZONTAL)
         actions = (
             (
-                _text("Add tag", "新增標籤"),
+                _label("Add tag", "新增標籤"),
                 "tonal",
                 self.add_tag,
                 _text(
@@ -2046,7 +2061,7 @@ class NbtStudioDialog(wx.Dialog):
                 ),
             ),
             (
-                _text("Rename", "重新命名"),
+                _label("Rename", "重新命名"),
                 "outlined",
                 self.rename_tag,
                 _text(
@@ -2055,7 +2070,7 @@ class NbtStudioDialog(wx.Dialog):
                 ),
             ),
             (
-                _text("Duplicate", "複製一份"),
+                _label("Duplicate", "複製一份"),
                 "outlined",
                 self.duplicate_tag,
                 _text(
@@ -2064,7 +2079,7 @@ class NbtStudioDialog(wx.Dialog):
                 ),
             ),
             (
-                _text("Import SNBT…", "匯入 SNBT…"),
+                _label("Import SNBT…", "匯入 SNBT…"),
                 "outlined",
                 self.import_snbt,
                 _text(
@@ -2073,7 +2088,7 @@ class NbtStudioDialog(wx.Dialog):
                 ),
             ),
             (
-                _text("Export SNBT", "匯出 SNBT"),
+                _label("Export SNBT", "匯出 SNBT"),
                 "outlined",
                 self.export_snbt,
                 _text(
@@ -2082,7 +2097,7 @@ class NbtStudioDialog(wx.Dialog):
                 ),
             ),
             (
-                _text("Delete tag", "刪除標籤"),
+                _label("Delete tag", "刪除標籤"),
                 "danger",
                 self.delete_tag,
                 _text(
@@ -2108,14 +2123,14 @@ class NbtStudioDialog(wx.Dialog):
             tokens.scaled(tokens.SPACE_SM),
         )
         self.cancel_button = add(
-            _text("Cancel", "取消"),
+            _label("Cancel", "取消"),
             "text",
             self.cancel,
             _text("Close without committing.", "唔提交就閂咗佢。"),
         )
         row.Add(self.cancel_button, 0, wx.RIGHT, tokens.scaled(tokens.SPACE_XS))
         self.commit_button = add(
-            _text("Commit changes", "提交更改"),
+            _label("Commit changes", "提交更改"),
             "filled",
             self.commit,
             _text(

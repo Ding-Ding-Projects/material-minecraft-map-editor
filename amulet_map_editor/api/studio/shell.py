@@ -50,7 +50,7 @@ from amulet_map_editor.api import local_history, preferences
 from amulet_map_editor.api.studio import commands, context, surfaces, tokens
 from amulet_map_editor.api.studio import recents
 from amulet_map_editor.api.studio.backstage import BackstageView
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.title_bar import (
     StudioTitleBar,
     install_palette_shortcut,
@@ -398,8 +398,10 @@ class StudioShell(wx.Panel):
             except Exception:
                 log.exception("The frame could not open the level at %r", target)
                 self.notify(
-                    studio_text("That project did not open", "呢個專案開唔到"),
-                    f"{target} could not be loaded. The details are in the log.",
+                    studio_label("That project did not open", "呢個專案開唔到"),
+                    studio_text(
+                        f"{target} could not be loaded. The details are in the log."
+                    ),
                     severity="error",
                 )
             finally:
@@ -555,7 +557,23 @@ class StudioShell(wx.Panel):
         return palette_dialog.open_palette(self)
 
     def notify(self, title: str, body: str, severity: str = "info") -> None:
-        """Report a result without blocking anything the user is doing."""
+        """Report a result without blocking anything the user is doing.
+
+        The two halves are built by different functions, deliberately.  A
+        ``title`` names the event -- "Saved", "Camera speed", or the command's
+        own label, the very string the ribbon tile and the palette row render --
+        so it is built with :func:`~amulet_map_editor.api.studio.copy.
+        studio_label` and arrives exactly as written.  A ``body`` is the
+        sentence saying what actually happened, which is the application
+        talking, so it is built with :func:`~amulet_map_editor.api.studio.copy.
+        studio_text` and carries the funny level.
+
+        It shipped the other way round: the title was the only half styled, so
+        at level five a toast was headed ``Convert this world to another
+        platform (the code is dancing; the facts stay put)`` above an entirely
+        deadpan explanation.  The tone was reaching the name and missing the
+        words.
+        """
         from amulet_map_editor.api.wx import nonblocking
 
         nonblocking.notify(self, title, body, severity=severity)
@@ -617,9 +635,11 @@ class StudioShell(wx.Panel):
             entry = commands.command(resolved)
             log.error("No Studio handler is registered for the command %r", resolved)
             self.notify(
-                studio_text("That command is not connected", "呢個指令未接到"),
-                f"Nothing is registered to run the command {resolved!r}"
-                + (f" ({entry.label})." if entry is not None else "."),
+                studio_label("That command is not connected", "呢個指令未接到"),
+                studio_text(
+                    f"Nothing is registered to run the command {resolved!r}"
+                    + (f" ({entry.label})." if entry is not None else ".")
+                ),
                 severity="warning",
             )
             return
@@ -630,8 +650,10 @@ class StudioShell(wx.Panel):
         except Exception:
             log.exception("The Studio command %r failed", resolved)
             self.notify(
-                studio_text("That command failed", "呢個指令失敗咗"),
-                f"Running {resolved!r} raised an error. The details are in the log.",
+                studio_label("That command failed", "呢個指令失敗咗"),
+                studio_text(
+                    f"Running {resolved!r} raised an error. The details are in the log."
+                ),
                 severity="error",
             )
         finally:
@@ -651,8 +673,8 @@ class StudioShell(wx.Panel):
         if not unmet:
             return True
         self.notify(
-            studio_text(commands.label_for(key), ""),
-            commands.unavailable_hint(key, unmet),
+            studio_label(commands.label_for(key), ""),
+            studio_text(commands.unavailable_hint(key, unmet)),
             severity="warning",
         )
         return False
@@ -663,9 +685,11 @@ class StudioShell(wx.Panel):
         before = self._history_counts()
         if not self._editor_call(_EDITOR_ACTIONS["save"]):
             self.notify(
-                studio_text("Nothing was saved", "冇嘢儲存到"),
-                "No world editor is attached to this project, so there was nothing "
-                "to write.",
+                studio_label("Nothing was saved", "冇嘢儲存到"),
+                studio_text(
+                    "No world editor is attached to this project, so there was nothing "
+                    "to write."
+                ),
                 severity="warning",
             )
             return
@@ -687,15 +711,19 @@ class StudioShell(wx.Panel):
         self._sync_world_state()
         if changed:
             self.notify(
-                studio_text("Partly saved", "未完全儲存"),
-                f"{self.doc_title} still reports unsaved changes after the save "
-                "finished. The details are in the log.",
+                studio_label("Partly saved", "未完全儲存"),
+                studio_text(
+                    f"{self.doc_title} still reports unsaved changes after the save "
+                    "finished. The details are in the log."
+                ),
                 severity="warning",
             )
             return
         self.notify(
-            studio_text("Saved", "已經儲存"),
-            f"{self.doc_title} was written to {self.project_path or 'disk'}.",
+            studio_label("Saved", "已經儲存"),
+            studio_text(
+                f"{self.doc_title} was written to {self.project_path or 'disk'}."
+            ),
             severity="success",
         )
 
@@ -724,9 +752,11 @@ class StudioShell(wx.Panel):
         data_dir = os.environ.get("DATA_DIR", "")
         if not data_dir:
             self.notify(
-                studio_text("The operations folder is unknown", "搵唔到操作資料夾"),
-                "This build has no data directory configured, so the operations "
-                "folder cannot be located.",
+                studio_label("The operations folder is unknown", "搵唔到操作資料夾"),
+                studio_text(
+                    "This build has no data directory configured, so the operations "
+                    "folder cannot be located."
+                ),
                 severity="warning",
             )
             return
@@ -735,21 +765,23 @@ class StudioShell(wx.Panel):
             os.makedirs(target, exist_ok=True)
         except OSError as error:
             self.notify(
-                studio_text("The operations folder is unavailable", "操作資料夾開唔到"),
-                f"{target} could not be created: {error}",
+                studio_label(
+                    "The operations folder is unavailable", "操作資料夾開唔到"
+                ),
+                studio_text(f"{target} could not be created: {error}"),
                 severity="error",
             )
             return
         if not wx.LaunchDefaultApplication(target):
             self.notify(
-                studio_text("The operations folder did not open", "操作資料夾開唔到"),
-                f"Windows refused to open {target}.",
+                studio_label("The operations folder did not open", "操作資料夾開唔到"),
+                studio_text(f"Windows refused to open {target}."),
                 severity="warning",
             )
             return
         self.notify(
-            studio_text("Operations folder", "操作資料夾"),
-            f"Opened {target}.",
+            studio_label("Operations folder", "操作資料夾"),
+            studio_text(f"Opened {target}."),
         )
 
     def _cmd_open_in_editor(self, _key: str) -> None:
@@ -759,16 +791,18 @@ class StudioShell(wx.Panel):
         target = self.project_path
         if not target:
             self.notify(
-                studio_text("There is nothing to open", "冇嘢可以開"),
-                "Open a project first; the external editor opens the project's "
-                "own folder.",
+                studio_label("There is nothing to open", "冇嘢可以開"),
+                studio_text(
+                    "Open a project first; the external editor opens the project's "
+                    "own folder."
+                ),
                 severity="warning",
             )
             return
         action = export_actions.open_exported_path(target)
         self.notify(
-            studio_text("External editor", "外部編輯器"),
-            action.message or f"Opened {action.target}.",
+            studio_label("External editor", "外部編輯器"),
+            studio_text(action.message or f"Opened {action.target}."),
             severity="success" if action.ok else "warning",
         )
 
@@ -776,9 +810,11 @@ class StudioShell(wx.Panel):
         restart = getattr(self.frame, "restart_to_install_update", None)
         if not callable(restart):
             self.notify(
-                studio_text("Updates are unavailable here", "呢度冇更新功能"),
-                "This window is not hosted by the application frame, so no "
-                "staged update can be installed.",
+                studio_label("Updates are unavailable here", "呢度冇更新功能"),
+                studio_text(
+                    "This window is not hosted by the application frame, so no "
+                    "staged update can be installed."
+                ),
                 severity="warning",
             )
             return
@@ -799,9 +835,11 @@ class StudioShell(wx.Panel):
         origin = self._camera_block(canvas)
         if origin is None:
             self.notify(
-                studio_text("The camera has no position", "鏡頭冇位置"),
-                "The 3D editor has not reported a camera position yet, so there "
-                "is nowhere to put a selection box.",
+                studio_label("The camera has no position", "鏡頭冇位置"),
+                studio_text(
+                    "The 3D editor has not reported a camera position yet, so there "
+                    "is nowhere to put a selection box."
+                ),
                 severity="warning",
             )
             return
@@ -821,10 +859,12 @@ class StudioShell(wx.Panel):
         )
         self._sync_world_state()
         self.notify(
-            studio_text("Selection box added", "加咗一個選取框"),
-            f"A 1x1x1 box was added at {origin[0]}, {origin[1]}, {origin[2]}; "
-            f"the selection now holds {len(corners)} "
-            f"{'box' if len(corners) == 1 else 'boxes'}.",
+            studio_label("Selection box added", "加咗一個選取框"),
+            studio_text(
+                f"A 1x1x1 box was added at {origin[0]}, {origin[1]}, {origin[2]}; "
+                f"the selection now holds {len(corners)} "
+                f"{'box' if len(corners) == 1 else 'boxes'}."
+            ),
             severity="success",
         )
 
@@ -834,8 +874,8 @@ class StudioShell(wx.Panel):
         corners = list(self._selection_corners())
         if not corners:
             self.notify(
-                studio_text("Nothing is selected", "冇嘢揀咗"),
-                "There is no selection box in this world to remove.",
+                studio_label("Nothing is selected", "冇嘢揀咗"),
+                studio_text("There is no selection box in this world to remove."),
                 severity="warning",
             )
             return
@@ -854,9 +894,11 @@ class StudioShell(wx.Panel):
         )
         self._sync_world_state()
         self.notify(
-            studio_text("Selection box removed", "刪咗個選取框"),
-            f"The box from {low[0]}, {low[1]}, {low[2]} to {high[0]}, {high[1]}, "
-            f"{high[2]} is gone; {len(corners)} remain.",
+            studio_label("Selection box removed", "刪咗個選取框"),
+            studio_text(
+                f"The box from {low[0]}, {low[1]}, {low[2]} to {high[0]}, {high[1]}, "
+                f"{high[2]} is gone; {len(corners)} remain."
+            ),
             severity="success",
         )
 
@@ -904,7 +946,9 @@ class StudioShell(wx.Panel):
                 "profile. Open Key configuration to give it one."
             )
         self.notify(
-            studio_text(commands.label_for(key), ""), " ".join(parts), severity="info"
+            studio_label(commands.label_for(key), ""),
+            studio_text(" ".join(parts)),
+            severity="info",
         )
 
     def _cmd_transform(self, key: str) -> None:
@@ -922,9 +966,11 @@ class StudioShell(wx.Panel):
         paste = self._editor_tool("Paste")
         if paste is None:
             self.notify(
-                studio_text(commands.label_for(key), ""),
-                "This world's editor has no paste tool, which is what applies a "
-                "rotation, so there is nothing to transform with.",
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    "This world's editor has no paste tool, which is what applies a "
+                    "rotation, so there is nothing to transform with."
+                ),
                 severity="warning",
             )
             return
@@ -937,9 +983,11 @@ class StudioShell(wx.Panel):
         except Exception:
             log.exception("Could not float a copy of the selection for %r", key)
             self.notify(
-                studio_text(commands.label_for(key), ""),
-                "The selection could not be copied, so there is nothing to "
-                "transform. The details are in the log.",
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    "The selection could not be copied, so there is nothing to "
+                    "transform. The details are in the log."
+                ),
                 severity="error",
             )
             return
@@ -953,9 +1001,11 @@ class StudioShell(wx.Panel):
         paste = self._editor_tool("Paste")
         if paste is None or not getattr(paste, "_is_enabled", False):
             self.notify(
-                studio_text(commands.label_for(key), ""),
-                "The copied selection is not floating in the paste tool, so "
-                "there was nothing to transform.",
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    "The copied selection is not floating in the paste tool, so "
+                    "there was nothing to transform."
+                ),
                 severity="warning",
             )
             return
@@ -966,9 +1016,11 @@ class StudioShell(wx.Panel):
         )
         if not callable(method):
             self.notify(
-                studio_text(commands.label_for(key), ""),
-                "This build's paste tool exposes no "
-                f"{'rotation' if key == 'rotate' else 'mirror'} control.",
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    "This build's paste tool exposes no "
+                    f"{'rotation' if key == 'rotate' else 'mirror'} control."
+                ),
                 severity="warning",
             )
             return
@@ -989,9 +1041,11 @@ class StudioShell(wx.Panel):
             return
         verb = "rotated 90° to the right" if key == "rotate" else "mirrored"
         self.notify(
-            studio_text("Paste transform", "貼上變換"),
-            f"The floating selection was {verb}. Place it in the viewport and "
-            "confirm the paste to write it into the world.",
+            studio_label("Paste transform", "貼上變換"),
+            studio_text(
+                f"The floating selection was {verb}. Place it in the viewport and "
+                "confirm the paste to write it into the world."
+            ),
             severity="success",
         )
 
@@ -1004,13 +1058,15 @@ class StudioShell(wx.Panel):
         status.set_projection(following, notify=True)
         applied = self._set_camera_projection(following)
         self.notify(
-            studio_text("Projection", "投影"),
-            f"The viewport is now {'top-down' if following == 'top' else '3D'}."
-            + (
-                ""
-                if applied
-                else " No 3D editor is attached, so only the Studio viewport "
-                "changed."
+            studio_label("Projection", "投影"),
+            studio_text(
+                f"The viewport is now {'top-down' if following == 'top' else '3D'}."
+                + (
+                    ""
+                    if applied
+                    else " No 3D editor is attached, so only the Studio viewport "
+                    "changed."
+                )
             ),
         )
 
@@ -1051,14 +1107,16 @@ class StudioShell(wx.Panel):
             except Exception:
                 log.exception("Could not set the editor camera speed to %r", speed)
         self.notify(
-            studio_text("Camera speed", "鏡頭速度"),
-            (
-                f"The editor camera now moves at {speed} blocks per second. "
-                if applied
-                else f"The Studio viewport is set to {speed} blocks per second; "
-                "no 3D editor is attached to take it. "
-            )
-            + "The status bar slider has the keyboard.",
+            studio_label("Camera speed", "鏡頭速度"),
+            studio_text(
+                (
+                    f"The editor camera now moves at {speed} blocks per second. "
+                    if applied
+                    else f"The Studio viewport is set to {speed} blocks per second; "
+                    "no 3D editor is attached to take it. "
+                )
+                + "The status bar slider has the keyboard."
+            ),
         )
 
     def _cmd_set_dimension(self, _key: str) -> None:
@@ -1069,16 +1127,18 @@ class StudioShell(wx.Panel):
         if not target:
             listed = ", ".join(ctx.dimensions) if ctx.dimensions else ""
             self.notify(
-                studio_text("That dimension is not in this world", "呢個維度唔喺度"),
-                (
-                    f"{wanted!r} is not a dimension of {self.doc_title}."
-                    if wanted
-                    else "Choose a dimension in the ribbon first."
-                )
-                + (
-                    f" This world reports {listed}."
-                    if listed
-                    else " This world reports no dimensions at all."
+                studio_label("That dimension is not in this world", "呢個維度唔喺度"),
+                studio_text(
+                    (
+                        f"{wanted!r} is not a dimension of {self.doc_title}."
+                        if wanted
+                        else "Choose a dimension in the ribbon first."
+                    )
+                    + (
+                        f" This world reports {listed}."
+                        if listed
+                        else " This world reports no dimensions at all."
+                    )
                 ),
                 severity="warning",
             )
@@ -1106,13 +1166,15 @@ class StudioShell(wx.Panel):
                 detail += f" between y {info.min_y} and y {info.max_y}"
             detail += "."
         self.notify(
-            studio_text("Dimension", "維度"),
-            f"Editing {target}."
-            + detail
-            + (
-                ""
-                if applied
-                else " No 3D editor is attached, so the renderer did not move."
+            studio_label("Dimension", "維度"),
+            studio_text(
+                f"Editing {target}."
+                + detail
+                + (
+                    ""
+                    if applied
+                    else " No 3D editor is attached, so the renderer did not move."
+                )
             ),
             severity="success",
         )
@@ -1169,9 +1231,11 @@ class StudioShell(wx.Panel):
     def _cmd_toggle_pane(self, _key: str) -> None:
         self.workspace.toggle_properties()
         self.notify(
-            studio_text("Properties pane", "屬性面板"),
-            "The properties pane is now "
-            + ("visible." if self.workspace.properties_visible() else "hidden."),
+            studio_label("Properties pane", "屬性面板"),
+            studio_text(
+                "The properties pane is now "
+                + ("visible." if self.workspace.properties_visible() else "hidden.")
+            ),
         )
 
     def _cmd_toggle_ribbon(self, _key: str) -> None:
@@ -1183,8 +1247,8 @@ class StudioShell(wx.Panel):
         self.refresh_theme()
         self._record("appearance", {"theme": theme})
         self.notify(
-            studio_text("Theme", "主題"),
-            f"The interface is now using the {theme} theme.",
+            studio_label("Theme", "主題"),
+            studio_text(f"The interface is now using the {theme} theme."),
             severity="success",
         )
 
@@ -1198,8 +1262,8 @@ class StudioShell(wx.Panel):
         self.refresh_theme()
         self._record("appearance", {"density": value})
         self.notify(
-            studio_text("Density", "密度"),
-            f"Controls are now {value}; every surface resized with it.",
+            studio_label("Density", "密度"),
+            studio_text(f"Controls are now {value}; every surface resized with it."),
             severity="success",
         )
 
@@ -1228,17 +1292,21 @@ class StudioShell(wx.Panel):
         fallback = _COMMAND_SURFACES.get(key)
         if fallback:
             self.notify(
-                studio_text(commands.label_for(key), ""),
-                "This world's 3D editor could not run that, so its options "
-                "window is opening instead. Nothing has been changed.",
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    "This world's 3D editor could not run that, so its options "
+                    "window is opening instead. Nothing has been changed."
+                ),
                 severity="warning",
             )
             self.open_surface(fallback)
             return
         self.notify(
-            studio_text(commands.label_for(key), ""),
-            f"The open project has no editor able to run {key!r}. Open the 3D "
-            "editor tab for this world and try again.",
+            studio_label(commands.label_for(key), ""),
+            studio_text(
+                f"The open project has no editor able to run {key!r}. Open the 3D "
+                "editor tab for this world and try again."
+            ),
             severity="warning",
         )
 
@@ -1257,17 +1325,21 @@ class StudioShell(wx.Panel):
             fallback = _COMMAND_SURFACES.get(key)
             if fallback:
                 self.notify(
-                    studio_text(commands.label_for(key), ""),
-                    f"This world's editor has no {name} tool, so its options "
-                    "window is opening instead. Nothing has been changed.",
+                    studio_label(commands.label_for(key), ""),
+                    studio_text(
+                        f"This world's editor has no {name} tool, so its options "
+                        "window is opening instead. Nothing has been changed."
+                    ),
                     severity="warning",
                 )
                 self.open_surface(fallback)
                 return
             self.notify(
-                studio_text(commands.label_for(key), ""),
-                f"This world's editor has no {name} tool, so there is nothing "
-                "to run.",
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    f"This world's editor has no {name} tool, so there is nothing "
+                    "to run."
+                ),
                 severity="warning",
             )
             return
@@ -1284,8 +1356,8 @@ class StudioShell(wx.Panel):
             wx.CallAfter(self._run_active_operation, tool)
             return
         self.notify(
-            studio_text(commands.label_for(key), ""),
-            self._tool_message(key, name, tool),
+            studio_label(commands.label_for(key), ""),
+            studio_text(self._tool_message(key, name, tool)),
             severity="success",
         )
 
@@ -1311,10 +1383,12 @@ class StudioShell(wx.Panel):
         chosen = str(getattr(tool, "active_operation_id", "") or "")
         if not callable(runner):
             self.notify(
-                studio_text("Operations", "操作"),
-                "The Operation tool is now showing. Choose an operation in it "
-                "and this command will run the one you chose."
-                + (f" Nothing is selected yet." if not chosen else ""),
+                studio_label("Operations", "操作"),
+                studio_text(
+                    "The Operation tool is now showing. Choose an operation in it "
+                    "and this command will run the one you chose."
+                    + (f" Nothing is selected yet." if not chosen else "")
+                ),
                 severity="warning" if not chosen else "info",
             )
             return
@@ -1356,23 +1430,27 @@ class StudioShell(wx.Panel):
         self._sync_world_state()
         if key in ("undo", "redo"):
             self.notify(
-                studio_text("Undo" if key == "undo" else "Redo", ""),
-                f"{self.doc_title} is now {after[0]} undo "
-                f"{'point' if after[0] == 1 else 'points'} deep, with "
-                f"{after[1]} to redo.",
+                studio_label("Undo" if key == "undo" else "Redo", ""),
+                studio_text(
+                    f"{self.doc_title} is now {after[0]} undo "
+                    f"{'point' if after[0] == 1 else 'points'} deep, with "
+                    f"{after[1]} to redo."
+                ),
                 severity="success",
             )
             return
         if key == "selectAll":
             ctx = context.current()
             self.notify(
-                studio_text("Select all", "全選"),
+                studio_label("Select all", "全選"),
                 (
-                    f"Selected every generated chunk in {ctx.dimension}: "
-                    f"{ctx.selection_volume:,} blocks."
-                    if ctx.has_selection
-                    else f"{ctx.dimension or 'This dimension'} has no generated "
-                    "chunks, so nothing was selected."
+                    studio_text(
+                        f"Selected every generated chunk in {ctx.dimension}: "
+                        f"{ctx.selection_volume:,} blocks."
+                        if ctx.has_selection
+                        else f"{ctx.dimension or 'This dimension'} has no generated "
+                        "chunks, so nothing was selected."
+                    )
                 ),
                 severity="success" if ctx.has_selection else "warning",
             )
@@ -1380,28 +1458,34 @@ class StudioShell(wx.Panel):
         if key == "goto":
             location = self._camera_block(self._canvas())
             self.notify(
-                studio_text("Teleport", "傳送"),
+                studio_label("Teleport", "傳送"),
                 (
-                    f"The camera is at {location[0]}, {location[1]}, {location[2]}."
-                    if location is not None
-                    else "The camera did not report a position."
+                    studio_text(
+                        f"The camera is at {location[0]}, {location[1]}, {location[2]}."
+                        if location is not None
+                        else "The camera did not report a position."
+                    )
                 ),
             )
             return
         if key in _MUTATING_COMMANDS and after[0] == before[0]:
             self.notify(
-                studio_text(commands.label_for(key), ""),
-                "The editor ran that but the world recorded no new undo point, "
-                "so nothing in it changed.",
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    "The editor ran that but the world recorded no new undo point, "
+                    "so nothing in it changed."
+                ),
                 severity="warning",
             )
             return
         if key in _MUTATING_COMMANDS or subject:
             self.notify(
-                studio_text(commands.label_for(key), ""),
-                f"{subject or commands.label_for(key)} finished; "
-                f"{self.doc_title} is now {after[0]} undo "
-                f"{'point' if after[0] == 1 else 'points'} deep.",
+                studio_label(commands.label_for(key), ""),
+                studio_text(
+                    f"{subject or commands.label_for(key)} finished; "
+                    f"{self.doc_title} is now {after[0]} undo "
+                    f"{'point' if after[0] == 1 else 'points'} deep."
+                ),
                 severity="success",
             )
 
@@ -1503,9 +1587,11 @@ class StudioShell(wx.Panel):
         except Exception:
             log.exception("The editor refused a new selection")
             self.notify(
-                studio_text("The selection did not change", "選取範圍冇改到"),
-                "The 3D editor refused the new selection. The details are in "
-                "the log.",
+                studio_label("The selection did not change", "選取範圍冇改到"),
+                studio_text(
+                    "The 3D editor refused the new selection. The details are in "
+                    "the log."
+                ),
                 severity="error",
             )
             return False

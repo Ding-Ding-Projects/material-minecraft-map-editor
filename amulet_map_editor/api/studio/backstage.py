@@ -35,7 +35,7 @@ import wx
 
 from amulet_map_editor.api import preferences
 from amulet_map_editor.api.studio import recents, tokens, widgets
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.recents import RecentEntry
 from amulet_map_editor.api.studio.search import SearchState
 
@@ -606,10 +606,14 @@ class _Text(wx.Control):
 
 
 def _heading(parent: wx.Window, english: str, cantonese: str, size_px: float) -> _Text:
-    """Build one of the two big page headings the design uses."""
+    """Build one of the two big page headings the design uses.
+
+    A heading names the page, so it is built with ``studio_label`` and carries
+    no tone.  The paragraph underneath it is the application talking and does.
+    """
     return _Text(
         parent,
-        studio_text(english, cantonese),
+        studio_label(english, cantonese),
         size_px=size_px,
         weight=_LIGHT,
         role="on_surface",
@@ -621,10 +625,15 @@ def _heading(parent: wx.Window, english: str, cantonese: str, size_px: float) ->
 def _eyebrow(
     parent: wx.Window, english: str, cantonese: str, size_px: float = 13
 ) -> _Text:
-    """Build the uppercase primary caption that titles a block."""
+    """Build the uppercase primary caption that titles a block.
+
+    Titling is naming, so this takes no tone either -- and an eyebrow is set in
+    uppercase with letter tracking on a single line, which is the least
+    forgiving place in the whole design to append a clause to.
+    """
     return _Text(
         parent,
-        studio_text(english, cantonese),
+        studio_label(english, cantonese),
         size_px=size_px,
         weight=_MEDIUM,
         role="primary",
@@ -846,8 +855,8 @@ class _TemplateCard(_HoverControl):
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.template = template
         self.on_choose = on_click
-        self.title = studio_text(template.title, template.cantonese_title)
-        self.hint = studio_text(template.hint, template.cantonese_hint)
+        self.title = studio_label(template.title, template.cantonese_title)
+        self.hint = studio_label(template.hint, template.cantonese_hint)
         name = f"{template.title} — {template.hint}"
         if template.unavailable:
             # On the card, in the tooltip, and in the accessible name: a card
@@ -997,10 +1006,10 @@ class _RecentHeader(wx.Control):
         super().__init__(parent, style=wx.BORDER_NONE)
         self.labels = (
             "",
-            studio_text("Name", "名稱"),
-            studio_text("Platform", "平台"),
-            studio_text("Location", "位置"),
-            studio_text("Opened", "開啟時間"),
+            studio_label("Name", "名稱"),
+            studio_label("Platform", "平台"),
+            studio_label("Location", "位置"),
+            studio_label("Opened", "開啟時間"),
         )
         self.SetName("Recent projects table columns")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
@@ -1442,8 +1451,8 @@ class _SourceRow(_HoverControl):
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.source = source
         self.on_choose = on_click
-        self.title = studio_text(source.title, source.cantonese_title)
-        self.hint = studio_text(source.hint, source.cantonese_hint)
+        self.title = studio_label(source.title, source.cantonese_title)
+        self.hint = studio_label(source.hint, source.cantonese_hint)
         self._width = 0
         self._setup(f"{source.title} — {source.hint}")
         self.SetToolTip(self.hint)
@@ -2329,7 +2338,7 @@ class _WorldPickerDialog(wx.Dialog):
     def __init__(self, parent: wx.Window, scan: Optional[WorldScan] = None) -> None:
         super().__init__(
             parent,
-            title=studio_text("Choose a world", "揀一個世界"),
+            title=studio_label("Choose a world", "揀一個世界"),
             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
         )
         self.chosen: Optional[DetectedWorld] = None
@@ -2826,7 +2835,7 @@ class BackstageView(wx.Panel):
         for key, english, cantonese, glyph in items:
             button = _RailButton(
                 self.rail,
-                studio_text(english, cantonese),
+                studio_label(english, cantonese),
                 glyph,
                 on_click=lambda tab=key: self.set_tab(tab),
                 active=key == self.tab,
@@ -2842,7 +2851,7 @@ class BackstageView(wx.Panel):
         options_row.Add(
             _RailButton(
                 self.rail,
-                studio_text("Options", "選項"),
+                studio_label("Options", "選項"),
                 "⚙",
                 on_click=lambda: self._open_surface(SURFACE_PREFERENCES),
                 name="Options",
@@ -2858,7 +2867,7 @@ class BackstageView(wx.Panel):
             back_row.Add(
                 _RailButton(
                     self.rail,
-                    studio_text("Back to project", "返回專案"),
+                    studio_label("Back to project", "返回專案"),
                     "←",
                     on_click=lambda: widgets.invoke(self.on_workspace),
                     filled=True,
@@ -3042,7 +3051,7 @@ class BackstageView(wx.Panel):
         for name in recents.FILTERS:
             chip = widgets.Chip(
                 parent,
-                studio_text(
+                studio_label(
                     name,
                     {"All": "全部", "Worlds": "世界", "Projects": "專案"}.get(
                         name, name
@@ -3057,7 +3066,7 @@ class BackstageView(wx.Panel):
         header.AddStretchSpacer()
         self._recent_search = self._search_bar(
             parent,
-            studio_text("Search recent projects and worlds", "搜尋最近嘅專案同世界"),
+            studio_label("Search recent projects and worlds", "搜尋最近嘅專案同世界"),
             self.recent_state,
             on_change=lambda _state: self._refresh_recent(),
             min_width=460,
@@ -3071,7 +3080,7 @@ class BackstageView(wx.Panel):
         self._bulk_labels = {}
         displayed: List[str] = []
         for action in BULK_ACTIONS:
-            label = studio_text(action, BULK_CANTONESE.get(action, ""))
+            label = studio_label(action, BULK_CANTONESE.get(action, ""))
             self._bulk_labels[label] = action
             displayed.append(label)
         self._bulk = widgets.BulkActionBar(
@@ -3502,7 +3511,7 @@ class BackstageView(wx.Panel):
         header.Add(
             self._search_bar(
                 block,
-                studio_text("Search detected worlds", "搜尋偵測到嘅世界"),
+                studio_label("Search detected worlds", "搜尋偵測到嘅世界"),
                 self.detected_state,
                 on_change=lambda _state: self._refresh_detected(),
                 min_width=420,
@@ -3903,7 +3912,7 @@ class BackstageView(wx.Panel):
             ]
         )
         for key, english, cantonese, value in definitions:
-            row = _InfoRow(rows_panel, studio_text(english, cantonese), value)
+            row = _InfoRow(rows_panel, studio_label(english, cantonese), value)
             self._info_rows[key] = row
             rows_sizer.Add(row, 0, wx.EXPAND | wx.BOTTOM, _px(12))
         columns.Add(rows_panel, 1, wx.EXPAND | wx.RIGHT, _px(20))
@@ -3936,7 +3945,7 @@ class BackstageView(wx.Panel):
         for english, cantonese, variant, handler in buttons:
             button = widgets.StudioButton(
                 actions,
-                studio_text(english, cantonese),
+                studio_label(english, cantonese),
                 variant=variant,
                 on_click=handler,
                 name=english,
@@ -4092,7 +4101,7 @@ class BackstageView(wx.Panel):
             row.Add(
                 widgets.StudioButton(
                     input_card,
-                    studio_text("Change", "更改"),
+                    studio_label("Change", "更改"),
                     variant="outlined",
                     on_click=self._open_world_folder,
                     name="Change the input world",
@@ -4118,7 +4127,7 @@ class BackstageView(wx.Panel):
             input_sizer.Add(
                 widgets.StudioButton(
                     input_card,
-                    studio_text("Select input world", "揀來源世界"),
+                    studio_label("Select input world", "揀來源世界"),
                     variant="outlined",
                     on_click=self._open_world_folder,
                     name="Select input world",
@@ -4145,7 +4154,7 @@ class BackstageView(wx.Panel):
         output_sizer.Add(
             widgets.StudioButton(
                 output_card,
-                studio_text("Select output world", "揀目的地世界"),
+                studio_label("Select output world", "揀目的地世界"),
                 variant="outlined",
                 on_click=self._select_output_world,
                 name="Select output world",
@@ -4158,7 +4167,7 @@ class BackstageView(wx.Panel):
         actions = wx.BoxSizer(wx.HORIZONTAL)
         self._convert_button = widgets.StudioButton(
             block,
-            studio_text("Convert", "轉換"),
+            studio_label("Convert", "轉換"),
             variant="filled",
             on_click=self._run_convert,
             name="Convert",
@@ -4449,7 +4458,7 @@ class BackstageView(wx.Panel):
         row = wx.BoxSizer(wx.HORIZONTAL)
         search = self._search_bar(
             parent,
-            studio_text("Search all surfaces", "搜尋所有介面"),
+            studio_label("Search all surfaces", "搜尋所有介面"),
             self.surface_state,
             on_change=lambda _state: self._refresh_surfaces(),
             min_width=480,
@@ -4466,7 +4475,7 @@ class BackstageView(wx.Panel):
         row.Add(
             widgets.StudioButton(
                 parent,
-                studio_text("Export list…", "匯出清單…"),
+                studio_label("Export list…", "匯出清單…"),
                 variant="outlined",
                 on_click=self._export_surfaces,
                 name="Export the surface list",
@@ -4637,7 +4646,7 @@ class BackstageView(wx.Panel):
         updates_sizer.Add(
             _Text(
                 updates,
-                studio_text("Updates", "更新"),
+                studio_label("Updates", "更新"),
                 size_px=17,
                 role="on_surface",
                 name="Updates",
@@ -4660,7 +4669,7 @@ class BackstageView(wx.Panel):
         ready = self.update_status == "ready_to_restart"
         restart = widgets.StudioButton(
             updates,
-            studio_text("Restart to install", "重新啟動安裝"),
+            studio_label("Restart to install", "重新啟動安裝"),
             variant="filled",
             on_click=lambda: self._run(COMMAND_UPDATE_RESTART),
             name="Restart to install",
@@ -4675,7 +4684,7 @@ class BackstageView(wx.Panel):
         update_row.Add(
             widgets.StudioButton(
                 updates,
-                studio_text("Release notes", "發行說明"),
+                studio_label("Release notes", "發行說明"),
                 variant="outlined",
                 on_click=lambda: self._open_surface(SURFACE_CHANGELOG),
                 name="Release notes",
@@ -4691,7 +4700,7 @@ class BackstageView(wx.Panel):
         memory_sizer.Add(
             _Text(
                 memory,
-                studio_text("Global memory", "全域記憶庫"),
+                studio_label("Global memory", "全域記憶庫"),
                 size_px=17,
                 role="on_surface",
                 name="Global memory",
@@ -4717,7 +4726,7 @@ class BackstageView(wx.Panel):
         memory_sizer.Add(
             widgets.StudioButton(
                 memory,
-                studio_text("Open memory console", "開啟記憶主控台"),
+                studio_label("Open memory console", "開啟記憶主控台"),
                 variant="tonal",
                 on_click=lambda: self._open_surface(SURFACE_MEMORY),
                 name="Open memory console",

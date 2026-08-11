@@ -69,9 +69,56 @@ from amulet_map_editor.api.studio.widgets import (
     invoke,
     paint_context,
     point_size,
+    translated,
 )
 
 log = logging.getLogger(__name__)
+
+
+def wrap_status(dc: wx.DC, text: str, max_width: int) -> str:
+    """Return ``text`` broken into lines no wider than ``max_width``.
+
+    Different from :func:`~amulet_map_editor.api.studio.widgets.wrap_text` in
+    the one way that matters for a status sentence: a run wider than the whole
+    line is broken across lines by character rather than elided.  A wrap that
+    only splits on spaces has nowhere to split Cantonese, which carries none --
+    so the entire Cantonese half of a bilingual status came back as a single
+    over-long "word", got cut to the column width, and ended in an ellipsis
+    that hid what it said.  ``notification_toast`` breaks its own lines for
+    exactly this reason.
+
+    Nothing is elided and no line count is imposed: a status sentence is short,
+    the pane it lives in scrolls, and the half of a message that says what to
+    do about the problem is usually the second half.
+    """
+    limit = max(1, int(max_width))
+    lines: List[str] = []
+    for paragraph in str(text).split("\n"):
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        current = ""
+        for word in words:
+            while dc.GetTextExtent(word)[0] > limit and len(word) > 1:
+                cut = len(word)
+                while cut > 1 and dc.GetTextExtent(word[:cut])[0] > limit:
+                    cut -= 1
+                if current:
+                    lines.append(current)
+                    current = ""
+                lines.append(word[:cut])
+                word = word[cut:]
+            candidate = f"{current} {word}" if current else word
+            if not current or dc.GetTextExtent(candidate)[0] <= limit:
+                current = candidate
+                continue
+            lines.append(current)
+            current = word
+        if current:
+            lines.append(current)
+    return "\n".join(lines) if lines else ""
+
 
 #: The design's properties pane width, in design pixels.
 PANEL_WIDTH = 308
@@ -562,37 +609,60 @@ class PropertyRow(wx.Control):
         self.SetMinSize(self.DoGetBestSize())
         self.Refresh()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
+        """Return what shows through the row's rounded corners."""
         palette = tokens.palette()
         parent = self.GetParent()
         backdrop = parent.GetBackgroundColour() if parent else palette.surface_container
-        dc, gcdc = paint_context(
-            self, backdrop if backdrop.IsOk() else palette.surface_container
-        )
-        width, height = self.GetClientSize()
+        return backdrop if backdrop.IsOk() else palette.surface_container
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the row into someone else's device context.
+
+        Every painted Studio widget answers this, because a capture on a
+        desktop nobody is looking at cannot read a window's on-screen surface
+        and an owner-drawn control does not answer the operating system's own
+        print message.  Without it this row photographs as an empty rounded
+        box: the shape is there, both halves of the text are not, and the
+        picture looks exactly like a rendering fault in the pane.
+        """
+        with translated(dc, rect):
+            dc.SetBrush(wx.Brush(self._backdrop()))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(0, 0, rect.width, rect.height)
+            self._draw(dc, rect.width, rect.height)
+
+    def _draw(self, dc: wx.DC, width: int, height: int) -> None:
+        """Draw the row's surface, its value, and its label."""
+        palette = tokens.palette()
         tokens.draw_round_rect(
-            gcdc,
+            dc,
             wx.Rect(0, 0, width, height),
             tokens.scaled(tokens.RADIUS_SM + 1),
             palette.surface,
             palette.outline_variant,
         )
         inset = tokens.scaled(self.PADDING_X)
-        gcdc.SetFont(tokens.mono_font(self, point_size(12)))
-        value = elide(gcdc, self.value, max(0, width - inset * 2))
-        value_width = gcdc.GetTextExtent(value)[0]
-        gcdc.SetTextForeground(palette.on_surface)
-        gcdc.DrawText(
-            value, width - inset - value_width, (height - gcdc.GetCharHeight()) // 2
+        dc.SetFont(tokens.mono_font(self, point_size(12)))
+        value = elide(dc, self.value, max(0, width - inset * 2))
+        value_width = dc.GetTextExtent(value)[0]
+        dc.SetTextForeground(palette.on_surface)
+        dc.DrawText(
+            value, width - inset - value_width, (height - dc.GetCharHeight()) // 2
         )
-        gcdc.SetFont(tokens.font(self, point_size(12)))
-        gcdc.SetTextForeground(palette.on_surface_variant)
+        dc.SetFont(tokens.font(self, point_size(12)))
+        dc.SetTextForeground(palette.on_surface_variant)
         available = max(0, width - inset * 2 - value_width - tokens.scaled(10))
-        gcdc.DrawText(
-            elide(gcdc, self.label, available),
+        dc.DrawText(
+            elide(dc, self.label, available),
             inset,
-            (height - gcdc.GetCharHeight()) // 2,
+            (height - dc.GetCharHeight()) // 2,
         )
+
+    def _on_paint(self, _event: wx.PaintEvent) -> None:
+        dc, gcdc = paint_context(self, self._backdrop())
+        width, height = self.GetClientSize()
+        self._draw(gcdc, width, height)
         del gcdc
 
 
@@ -614,7 +684,7 @@ class RevisionRow(wx.Panel):
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.restore_button = StudioButton(
             self,
-            studio_text("Restore"),
+            studio_label("Restore"),
             variant="outlined",
             height=28,
             on_click=self._restore,
@@ -649,12 +719,23 @@ class RevisionRow(wx.Panel):
         self.restore_button.refresh_theme()
         self.Refresh()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the row into someone else's device context.
+
+        The same reason as :meth:`PropertyRow.render_to`: without it a capture
+        photographs the revision list as a column of empty cards.
+        """
+        with translated(dc, rect):
+            dc.SetBrush(wx.Brush(tokens.palette().surface_container))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(0, 0, rect.width, rect.height)
+            self._draw(dc, rect.width, rect.height)
+
+    def _draw(self, dc: wx.DC, width: int, height: int) -> None:
+        """Draw the card, its state dot, and the two lines of text."""
         palette = tokens.palette()
-        dc, gcdc = paint_context(self, palette.surface_container)
-        width, height = self.GetClientSize()
         tokens.draw_round_rect(
-            gcdc,
+            dc,
             wx.Rect(0, 0, width, height),
             tokens.scaled(tokens.RADIUS_SM + 1),
             palette.surface,
@@ -663,25 +744,30 @@ class RevisionRow(wx.Panel):
         left = tokens.scaled(11)
         dot = tokens.scaled(9)
         top = tokens.scaled(14)
-        gcdc.SetPen(wx.TRANSPARENT_PEN)
-        gcdc.SetBrush(
+        dc.SetPen(wx.TRANSPARENT_PEN)
+        dc.SetBrush(
             wx.Brush(palette.primary if self.revision.head else palette.outline_variant)
         )
-        gcdc.DrawEllipse(left, top, dot, dot)
+        dc.DrawEllipse(left, top, dot, dot)
         text_left = left + dot + tokens.scaled(10)
         available = max(0, width - text_left - tokens.scaled(11))
-        gcdc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
-        gcdc.SetTextForeground(palette.on_surface)
-        gcdc.DrawText(
-            elide(gcdc, self.revision.message, available), text_left, tokens.scaled(10)
+        dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+        dc.SetTextForeground(palette.on_surface)
+        dc.DrawText(
+            elide(dc, self.revision.message, available), text_left, tokens.scaled(10)
         )
-        gcdc.SetFont(tokens.mono_font(self, point_size(11)))
-        gcdc.SetTextForeground(palette.on_surface_variant)
-        gcdc.DrawText(
-            elide(gcdc, self.revision.meta, available),
+        dc.SetFont(tokens.mono_font(self, point_size(11)))
+        dc.SetTextForeground(palette.on_surface_variant)
+        dc.DrawText(
+            elide(dc, self.revision.meta, available),
             text_left,
-            tokens.scaled(10) + gcdc.GetCharHeight() + tokens.scaled(4),
+            tokens.scaled(10) + dc.GetCharHeight() + tokens.scaled(4),
         )
+
+    def _on_paint(self, _event: wx.PaintEvent) -> None:
+        dc, gcdc = paint_context(self, tokens.palette().surface_container)
+        width, height = self.GetClientSize()
+        self._draw(gcdc, width, height)
         del gcdc
 
 
@@ -817,7 +903,12 @@ class PropertiesPane(wx.Panel):
             name="Close the properties pane",
         )
         self.tab_buttons: Dict[str, TabPill] = {}
-        tab_row = wx.BoxSizer(wx.HORIZONTAL)
+        # A wrapping row rather than a straight one: four pills fit across the
+        # design's 308px column and do not fit across the 240 the pane can be
+        # dragged to, and a strip that runs off the edge takes the tab a user
+        # is looking for with it.  Wrapping costs one row of height in the case
+        # where the alternative is an unreachable control.
+        tab_row = wx.WrapSizer(wx.HORIZONTAL)
         for key, label in PANE_TABS + (TOOL_TAB,):
             pill = TabPill(
                 self, key, label, selected=key == self.tab, on_click=self.set_tab
@@ -859,7 +950,7 @@ class PropertiesPane(wx.Panel):
         self.notes_field.SetName("Project note")
         self.notes_field.SetHint(
             single_line(
-                studio_text(
+                studio_label(
                     "Write anything this project needs remembered.",
                     "呢個項目要記住嘅嘢，寫低喺度。",
                 )
@@ -1046,6 +1137,7 @@ class PropertiesPane(wx.Panel):
         self.tab = key
         for name, pill in self.tab_buttons.items():
             pill.set_selected(name == key)
+        self._name_tool_pill()
         self.search_state.label = TAB_LABELS.get(key, key)
         if key == "history":
             self.refresh_history(reread=True)
@@ -1223,10 +1315,23 @@ class PropertiesPane(wx.Panel):
         pill = self.tab_buttons.get(TOOL_TAB[0])
         if pill is not None:
             pill.Show()
-            pill.SetName(f"Tool options: {activation.label}, tab")
-            pill.SetToolTip(f"Options for the {activation.label} tool")
         self.set_tab(TOOL_TAB[0])
         self.Layout()
+
+    def _name_tool_pill(self) -> None:
+        """Say which tool the Tool tab is showing, for a screen reader.
+
+        The pill's own label stays "Tool" so the strip cannot outgrow the
+        column, which leaves the name as the only place the tool is announced.
+        It is re-applied on every tab change because selecting a pill rewrites
+        its name from its label.
+        """
+        pill = self.tab_buttons.get(TOOL_TAB[0])
+        if pill is None or self.activation is None:
+            return
+        state = "selected" if self.tab == TOOL_TAB[0] else "not selected"
+        pill.SetName(f"{self.activation.label} tool options, tab, {state}")
+        pill.SetToolTip(f"Options for the {self.activation.label} tool")
 
     def clear_tool(self) -> None:
         """Take the Tool tab away, because no tool is running any more."""
@@ -1772,13 +1877,13 @@ class PropertiesPane(wx.Panel):
                 )
         if self.tab == "history":
             return (
-                studio_text("Open project history", "開項目歷史"),
+                studio_label("Open project history", "開項目歷史"),
                 lambda: invoke(self.on_surface, "history"),
             )
         if self.tab == "notes":
-            return (studio_text("Save note", "儲存筆記"), self.save_note)
+            return (studio_label("Save note", "儲存筆記"), self.save_note)
         return (
-            studio_text("Frame selection", "對準選取範圍"),
+            studio_label("Frame selection", "對準選取範圍"),
             lambda: invoke(self.on_action, "frame"),
         )
 
@@ -1873,8 +1978,42 @@ class PropertiesPane(wx.Panel):
         return saved
 
     def _set_note_status(self, text: str) -> None:
-        self.notes_status.SetLabel(single_line(text))
-        self.notes_status.SetName(f"Project note status: {single_line(text)}")
+        """Show one line about the note's state, wrapped to the pane's column.
+
+        The wrap is the whole point.  This was the one status label in the pane
+        that never got one -- ``status_label`` and ``empty_note`` are both
+        wrapped to :meth:`_note_width` -- and an unwrapped sentence does not get
+        politely cut, it sets a minimum wider than the column and drags the pane
+        out past its own right edge, values first.
+
+        It was survivable while the strings were short: "Unsaved changes." wants
+        88 pixels of a 202-pixel column.  A funny level made every one of them
+        overflow -- 280 pixels for that same sentence at level five, 904 in
+        bilingual mode, which is four and a half times the column it has to fit
+        in.  The tone is correct here, because this is a message rather than a
+        label; what was wrong is that the label was never sized for a sentence
+        of any length.
+
+        The breaks are measured here rather than left to ``wx.StaticText.Wrap``.
+        That method takes the control's *current* label as its input, and on
+        wxWidgets 3.3.3 a second call on a control that already holds a wrapped
+        label does nothing at all -- which matters exactly here, because this
+        label is rewritten on every keystroke and every save.  The first status
+        of the session would wrap and every one after it would not, so the
+        defect would come back the moment the note was edited and would look
+        like it had never been fixed.  ``notification_toast`` measures its own
+        breaks for the same reason.
+
+        The accessible name keeps the unwrapped single line, so a screen reader
+        reads a sentence rather than the pane's line breaks.
+        """
+        message = single_line(text)
+        self.notes_status.SetName(f"Project note status: {message}")
+        if message:
+            dc = wx.ClientDC(self.notes_status)
+            dc.SetFont(self.notes_status.GetFont())
+            message = wrap_status(dc, message, self._note_width())
+        self.notes_status.SetLabel(message)
         self.Layout()
 
     def _on_note_changed(self, event: wx.CommandEvent) -> None:

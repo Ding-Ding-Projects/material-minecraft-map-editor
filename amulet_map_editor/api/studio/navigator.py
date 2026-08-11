@@ -27,7 +27,7 @@ from typing import Callable, List, Optional, Sequence, Set, Tuple
 import wx
 
 from amulet_map_editor.api.studio import context, tokens
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.search import SearchState
 from amulet_map_editor.api.studio.status_bar import (
     clear_container,
@@ -39,6 +39,7 @@ from amulet_map_editor.api.studio.widgets import (
     SearchBar,
     SectionLabel,
     StudioButton,
+    StudioText,
     draw_dashed_round_rect,
     draw_focus_ring,
     elide,
@@ -726,18 +727,28 @@ class NavigatorPanel(wx.Panel):
         self.tree_panel = wx.Panel(self.scroller, style=wx.TAB_TRAVERSAL)
         self.tree_sizer = wx.BoxSizer(wx.VERTICAL)
         self.tree_panel.SetSizer(self.tree_sizer)
-        self.tree_empty = wx.StaticText(self.tree_panel, label="")
-        self.tree_empty.SetName("Dimension list state")
+        self.tree_empty = StudioText(
+            self.tree_panel, "", size_px=11, name="Dimension list state"
+        )
         self.boxes_heading = SectionLabel(self.scroller, "Selection boxes")
-        self.boxes_count = wx.StaticText(self.scroller, label=str(len(self.boxes)))
-        self.boxes_count.SetName("Selection box count")
+        self.boxes_count = StudioText(
+            self.scroller,
+            str(len(self.boxes)),
+            size_px=10,
+            weight=_MEDIUM,
+            role="primary",
+            mono=True,
+            name="Selection box count",
+        )
         self.boxes_panel = wx.Panel(self.scroller, style=wx.TAB_TRAVERSAL)
         self.boxes_sizer = wx.BoxSizer(wx.VERTICAL)
         self.boxes_panel.SetSizer(self.boxes_sizer)
-        self.boxes_empty = wx.StaticText(self.boxes_panel, label="")
-        self.boxes_empty.SetName("Selection list state")
-        self.empty_label = wx.StaticText(self.scroller, label="")
-        self.empty_label.SetName("Navigator search result")
+        self.boxes_empty = StudioText(
+            self.boxes_panel, "", size_px=11, name="Selection list state"
+        )
+        self.empty_label = StudioText(
+            self.scroller, "", size_px=11, name="Navigator search result"
+        )
 
         header = wx.BoxSizer(wx.HORIZONTAL)
         header.Add(self.heading, 1, wx.ALIGN_CENTER_VERTICAL)
@@ -868,13 +879,15 @@ class NavigatorPanel(wx.Panel):
         """Return what the selection list says when it has no box to show."""
         return NO_WORLD_BOXES if not self.world_open else NO_BOXES
 
-    def _set_note(self, label: wx.StaticText, base_name: str, text: str) -> None:
+    def _set_note(self, label: StudioText, base_name: str, text: str) -> None:
         """Show one empty-state line, wrapped to the column it sits in.
 
-        The text is set before it is wrapped every time, because wrapping is
-        destructive -- it writes newlines into the label -- and wrapping an
-        already-wrapped string a second time at a narrower width would break it
-        into progressively shorter fragments.
+        The note keeps its own unwrapped text and lays it out at the width it
+        is given, so re-wrapping is not destructive the way ``wx.StaticText``'s
+        was: that one wrote newlines back into the label, and wrapping an
+        already-wrapped string again at a narrower width broke it into
+        progressively shorter fragments.  The text is still set before the
+        width, because that is the order the accessible name wants.
         """
         message = single_line(text)
         label.SetLabel(message)
@@ -946,7 +959,7 @@ class NavigatorPanel(wx.Panel):
             )
         self.add_button = DashedButton(
             self.boxes_panel,
-            studio_text("Add selection box", "加多個選取範圍"),
+            studio_label("Add selection box", "加多個選取範圍"),
             on_click=self._add_box,
             hint=single_line(
                 self._add_box_hint(),
@@ -1147,11 +1160,10 @@ class NavigatorPanel(wx.Panel):
         self.SetBackgroundColour(palette.surface_container)
         for panel in (self.scroller, self.tree_panel, self.boxes_panel):
             panel.SetBackgroundColour(palette.surface_container)
-        self.boxes_count.SetForegroundColour(palette.primary)
-        self.boxes_count.SetFont(tokens.mono_font(self, point_size(10), _MEDIUM))
-        for label in (self.empty_label, self.tree_empty, self.boxes_empty):
-            label.SetForegroundColour(palette.on_surface_variant)
-            label.SetFont(tokens.font(self, point_size(11)))
+        # The four notes are owner-drawn and read their role colour and their
+        # font from the tokens on every paint, so a theme or interface-scale
+        # change reaches them through the repaint below rather than through a
+        # colour pushed in from here.
 
     def refresh_theme(self) -> None:
         """Re-read the palette for the panel and every row in it."""

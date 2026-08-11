@@ -33,7 +33,7 @@ import wx
 
 from amulet_map_editor.api import local_history
 from amulet_map_editor.api.studio import context, tokens
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.widgets import (
     Divider,
     StudioButton,
@@ -860,7 +860,7 @@ class StatusBar(wx.Panel):
         self.dimension = BarLabel(
             self, dimension or dimension_text(ctx), name="Active dimension"
         )
-        self.speed_caption = BarLabel(self, studio_text("Speed"), name="Camera speed")
+        self.speed_caption = BarLabel(self, studio_label("Speed"), name="Camera speed")
         self.speed_slider = wx.Slider(
             self,
             value=self._clamp_speed(
