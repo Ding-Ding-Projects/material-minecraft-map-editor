@@ -791,6 +791,18 @@ class ViewportHost(wx.Panel):
         self.SetName("World viewport")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.SetBackgroundColour(sky_colour(0.5))
+        # The world surface answers its own right-click, in _on_context_menu
+        # below.  The shared Material layer otherwise binds a two-row
+        # "Appearance" popup to every window it styles, and because that handler
+        # is bound later it runs first and never skips -- so it shadowed this
+        # panel's own decision entirely and put a menu over the world on every
+        # right-click and every right-drag.  Right-drag rotates the camera, so
+        # that menu was cancelling the gesture the user was making.  The HUD
+        # overlays are separate windows and keep their own appearance menu; the
+        # viewport's own "Edit appearance…" is the last row of the viewport menu
+        # this panel opens, and the Element appearance surface reaches it from
+        # the command palette.
+        self._material3_appearance_menu_disabled = True
 
         self.world_chip = HudChip(self, NO_WORLD_CHIP, name="World version")
         self.dimension_chip = HudChip(self, NO_DIMENSION_CHIP, name="Dimension")
@@ -877,9 +889,16 @@ class ViewportHost(wx.Panel):
             return
         if self._canvas is not None:
             self._stop_live_readout()
+            # Handed back to the notebook, it is an ordinary control again.
+            self._canvas._material3_appearance_menu_disabled = False
             self._canvas.Hide()
         self._canvas = window
         if window is not None:
+            # The live 3D surface belongs to the editor's own mouse bindings:
+            # right-drag rotates the camera and right-click changes mouse mode.
+            # An appearance menu opening on either does not merely add a menu,
+            # it takes the gesture away mid-motion.
+            window._material3_appearance_menu_disabled = True
             if window.GetParent() is not self:
                 try:
                     window.Reparent(self)

@@ -434,6 +434,17 @@ def _bind_element_appearance_menu(window: wx.Window) -> None:
         from amulet_map_editor.api.material_menu import MaterialMenuItem
         from amulet_map_editor.api.wx.components import MaterialMenu
 
+        # The opt-out is read here as well as at bind time, because the two
+        # moments are not the same for every control.  A window that is styled
+        # before anything knows what it is for -- the 3D renderer canvas is
+        # created inside the world notebook and only later handed to the Studio
+        # viewport -- is already bound by the time its owner could set the flag,
+        # so a bind-time-only gate silently ignores it.  Skipping hands the
+        # gesture to whatever the owner bound, which for the viewport is the
+        # camera.
+        if getattr(control, "_material3_appearance_menu_disabled", False):
+            event.Skip()
+            return
         old_menu = getattr(control, "_material3_appearance_popup", None)
         if old_menu is not None:
             try:
