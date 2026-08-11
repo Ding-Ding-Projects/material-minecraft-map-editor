@@ -44,7 +44,7 @@ import wx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from capture_surface import capture_window  # noqa: E402
+from capture_surface import capture_composite  # noqa: E402
 
 from amulet_map_editor.api.studio import ribbon_defs  # noqa: E402
 from amulet_map_editor.api.studio import specs as spec_registry  # noqa: E402
@@ -79,12 +79,47 @@ class Driver:
     def shoot(self, name: str, window, *, group: str, alt: str, surface: str) -> None:
         filename = f"{name}-{self.short}-{self.stamp}.png"
         try:
-            colours = capture_window(window, self.out / filename)
+            report = capture_composite(window, self.out / filename)
         except Exception as error:  # a blank or absent surface, reported not shipped
             self.failures.append(
                 {"name": name, "reason": f"{type(error).__name__}: {error}"}
             )
             return
+
+        # The capture frame lives at -32000,-32000 so a run cannot disturb the
+        # desktop.  That makes the blit route worthless rather than merely
+        # weaker: blitting copies the composited screen surface, and a window
+        # nobody composited has no surface to copy, so every control that falls
+        # through to it arrives as a white rectangle.
+        #
+        # This is why the first run of this harness reported "captured 139,
+        # failed 0" while backstage tabs were shipping with three rail items
+        # drawn as blank boxes and an entirely empty body.  A colour count
+        # cannot see that -- the container's own gradient supplies plenty of
+        # colours -- so the route is what gets checked.  A control that lands
+        # here needs a render_to of its own; being photographed by accident is
+        # not a capability.
+        blanks = report.get("blitted_leaves", [])
+        if blanks or report["skipped"]:
+            self.failures.append(
+                {
+                    "name": name,
+                    "reason": (
+                        f"{len(blanks)} leaf control(s) could only be blitted "
+                        f"and {len(report['skipped'])} drew by no route at "
+                        "all, so they are blank rectangles in the file."
+                    ),
+                    "routes": report["routes"],
+                    "skipped": report["skipped"][:12],
+                    "blank": blanks[:12],
+                }
+            )
+            try:
+                (self.out / filename).unlink()
+            except OSError:
+                pass
+            return
+
         self.rows.append(
             {
                 "filename": filename,
@@ -93,7 +128,9 @@ class Driver:
                 "theme": "light",
                 "density": "comfortable",
                 "viewport": f"{window.GetClientSize().width}x{window.GetClientSize().height}",
-                "colours": colours,
+                "colours": report["colours"],
+                "descendants": report["descendants"],
+                "routes": report["routes"],
                 "alt": alt,
                 "verified": self.commit,
             }

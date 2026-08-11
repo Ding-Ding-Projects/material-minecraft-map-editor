@@ -83,7 +83,7 @@ def capture_window(
     expects.
     """
     settle(window)
-    image, _contributed, _routes, _skipped, _size = _composite(window)
+    image, _contributed, _routes, _skipped, _size, _blitted = _composite(window)
     colours = _distinct_colours(image)
     if require_content and colours < MIN_DISTINCT_COLOURS:
         raise RuntimeError(
@@ -209,6 +209,35 @@ def _render_to(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> bool
     return True
 
 
+def _render_via_paint(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> bool:
+    """Drive a widget's own ``EVT_PAINT`` handler into ``target``.
+
+    The route above needs a widget to expose ``render_to``.  Most of this
+    interface does not: it draws in an ``EVT_PAINT`` handler and has no second,
+    callable copy of that drawing code.  Those widgets used to fall all the way
+    through to the device-context read, which off-screen returns nothing, so
+    they arrived in the file as white rectangles -- correct-looking captures
+    with holes in them, and nothing in the report saying where.
+
+    ``render_via_paint`` redirects the shared ``paint_context`` helper for the
+    duration of one handler call, so the widget draws into the capture bitmap
+    using the code it already has.  It is preferred over ``PrintWindow``
+    because it depends on nothing outside this process.
+    """
+    size = window.GetClientSize()
+    if size.width < 1 or size.height < 1:
+        return False
+    try:
+        from amulet_map_editor.api.studio.widgets import render_via_paint
+    except ImportError:
+        return False
+    return bool(
+        render_via_paint(
+            window, target, wx.Rect(origin.x, origin.y, size.width, size.height)
+        )
+    )
+
+
 def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> str:
     """Render one window into ``target`` at ``origin``.
 
@@ -234,6 +263,8 @@ def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> str
         return ""
     if _render_to(window, target, origin):
         return "render"
+    if _render_via_paint(window, target, origin):
+        return "render"
     if _print_window(window, target, origin):
         return "print"
     try:
@@ -247,7 +278,7 @@ def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> str
 
 def _composite(
     window: wx.Window,
-) -> tuple[wx.Image, int, dict, list, wx.Size]:
+) -> tuple[wx.Image, int, dict, list, wx.Size, list]:
     """Draw ``window`` and every visible descendant into one image.
 
     Returns the image, how many descendants drew, how many took each route,
@@ -265,6 +296,7 @@ def _composite(
     contributed = 0
     routes: dict[str, int] = {"render": 0, "print": 0, "blit": 0}
     skipped: list[str] = []
+    blitted_leaves: list[str] = []
 
     try:
         _paint_into(window, memory, wx.Point(0, 0))
@@ -282,6 +314,16 @@ def _composite(
                 if route:
                     contributed += 1
                     routes[route] = routes.get(route, 0) + 1
+                    if route == "blit" and not child.GetChildren():
+                        # A blitted LEAF is the one that actually goes missing.
+                        # Off-screen there is no composited surface to copy, so
+                        # a leaf control read this way is a blank rectangle. A
+                        # blitted container is harmless by comparison: its own
+                        # visual is a background, and its children are drawn
+                        # separately by this same walk.
+                        blitted_leaves.append(
+                            f"{child.GetName() or ''} ({type(child).__name__})".strip()
+                        )
                 else:
                     name = child.GetName() or ""
                     skipped.append(
@@ -293,7 +335,7 @@ def _composite(
     finally:
         memory.SelectObject(wx.NullBitmap)
 
-    return bitmap.ConvertToImage(), contributed, routes, skipped, size
+    return bitmap.ConvertToImage(), contributed, routes, skipped, size, blitted_leaves
 
 
 def capture_composite(
@@ -325,7 +367,7 @@ def capture_composite(
     state; a name in it is a hole in the capture, at the place that name says.
     """
     settle(window)
-    image, contributed, routes, skipped, size = _composite(window)
+    image, contributed, routes, skipped, size, blitted_leaves = _composite(window)
     colours = _distinct_colours(image)
     if require_content and contributed < 1:
         raise RuntimeError(
@@ -347,6 +389,11 @@ def capture_composite(
         # blits in it deserves a second look at the pictures.
         "routes": routes,
         "skipped": skipped,
+        # Leaf controls that could only be read off a surface nobody
+        # composited, so they are blank rectangles in the file. A blitted
+        # CONTAINER is not listed: its visual is a background and its
+        # children are drawn separately by the same walk.
+        "blitted_leaves": blitted_leaves,
         "size": (size.width, size.height),
         # A colour count says something drew; it cannot say the interface drew.
         # Antialiasing on two stray native controls clears any floor worth

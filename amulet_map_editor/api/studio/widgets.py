@@ -346,6 +346,90 @@ def draw_dashed_round_rect(
 _paint_fallback_reported = False
 
 
+#: Windows currently being drawn into a capture bitmap rather than the screen,
+#: keyed by ``id``. Only ever non-empty inside :func:`render_via_paint`.
+_capture_redirect: Dict[int, Tuple[wx.DC, wx.DC]] = {}
+
+#: The names an owner-drawn widget binds to ``EVT_PAINT`` in this codebase.
+#: Tried in order; the first callable one is the widget's drawing code.
+_PAINT_HANDLER_NAMES = ("_on_paint", "_paint", "_on_draw")
+
+
+def render_via_paint(window: wx.Window, dc: wx.DC, rect: wx.Rect) -> bool:
+    """Draw ``window``'s own paint handler into ``dc`` at ``rect``.
+
+    A widget that paints in ``EVT_PAINT`` can normally only be photographed by
+    reading the screen underneath it, and a window positioned off-screen -- which
+    is how captures avoid disturbing the desktop -- has no screen underneath it
+    to read.  The result is a file where some controls are correct and others
+    are white rectangles, with nothing in the capture reporting which.
+
+    Rather than ask fourteen widget classes each to grow a second copy of their
+    drawing code, this drives the drawing code they already have.  The shared
+    :func:`paint_context` helper is the single point every one of them gets its
+    device context from, so redirecting that for the duration of one call is
+    enough to send an entire subtree into a bitmap instead of onto the screen.
+
+    ``SetDeviceOrigin`` is what makes the widget's own coordinates -- which
+    start at its top-left, as they must -- land at the right place in a
+    composite of the whole window.
+
+    Returns whether the widget drew.
+    """
+    handler = None
+    for name in _PAINT_HANDLER_NAMES:
+        candidate = getattr(window, name, None)
+        if callable(candidate):
+            handler = candidate
+            break
+    if handler is None:
+        return False
+
+    try:
+        wrapper: wx.DC = wx.GCDC(dc)
+    except TypeError:
+        wrapper = dc
+
+    # wx.PaintEvent() takes an id on wxPython 4.3.1 -- constructing one without
+    # arguments raises TypeError. That failure is caught below and looks
+    # identical to "this widget cannot draw", so every widget fell silently
+    # through to the blit route and arrived white, with the report calling it a
+    # capture. Build the event the way this wx build wants it, and keep a stub
+    # for a build that wants something else again: a paint handler uses almost
+    # nothing of the event it is handed.
+    try:
+        event: Any = wx.PaintEvent(window.GetId())
+    except TypeError:
+
+        class _StubPaintEvent:
+            def Skip(self, *_args: Any, **_kwargs: Any) -> None:
+                return None
+
+            def GetEventObject(self) -> wx.Window:
+                return window
+
+            def GetId(self) -> int:
+                return window.GetId()
+
+        event = _StubPaintEvent()
+
+    key = id(window)
+    _capture_redirect[key] = (dc, wrapper)
+    origin = dc.GetDeviceOrigin()
+    try:
+        dc.SetDeviceOrigin(origin.x + rect.x, origin.y + rect.y)
+        handler(event)
+        return True
+    except Exception:  # noqa: BLE001 - a widget that cannot draw is the finding
+        log.debug("render_via_paint failed for %s", window.GetName(), exc_info=True)
+        return False
+    finally:
+        dc.SetDeviceOrigin(origin.x, origin.y)
+        _capture_redirect.pop(key, None)
+        if wrapper is not dc:
+            del wrapper
+
+
 def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.DC]:
     """Return a cleared buffered device context and its antialiased wrapper.
 
@@ -372,6 +456,15 @@ def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.D
     the interface changes, which leaves nobody able to tell a degraded build
     from a badly drawn one.
     """
+    redirect = _capture_redirect.get(id(window))
+    if redirect is not None:
+        # A capture is driving this widget's paint handler into a bitmap rather
+        # than onto the screen. Handing back the capture's device context is
+        # what lets the handler draw normally, with no knowledge that it is
+        # being photographed and no second copy of its drawing code to keep in
+        # step. See render_via_paint.
+        return redirect
+
     global _paint_fallback_reported
     for factory in (wx.BufferedPaintDC, wx.PaintDC):
         try:
