@@ -149,8 +149,10 @@ def _operation_bridges() -> Tuple[Tuple[str, ToolBridge], ...]:
             operation=operation,
             summary=(
                 f"Activates the editor's Operation tool with the {operation} "
-                "operation selected, so its own options and its Run control are "
-                "showing without the list having to be searched first."
+                "operation selected, so its own options are in front of you "
+                "without the list having to be searched first. Options taller "
+                "than the pane scroll, and the Run control under them scrolls "
+                "with them."
             ),
         )
         for key, label, operation in STOCK_OPERATIONS

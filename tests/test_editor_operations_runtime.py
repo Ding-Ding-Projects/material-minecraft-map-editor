@@ -18,15 +18,51 @@ The route driven is the one a tile press takes: the ribbon definition's own
 ``surface`` key, through ``surfaces.open_surface``.  Nothing here names a key by
 hand, so a tile rewired to a key that selects nothing fails here rather than
 passing on a constant this module agreed with in advance.
+
+**Where the Run control actually is.**  The first version of this module asked
+``IsShown`` up the ancestor chain and called the answer visibility.  It is not.
+Measured in this frame at 1500x950, Replace's ``Run Operation`` button sits 1507
+px down a 950 px-tall window -- 557 px below the bottom edge, and 651 px below
+the bottom of its own panel -- because Replace stacks two block pickers in a
+scrolling panel.  Every ancestor of that button answers ``IsShown() == True``,
+and so does ``IsShownOnScreen()``, because neither of them is a question about
+*where* anything is.  So the button is reachable only by scrolling, and the
+assertion below is the one that survives being told that: the control has to lie
+inside the client area of every window above it *after* its panel has been asked
+to scroll it into view.  A control laid out past the end of that panel's
+scrollable area -- the shape a future change pushing a Run button off its panel
+would take -- cannot be scrolled to, and fails.
+
+**When this module cannot run at all.**  Opening a real world needs a real
+world, a real GPU context and a machine not already running another copy of
+this suite, and when one of those is missing every test here is skipped --
+which in a summary line is indistinguishable from every test here passing.  Set
+``MMME_REQUIRE_EDITOR_RUNTIME=1`` on a host that is supposed to manage it and
+those skips become failures that name their reason.
+
+That variable earned itself immediately.  A fresh checkout of this repository
+skips all eleven tests here with "the world did not open in this environment",
+which reads as a flaky machine and is nothing of the sort: the renderer imports
+``chunk_builder_cy``, the checkout has no compiled copy of it because a ``.pyd``
+is a build artifact and not a tracked file, and the editor therefore has no
+canvas to put a tool in.  Under the variable the same run says so out loud.
+Build the extension in that checkout, or copy the built one beside
+``chunk_builder.py``, and the module runs.
+
+What a skipped host still checks is in ``tests/test_stock_operation_tiles.py``,
+which needs no display: the tile, the key and the operation it asks for are
+asserted there, so the defect this module was written for cannot hide behind an
+environment that could not start.
 """
 
 from __future__ import annotations
 
+import os
 import pathlib
 import shutil
 import time
 import zipfile
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, NoReturn, Optional, Tuple
 
 import pytest
 
@@ -66,6 +102,31 @@ EXPECTED_OPERATIONS: Tuple[Tuple[str, str], ...] = (
 #: The label on the control that actually runs the chosen operation.
 RUN_LABEL = "Run Operation"
 
+#: Whether this host has been told it is one that can run the editor.
+STRICT = os.environ.get("MMME_REQUIRE_EDITOR_RUNTIME", "").strip().lower() not in (
+    "",
+    "0",
+    "false",
+    "no",
+    "off",
+)
+
+
+def _unavailable(reason: str) -> NoReturn:
+    """Skip this module -- or fail it, on a host that promised it would run.
+
+    A skipped module and a passing module read the same from a summary line,
+    and this one skips for every reason a 3D editor has for not starting.  The
+    environment variable is how a host says "I am not one of those", so that a
+    run which verified nothing says so in red rather than in grey.
+    """
+    if STRICT:
+        raise AssertionError(
+            f"{reason}. MMME_REQUIRE_EDITOR_RUNTIME is set, so this host is "
+            "meant to run the editor and a skip here would hide that it did not."
+        )
+    pytest.skip(reason)
+
 
 # ----------------------------------------------------------------------
 # a world to run an operation against
@@ -74,7 +135,7 @@ RUN_LABEL = "Run Operation"
 
 def _extract_world(destination: pathlib.Path) -> pathlib.Path:
     if not WORLD_ARCHIVE.is_file():
-        pytest.skip(f"the test world archive is missing: {WORLD_ARCHIVE}")
+        _unavailable(f"the test world archive is missing: {WORLD_ARCHIVE}")
     with zipfile.ZipFile(WORLD_ARCHIVE) as archive:
         archive.extractall(destination)
     source = destination
@@ -85,7 +146,7 @@ def _extract_world(destination: pathlib.Path) -> pathlib.Path:
         if not children:
             break
         source = children[0]
-    pytest.skip(f"no level.dat inside {WORLD_ARCHIVE}")
+    _unavailable(f"no level.dat inside {WORLD_ARCHIVE}")
 
 
 def _prepare_world(workspace: pathlib.Path) -> str:
@@ -124,22 +185,68 @@ def _wait_for(predicate, seconds: float) -> bool:
         return False
 
 
-def _shown_to_the_user(window: Any) -> bool:
-    """Whether ``window`` and every ancestor above it are shown.
+def _visible_client(window: Any) -> Any:
+    """The screen rectangle ``window`` draws its children inside."""
+    origin = window.ClientToScreen(wx.Point(0, 0))
+    size = window.GetClientSize()
+    return wx.Rect(origin.x, origin.y, size.width, size.height)
 
-    ``IsShown`` answers for one window alone, so a control on a hidden page
-    answers ``True`` while being completely invisible.  The whole chain is
-    walked because that is the only form of the question worth asking.
+
+def _inside_the_window(window: Any) -> bool:
+    """Whether every pixel of ``window`` is somewhere inside the frame.
+
+    ``IsShown`` answers about one window and ``IsShownOnScreen`` asks that same
+    question of each ancestor in turn; neither is a question about *where*
+    anything is, so both answer ``True`` for a control sitting 557 px below the
+    bottom edge of the frame.  Replace's Run button is exactly that control, so
+    a chain-of-``IsShown`` check passes for a button that appears in no
+    screenshot of this window at any size.
+
+    Measured instead: the control's own rectangle has to fit inside the client
+    area of every window above it, and the last of those is the frame.  A
+    control scrolled out of its panel, laid out past the edge of its parent, or
+    pushed off the bottom of the window is not inside it, whatever ``IsShown``
+    says about any of them.
     """
     node = window
+    try:
+        rect = window.GetScreenRect()
+    except Exception:  # noqa: BLE001 - a window being destroyed
+        return False
+    if rect.width <= 0 or rect.height <= 0:
+        return False
     while node is not None:
         try:
             if not node.IsShown():
                 return False
-            node = node.GetParent()
+            parent = node.GetParent()
+            if parent is not None and not _visible_client(parent).Contains(rect):
+                return False
+            node = parent
         except Exception:  # noqa: BLE001 - a window being destroyed
             return False
     return True
+
+
+def _scroll_into_view(window: Any) -> str:
+    """Ask the nearest scrolling ancestor to bring ``window`` into view.
+
+    Returns what was asked, for the failure message: "no scrolled ancestor" is
+    a different defect from "scrolled and the control still is not there", and
+    a reader of a red run should not have to guess which one they have.
+    """
+    child = window
+    node = window.GetParent()
+    while node is not None:
+        if isinstance(node, wx.ScrolledWindow) and hasattr(node, "ScrollChildIntoView"):
+            try:
+                node.ScrollChildIntoView(child)
+                return f"{type(node).__name__}.ScrollChildIntoView"
+            except Exception as error:  # noqa: BLE001
+                return f"{type(node).__name__}.ScrollChildIntoView raised {error!r}"
+        child = node
+        node = node.GetParent()
+    return "no scrolling ancestor"
 
 
 def _operation_tiles() -> Tuple[Any, ...]:
@@ -235,7 +342,7 @@ def app() -> Iterator[Any]:
         try:
             created = wx.App(False)
         except Exception as error:  # pragma: no cover - depends on the host
-            pytest.skip(f"wx.App could not start on this host: {error!r}")
+            _unavailable(f"wx.App could not start on this host: {error!r}")
     yield existing or created
     if created is not None:
         created.Destroy()
@@ -260,7 +367,7 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         _pump(0.3)
         frame.open_level(record.path)
         if not _wait_for(lambda: context.current().open, 60.0):
-            pytest.skip("the world did not open in this environment")
+            _unavailable("the world did not open in this environment")
         if not _wait_for(
             lambda: frame.hosted_canvas() is not None, CANVAS_WAIT_SECONDS
         ):
@@ -268,7 +375,7 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
             _pump(1.0)
         record.canvas = frame.hosted_canvas() or editor_tools.canvas()
         if record.canvas is None:
-            pytest.skip("the 3D editor produced no canvas on this host")
+            _unavailable("the 3D editor produced no canvas on this host")
         _pump(0.5)
 
         # The tool surfaces are routed onto the canvas by the properties pane as
@@ -282,6 +389,14 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
             _pump(0.8)
             chooser = _chooser(record.canvas)
             runs = _run_controls(record.canvas)
+            # Where each Run control is before anything scrolls, and then where
+            # it is once its own panel has been asked for it.  Both, because
+            # "already there" and "one scroll away" are different answers and
+            # only one of them matches the copy on the tile.
+            in_window = [control for control in runs if _inside_the_window(control)]
+            scrolls = [_scroll_into_view(control) for control in runs]
+            _pump(0.2)
+            reachable = [control for control in runs if _inside_the_window(control)]
             record.arrivals[tile.label] = {
                 "surface": tile.surface,
                 "ok": bool(getattr(opened, "ok", False)),
@@ -291,10 +406,12 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
                     str(chooser.GetStringSelection()) if chooser is not None else ""
                 ),
                 "chooser_shown": (
-                    _shown_to_the_user(chooser) if chooser is not None else False
+                    _inside_the_window(chooser) if chooser is not None else False
                 ),
                 "run_controls": len(runs),
-                "run_shown": sum(1 for control in runs if _shown_to_the_user(control)),
+                "run_in_window": len(in_window),
+                "run_reachable": len(reachable),
+                "run_scrolled_by": scrolls,
             }
     finally:
         try:
@@ -360,19 +477,84 @@ def test_a_stock_operation_tile_arrives_with_that_operation_selected(
     )
 
 
+def test_the_visibility_measurement_notices_a_control_below_the_fold(app) -> None:
+    """Prove the measurement above can say no, before believing it saying yes.
+
+    Built here rather than looked for in the editor, so this is deterministic
+    and so it runs on a host where no world opens.  Three states, because the
+    difference between them is the whole point: a control in view, a control
+    scrolled out of view that scrolling brings back, and a control laid out
+    past the end of the scrollable area that nothing brings back.  The middle
+    one is what a chain of ``IsShown`` calls cannot see, and the last one is the
+    regression the Run-control assertion below exists to catch.
+    """
+    from wx.lib.scrolledpanel import ScrolledPanel
+
+    frame = wx.Frame(None, size=wx.Size(400, 300))
+    frame.SetPosition(wx.Point(*OFFSCREEN))
+    try:
+        panel = ScrolledPanel(frame)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        panel.SetSizer(sizer)
+        top = wx.Button(panel, label="near the top")
+        sizer.Add(top, 0, wx.ALL, 5)
+        for index in range(20):
+            sizer.Add(wx.StaticText(panel, label=f"row {index}"), 0, wx.ALL, 12)
+        below = wx.Button(panel, label=RUN_LABEL)
+        sizer.Add(below, 0, wx.ALL, 5)
+        panel.SetupScrolling()
+        panel.SetAutoLayout(1)
+        frame.Show()
+        _pump(0.3)
+
+        assert _inside_the_window(top), (
+            "a control at the top of a visible panel is inside the window, and "
+            "a measurement that cannot say yes says nothing by saying no"
+        )
+        assert not _inside_the_window(below), (
+            "a control scrolled far below the visible area of its panel is not "
+            "inside the window -- and this is exactly what IsShownOnScreen "
+            f"answers True for: {below.IsShownOnScreen()}"
+        )
+        _scroll_into_view(below)
+        _pump(0.2)
+        assert _inside_the_window(
+            below
+        ), "scrolling a control into view should put it inside the window"
+
+        # Laid out beyond the panel's scrollable extent: the shape a change
+        # that pushed a Run button off its panel would take.
+        stray = wx.Button(panel, label=RUN_LABEL, pos=wx.Point(0, 5000))
+        _pump(0.2)
+        _scroll_into_view(stray)
+        _pump(0.2)
+        assert not _inside_the_window(stray), (
+            "a control positioned past the end of a scrolled panel cannot be "
+            "scrolled to, so no assertion about it should pass"
+        )
+    finally:
+        frame.Destroy()
+        _pump(0.2)
+
+
 @pytest.mark.parametrize("label,operation", EXPECTED_OPERATIONS)
-def test_a_stock_operation_tile_arrives_ready_to_run(
+def test_a_stock_operation_tile_arrives_with_its_run_control_reachable(
     session: Session, label: str, operation: str
 ) -> None:
-    """The chosen operation exposes the control that runs it, on screen.
+    """The chosen operation exposes the control that runs it, and it can be got to.
 
-    An operation selected behind a hidden panel is not reachable, and
-    ``IsShown`` alone would not notice: the whole ancestor chain is walked.
+    "Reachable" rather than "already in view", and the difference is measured
+    rather than assumed: Replace's options are two block pickers stacked in a
+    scrolling panel, so its Run button starts 651 px below the bottom of that
+    panel in this frame and the user scrolls to it.  What must never happen is
+    the panel not being able to scroll to it at all -- a Run control laid out
+    past the end of the scrollable area is one no user can press, and it is
+    indistinguishable from a working one to every ``IsShown`` in wxPython.
     """
     arrival = session.arrivals.get(label)
     assert arrival is not None, f"the {label} tile was never pressed"
     assert arrival["chooser_shown"], (
-        f"after pressing {label} the operation list is not visible to the user, "
+        f"after pressing {label} the operation list is not inside the window, "
         "so the chosen operation cannot be changed or confirmed"
     )
     assert arrival["run_controls"] == 1, (
@@ -382,7 +564,11 @@ def test_a_stock_operation_tile_arrives_ready_to_run(
         "assertion mid-constructor leaves behind -- and more than one means a "
         "previous operation's panel was stranded rather than replaced."
     )
-    assert arrival["run_shown"] == 1, (
-        f"the {operation} operation's {RUN_LABEL!r} control is not visible to "
-        "the user, so the operation cannot be run"
+    assert arrival["run_reachable"] == 1, (
+        f"the {operation} operation's {RUN_LABEL!r} control cannot be brought "
+        "inside the window: it is laid out past the end of its panel's "
+        "scrollable area, so scrolling does not reach it and neither does the "
+        f"user. Before scrolling {arrival['run_in_window']} of "
+        f"{arrival['run_controls']} were in view; the scroll attempted was "
+        f"{arrival['run_scrolled_by']}."
     )

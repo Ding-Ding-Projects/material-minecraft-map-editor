@@ -32,12 +32,20 @@ axis-coloured vector field.
 
 The last six are not windows at all. Each activates the editor's own Operation
 tool in the viewport, and the five that name an operation ask the tool to select
-that operation, so its options and its **Run Operation** button are showing
-without the list having to be searched first. That is why they are five keys and
-not one: they shared `operationOptions` until this build, which meant every tile
-started the same tool and left its list on whatever sorted first — alphabetically
-Clone, so the Clone tile looked correct while Fill, Replace, Set biome and
-Waterlog all quietly opened Clone.
+that operation, so its options are in front of you without the list having to be
+searched first. That is why they are five keys and not one: they shared
+`operationOptions` until this build, which meant every tile started the same tool
+and left its list on whatever sorted first — alphabetically Clone, so the Clone
+tile looked correct while Fill, Replace, Set biome and Waterlog all quietly
+opened Clone.
+
+The tile promises the options, not the **Run Operation** button under them. An
+operation's panel scrolls when its options are taller than the pane, and Replace
+is: it stacks a source block picker and a replacement block picker, so in a
+1500×950 window its Run button starts 557 px below the bottom edge of the frame
+and is reached by scrolling. That is measured rather than assumed — see the
+verification below — and it is why the tile's copy says *selected with its
+options showing* rather than *ready to run*.
 
 Selection state itself lives in the navigator and the status bar, so a tool
 never has to restate where the selection is; it acts on it.
@@ -120,9 +128,32 @@ operation renders.
 The second opens a real world in a real frame, presses each of the five stock
 operation tiles through the same `open_surface` route a press takes, and reads
 the operation back off the tool's own list. Five assertions naming five
-different operations, each with the count of visible **Run Operation** controls
-that operation exposes, so a build where the tiles collapse back onto one key
+different operations, so a build where the tiles collapse back onto one key
 leaves exactly one of them green.
+
+It also measures where each **Run Operation** control is, rather than asking
+whether it is shown. `IsShown()` walked up the ancestor chain, and
+`IsShownOnScreen()`, both answer `True` for Replace's Run button while it sits
+557 px below the bottom edge of the frame, because neither is a question about
+*where* anything is — so the first version of that check went green for a button
+that appears in no screenshot of that window at any size. The control's
+rectangle now has to fit inside the client area of every window above it, and
+the assertion is that the panel can scroll it into view: a Run control laid out
+past the end of the scrollable area cannot be scrolled to, which is the shape a
+change pushing one off its panel would take, and that goes red.
+
+Both are skipped whole when the world does not open, which reads exactly like
+passing in a summary line, so two things back them up. `MMME_REQUIRE_EDITOR_RUNTIME=1`
+turns every skip into a failure that names its reason — a fresh checkout skips
+because `chunk_builder_cy` has not been compiled there, not because the machine
+is flaky. And `tests/test_stock_operation_tiles.py` asserts the tile, its key,
+and the operation that key asks for with nothing running at all, so the collapse
+this group was rewired to prevent cannot hide behind an environment that could
+not start:
+
+```powershell
+py -3 -m pytest tests/test_stock_operation_tiles.py -q
+```
 
 The third group covers what a placement reports: the branches and the wording
 against a stand-in world whose paste raises, the pane keeping its panel and

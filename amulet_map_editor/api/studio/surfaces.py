@@ -469,12 +469,24 @@ _HINTS: Mapping[str, str] = MappingProxyType(
         "nbtSearch": "Tag-path search across the selection",
         "noiseGen": "Seeded heightmaps, caves, and scatter",
         "notifications": "Search, bulk dismissal, Markdown export",
-        "operationClone": "The stock Clone operation, selected and ready to run",
-        "operationFill": "The stock Fill operation, selected and ready to run",
+        # "selected with its options showing" rather than "ready to run": the
+        # options do show, and for a tall operation the Run control under them
+        # does not.  Replace stacks two block pickers in a scrolling panel, so
+        # in a 1500x950 window its Run button starts 557 px below the bottom
+        # edge -- measured in tests/test_editor_operations_runtime.py, which
+        # asserts the control can be scrolled to rather than that it is there.
+        "operationClone": "The stock Clone operation, selected with its options showing",
+        "operationFill": "The stock Fill operation, selected with its options showing",
         "operationOptions": "Clone, fill, replace, set biome, waterlog, plugins",
-        "operationReplace": "The stock Replace operation, selected and ready to run",
-        "operationSetBiome": "The stock Set Biome operation, selected and ready to run",
-        "operationWaterlog": "The stock Waterlog operation, selected and ready to run",
+        "operationReplace": (
+            "The stock Replace operation, selected with its options showing"
+        ),
+        "operationSetBiome": (
+            "The stock Set Biome operation, selected with its options showing"
+        ),
+        "operationWaterlog": (
+            "The stock Waterlog operation, selected with its options showing"
+        ),
         "oreAudit": "Per-Y peaks, counts, and x-ray overlay",
         "palette": "Ctrl+Shift+F over every command and setting",
         "patternMask": "Weighted block sets, masks, and gradients",
