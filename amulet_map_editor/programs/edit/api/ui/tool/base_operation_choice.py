@@ -1,6 +1,6 @@
 import wx
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Optional, Iterable
+from typing import TYPE_CHECKING, Optional, Iterable, Tuple
 import traceback
 import logging
 
@@ -107,6 +107,16 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
         from the list.
         """
         return str(self._operation_choice.GetStringSelection() or "")
+
+    @property
+    def operation_names(self) -> Tuple[str, ...]:
+        """Every operation the chooser is currently offering, in its own order.
+
+        Read from the chooser rather than from the loader behind it, because
+        this is what a caller reporting on a reload needs to say: an operation
+        that loaded but never reached the list is one the user cannot pick.
+        """
+        return tuple(str(name) for name in self._operation_choice.GetStrings())
 
     @staticmethod
     def _match_key(value: str) -> str:

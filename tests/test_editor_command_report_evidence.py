@@ -39,7 +39,11 @@ from typing import Any, Dict, List, Tuple
 import pytest
 
 from amulet_map_editor.api.studio import context_menu
-from amulet_map_editor.api.studio.shell import StudioShell
+from amulet_map_editor.api.studio.shell import (
+    _MUTATING_COMMANDS,
+    _REPORTED_COMMANDS,
+    StudioShell,
+)
 
 
 class _Recorder:
@@ -77,6 +81,16 @@ class _Recorder:
 
     def _dimension_name(self) -> str:
         return "minecraft:overworld"
+
+    #: The format the ribbon is holding, for the export toast below.  The real
+    #: lookup is bound rather than stubbed, because which exporter a format
+    #: names is part of what that toast has to get right.
+    ribbon_format = "construction"
+
+    def _ribbon_value(self, label: str) -> str:
+        return self.ribbon_format if label == "Format" else ""
+
+    _export_operation = StudioShell._export_operation
 
 
 def _report(before: int, after: int, key: str, subject: str = "") -> Dict[str, str]:
@@ -136,8 +150,23 @@ def test_the_check_and_the_report_ask_the_same_question() -> None:
     two conditions written differently, one guarding the other.  Asserting the
     pairing directly means a future edit that widens the report without
     widening the check fails here.
+
+    The keys are derived rather than written out, so a command added to
+    ``_MUTATING_COMMANDS`` is covered without anyone remembering to add it
+    here.  ``_REPORTED_COMMANDS`` comes back out because those return from a
+    branch of their own before this one is reached and answer from evidence
+    that is not the undo depth -- Copy from the clipboard, Reload plugins from
+    the operation list.  ``runOperation`` is added because it is not a mutating
+    command and reaches this branch anyway, through its subject, which is
+    exactly how the original defect got in.
     """
-    for key in ("paste", "runOperation", "importChunks", "flip", "reloadPlugins"):
+    generic = sorted(set(_MUTATING_COMMANDS) - set(_REPORTED_COMMANDS))
+    generic.append("runOperation")
+    assert len(generic) >= 8, (
+        "almost nothing reaches the generic report any more, so this test is "
+        f"asserting about an empty loop: {generic}"
+    )
+    for key in generic:
         for subject in ("", "Clone"):
             stub = _Recorder((5, 0), (5, 0))
             StudioShell._after_editor_command(stub, key, (5, 0), subject=subject)
@@ -156,9 +185,15 @@ def test_the_check_and_the_report_ask_the_same_question() -> None:
 
 
 class _Tool:
-    """An operation chooser, answering both the name and the identifier."""
+    """An operation chooser, answering both the name and the identifier.
 
-    active_operation_name = "construction (.construction)"
+    The name is the construction plugin's own ``export["name"]``, tab and all.
+    An earlier version of this stub answered ``"construction (.construction)"``
+    -- the *dropdown's* label -- which no chooser has ever shown, and which made
+    this test agree with a message the running application could not produce.
+    """
+
+    active_operation_name = "\tExport Construction"
     active_operation_id = (
         "amulet_map_editor.programs.edit.plugins.operations.stock_plugins."
         "export_operations.construction"
@@ -184,6 +219,25 @@ def test_the_export_toast_still_names_something_without_a_name() -> None:
     stub = _Recorder((0, 0), (0, 0))
     message = StudioShell._tool_message(stub, "export", "Export", _Older())
     assert "some.module.path" in message, message
+
+
+def test_the_export_toast_names_the_format_the_user_actually_chose() -> None:
+    """Not the exporter the tool happened to be on, which is what it said.
+
+    The chooser is showing Construction and the ribbon is holding ``schem``.
+    The old message read that chooser and reported "Export Construction" as a
+    success, which is exactly how three of the four formats shipped announcing
+    a file they were not writing.
+    """
+    stub = _Recorder((0, 0), (0, 0))
+    stub.ribbon_format = "schem"
+    message = StudioShell._tool_message(stub, "export", "Export", _Tool())
+    assert "Sponge schem (.schem)" in message, message
+    assert "Export Sponge Schematic" in message, message
+    assert "Export Construction" in message, (
+        "a tool left on a different exporter must say which one it is showing "
+        f"rather than only which one was asked for: {message!r}"
+    )
 
 
 # ---------------------------------------------------------------------------
