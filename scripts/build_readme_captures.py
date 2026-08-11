@@ -34,7 +34,12 @@ GROUP_ORDER = ("Backstage", "Workspace", "Ribbon tabs", "Surfaces")
 
 def _row(entry: Dict, out_dir: Path, root: Path) -> str:
     """Return one image, with alt text that says what it shows."""
-    relative = (out_dir / entry["filename"]).relative_to(root).as_posix()
+    # Resolve both sides: the manifest path may arrive relative while the root
+    # is absolute, and relative_to() compares text rather than filesystem
+    # position, so it refuses a pairing that is perfectly valid on disk.
+    relative = (
+        (out_dir / entry["filename"]).resolve().relative_to(root.resolve()).as_posix()
+    )
     alt = entry["alt"].replace("]", ")").replace("[", "(")
     return f"![{alt}]({relative})"
 
@@ -53,14 +58,18 @@ def build(manifest_path: Path, root: Path) -> str:
     lines = [
         START,
         "",
-        "## Screenshots",
+        "### The current interface",
         "",
         f"Every image below is a real capture of the built interface at commit "
         f"`{commit[:8]}`, taken by `scripts/capture_studio_surfaces.py`. None is "
         "a mockup, a design file, or a retouched image.",
         "",
         f"**{len(captures)} surfaces captured.**"
-        + (f" **{len(failures)} could not be captured** — listed at the end, with why." if failures else ""),
+        + (
+            f" **{len(failures)} could not be captured** — listed at the end, with why."
+            if failures
+            else ""
+        ),
         "",
         "The capture asks each widget to draw itself rather than reading the "
         "screen, so the run needs no visible desktop and cannot photograph a "
@@ -82,8 +91,10 @@ def build(manifest_path: Path, root: Path) -> str:
         )
         lines.append("")
         for entry in entries:
-            lines.append(f"**`{entry['surface']}`** — {entry['viewport']}, "
-                         f"{entry['theme']} theme, {entry['density']} density")
+            lines.append(
+                f"**`{entry['surface']}`** — {entry['viewport']}, "
+                f"{entry['theme']} theme, {entry['density']} density"
+            )
             lines.append("")
             lines.append(_row(entry, out_dir, root))
             lines.append("")

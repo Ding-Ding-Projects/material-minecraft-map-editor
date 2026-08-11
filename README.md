@@ -6,8 +6,8 @@
 
 **A free, open-source Minecraft world editor and converter for Java and Bedrock worlds.**
 
-[![Windows build](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/build-windows.yml/badge.svg?branch=0.10)](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/build-windows.yml)
-[![Unit tests](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/unittests.yml/badge.svg?branch=0.10)](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/unittests.yml)
+[![Windows build](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/build-windows.yml/badge.svg?branch=main)](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/build-windows.yml)
+[![Unit tests](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/unittests.yml/badge.svg?branch=main)](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/unittests.yml)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](setup.cfg)
 [![Material Design 3 migration](https://img.shields.io/badge/UI-Material%20Design%203%20migration-6750A4)](ROADMAP.md)
 
@@ -202,13 +202,615 @@ Relevant source and contracts:
 
 ## Screenshots
 
-> [!IMPORTANT]
-> **There is no capture of the Amulet Studio interface yet.** Every image below
-> shows an earlier build — the pre-Material workflow screenshots and the
-> owner-drawn Material shell that the Studio replaced. They are kept because
-> they are genuine records of what they show, and they are labelled as such.
-> None of them is evidence for the current interface. A capture of the Studio
-> needs a real build on a Windows desktop and will be added when one exists.
+<!-- BEGIN CAPTURES -->
+
+### The current interface
+
+Every image below is a real capture of the built interface at commit `0173704d`, taken by `scripts/capture_studio_surfaces.py`. None is a mockup, a design file, or a retouched image.
+
+**140 surfaces captured.** **1 could not be captured** — listed at the end, with why.
+
+The capture asks each widget to draw itself rather than reading the screen, so the run needs no visible desktop and cannot photograph a window someone happened to drag over it. A surface whose controls could not draw is reported as a failure and its file deleted, because a blank capture is worse than none: it looks like evidence.
+
+<details>
+<summary><b>Backstage</b> — 5 surfaces</summary>
+
+**`backstage.account`** — 1584x921, light theme, comfortable density
+
+![Amulet Studio backstage, account tab, in the light theme.](docs/huishots/backstage-account-0173704d-20260811.png)
+
+**`backstage.convert`** — 1584x921, light theme, comfortable density
+
+![Amulet Studio backstage, convert tab, in the light theme.](docs/huishots/backstage-convert-0173704d-20260811.png)
+
+**`backstage.features`** — 1584x921, light theme, comfortable density
+
+![Amulet Studio backstage, features tab, in the light theme.](docs/huishots/backstage-features-0173704d-20260811.png)
+
+**`backstage.home`** — 1584x921, light theme, comfortable density
+
+![Amulet Studio backstage, home tab, in the light theme.](docs/huishots/backstage-home-0173704d-20260811.png)
+
+**`backstage.info`** — 1584x921, light theme, comfortable density
+
+![Amulet Studio backstage, info tab, in the light theme.](docs/huishots/backstage-info-0173704d-20260811.png)
+
+</details>
+
+<details>
+<summary><b>Workspace</b> — 5 surfaces</summary>
+
+**`workspace.navigator`** — 176x692, light theme, comfortable density
+
+![The Amulet Studio workspace navigator, in the light theme.](docs/huishots/workspace-navigator-0173704d-20260811.png)
+
+**`workspace.properties`** — 240x692, light theme, comfortable density
+
+![The Amulet Studio workspace properties, in the light theme.](docs/huishots/workspace-properties-0173704d-20260811.png)
+
+**`workspace.ribbon`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio workspace ribbon, in the light theme.](docs/huishots/workspace-ribbon-0173704d-20260811.png)
+
+**`workspace.status`** — 1156x34, light theme, comfortable density
+
+![The Amulet Studio workspace status, in the light theme.](docs/huishots/workspace-status-0173704d-20260811.png)
+
+**`workspace.viewport`** — 1156x658, light theme, comfortable density
+
+![The Amulet Studio workspace viewport, in the light theme.](docs/huishots/workspace-viewport-0173704d-20260811.png)
+
+</details>
+
+<details>
+<summary><b>Ribbon tabs</b> — 17 surfaces</summary>
+
+**`ribbon.analyze`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the analyze tab selected and its panel open, in the light theme.](docs/huishots/ribbon-analyze-0173704d-20260811.png)
+
+**`ribbon.automate`** — 1584x210, light theme, comfortable density
+
+![The Amulet Studio ribbon with the automate tab selected and its panel open, in the light theme.](docs/huishots/ribbon-automate-0173704d-20260811.png)
+
+**`ribbon.build`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the build tab selected and its panel open, in the light theme.](docs/huishots/ribbon-build-0173704d-20260811.png)
+
+**`ribbon.chunks`** — 1584x210, light theme, comfortable density
+
+![The Amulet Studio ribbon with the chunks tab selected and its panel open, in the light theme.](docs/huishots/ribbon-chunks-0173704d-20260811.png)
+
+**`ribbon.data`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the data tab selected and its panel open, in the light theme.](docs/huishots/ribbon-data-0173704d-20260811.png)
+
+**`ribbon.entities`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the entities tab selected and its panel open, in the light theme.](docs/huishots/ribbon-entities-0173704d-20260811.png)
+
+**`ribbon.extend`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the extend tab selected and its panel open, in the light theme.](docs/huishots/ribbon-extend-0173704d-20260811.png)
+
+**`ribbon.home`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the home tab selected and its panel open, in the light theme.](docs/huishots/ribbon-home-0173704d-20260811.png)
+
+**`ribbon.operations`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the operations tab selected and its panel open, in the light theme.](docs/huishots/ribbon-operations-0173704d-20260811.png)
+
+**`ribbon.panels`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the panels tab selected and its panel open, in the light theme.](docs/huishots/ribbon-panels-0173704d-20260811.png)
+
+**`ribbon.redstone`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the redstone tab selected and its panel open, in the light theme.](docs/huishots/ribbon-redstone-0173704d-20260811.png)
+
+**`ribbon.selection`** — 1584x297, light theme, comfortable density
+
+![The Amulet Studio ribbon with the selection tab selected and its panel open, in the light theme.](docs/huishots/ribbon-selection-0173704d-20260811.png)
+
+**`ribbon.structures`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the structures tab selected and its panel open, in the light theme.](docs/huishots/ribbon-structures-0173704d-20260811.png)
+
+**`ribbon.terrain`** — 1584x239, light theme, comfortable density
+
+![The Amulet Studio ribbon with the terrain tab selected and its panel open, in the light theme.](docs/huishots/ribbon-terrain-0173704d-20260811.png)
+
+**`ribbon.tools`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the tools tab selected and its panel open, in the light theme.](docs/huishots/ribbon-tools-0173704d-20260811.png)
+
+**`ribbon.view`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the view tab selected and its panel open, in the light theme.](docs/huishots/ribbon-view-0173704d-20260811.png)
+
+**`ribbon.worldgen`** — 1584x195, light theme, comfortable density
+
+![The Amulet Studio ribbon with the worldgen tab selected and its panel open, in the light theme.](docs/huishots/ribbon-worldgen-0173704d-20260811.png)
+
+</details>
+
+<details>
+<summary><b>Surfaces</b> — 113 surfaces</summary>
+
+**`about`** — 640x280, light theme, comfortable density
+
+![The About surface (Currently opened world), showing its window search and 2 sections, in the light theme.](docs/huishots/about-0173704d-20260811.png)
+
+**`analyzeTool`** — 740x280, light theme, comfortable density
+
+![The Analyze surface (Analysis), showing its window search and 3 sections, in the light theme.](docs/huishots/analyzetool-0173704d-20260811.png)
+
+**`batchQueue`** — 760x280, light theme, comfortable density
+
+![The Batch queue surface (Automation), showing its window search and 3 sections, in the light theme.](docs/huishots/batchqueue-0173704d-20260811.png)
+
+**`biomeMap`** — 720x280, light theme, comfortable density
+
+![The Biome map surface (Analysis), showing its window search and 2 sections, in the light theme.](docs/huishots/biomemap-0173704d-20260811.png)
+
+**`biomeSelect`** — 620x280, light theme, comfortable density
+
+![The Select biome surface (Biome picker), showing its window search and 2 sections, in the light theme.](docs/huishots/biomeselect-0173704d-20260811.png)
+
+**`blockAudit`** — 740x280, light theme, comfortable density
+
+![The Block state audit surface (Blocks), showing its window search and 4 sections, in the light theme.](docs/huishots/blockaudit-0173704d-20260811.png)
+
+**`blockHistogram`** — 720x280, light theme, comfortable density
+
+![The Block histogram surface (Analysis), showing its window search and 2 sections, in the light theme.](docs/huishots/blockhistogram-0173704d-20260811.png)
+
+**`blockSelect`** — 720x280, light theme, comfortable density
+
+![The Select block surface (Block picker), showing its window search and 5 sections, in the light theme.](docs/huishots/blockselect-0173704d-20260811.png)
+
+**`brushSettings`** — 700x280, light theme, comfortable density
+
+![The Brush surface (Tools), showing its window search and 5 sections, in the light theme.](docs/huishots/brushsettings-0173704d-20260811.png)
+
+**`brushTool`** — 640x280, light theme, comfortable density
+
+![The Shape brush surface (Build), showing its window search and 4 sections, in the light theme.](docs/huishots/brushtool-0173704d-20260811.png)
+
+**`caveMap`** — 700x280, light theme, comfortable density
+
+![The Cave coverage surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/cavemap-0173704d-20260811.png)
+
+**`chunkInspector`** — 780x280, light theme, comfortable density
+
+![The Chunk inspector surface (Analysis), showing its window search and 3 sections, in the light theme.](docs/huishots/chunkinspector-0173704d-20260811.png)
+
+**`cloneTool`** — 680x280, light theme, comfortable density
+
+![The Clone surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/clonetool-0173704d-20260811.png)
+
+**`commandFinder`** — 760x280, light theme, comfortable density
+
+![The Command blocks surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/commandfinder-0173704d-20260811.png)
+
+**`configureBlocks`** — 740x310, light theme, comfortable density
+
+![The Configure blocks surface (Pickers), showing its window search and 4 sections, in the light theme.](docs/huishots/configureblocks-0173704d-20260811.png)
+
+**`confirm`** — 520x280, light theme, comfortable density
+
+![The Delete unselected chunks surface (Safety gate), showing its window search and 2 sections, in the light theme.](docs/huishots/confirm-0173704d-20260811.png)
+
+**`controls`** — 720x280, light theme, comfortable density
+
+![The Key Select surface (Key configuration), showing its window search and 2 sections, in the light theme.](docs/huishots/controls-0173704d-20260811.png)
+
+**`convertProgress`** — 600x280, light theme, comfortable density
+
+![The Converting world surface (World conversion), showing its window search and 3 sections, in the light theme.](docs/huishots/convertprogress-0173704d-20260811.png)
+
+**`cutawayView`** — 620x280, light theme, comfortable density
+
+![The Cutaway surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/cutawayview-0173704d-20260811.png)
+
+**`dimsum`** — 520x280, light theme, comfortable density
+
+![The Har gow · 蝦餃 surface (Startup surprise), showing its window search and 2 sections, in the light theme.](docs/huishots/dimsum-0173704d-20260811.png)
+
+**`docs`** — 820x280, light theme, comfortable density
+
+![The Documentation surface (Offline bundle), showing its window search and 3 sections, in the light theme.](docs/huishots/docs-0173704d-20260811.png)
+
+**`editChunkTool`** — 700x280, light theme, comfortable density
+
+![The Edit chunk surface (Tools), showing its window search and 4 sections, in the light theme.](docs/huishots/editchunktool-0173704d-20260811.png)
+
+**`elementAppearance`** — 640x280, light theme, comfortable density
+
+![The Edit appearance surface (Per-element appearance), showing its window search and 5 sections, in the light theme.](docs/huishots/elementappearance-0173704d-20260811.png)
+
+**`entityBrowser`** — 800x280, light theme, comfortable density
+
+![The Entity browser surface (Entities), showing its window search and 6 sections, in the light theme.](docs/huishots/entitybrowser-0173704d-20260811.png)
+
+**`entityEdit`** — 660x310, light theme, comfortable density
+
+![The Edit entity surface (Entities), showing its window search and 4 sections, in the light theme.](docs/huishots/entityedit-0173704d-20260811.png)
+
+**`erosion`** — 600x280, light theme, comfortable density
+
+![The Erosion surface (Sculpt), showing its window search and 3 sections, in the light theme.](docs/huishots/erosion-0173704d-20260811.png)
+
+**`errorReport`** — 680x310, light theme, comfortable density
+
+![The Unexpected error surface (Diagnostics), showing its window search and 3 sections, in the light theme.](docs/huishots/errorreport-0173704d-20260811.png)
+
+**`exportStructure`** — 600x280, light theme, comfortable density
+
+![The Export selection surface (Structure files), showing its window search and 3 sections, in the light theme.](docs/huishots/exportstructure-0173704d-20260811.png)
+
+**`externalEditor`** — 620x310, light theme, comfortable density
+
+![The External editor surface (Safe bridge), showing its window search and 3 sections, in the light theme.](docs/huishots/externaleditor-0173704d-20260811.png)
+
+**`findReplaceBlocks`** — 760x280, light theme, comfortable density
+
+![The Blocks surface (Find and replace), showing its window search and 4 sections, in the light theme.](docs/huishots/findreplaceblocks-0173704d-20260811.png)
+
+**`findReplaceCommands`** — 780x280, light theme, comfortable density
+
+![The Commands surface (Find and replace), showing its window search and 5 sections, in the light theme.](docs/huishots/findreplacecommands-0173704d-20260811.png)
+
+**`findReplaceNbt`** — 780x280, light theme, comfortable density
+
+![The NBT surface (Find and replace), showing its window search and 4 sections, in the light theme.](docs/huishots/findreplacenbt-0173704d-20260811.png)
+
+**`flatten`** — 560x280, light theme, comfortable density
+
+![The Flatten to height surface (Sculpt), showing its window search and 2 sections, in the light theme.](docs/huishots/flatten-0173704d-20260811.png)
+
+**`floodFill`** — 620x280, light theme, comfortable density
+
+![The Flood fill surface (Tools), showing its window search and 4 sections, in the light theme.](docs/huishots/floodfill-0173704d-20260811.png)
+
+**`forceLoaded`** — 700x280, light theme, comfortable density
+
+![The Force-loaded chunks surface (Boundaries), showing its window search and 2 sections, in the light theme.](docs/huishots/forceloaded-0173704d-20260811.png)
+
+**`fourUpView`** — 660x280, light theme, comfortable density
+
+![The Four-up split surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/fourupview-0173704d-20260811.png)
+
+**`gamerules`** — 700x280, light theme, comfortable density
+
+![The Game rules surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/gamerules-0173704d-20260811.png)
+
+**`generateTool`** — 720x280, light theme, comfortable density
+
+![The Generate surface (Tools), showing its window search and 5 sections, in the light theme.](docs/huishots/generatetool-0173704d-20260811.png)
+
+**`goto`** — 460x280, light theme, comfortable density
+
+![The Teleport surface (Camera), showing its window search and 1 sections, in the light theme.](docs/huishots/goto-0173704d-20260811.png)
+
+**`heightLimits`** — 700x280, light theme, comfortable density
+
+![The Height limits surface (Boundaries), showing its window search and 4 sections, in the light theme.](docs/huishots/heightlimits-0173704d-20260811.png)
+
+**`history`** — 760x358, light theme, comfortable density
+
+![The Project history surface (Local Git repository), showing its window search and 3 sections, in the light theme.](docs/huishots/history-0173704d-20260811.png)
+
+**`importChunks`** — 600x280, light theme, comfortable density
+
+![The Import chunks surface (Chunk tool), showing its window search and 2 sections, in the light theme.](docs/huishots/importchunks-0173704d-20260811.png)
+
+**`importMap`** — 700x280, light theme, comfortable density
+
+![The Import map image surface (Import), showing its window search and 4 sections, in the light theme.](docs/huishots/importmap-0173704d-20260811.png)
+
+**`inspector`** — 740x280, light theme, comfortable density
+
+![The Inspector surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/inspector-0173704d-20260811.png)
+
+**`inventoryEditor`** — 760x280, light theme, comfortable density
+
+![The Inventory editor surface (Panels), showing its window search and 4 sections, in the light theme.](docs/huishots/inventoryeditor-0173704d-20260811.png)
+
+**`itemTypeList`** — 720x280, light theme, comfortable density
+
+![The Item types surface (Pickers), showing its window search and 3 sections, in the light theme.](docs/huishots/itemtypelist-0173704d-20260811.png)
+
+**`languageSelect`** — 520x280, light theme, comfortable density
+
+![The Language Select surface (Localization), showing its window search and 1 sections, in the light theme.](docs/huishots/languageselect-0173704d-20260811.png)
+
+**`layerSlice`** — 560x280, light theme, comfortable density
+
+![The Layer slice surface (Measure), showing its window search and 3 sections, in the light theme.](docs/huishots/layerslice-0173704d-20260811.png)
+
+**`levelDat`** — 700x280, light theme, comfortable density
+
+![The level.dat surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/leveldat-0173704d-20260811.png)
+
+**`libraryPanel`** — 760x310, light theme, comfortable density
+
+![The Library surface (Panels), showing its window search and 4 sections, in the light theme.](docs/huishots/librarypanel-0173704d-20260811.png)
+
+**`licenses`** — 700x280, light theme, comfortable density
+
+![The Third Party Licenses surface (Legal), showing its window search and 2 sections, in the light theme.](docs/huishots/licenses-0173704d-20260811.png)
+
+**`lightOverlay`** — 660x280, light theme, comfortable density
+
+![The Light levels surface (Mechanics), showing its window search and 4 sections, in the light theme.](docs/huishots/lightoverlay-0173704d-20260811.png)
+
+**`loading`** — 560x280, light theme, comfortable density
+
+![The Please wait while the renderer loads surface (Renderer), showing its window search and 4 sections, in the light theme.](docs/huishots/loading-0173704d-20260811.png)
+
+**`logView`** — 780x280, light theme, comfortable density
+
+![The Log surface (Diagnostics), showing its window search and 3 sections, in the light theme.](docs/huishots/logview-0173704d-20260811.png)
+
+**`lootAudit`** — 720x280, light theme, comfortable density
+
+![The Loot audit surface (Containers), showing its window search and 3 sections, in the light theme.](docs/huishots/lootaudit-0173704d-20260811.png)
+
+**`macroRecorder`** — 700x280, light theme, comfortable density
+
+![The Macro recorder surface (Automation), showing its window search and 2 sections, in the light theme.](docs/huishots/macrorecorder-0173704d-20260811.png)
+
+**`mapItems`** — 700x280, light theme, comfortable density
+
+![The Map items surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/mapitems-0173704d-20260811.png)
+
+**`measure`** — 560x280, light theme, comfortable density
+
+![The Measure surface (Measure), showing its window search and 2 sections, in the light theme.](docs/huishots/measure-0173704d-20260811.png)
+
+**`minecraftInstalls`** — 740x280, light theme, comfortable density
+
+![The Minecraft installs surface (Resources), showing its window search and 4 sections, in the light theme.](docs/huishots/minecraftinstalls-0173704d-20260811.png)
+
+**`moveTool`** — 640x280, light theme, comfortable density
+
+![The Move surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/movetool-0173704d-20260811.png)
+
+**`narrator`** — 600x280, light theme, comfortable density
+
+![The Narrator and voice surface (Optional speech), showing its window search and 3 sections, in the light theme.](docs/huishots/narrator-0173704d-20260811.png)
+
+**`nbtLegacy`** — 720x280, light theme, comfortable density
+
+![The NBT editor surface (Raw data), showing its window search and 3 sections, in the light theme.](docs/huishots/nbtlegacy-0173704d-20260811.png)
+
+**`nbtSearch`** — 760x310, light theme, comfortable density
+
+![The NBT search and replace surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/nbtsearch-0173704d-20260811.png)
+
+**`noiseGen`** — 620x280, light theme, comfortable density
+
+![The Noise fill surface (Generate), showing its window search and 3 sections, in the light theme.](docs/huishots/noisegen-0173704d-20260811.png)
+
+**`operationOptions`** — 640x280, light theme, comfortable density
+
+![The Replace surface (Stock operation), showing its window search and 3 sections, in the light theme.](docs/huishots/operationoptions-0173704d-20260811.png)
+
+**`oreAudit`** — 740x280, light theme, comfortable density
+
+![The Ore distribution surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/oreaudit-0173704d-20260811.png)
+
+**`patternMask`** — 660x280, light theme, comfortable density
+
+![The Pattern and mask surface (Build), showing its window search and 4 sections, in the light theme.](docs/huishots/patternmask-0173704d-20260811.png)
+
+**`pendingImports`** — 740x310, light theme, comfortable density
+
+![The Pending imports surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/pendingimports-0173704d-20260811.png)
+
+**`playerData`** — 720x280, light theme, comfortable density
+
+![The Player data surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/playerdata-0173704d-20260811.png)
+
+**`playerPanel`** — 720x310, light theme, comfortable density
+
+![The Players surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/playerpanel-0173704d-20260811.png)
+
+**`pluginsDialog`** — 740x310, light theme, comfortable density
+
+![The Plugins surface (Extensibility), showing its window search and 4 sections, in the light theme.](docs/huishots/pluginsdialog-0173704d-20260811.png)
+
+**`portalBuilder`** — 820x406, light theme, comfortable density
+
+![The Nether portal travel builder surface (Travel), showing its window search and 7 sections, in the light theme.](docs/huishots/portalbuilder-0173704d-20260811.png)
+
+**`portalLinker`** — 740x280, light theme, comfortable density
+
+![The Portal linkage surface (Redstone), showing its window search and 3 sections, in the light theme.](docs/huishots/portallinker-0173704d-20260811.png)
+
+**`presets`** — 720x454, light theme, comfortable density
+
+![The Appearance presets surface (Versioned interchange), showing its window search and 3 sections, in the light theme.](docs/huishots/presets-0173704d-20260811.png)
+
+**`profiler`** — 740x310, light theme, comfortable density
+
+![The Profiler surface (Diagnostics), showing its window search and 2 sections, in the light theme.](docs/huishots/profiler-0173704d-20260811.png)
+
+**`pythonConsole`** — 760x280, light theme, comfortable density
+
+![The Python console surface (Diagnostics), showing its window search and 2 sections, in the light theme.](docs/huishots/pythonconsole-0173704d-20260811.png)
+
+**`railNetwork`** — 740x280, light theme, comfortable density
+
+![The Rail network surface (Redstone), showing its window search and 4 sections, in the light theme.](docs/huishots/railnetwork-0173704d-20260811.png)
+
+**`railTunnel`** — 840x406, light theme, comfortable density
+
+![The Rail tunnel builder surface (Travel), showing its window search and 17 sections, in the light theme.](docs/huishots/railtunnel-0173704d-20260811.png)
+
+**`redstoneTrace`** — 760x310, light theme, comfortable density
+
+![The Circuit trace surface (Redstone), showing its window search and 5 sections, in the light theme.](docs/huishots/redstonetrace-0173704d-20260811.png)
+
+**`regenerate`** — 600x280, light theme, comfortable density
+
+![The Regenerate chunks surface (Generate), showing its window search and 2 sections, in the light theme.](docs/huishots/regenerate-0173704d-20260811.png)
+
+**`relight`** — 600x280, light theme, comfortable density
+
+![The Relight surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/relight-0173704d-20260811.png)
+
+**`removeEntities`** — 600x280, light theme, comfortable density
+
+![The Remove entities surface (Entities), showing its window search and 3 sections, in the light theme.](docs/huishots/removeentities-0173704d-20260811.png)
+
+**`renderLayers`** — 640x280, light theme, comfortable density
+
+![The Render layers surface (View), showing its window search and 2 sections, in the light theme.](docs/huishots/renderlayers-0173704d-20260811.png)
+
+**`schematicLibrary`** — 760x310, light theme, comfortable density
+
+![The Structure library surface (Build), showing its window search and 3 sections, in the light theme.](docs/huishots/schematiclibrary-0173704d-20260811.png)
+
+**`schoolUnlock`** — 520x280, light theme, comfortable density
+
+![The School mode surface (Presentation lock), showing its window search and 2 sections, in the light theme.](docs/huishots/schoolunlock-0173704d-20260811.png)
+
+**`scoreboard`** — 740x280, light theme, comfortable density
+
+![The Scoreboard surface (Data), showing its window search and 3 sections, in the light theme.](docs/huishots/scoreboard-0173704d-20260811.png)
+
+**`scriptConsole`** — 760x310, light theme, comfortable density
+
+![The Operation console surface (Automation), showing its window search and 3 sections, in the light theme.](docs/huishots/scriptconsole-0173704d-20260811.png)
+
+**`seaLevel`** — 560x280, light theme, comfortable density
+
+![The Sea level surface (Generate), showing its window search and 3 sections, in the light theme.](docs/huishots/sealevel-0173704d-20260811.png)
+
+**`seedTools`** — 700x280, light theme, comfortable density
+
+![The Seed tools surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/seedtools-0173704d-20260811.png)
+
+**`selectBlockTool`** — 680x280, light theme, comfortable density
+
+![The Select block surface (Tools), showing its window search and 2 sections, in the light theme.](docs/huishots/selectblocktool-0173704d-20260811.png)
+
+**`selectEntityTool`** — 660x280, light theme, comfortable density
+
+![The Select entity surface (Tools), showing its window search and 2 sections, in the light theme.](docs/huishots/selectentitytool-0173704d-20260811.png)
+
+**`signSearch`** — 700x280, light theme, comfortable density
+
+![The Sign text surface (Data), showing its window search and 4 sections, in the light theme.](docs/huishots/signsearch-0173704d-20260811.png)
+
+**`slimeChunks`** — 660x280, light theme, comfortable density
+
+![The Slime chunks surface (Worldgen), showing its window search and 3 sections, in the light theme.](docs/huishots/slimechunks-0173704d-20260811.png)
+
+**`smooth`** — 560x280, light theme, comfortable density
+
+![The Smooth terrain surface (Sculpt), showing its window search and 2 sections, in the light theme.](docs/huishots/smooth-0173704d-20260811.png)
+
+**`spawnAnalysis`** — 760x280, light theme, comfortable density
+
+![The Mob spawn analysis surface (Mechanics), showing its window search and 5 sections, in the light theme.](docs/huishots/spawnanalysis-0173704d-20260811.png)
+
+**`spawnPoints`** — 700x280, light theme, comfortable density
+
+![The Spawn points and beds surface (Redstone), showing its window search and 3 sections, in the light theme.](docs/huishots/spawnpoints-0173704d-20260811.png)
+
+**`stackArray`** — 620x280, light theme, comfortable density
+
+![The Stack and array surface (Build), showing its window search and 3 sections, in the light theme.](docs/huishots/stackarray-0173704d-20260811.png)
+
+**`structureLocator`** — 780x280, light theme, comfortable density
+
+![The Locate structures surface (Worldgen), showing its window search and 6 sections, in the light theme.](docs/huishots/structurelocator-0173704d-20260811.png)
+
+**`surfacePaint`** — 620x280, light theme, comfortable density
+
+![The Repaint surface surface (Surface), showing its window search and 3 sections, in the light theme.](docs/huishots/surfacepaint-0173704d-20260811.png)
+
+**`tabManager`** — 820x280, light theme, comfortable density
+
+![The Tabs, groups, and safe closing surface (Workspace navigation), showing its window search and 7 sections, in the light theme.](docs/huishots/tabmanager-0173704d-20260811.png)
+
+**`terrainBrush`** — 640x280, light theme, comfortable density
+
+![The Terrain brush surface (Sculpt), showing its window search and 4 sections, in the light theme.](docs/huishots/terrainbrush-0173704d-20260811.png)
+
+**`tickLoad`** — 740x280, light theme, comfortable density
+
+![The Tick load surface (Mechanics), showing its window search and 3 sections, in the light theme.](docs/huishots/tickload-0173704d-20260811.png)
+
+**`toolSettings`** — 680x280, light theme, comfortable density
+
+![The Tool settings surface (Tools), showing its window search and 3 sections, in the light theme.](docs/huishots/toolsettings-0173704d-20260811.png)
+
+**`undoHistory`** — 700x280, light theme, comfortable density
+
+![The Undo history surface (History), showing its window search and 2 sections, in the light theme.](docs/huishots/undohistory-0173704d-20260811.png)
+
+**`update`** — 620x310, light theme, comfortable density
+
+![The Update status surface (Windows delivery), showing its window search and 2 sections, in the light theme.](docs/huishots/update-0173704d-20260811.png)
+
+**`validateRepair`** — 760x310, light theme, comfortable density
+
+![The Validate and repair surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/validaterepair-0173704d-20260811.png)
+
+**`versionSelect`** — 560x280, light theme, comfortable density
+
+![The Select version surface (Platform), showing its window search and 2 sections, in the light theme.](docs/huishots/versionselect-0173704d-20260811.png)
+
+**`viewControls`** — 700x280, light theme, comfortable density
+
+![The View settings surface (View), showing its window search and 3 sections, in the light theme.](docs/huishots/viewcontrols-0173704d-20260811.png)
+
+**`waypoints`** — 620x280, light theme, comfortable density
+
+![The Waypoints surface (Navigation), showing its window search and 3 sections, in the light theme.](docs/huishots/waypoints-0173704d-20260811.png)
+
+**`workPlane`** — 600x280, light theme, comfortable density
+
+![The Work plane surface (View), showing its window search and 3 sections, in the light theme.](docs/huishots/workplane-0173704d-20260811.png)
+
+**`worldBorder`** — 660x280, light theme, comfortable density
+
+![The World border surface (Boundaries), showing its window search and 3 sections, in the light theme.](docs/huishots/worldborder-0173704d-20260811.png)
+
+**`worldDiff`** — 780x280, light theme, comfortable density
+
+![The Compare worlds surface (Integrity), showing its window search and 2 sections, in the light theme.](docs/huishots/worlddiff-0173704d-20260811.png)
+
+**`worldInfo`** — 700x280, light theme, comfortable density
+
+![The World info surface (Panels), showing its window search and 3 sections, in the light theme.](docs/huishots/worldinfo-0173704d-20260811.png)
+
+</details>
+
+<details>
+<summary><b>Not captured</b> — 1</summary>
+
+These are recorded rather than omitted. A gap nobody mentions reads as coverage.
+
+| Surface | Why not |
+| --- | --- |
+| `backstage-open` | 0 leaf control(s) could only be blitted and 1 drew by no route at all, so they are blank rectangles in the file. |
+
+</details>
+
+<!-- END CAPTURES -->
+
+> [!NOTE]
+> The images further down this section show **earlier builds** — the
+> pre-Material workflow screenshots and the owner-drawn Material shell that the
+> Studio replaced. They are kept because they are genuine records of what they
+> show, and they are labelled as such. They are not evidence for the current
+> interface; the matrix above is.
 
 Every image in this section is a tracked screenshot of the real wxPython app.
 They intentionally retain the version visible in the captured window. No mockup
