@@ -34,12 +34,14 @@ __all__ = [
     "EDITOR_ACTION_LABELS",
     "KEY_NAMES",
     "NOT_BOUND",
+    "UNREADABLE",
     "KeyGroups",
     "action_label",
     "active_keybinds",
     "declared_actions",
     "editor_bindings",
     "format_binding",
+    "key_config",
     "read_key_groups",
     "viewport_accelerator",
 ]
@@ -69,6 +71,13 @@ KEY_NAMES: Mapping[str, str] = MappingProxyType(
 #: is a sentence rather than a blank, because a blank column reads as a surface
 #: that failed to load rather than as an action nobody bound.
 NOT_BOUND = "not bound"
+
+#: The one row a bindings list carries when the configuration cannot be read at
+#: all.  A surface still shows a bindings section rather than dropping it, so
+#: the reader is told the keys are unknown instead of being left to wonder where
+#: the list went -- and so the shipped defaults, which are exactly the keys a
+#: user who rebound them no longer presses, are still not printed.
+UNREADABLE = ("Key configuration", "could not be read")
 
 #: How each 3D editor action reads as a row label.  An action missing from here
 #: still appears, labelled from its own identifier by :func:`action_label`, so a
@@ -119,22 +128,102 @@ class KeyGroups:
         return bool(self.bindings)
 
 
+#: The key-configuration module once it has been found, and whether the search
+#: has run.  The presets are static data, so one lookup answers for the session.
+_KEY_CONFIG: Any = None
+_KEY_CONFIG_SEARCHED = False
+
+
+def _key_config_by_path() -> Any:
+    """Load the editor's key configuration without running its package init.
+
+    ``amulet_map_editor.programs.edit.__init__`` reaches the whole 3D editor,
+    which reaches the OpenGL renderer, which refuses to import until the Cython
+    chunk mesher has been compiled.  So an ordinary ``import`` of the key
+    configuration fails on a fresh checkout -- and it is not a module that needs
+    any of that: it is a table of action names and key groups.
+
+    Loading the file directly gets the table without the package around it.  The
+    module is deliberately *not* registered in ``sys.modules`` under its real
+    name: a second copy shadowing the real one would be a far worse problem than
+    the one this solves.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    try:
+        import amulet_map_editor
+
+        root = Path(amulet_map_editor.__file__).resolve().parent
+    except Exception:  # pragma: no cover - the package is already imported
+        return None
+    path = root / "programs" / "edit" / "api" / "key_config.py"
+    if not path.is_file():
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "amulet_map_editor._studio_key_config", str(path)
+        )
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except Exception:
+        log.debug("Could not read the key configuration directly", exc_info=True)
+        return None
+    return module
+
+
+def key_config() -> Any:
+    """Return the 3D editor's key configuration module, or ``None``.
+
+    The ordinary import is tried first, so a normal build uses the module every
+    other caller has.  Only when that fails is the file read directly, which is
+    what keeps the Key Select window listing real keys on a checkout whose
+    Cython extension has not been built yet.
+    """
+    global _KEY_CONFIG, _KEY_CONFIG_SEARCHED
+    if _KEY_CONFIG_SEARCHED:
+        return _KEY_CONFIG
+    _KEY_CONFIG_SEARCHED = True
+    try:
+        from amulet_map_editor.programs.edit.api import key_config as module
+
+        _KEY_CONFIG = module
+        return _KEY_CONFIG
+    except Exception:
+        log.debug(
+            "The 3D editor package would not import; reading its key "
+            "configuration directly instead",
+            exc_info=True,
+        )
+    _KEY_CONFIG = _key_config_by_path()
+    if _KEY_CONFIG is None:
+        log.warning(
+            "The 3D editor key configuration could not be read at all; surfaces "
+            "that print its keys will say so rather than show a default"
+        )
+    return _KEY_CONFIG
+
+
 def read_key_groups() -> KeyGroups:
     """Return the editor's key groups, or an empty reading.
 
     The active group is read from the user's own profile first and only falls
     back to the shipped preset when the profile names a group that no longer
-    exists.  Both import and read are guarded: the editor package is optional
+    exists.  Both lookup and read are guarded: the editor package is optional
     in a headless build, and a hand-edited profile must not take a window down.
     """
+    editor = key_config()
+    if editor is None:
+        return KeyGroups()
     try:
         from amulet_map_editor.api import config
-        from amulet_map_editor.programs.edit.api.key_config import (
-            DefaultKeybindGroupId,
-            PresetKeybinds,
-        )
-    except Exception:  # pragma: no cover - optional editor package
-        log.debug("The 3D editor key configuration is unavailable", exc_info=True)
+
+        DefaultKeybindGroupId = editor.DefaultKeybindGroupId
+        PresetKeybinds = editor.PresetKeybinds
+    except Exception:  # pragma: no cover - a truncated key configuration
+        log.debug("The 3D editor key configuration is unusable", exc_info=True)
         return KeyGroups()
     try:
         edit_config = config.get("amulet_edit", {}) or {}
@@ -168,13 +257,11 @@ def declared_actions() -> Tuple[str, ...]:
     The order is the editor's, not this module's, so the Key Select window
     lists what the editor has rather than what somebody transcribed from it.
     """
-    try:
-        from amulet_map_editor.programs.edit.api.key_config import KeybindKeys
-    except Exception:  # pragma: no cover - optional editor package
-        log.debug("The 3D editor action list is unavailable", exc_info=True)
+    editor = key_config()
+    if editor is None:
         return ()
     try:
-        return tuple(str(action) for action in KeybindKeys)
+        return tuple(str(action) for action in editor.KeybindKeys)
     except Exception:  # pragma: no cover - a malformed action list
         log.exception("Could not read the 3D editor action list")
         return ()
@@ -230,8 +317,8 @@ def editor_bindings() -> Tuple[KeyBinding, ...]:
     key group, so a key printed here is a key that works -- by construction,
     rather than by somebody remembering to edit two files at once.  An action
     the active group binds nothing to reads :data:`NOT_BOUND`; a configuration
-    that could not be read at all returns an empty tuple, and the surface says
-    so in words instead of drawing an empty grid.
+    that could not be read at all returns an empty tuple, and the surface shows
+    :data:`UNREADABLE` and says why instead of drawing an empty grid.
     """
     groups = read_key_groups()
     if not groups.readable:

@@ -19,6 +19,7 @@ from amulet_map_editor.api.studio.spec import (
     Check,
     Commit,
     Field,
+    KeyBinding,
     RangeDef,
     Row,
     Section,
@@ -68,50 +69,37 @@ def _controls_spec() -> Spec:
     the active group is named rather than assumed: the keys below belong to one
     group, and saying which one is what makes them checkable.
 
-    A configuration that cannot be read produces a section that says so.  An
-    empty grid would read as a window that failed to load, and the shipped
-    default would be exactly the key a user who rebound it no longer presses.
+    A configuration that cannot be read keeps its bindings section and says in
+    it that the keys are unknown.  Dropping the section would read as a window
+    that failed to load, and filling it from the shipped defaults would print
+    exactly the keys a user who rebound them no longer presses.
     """
     groups = studio_keys.read_key_groups()
-    bindings = studio_keys.editor_bindings()
+    bindings = studio_keys.editor_bindings() or (KeyBinding(*studio_keys.UNREADABLE),)
 
-    if bindings:
-        binding_section: Section = sec("Bindings", "keys", keys=list(bindings))
-    else:
-        binding_section = sec(
-            "Bindings",
-            "note",
-            hint=(
-                "The 3D editor's key configuration could not be read, so no key "
-                "is listed here. Nothing is shown rather than the shipped "
-                "defaults, which are exactly the keys somebody who rebound them "
-                "no longer presses."
-            ),
-        )
+    selects = []
+    if groups.ids:
+        selects.append(Select("Active group", tuple(groups.ids), groups.active))
+    selects.append(Select("Action set", ("3D editor", "Selection", "Camera")))
 
-    options = groups.ids or ((groups.active,) if groups.active else ())
-    group_section = sec(
-        "Key group",
-        "selects",
-        selects=[
-            Select("Active group", tuple(options), groups.active),
-            Select("Action set", ("3D editor", "Selection", "Camera")),
-        ],
-    )
-
-    sections: List[Section] = [group_section, binding_section]
+    sections: List[Section] = [
+        sec("Key group", "selects", selects=selects),
+        sec("Bindings", "keys", keys=list(bindings)),
+    ]
     if groups.active:
-        sections.append(
-            sec(
-                "",
-                "note",
-                hint=(
-                    f"Read from the 3D editor's active key group "
-                    f"“{groups.active}”. Every key above is the key that group "
-                    "is bound to right now, not a shipped default."
-                ),
-            )
+        note = (
+            f"Read from the 3D editor's active key group “{groups.active}”. "
+            "Every key above is the key that group is bound to right now, not "
+            "a shipped default."
         )
+    else:
+        note = (
+            "The 3D editor's key configuration could not be read, so no key is "
+            "listed above. Nothing is shown rather than the shipped defaults, "
+            "which are exactly the keys somebody who rebound them no longer "
+            "presses."
+        )
+    sections.append(sec("", "note", hint=note))
 
     return Spec(
         key="controls",
