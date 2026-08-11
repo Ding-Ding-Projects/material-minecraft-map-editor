@@ -631,14 +631,24 @@ class StudioTitleBar(wx.Panel):
             tokens.scaled(BAR_PADDING_LEFT),
         )
 
-        self.title_label = wx.StaticText(
-            self, label=self._title, style=wx.ST_ELLIPSIZE_END
+        self.title_label = widgets.StudioText(
+            self,
+            self._title,
+            size_px=13,
+            weight=_MEDIUM,
+            role="on_surface",
+            ellipsize=True,
+            name="Project title",
         )
-        self.title_label.SetName("Project title")
         row.Add(self.title_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, gap)
 
-        self.saved_label = wx.StaticText(self, label="", style=wx.ST_ELLIPSIZE_END)
-        self.saved_label.SetName("Save state")
+        self.saved_label = widgets.StudioText(
+            self,
+            "",
+            size_px=12,
+            ellipsize=True,
+            name="Save state",
+        )
         row.Add(self.saved_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, gap)
 
         row.Add(
@@ -1028,13 +1038,15 @@ class StudioTitleBar(wx.Panel):
 
     # -- appearance -----------------------------------------------------------
     def apply_theme(self) -> None:
-        """Push the live palette into the bar's native labels and its own size."""
+        """Push the live palette into the bar's labels and its own size.
+
+        The two labels are owner-drawn and take their font from the tokens on
+        every paint, so only the save state's ink is set here -- it is the one
+        colour that follows the document rather than the theme.
+        """
         palette = tokens.palette()
         self.SetBackgroundColour(palette.surface_container)
         self.SetMinSize(wx.Size(-1, self.bar_height()))
-        self.title_label.SetFont(tokens.font(self, widgets.point_size(13), _MEDIUM))
-        self.title_label.SetForegroundColour(palette.on_surface)
-        self.saved_label.SetFont(tokens.font(self, widgets.point_size(12)))
         self.saved_label.SetForegroundColour(
             palette.on_surface_variant if self._saved else palette.primary
         )

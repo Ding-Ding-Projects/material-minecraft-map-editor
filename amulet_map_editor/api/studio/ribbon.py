@@ -335,11 +335,9 @@ class _TabOverflowPopup(widgets.AnchoredPopup):
             if self.state.matches(button.GetLabel().replace("\n", " "))
         ]
         if not matches:
-            empty = wx.StaticText(
-                self.content, label=self.state.describe_matches(0, "tab")
+            empty = widgets.StudioText(
+                self.content, self.state.describe_matches(0, "tab"), size_px=12
             )
-            empty.SetForegroundColour(tokens.palette().on_surface_variant)
-            empty.SetFont(tokens.font(self, widgets.point_size(12)))
             self.content_sizer.Add(empty, 0, wx.ALL, tokens.scaled(tokens.SPACE_SM))
         for button in matches:
             label = button.GetLabel().replace("\n", " · ")
@@ -1040,8 +1038,9 @@ class RibbonBar(wx.Panel, widgets._Themed):
         )
         self.panel_sizer.Add((0, tokens.scaled(self.PANEL_BOTTOM)), 0)
         self.panel.SetSizer(self.panel_sizer)
-        self.empty = wx.StaticText(self.panel, label="")
-        self.empty.SetName("Ribbon search results")
+        self.empty = widgets.StudioText(
+            self.panel, "", size_px=12, name="Ribbon search results"
+        )
         self.groups_sizer.Add(
             self.empty,
             0,
@@ -1297,7 +1296,8 @@ class RibbonBar(wx.Panel, widgets._Themed):
     # -- theme ---------------------------------------------------------------
     def _apply_theme(self, palette: tokens.StudioPalette) -> None:
         self.SetBackgroundColour(palette.surface_container)
-        self.empty.SetForegroundColour(palette.on_surface_variant)
+        # The search-result note is owner-drawn and reads its own role colour
+        # per paint, so the repaint that follows a theme change is enough.
 
     def _backdrop(self) -> wx.Colour:
         return self.palette().surface_container

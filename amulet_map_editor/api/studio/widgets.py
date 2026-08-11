@@ -1250,6 +1250,255 @@ class SectionLabel(wx.Control, _Themed):
             draw_tracked_text(dc, drawn, 0, 0, tracking)
 
 
+class StudioText(wx.Control, _Themed):
+    """One block of laid-out text: a caption, a status line, or a paragraph.
+
+    ``wx.StaticText`` is the control this replaces, and it loses three things
+    the shell needs.  It takes its ink from a native foreground colour rather
+    than a palette role, so a theme change leaves it behind unless every
+    surface remembers to recolour it by hand.  It cannot letter-space, and it
+    rewraps unpredictably when the interface scale moves.  And -- the reason a
+    capture of this interface used to come back with holes in it -- it paints
+    through the platform rather than through :meth:`_Themed.render_to`, so on a
+    desktop nobody is looking at, where there is no surface to read back, it
+    photographs as a blank rectangle.
+
+    It is deliberately drop-in for the control it replaces.  ``SetLabel``,
+    ``GetLabel``, ``Wrap`` and ``SetForegroundColour`` all behave as a caller
+    of ``wx.StaticText`` expects, so migrating a surface is a constructor swap
+    rather than a rewrite of everything that talks to it afterwards.  Setting a
+    foreground colour explicitly wins over the palette role, because a caller
+    that paints its own error ink means it; :meth:`set_role` hands control back.
+    """
+
+    # Class-level defaults, because wx may call an overridden setter from
+    # inside ``wx.Control.__init__`` -- before ``__init__`` below has bound the
+    # instance attribute the override reads.  An AttributeError raised there
+    # surfaces as a control that cannot be constructed at all.
+    _font_override: Optional[wx.Font] = None
+    _ink_override: Optional[wx.Colour] = None
+    _named: bool = False
+    _best: wx.Size = wx.Size(1, 1)
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        label: str = "",
+        *,
+        size_px: float = 13,
+        weight: int = wx.FONTWEIGHT_NORMAL,
+        role: str = "on_surface_variant",
+        line_height: float = 1.4,
+        wrap_width: int = 0,
+        mono: bool = False,
+        uppercase: bool = False,
+        tracking: float = 0.0,
+        max_lines: int = 64,
+        ellipsize: bool = False,
+        name: str = "",
+    ) -> None:
+        super().__init__(parent, style=wx.BORDER_NONE)
+        wx.Control.SetLabel(self, str(label))
+        self._size_px = float(size_px)
+        self._weight = weight
+        self._role = str(role)
+        self._line_factor = float(line_height)
+        self._wrap_width = max(0, int(wrap_width))
+        self._mono = bool(mono)
+        self._uppercase = bool(uppercase)
+        self._tracking = float(tracking)
+        self._max_lines = max(1, int(max_lines))
+        self._ellipsize = bool(ellipsize)
+        self._font_override: Optional[wx.Font] = None
+        self._ink_override: Optional[wx.Colour] = None
+        self._lines: List[str] = []
+        self._install(name or str(label).replace("\n", " ") or "Text")
+        # After ``_install``, which goes through the ``SetName`` override and
+        # would otherwise mark every control as explicitly named -- including
+        # the ones whose name is only the label echoed back.
+        self._named = bool(name)
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
+        self._relayout()
+
+    # Text is read, never operated, so it stays out of the tab order: a caption
+    # that takes focus is a stop on the keyboard path to nowhere.
+    def AcceptsFocus(self) -> bool:  # noqa: N802 - wx API spelling
+        return False
+
+    def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
+        return False
+
+    # -- content -------------------------------------------------------------
+    def SetLabel(self, label: str) -> None:  # noqa: N802 - wx API spelling
+        """Replace the text and re-measure it.
+
+        A control given an explicit ``name`` keeps it.  ``wx.StaticText`` never
+        renamed itself on a new label, and a status line whose accessible name
+        is "Local history filter status" must not silently become whatever its
+        last message happened to say -- a screen reader user navigating by name
+        would find a different control every time the filter changed.
+        """
+        text = str(label)
+        if text == self.GetLabel():
+            return
+        wx.Control.SetLabel(self, text)
+        if not self._named:
+            self.SetName(text.replace("\n", " ") or "Text")
+        self._relayout()
+        self.Refresh()
+
+    def SetName(self, name: str) -> None:  # noqa: N802 - wx API spelling
+        """Set the accessible name, and stop deriving it from the label."""
+        self._named = bool(name)
+        super().SetName(name)
+
+    def set_text(self, text: str) -> None:
+        """Replace the text.  The Studio spelling of :meth:`SetLabel`."""
+        self.SetLabel(text)
+
+    def Wrap(self, width: int) -> None:  # noqa: N802 - wx API spelling
+        """Wrap to ``width``, as ``wx.StaticText.Wrap`` does.
+
+        A width of ``-1`` or ``0`` means no wrapping, matching the control this
+        replaces, so a surface that passes the platform's own sentinel does not
+        silently collapse to a single-character column.
+        """
+        self.set_available_width(0 if int(width) <= 0 else int(width))
+
+    def set_available_width(self, width: int) -> None:
+        """Rewrap to a new width, growing or shrinking the control to match."""
+        width = max(0, int(width))
+        if width == self._wrap_width:
+            return
+        self._wrap_width = width
+        self._relayout()
+        self.Refresh()
+
+    def set_role(self, role: str) -> None:
+        """Paint the ink from a palette role again, dropping any explicit colour."""
+        self._role = str(role)
+        self._ink_override = None
+        self.Refresh()
+
+    def SetForegroundColour(  # noqa: N802 - wx API spelling
+        self, colour: wx.Colour
+    ) -> bool:
+        """Paint the ink in ``colour``, overriding the palette role.
+
+        The role is how a caption follows the theme; an explicit colour is how
+        a status line goes red when its filter is invalid.  Both have to work,
+        so the explicit one wins until :meth:`set_role` takes it back.
+        """
+        resolved = colour_of(colour) if colour is not None else None
+        self._ink_override = (
+            resolved if resolved is not None and resolved.IsOk() else None
+        )
+        result = super().SetForegroundColour(colour)
+        self.Refresh()
+        return result
+
+    def SetFont(self, font: wx.Font) -> bool:  # noqa: N802 - wx API spelling
+        """Adopt ``font`` for measurement and drawing, overriding ``size_px``."""
+        self._font_override = (
+            wx.Font(font) if font is not None and font.IsOk() else None
+        )
+        result = super().SetFont(font)
+        self._relayout()
+        self.Refresh()
+        return result
+
+    def set_size_px(self, size_px: float, *, weight: Optional[int] = None) -> None:
+        """Return to a token-driven font at a new design size."""
+        self._size_px = float(size_px)
+        if weight is not None:
+            self._weight = weight
+        self._font_override = None
+        self._relayout()
+        self.Refresh()
+
+    # -- geometry ------------------------------------------------------------
+    def _font(self) -> wx.Font:
+        if self._font_override is not None:
+            return self._font_override
+        return tokens.font(
+            self, point_size(self._size_px), self._weight, mono=self._mono
+        )
+
+    def _display_text(self) -> str:
+        text = self.GetLabel()
+        return text.upper() if self._uppercase else text
+
+    def _leading(self, dc: wx.DC) -> int:
+        return max(1, int(round(dc.GetCharHeight() * self._line_factor)))
+
+    def _relayout(self) -> None:
+        with measuring(self) as dc:
+            dc.SetFont(self._font())
+            text = self._display_text()
+            tracking = tokens.scaled(int(self._tracking)) if self._tracking else 0
+            if self._wrap_width > 0 and not self._ellipsize:
+                self._lines = wrap_text(
+                    dc, text, self._wrap_width, max_lines=self._max_lines
+                )
+            else:
+                self._lines = text.split("\n") or [""]
+            width = max(
+                (tracked_width(dc, line, tracking) for line in self._lines),
+                default=0,
+            )
+            if self._wrap_width > 0:
+                width = min(width, self._wrap_width)
+            height = self._leading(dc) * max(1, len(self._lines))
+        self._best = wx.Size(max(1, width + TEXT_SLACK * 2), max(1, height))
+        self.InvalidateBestSize()
+        self.SetMinSize(self._best)
+        self.SetInitialSize(self._best)
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        return wx.Size(self._best)
+
+    def _apply_theme(self, palette: tokens.StudioPalette) -> None:
+        """Re-measure, because the font this draws with may have just changed.
+
+        Interface scale and the chosen font family both feed
+        :func:`tokens.font`, so a preferences change moves the text without
+        moving the control around it.  ``wx.StaticText`` got this for free:
+        every surface pushed a fresh ``SetFont`` into it on a theme change,
+        which re-measured as a side effect.  Nothing pushes a font in here, so
+        the re-measure has to be asked for -- otherwise the text grows and the
+        control it sits in stays the size it was, which is a clipped label.
+        """
+        if self._font_override is None:
+            self._relayout()
+
+    # -- painting ------------------------------------------------------------
+    def _ink(self, palette: tokens.StudioPalette) -> wx.Colour:
+        if self._ink_override is not None:
+            return self._ink_override
+        return palette.role(self._role)
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw every line of the text, shortened only when it must be."""
+        palette = self.palette()
+        with self._painting(dc, rect) as rect:
+            dc.SetFont(self._font())
+            dc.SetTextForeground(self._ink(palette))
+            tracking = tokens.scaled(int(self._tracking)) if self._tracking else 0
+            leading = self._leading(dc)
+            drawn: List[str] = []
+            y = 0
+            for line in self._lines:
+                text = elide(dc, line, rect.width) if self._ellipsize else line
+                drawn.append(text)
+                if tracking:
+                    draw_tracked_text(dc, text, 0, y, tracking)
+                else:
+                    dc.DrawText(text, 0, y)
+                y += leading
+            note_elision(self, "\n".join(self._lines), "\n".join(drawn))
+
+
 class Card(wx.Panel, _Themed):
     """A rounded container surface that keeps native children inside it."""
 
@@ -1395,6 +1644,208 @@ class ToggleSwitch(wx.Control, _Interactive):
             dc.DrawEllipse(knob_x, (height - knob) // 2, knob, knob)
             if self.HasFocus():
                 draw_focus_ring(dc, track, height // 2, palette.primary)
+
+
+class StudioCheckBox(wx.Control, _Interactive):
+    """The M3 checkbox: an 18px box, its tick, and the label beside it.
+
+    A switch and a checkbox are not interchangeable, which is why this exists
+    beside :class:`ToggleSwitch` rather than instead of it.  A switch says a
+    setting is on or off and applies immediately; a checkbox says an item is
+    included, and reads wrong on a row that opts one search field into regex or
+    ticks one entry in a list.  Substituting one for the other is a change to
+    what the control means, not a restyle.
+
+    It is drop-in for ``wx.CheckBox``: ``GetValue``, ``SetValue``,
+    ``IsChecked``, ``SetLabel`` and ``GetLabel`` keep their spelling, and
+    activation posts a real ``wx.EVT_CHECKBOX`` whose ``IsChecked`` answers
+    correctly -- so a surface that already binds the event keeps working
+    untouched, exactly as :class:`StudioButton` does for ``wx.EVT_BUTTON``.
+    """
+
+    BOX = 18
+    RADIUS = 2
+    BORDER = 2
+    GAP = 8
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        label: str = "",
+        *,
+        value: bool = False,
+        size_px: float = 12,
+        on_change: Optional[Callable[[bool], None]] = None,
+        name: str = "",
+    ) -> None:
+        super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
+        wx.Control.SetLabel(self, str(label))
+        self.value = bool(value)
+        self.on_change = on_change
+        self._size_px = float(size_px)
+        self._install(name or str(label) or "Checkbox")
+        self._bind_interaction()
+        self.SetInitialSize(self.DoGetBestSize())
+
+    # -- geometry ------------------------------------------------------------
+    def _font(self) -> wx.Font:
+        return tokens.font(self, point_size(self._size_px))
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        box = tokens.scaled(self.BOX)
+        label = self.GetLabel()
+        if not label:
+            return wx.Size(box, box)
+        with measuring(self) as dc:
+            dc.SetFont(self._font())
+            text_width, text_height = dc.GetTextExtent(label)
+        return wx.Size(
+            box + tokens.scaled(self.GAP) + text_width + TEXT_SLACK * 2,
+            max(box, text_height),
+        )
+
+    # -- state ---------------------------------------------------------------
+    def GetValue(self) -> bool:  # noqa: N802 - wx API spelling
+        """Return whether the box is ticked."""
+        return self.value
+
+    def IsChecked(self) -> bool:  # noqa: N802 - wx API spelling
+        """Return whether the box is ticked.  The ``wx.CheckBox`` spelling."""
+        return self.value
+
+    def SetValue(self, value: bool) -> None:  # noqa: N802 - wx API spelling
+        """Tick or clear the box without reporting the change.
+
+        ``wx.CheckBox.SetValue`` does not fire ``EVT_CHECKBOX`` either, so a
+        surface that sets a box from stored state does not re-enter its own
+        handler here any more than it did before.
+        """
+        self.set_value(value)
+
+    def set_value(self, value: bool, *, notify: bool = False) -> None:
+        """Set the box; ``notify`` decides whether the callback and event run."""
+        self.value = bool(value)
+        self.Refresh()
+        if notify:
+            invoke(self.on_change, self.value)
+            self._emit_checkbox()
+
+    def SetLabel(self, label: str) -> None:  # noqa: N802 - wx API spelling
+        """Replace the label and re-measure the control around it."""
+        wx.Control.SetLabel(self, str(label))
+        self.InvalidateBestSize()
+        self.SetMinSize(self.DoGetBestSize())
+        self.Refresh()
+
+    def _apply_theme(self, palette: tokens.StudioPalette) -> None:
+        """Re-measure: the label's font follows the interface scale.
+
+        The box is a fixed 18 design pixels but the label beside it is not, so
+        a scale change that leaves the control at its old width crops its own
+        text.  The native checkbox this replaces was re-measured by the
+        ``SetFont`` every surface pushed into it on a theme change.
+        """
+        self.InvalidateBestSize()
+        self.SetMinSize(self.DoGetBestSize())
+
+    def activate(self) -> None:
+        if not self.IsEnabled():
+            return
+        self.set_value(not self.value, notify=True)
+
+    def _emit_checkbox(self) -> None:
+        """Post the event a ``wx.CheckBox`` would post, carrying its state.
+
+        ``wx.CommandEvent.IsChecked`` reads the integer payload, so a handler
+        that asks the event rather than the control -- which is the ordinary
+        way to write one -- gets the right answer.
+        """
+        command = wx.CommandEvent(wx.EVT_CHECKBOX.typeId, self.GetId())
+        command.SetEventObject(self)
+        command.SetInt(1 if self.value else 0)
+        self.GetEventHandler().ProcessEvent(command)
+
+    # -- painting ------------------------------------------------------------
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the box, its tick, the label, and the focus ring."""
+        palette = self.palette()
+        with self._painting(dc, rect) as rect:
+            enabled = self.IsEnabled()
+            box = tokens.scaled(self.BOX)
+            top = rect.y + max(0, (rect.height - box) // 2)
+            square = wx.Rect(rect.x, top, box, box)
+            if self.value:
+                fill = palette.primary if enabled else palette.outline
+                tokens.draw_round_rect(
+                    dc, square, tokens.scaled(self.RADIUS), fill, fill
+                )
+                self._draw_tick(dc, square, palette.on_primary)
+            else:
+                border = palette.on_surface_variant if enabled else palette.outline
+                if self._hovered and enabled:
+                    border = palette.primary
+                tokens.draw_round_rect(
+                    dc,
+                    square,
+                    tokens.scaled(self.RADIUS),
+                    None,
+                    border,
+                    border_width=max(1, tokens.scaled(self.BORDER)),
+                )
+            content = wx.Rect(square)
+            label = self.GetLabel()
+            if label:
+                dc.SetFont(self._font())
+                ink = palette.on_surface_variant if enabled else palette.outline
+                dc.SetTextForeground(ink)
+                left = square.GetRight() + 1 + tokens.scaled(self.GAP)
+                drawn = elide(dc, label, max(0, rect.GetRight() + 1 - left))
+                note_elision(self, label, drawn)
+                text_height = dc.GetCharHeight()
+                dc.DrawText(
+                    drawn, left, rect.y + max(0, (rect.height - text_height) // 2)
+                )
+                content = wx.Rect(
+                    square.x,
+                    rect.y,
+                    min(rect.width, left - square.x + dc.GetTextExtent(drawn)[0]),
+                    rect.height,
+                )
+            if self.HasFocus():
+                # The ring hugs the box and its label rather than the allocated
+                # rectangle: a checkbox stretched by an EXPAND flag is as wide
+                # as its column, and a ring drawn around that reads as a
+                # selected row rather than a focused control.
+                draw_focus_ring(
+                    dc, content, tokens.scaled(self.RADIUS), palette.primary
+                )
+
+    def _draw_tick(self, dc: wx.DC, square: wx.Rect, ink: wx.Colour) -> None:
+        """Stroke the checkmark inside a ticked box.
+
+        It is drawn rather than set as a glyph because a font that lacks the
+        character renders its own name or a placeholder box, and a checkbox
+        whose tick is a hollow rectangle reads as unchecked.
+        """
+        pen = wx.Pen(ink, max(2, tokens.scaled(2)))
+        pen.SetCap(wx.CAP_ROUND)
+        pen.SetJoin(wx.JOIN_ROUND)
+        dc.SetPen(pen)
+        dc.SetBrush(wx.TRANSPARENT_BRUSH)
+        left = square.x + square.width * 0.24
+        middle_x = square.x + square.width * 0.43
+        right = square.x + square.width * 0.76
+        middle_y = square.y + square.height * 0.52
+        bottom = square.y + square.height * 0.70
+        top = square.y + square.height * 0.32
+        dc.DrawLines(
+            [
+                wx.Point(round(left), round(middle_y)),
+                wx.Point(round(middle_x), round(bottom)),
+                wx.Point(round(right), round(top)),
+            ]
+        )
+        dc.SetPen(wx.NullPen)
 
 
 class Stepper(wx.Control, _Interactive):
@@ -1718,8 +2169,9 @@ class RangeRow(wx.Panel, _Themed):
         self.on_change = on_change
         self._install(self.label or "Range")
         self._scale = max(1, round(1 / self.step)) if self.step < 1 else 1
-        self._caption = wx.StaticText(self, label=self.label)
-        self._caption.SetFont(tokens.font(self, point_size(14)))
+        self._caption = StudioText(
+            self, self.label, size_px=14, role="on_surface", name=self.label or "Range"
+        )
         self._pill = _ValuePill(self, format_number(value))
         self._slider = wx.Slider(
             self,
@@ -1773,8 +2225,9 @@ class RangeRow(wx.Panel, _Themed):
             if self.GetParent()
             else palette.surface
         )
-        self._caption.SetForegroundColour(palette.on_surface)
-        self._caption.SetFont(tokens.font(self, point_size(14)))
+        # The caption reads its ink from the ``on_surface`` role and its font
+        # from the tokens on every paint, so a theme or scale change lands
+        # without this pushing anything into it.
         self._slider.SetBackgroundColour(self.GetBackgroundColour())
         self._slider.SetForegroundColour(palette.primary)
 
@@ -2474,10 +2927,14 @@ class SearchBar(wx.Panel, _Themed):
         )
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self.field, 1, wx.ALIGN_CENTER_VERTICAL)
-        self.regex_box: Optional[wx.CheckBox] = None
+        self.regex_box: Optional[StudioCheckBox] = None
         if show_regex:
-            self.regex_box = wx.CheckBox(self, label="Regex")
-            self.regex_box.SetValue(bool(state.regex))
+            self.regex_box = StudioCheckBox(
+                self,
+                "Regex",
+                value=bool(state.regex),
+                size_px=11,
+            )
             self.regex_box.SetName(f"Use a regular expression for {state.label}")
             self.regex_box.SetToolTip(
                 "Plain text is the default. Turn this on to read the query as a "
@@ -2505,8 +2962,12 @@ class SearchBar(wx.Panel, _Themed):
                 wx.ALIGN_CENTER_VERTICAL | wx.LEFT,
                 tokens.scaled(tokens.SPACE_XS),
             )
-        self.feedback = wx.StaticText(self, label=state.feedback())
-        self.feedback.SetName(f"{state.label} search feedback")
+        self.feedback = StudioText(
+            self,
+            state.feedback(),
+            size_px=10 if compact else 11,
+            name=f"{state.label} search feedback",
+        )
         root = wx.BoxSizer(wx.VERTICAL)
         root.Add(row, 0, wx.EXPAND)
         root.Add(self.feedback, 0, wx.EXPAND | wx.TOP, tokens.scaled(tokens.SPACE_XS))
@@ -2622,12 +3083,12 @@ class SearchBar(wx.Panel, _Themed):
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
         feedback = getattr(self, "feedback", None)
         if feedback is not None:
-            feedback.SetFont(tokens.font(self, point_size(10 if self.compact else 11)))
+            feedback.set_size_px(10 if self.compact else 11)
             self.refresh_feedback()
-        if self.regex_box is not None:
-            self.regex_box.SetBackgroundColour(self.GetBackgroundColour())
-            self.regex_box.SetForegroundColour(palette.on_surface_variant)
-            self.regex_box.SetFont(tokens.font(self, point_size(11)))
+        # The regex box is owner-drawn and reads its own ink, border, and font
+        # from the tokens on every paint, so there is nothing to push into it
+        # here.  ``refresh_theme`` on this panel repaints it along with the
+        # rest of the row.
 
 
 class AnchoredPopup(wx.PopupTransientWindow):
@@ -4630,6 +5091,8 @@ __all__ = [
     "SlotGrid",
     "Stepper",
     "StudioButton",
+    "StudioCheckBox",
+    "StudioText",
     "Swatch",
     "TextureTile",
     "ToggleSwitch",

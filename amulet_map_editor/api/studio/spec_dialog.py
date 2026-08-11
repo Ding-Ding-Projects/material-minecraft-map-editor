@@ -471,8 +471,9 @@ class _CheckRow(wx.Panel):
     ) -> None:
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.on_change = on_change
-        self.check = wx.CheckBox(self, label=str(label))
-        self.check.SetValue(bool(value))
+        self.check = widgets.StudioCheckBox(
+            self, str(label), value=bool(value), size_px=14
+        )
         self.check.SetName(str(label))
         if hint:
             self.check.SetToolTip(str(hint))
@@ -506,9 +507,9 @@ class _CheckRow(wx.Panel):
         parent = self.GetParent()
         backdrop = parent.GetBackgroundColour() if parent else palette.surface
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        self.check.SetBackgroundColour(self.GetBackgroundColour())
-        self.check.SetForegroundColour(palette.on_surface)
-        self.check.SetFont(tokens.font(self, widgets.point_size(14)))
+        # The box is owner-drawn: it reads its border, tick, ink, and font from
+        # the tokens on every paint, so repainting it is the whole of the work.
+        self.check.refresh_theme()
         if self.hint is not None:
             self.hint.refresh_theme()
 
@@ -779,8 +780,9 @@ class SpecDialog(wx.Dialog):
 
         self.header = _EdgePanel(self, edge="bottom")
         self.eyebrow = _Eyebrow(self.header, spec.eyebrow)
-        self.title_text = wx.StaticText(self.header, label=spec.title)
-        self.title_text.SetName(spec.title)
+        self.title_text = widgets.StudioText(
+            self.header, spec.title, size_px=19, role="on_surface", name=spec.title
+        )
         self.search_bar = widgets.SearchBar(
             self.header,
             "Search this window",
@@ -2016,8 +2018,9 @@ class SpecDialog(wx.Dialog):
             palette = tokens.palette()
             self.SetBackgroundColour(palette.surface)
             self.body.SetBackgroundColour(palette.surface)
-            self.title_text.SetForegroundColour(palette.on_surface)
-            self.title_text.SetFont(tokens.font(self, widgets.point_size(19)))
+            # The title is owner-drawn and reads its role and its font per
+            # paint, so it follows a theme or scale change on its own.
+            self.title_text.refresh_theme()
             for strip in (self.header, self.footer):
                 strip.refresh_theme()
             for child in self.body.GetChildren():

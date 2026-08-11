@@ -984,6 +984,11 @@ class SearchableContextMenu(wx.PopupTransientWindow):
             raise KeyError(f"There is no context menu named {key!r}")
         self.key = str(key)
         self.title, self.items = found
+        # The popup names itself.  It had no accessible name of its own until
+        # now: a class-body scan for ``SetName(`` was satisfied by the call
+        # that named a *child*, so the menu a screen reader actually lands on
+        # announced nothing while the contract test read as green.
+        self.SetName(f"{self.title} menu")
         self.on_surface = on_surface
         self.on_command = on_command
         self.on_action = on_action
@@ -1019,9 +1024,9 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         self.list.SetScrollRate(0, tokens.scaled(10))
         self.list_sizer = wx.BoxSizer(wx.VERTICAL)
         self.list.SetSizer(self.list_sizer)
-        self.empty = wx.StaticText(self.list, label="")
-        self.empty.SetName(f"{self.title} menu results")
-        self.empty.SetForegroundColour(palette.on_surface_variant)
+        self.empty = widgets.StudioText(
+            self.list, "", size_px=12, name=f"{self.title} menu results"
+        )
         self.list_sizer.Add(self.empty, 0, wx.EXPAND | wx.ALL, tokens.scaled(6))
 
         root = wx.BoxSizer(wx.VERTICAL)
@@ -1294,7 +1299,7 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         self.SetBackgroundColour(palette.surface)
         for panel in (self.header, self.list):
             panel.SetBackgroundColour(palette.surface)
-        self.empty.SetForegroundColour(palette.on_surface_variant)
+        self.empty.refresh_theme()
         for child in (self.heading, self.search, *self._rows):
             refresh = getattr(child, "refresh_theme", None)
             if callable(refresh):
@@ -1490,9 +1495,9 @@ class _GroupPicker(widgets.AnchoredPopup):
         header_sizer.Add(self.search, 0, wx.EXPAND)
         self.header.SetSizer(header_sizer)
 
-        self.empty = wx.StaticText(self.content, label="")
-        self.empty.SetName("Tab group results")
-        self.empty.SetForegroundColour(palette.on_surface_variant)
+        self.empty = widgets.StudioText(
+            self.content, "", size_px=12, name="Tab group results"
+        )
         self.content_sizer.Add(self.empty, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(8))
         self.ungrouped = widgets.StudioButton(
             self.content,
