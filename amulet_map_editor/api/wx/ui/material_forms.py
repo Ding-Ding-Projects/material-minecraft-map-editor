@@ -883,6 +883,14 @@ class MaterialListBox(wx.Control, _Interactive):
     def GetStrings(self) -> List[str]:  # noqa: N802 - wx API spelling
         return list(self._items)
 
+    def SetItems(self, choices: Sequence[str]) -> None:  # noqa: N802 - wx API spelling
+        """``wx.ItemContainer``'s spelling of :meth:`Set`, kept for callers of it."""
+        self.Set(choices)
+
+    def GetItems(self) -> List[str]:  # noqa: N802 - wx API spelling
+        """``wx.ItemContainer``'s spelling of :meth:`GetStrings`, kept the same way."""
+        return self.GetStrings()
+
     def GetSelection(self) -> int:  # noqa: N802 - wx API spelling
         return self._selection
 

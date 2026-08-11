@@ -21,9 +21,11 @@ import wx
 import wx.adv
 
 from amulet_map_editor.api import image, lang, preferences
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.components import MaterialButton, MaterialCard
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.modeless import show_modeless_dialog
+from amulet_map_editor.api.wx.ui import material_forms as forms
 from amulet_map_editor.api.wx.ui.documentation import DocumentationDialog
 from .base_page import BasePageUI
 from amulet_map_editor.api.wx.ui.select_world import open_level_from_dialog
@@ -63,12 +65,19 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         hero.Add(icon, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 18)
         hero_copy = wx.BoxSizer(wx.VERTICAL)
         hero.Add(hero_copy, 1, wx.ALIGN_CENTER_VERTICAL)
-        self._amulet_name = wx.StaticText(
-            self._start_card, name="Main menu title heading"
+        self._amulet_name = studio.StudioText(
+            self._start_card,
+            size_px=20,
+            weight=wx.FONTWEIGHT_MEDIUM,
+            role="on_surface",
+            name="Main menu title heading",
         )
         hero_copy.Add(self._amulet_name, 0, wx.BOTTOM | wx.EXPAND, 6)
-        self._hero_subtitle = wx.StaticText(
-            self._start_card, name="Main menu supporting text"
+        self._hero_subtitle = studio.StudioText(
+            self._start_card,
+            size_px=13,
+            role="on_surface_variant",
+            name="Main menu supporting text",
         )
         hero_copy.Add(self._hero_subtitle, 0, wx.EXPAND)
 
@@ -101,7 +110,7 @@ class AmuletMainMenu(wx.Panel, BasePageUI):
         community_actions.Add(self._discord_button, 1, wx.LEFT | wx.EXPAND, 6)
 
         card_sizer.Add(
-            wx.StaticLine(self._start_card), 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 28
+            studio.Divider(self._start_card), 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 28
         )
         utility_actions = wx.BoxSizer(wx.HORIZONTAL)
         card_sizer.Add(utility_actions, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 18)
@@ -217,11 +226,13 @@ class LangSelectDialog(wx.Dialog):
 
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
 
-        self._label = wx.StaticText(
+        self._label = studio.StudioText(
             self,
-            label=preferences.resolve_display_name(lang.get("language_select.help")),
+            preferences.resolve_display_name(lang.get("language_select.help")),
+            size_px=13,
+            role="on_surface",
         )
-        sizer_1.Add(self._label, 0, wx.ALIGN_CENTER)
+        sizer_1.Add(self._label, 0, wx.ALIGN_CENTER | wx.ALL, 12)
 
         self.hyperlink_1 = wx.adv.HyperlinkCtrl(
             self,
@@ -229,27 +240,33 @@ class LangSelectDialog(wx.Dialog):
             lang.get("language_select.contribute"),
             "https://github.com/Amulet-Team/Amulet-Map-Editor#contributing",
         )
-        sizer_1.Add(self.hyperlink_1, 0, wx.ALIGN_CENTER)
+        sizer_1.Add(self.hyperlink_1, 0, wx.ALIGN_CENTER | wx.BOTTOM, 12)
 
-        self._lang_list_box = wx.ListBox(self, choices=lang.get_languages())
-        self._lang_list_box.SetSelection(
-            self._lang_list_box.FindString(lang.get_language())
+        language_choices = lang.get_languages()
+        self._lang_list_box = forms.MaterialListBox(
+            self, language_choices, name="Available languages"
         )
-        sizer_1.Add(self._lang_list_box, 1, wx.EXPAND, 0)
-
-        sizer_2 = wx.StdDialogButtonSizer()
-        sizer_1.Add(sizer_2, 0, wx.ALIGN_RIGHT | wx.ALL, 4)
-
-        self._button_ok = wx.Button(self, wx.ID_OK, lang.get("language_select.ok"))
-        self._button_ok.SetDefault()
-        sizer_2.AddButton(self._button_ok)
-
-        self._button_cancel = wx.Button(
-            self, wx.ID_CANCEL, lang.get("language_select.cancel")
+        try:
+            selected_index = language_choices.index(lang.get_language())
+        except ValueError:
+            selected_index = wx.NOT_FOUND
+        self._lang_list_box.SetSelection(selected_index)
+        sizer_1.Add(
+            self._lang_list_box, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 12
         )
-        sizer_2.AddButton(self._button_cancel)
 
-        sizer_2.Realize()
+        self._button_ok = studio.StudioButton(
+            self, lang.get("language_select.ok"), variant="filled", name="OK"
+        )
+        self._button_ok.SetId(wx.ID_OK)
+        self._button_cancel = studio.StudioButton(
+            self, lang.get("language_select.cancel"), variant="outlined", name="Cancel"
+        )
+        self._button_cancel.SetId(wx.ID_CANCEL)
+        sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_2.Add(self._button_cancel, 0, wx.RIGHT, 8)
+        sizer_2.Add(self._button_ok, 0)
+        sizer_1.Add(sizer_2, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
 
         self.SetSizer(sizer_1)
         sizer_1.Fit(self)

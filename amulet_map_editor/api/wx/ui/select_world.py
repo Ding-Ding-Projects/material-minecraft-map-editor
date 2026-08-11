@@ -15,6 +15,7 @@ from amulet import load_format
 from amulet.api.errors import FormatError
 
 from amulet_map_editor import lang, CONFIG
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.ui import simple
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
@@ -257,9 +258,9 @@ class WorldUI(wx.Panel):
         self.img = wx.StaticBitmap(self, wx.ID_ANY, img, (0, 0), (width, 128))
         sizer.Add(self.img)
 
-        self.world_name = wx.StaticText(
+        self.world_name = studio.StudioText(
             self,
-            label="\n".join(
+            "\n".join(
                 [
                     world_format.level_name,
                     world_format.game_version_string,
@@ -268,6 +269,9 @@ class WorldUI(wx.Panel):
                     ),
                 ]
             ),
+            size_px=13,
+            role="on_surface",
+            name=world_format.level_name,
         )
         sizer.Add(self.world_name, 0, wx.ALL | wx.ALIGN_CENTER, 5)
 
@@ -363,8 +367,11 @@ class CollapsibleWorldListUI(wx.CollapsiblePane):
                     process.call(["xdg-open", root_directory])
                 evt.Skip()
 
-            open_directory_button = wx.Button(
-                panel, label=lang.get("select_world.open_directory")
+            open_directory_button = studio.StudioButton(
+                panel,
+                lang.get("select_world.open_directory"),
+                variant="outlined",
+                name=lang.get("select_world.open_directory"),
             )
             panel_sizer.Add(
                 open_directory_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 5
@@ -426,16 +433,22 @@ class WorldSelectUI(wx.Panel):
         sizer.Add(header_sizer, 0, wx.EXPAND)
         header_sizer.AddStretchSpacer()
 
-        self.header_open_world = wx.Button(
-            self, label=lang.get("select_world.open_world_button")
+        self.header_open_world = studio.StudioButton(
+            self,
+            lang.get("select_world.open_world_button"),
+            variant="filled",
+            name=lang.get("select_world.open_world_button"),
         )
         self.header_open_world.Bind(wx.EVT_BUTTON, self._open_world)
         header_sizer.Add(self.header_open_world)
 
         header_sizer.AddSpacer(20)
 
-        self.header_open_mcworld = wx.Button(
-            self, label=lang.get("select_world.open_mcworld_button")
+        self.header_open_mcworld = studio.StudioButton(
+            self,
+            lang.get("select_world.open_mcworld_button"),
+            variant="outlined",
+            name=lang.get("select_world.open_mcworld_button"),
         )
         self.header_open_mcworld.Bind(wx.EVT_BUTTON, self._open_mcworld)
         header_sizer.Add(self.header_open_mcworld)
@@ -595,13 +608,11 @@ class RecentWorldUI(wx.Panel):
         self._sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self._sizer)
 
-        text = wx.StaticText(
+        text = studio.StudioText(
             self,
-            wx.ID_ANY,
             lang.get("select_world.recent_worlds"),
-            wx.DefaultPosition,
-            wx.DefaultSize,
-            0,
+            size_px=13,
+            role="on_surface",
         )
         self._sizer.Add(
             text,
@@ -640,9 +651,11 @@ class WorldSelectAndRecentUI(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)
 
-        warning_text = wx.StaticText(
+        warning_text = studio.StudioText(
             self,
-            label=lang.get("select_world.open_world_warning"),
+            lang.get("select_world.open_world_warning"),
+            size_px=13,
+            role="on_surface",
         )
         sizer.Add(warning_text, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
         # bar

@@ -4,6 +4,7 @@ import logging
 import wx
 
 from amulet_map_editor.api import lang
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
 from amulet_map_editor.api.wx.ui.simple import (
@@ -12,7 +13,6 @@ from amulet_map_editor.api.wx.ui.simple import (
     SimpleScrollablePanel,
     SimpleChoice,
 )
-from amulet_map_editor.api.image import ADD_ICON, SUBTRACT_ICON, EDIT_ICON
 
 log = logging.getLogger(__name__)
 
@@ -406,15 +406,36 @@ class KeyConfig(wx.BoxSizer):
         self._choice.Bind(wx.EVT_CHOICE, self._on_group_change)
         top_sizer.Add(self._choice, 1, wx.ALL | wx.EXPAND, 5)
 
-        add = wx.BitmapButton(parent, bitmap=ADD_ICON.bitmap(32, 32))
+        add = studio.StudioButton(
+            parent,
+            "",
+            variant="icon",
+            glyph="+",
+            hint="Add a new keybind group",
+            name="Add keybind group",
+        )
         add.Bind(wx.EVT_BUTTON, lambda evt: self._create_new_group())
         top_sizer.Add(add, 0, wx.ALL, 5)
 
-        self._delete = wx.BitmapButton(parent, bitmap=SUBTRACT_ICON.bitmap(32, 32))
+        self._delete = studio.StudioButton(
+            parent,
+            "",
+            variant="icon",
+            glyph="−",
+            hint="Delete this keybind group",
+            name="Delete keybind group",
+        )
         self._delete.Bind(wx.EVT_BUTTON, lambda evt: self._delete_group())
         top_sizer.Add(self._delete, 0, wx.ALL, 5)
 
-        self._rename = wx.BitmapButton(parent, bitmap=EDIT_ICON.bitmap(32, 32))
+        self._rename = studio.StudioButton(
+            parent,
+            "",
+            variant="icon",
+            glyph="✎",
+            hint="Rename this keybind group",
+            name="Rename keybind group",
+        )
         self._rename.Bind(wx.EVT_BUTTON, lambda evt: self._rename_group())
         top_sizer.Add(self._rename, 0, wx.ALL, 5)
 
@@ -423,16 +444,24 @@ class KeyConfig(wx.BoxSizer):
 
         grid_sizer = wx.GridSizer(len(entries), 2, 5, 5)
         self._options.sizer.Add(grid_sizer, 0, wx.ALL | wx.EXPAND, 5)
-        self._key_buttons: Dict[str, wx.Button] = {}
+        self._key_buttons: Dict[str, studio.StudioButton] = {}
         for action in entries:
             grid_sizer.Add(
-                wx.StaticText(
-                    self._options, label=lang.get(f"action.{action.lower()}")
+                studio.StudioText(
+                    self._options,
+                    lang.get(f"action.{action.lower()}"),
+                    size_px=13,
+                    role="on_surface",
                 ),
                 0,
                 wx.ALIGN_CENTER,
             )
-            self._key_buttons[action] = button = wx.Button(self._options)
+            self._key_buttons[action] = button = studio.StudioButton(
+                self._options,
+                "",
+                variant="outlined",
+                name=f"{lang.get(f'action.{action.lower()}')} key",
+            )
             button.Bind(wx.EVT_BUTTON, lambda evt, a=action: self._modify_button(a))
             grid_sizer.Add(button, 0, wx.EXPAND)
         self._rebuild_buttons()

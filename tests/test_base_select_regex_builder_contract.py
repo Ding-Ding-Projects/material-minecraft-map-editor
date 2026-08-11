@@ -8,7 +8,12 @@ DIALOG = Path("amulet_map_editor/api/wx/ui/regex_dialog.py").read_text(encoding=
 
 def test_base_select_has_adjacent_regex_builder_and_bounded_search():
     assert "RegexBuilderDialog" in BASE
-    assert 'label="Regex…"' in BASE
+    # The regex affordance moved from a native ``wx.Button(..., label="Regex…")``
+    # to a painted ``studio.StudioButton`` carrying the same label as its first
+    # positional argument, so the button still photographs and still reads
+    # "Regex…" -- only the constructor shape changed.
+    assert '"Regex…"' in BASE
+    assert "StudioButton(" in BASE
     assert "RegexBuilder(" in BASE
     assert "search_str[:4096]" in BASE
 

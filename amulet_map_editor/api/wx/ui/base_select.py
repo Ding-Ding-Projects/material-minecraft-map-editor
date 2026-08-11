@@ -1,15 +1,93 @@
 import wx
 from wx.lib import newevent
 import re
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Sequence
 
 import PyMCTranslate
 
-from amulet_map_editor.api.image import COLOUR_PICKER
 from amulet_map_editor.api import lang, preferences
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.ui import material_forms as forms
 from amulet_map_editor.api.regex_builder import RegexBuilder
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
+
+
+class _NamespaceCombo(wx.Panel):
+    """A typed namespace field with a dropdown of namespaces seen so far.
+
+    Stands in for ``wx.ComboBox`` -- the last one left anywhere in this
+    project.  Its shape matches: typing is free text and posts
+    ``wx.EVT_TEXT`` exactly as a plain text entry does (a namespace like a
+    mod id is not required to be one of the known options), and the dropdown
+    only ever offers namespaces :meth:`Set` was actually given -- there is no
+    invented default in it.
+    """
+
+    def __init__(self, parent: wx.Window, name: str = "Namespace") -> None:
+        super().__init__(parent, style=wx.TAB_TRAVERSAL)
+        self._items: List[str] = []
+        self.field = forms.MaterialTextField(self, name=name)
+        self._browse = studio.StudioButton(
+            self,
+            "▾",
+            variant="outlined",
+            hint="Choose a known namespace",
+            name=f"{name} choices",
+        )
+        self._browse.SetMinSize(wx.Size(36, -1))
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(self.field, 1, wx.EXPAND | wx.RIGHT, 4)
+        row.Add(self._browse, 0, wx.EXPAND)
+        self.SetSizer(row)
+        self._browse.Bind(wx.EVT_BUTTON, self._open_popup)
+
+    def Bind(self, event, handler, source=None):  # noqa: N802 - wx API spelling
+        if event == wx.EVT_TEXT:
+            return self.field.Bind(event, handler, source)
+        return super().Bind(event, handler, source)
+
+    def Set(self, items: Sequence[str]) -> None:  # noqa: N802 - wx API spelling
+        """Replace the known namespaces offered by the dropdown."""
+        self._items = [str(item) for item in items]
+
+    def GetItems(self) -> List[str]:  # noqa: N802 - wx API spelling
+        return list(self._items)
+
+    def GetValue(self) -> str:  # noqa: N802 - wx API spelling
+        return self.field.GetValue()
+
+    def ChangeValue(self, value: str) -> None:  # noqa: N802 - wx API spelling
+        """Replace the text without raising ``wx.EVT_TEXT``."""
+        self.field.ChangeValue(value)
+
+    def SetSelection(self, index: int) -> None:  # noqa: N802 - wx API spelling
+        """Choose a known namespace by index, silently, as ``wx.ComboBox`` does."""
+        if 0 <= index < len(self._items):
+            self.field.ChangeValue(self._items[index])
+
+    def SetToolTip(self, tip) -> None:  # noqa: N802 - wx API spelling
+        self.field.SetToolTip(tip)
+
+    def _open_popup(self, _event: wx.Event) -> None:
+        if not self._items:
+            return
+        popup = studio.AnchoredPopup(self, self._browse, width=220, max_height=260)
+        listbox = forms.MaterialListBox(
+            popup.content, self._items, name="Known namespaces"
+        )
+        popup.content_sizer.Add(listbox, 1, wx.EXPAND)
+
+        def _choose(event: wx.CommandEvent) -> None:
+            # A real value change, raised the same way typing one does, so
+            # anything bound to this control's ``wx.EVT_TEXT`` fires exactly
+            # as it would for a namespace picked from a real combo box.
+            self.field.SetValue(listbox.GetStringSelection())
+            popup.Dismiss()
+            event.Skip()
+
+        listbox.Bind(wx.EVT_LISTBOX, _choose)
+        popup.popup()
 
 
 def _copy(key: str, mode: str) -> str:
@@ -69,14 +147,17 @@ class BaseSelect(wx.Panel):
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._sizer.Add(sizer, 0, wx.EXPAND | wx.ALL, 5)
-        text = wx.StaticText(
+        text = studio.StudioText(
             self,
-            label=_copy("namespace", self._language_mode),
-            style=wx.ALIGN_CENTER,
+            _copy("namespace", self._language_mode),
+            size_px=13,
+            role="on_surface",
         )
         sizer.Add(text, 1, wx.ALIGN_CENTER_VERTICAL)
-        self._namespace_combo = wx.ComboBox(self)
-        sizer.Add(self._namespace_combo, 2)
+        self._namespace_combo = _NamespaceCombo(
+            self, name=_copy("namespace", self._language_mode)
+        )
+        sizer.Add(self._namespace_combo, 2, wx.EXPAND)
         self._set_version((platform, version_number, force_blockstate or False))
         self._populate_namespace()
         self.set_namespace(namespace)
@@ -94,12 +175,13 @@ class BaseSelect(wx.Panel):
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(header_sizer, 0, wx.EXPAND | wx.BOTTOM, 5)
         header_sizer.Add(
-            wx.StaticText(
+            studio.StudioText(
                 self,
-                label=_copy("name", self._language_mode).format(
+                _copy("name", self._language_mode).format(
                     type_name=self.TypeName.capitalize()
                 ),
-                style=wx.ALIGN_CENTER,
+                size_px=13,
+                role="on_surface",
             ),
             1,
             wx.ALIGN_CENTER_VERTICAL,
@@ -109,21 +191,33 @@ class BaseSelect(wx.Panel):
         self._search = wx.SearchCtrl(self)
         self._search.SetHint(_copy("search", self._language_mode))
         search_sizer.Add(self._search, 1, wx.ALIGN_CENTER_VERTICAL)
-        self._regex_button = wx.Button(self, label="Regex…")
-        self._regex_button.SetToolTip("Build a bounded regular-expression search")
+        self._regex_button = studio.StudioButton(
+            self,
+            "Regex…",
+            variant="outlined",
+            hint="Build a bounded regular-expression search",
+            name="Regex builder",
+        )
         search_sizer.Add(self._regex_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 6)
         self._search_regex_enabled = False
         self._search_flags = 0
         self._regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
         self._search.Bind(wx.EVT_TEXT, self._on_search_change)
         if show_pick:
-            pick_button = wx.BitmapButton(self, bitmap=COLOUR_PICKER.bitmap(22, 22))
+            pick_button = studio.StudioButton(
+                self,
+                "",
+                variant="icon",
+                glyph="🎨",
+                hint="Pick from the world",
+                name="Pick from the world",
+            )
             search_sizer.Add(pick_button, 0, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 5)
             pick_button.Bind(
                 wx.EVT_BUTTON,
                 lambda evt: wx.PostEvent(self, PickEvent(self.GetId(), widget=self)),
             )
-        self._list_box = wx.ListBox(self, style=wx.LB_SINGLE)
+        self._list_box = forms.MaterialListBox(self, name="Matching names")
         sizer.Add(self._list_box, 1, wx.EXPAND)
 
         self._names: List[str] = []
@@ -251,7 +345,7 @@ class BaseSelect(wx.Panel):
             if current_string in names:
                 index = names.index(current_string)
 
-        self._list_box.SetItems(names)
+        self._list_box.Set(names)
         if index:
             # if the previously selected string is in the list select that
             self._list_box.SetSelection(index)
@@ -260,7 +354,7 @@ class BaseSelect(wx.Panel):
             # if the searched text perfectly matches select that
             self._list_box.SetSelection(names.index(search_str))
             return True
-        elif len(self._list_box.GetItems()) >= 2:
+        elif len(self._list_box.GetStrings()) >= 2:
             self._list_box.SetSelection(1)
             return True
         else:

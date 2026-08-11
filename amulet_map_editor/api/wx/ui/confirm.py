@@ -8,6 +8,7 @@ from typing import Iterator
 import wx
 
 from amulet_map_editor.api import preferences
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.material3 import apply_material3
 
 
@@ -23,25 +24,31 @@ class MaterialConfirmDialog(wx.Dialog):
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         root = wx.BoxSizer(wx.VERTICAL)
-        body = wx.StaticText(self, label=message)
-        body.Wrap(640)
+        body = studio.StudioText(
+            self, message, size_px=13, role="on_surface", wrap_width=640
+        )
         root.Add(body, 1, wx.ALL | wx.EXPAND, 20)
 
-        buttons = wx.StdDialogButtonSizer()
+        buttons = wx.BoxSizer(wx.HORIZONTAL)
+        buttons.AddStretchSpacer()
         if style & wx.YES:
-            yes = wx.Button(self, wx.ID_YES, "Yes")
+            yes = studio.StudioButton(self, "Yes", variant="filled", name="Yes")
+            yes.SetId(wx.ID_YES)
             yes.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_YES))
-            buttons.AddButton(yes)
+            buttons.Add(yes, 0, wx.LEFT, 8)
         if style & wx.NO:
-            no = wx.Button(self, wx.ID_NO, "No")
+            no = studio.StudioButton(self, "No", variant="outlined", name="No")
+            no.SetId(wx.ID_NO)
             no.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_NO))
-            buttons.AddButton(no)
+            buttons.Add(no, 0, wx.LEFT, 8)
         if style & wx.CANCEL:
-            cancel = wx.Button(self, wx.ID_CANCEL, "Cancel")
+            cancel = studio.StudioButton(
+                self, "Cancel", variant="outlined", name="Cancel"
+            )
+            cancel.SetId(wx.ID_CANCEL)
             cancel.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CANCEL))
-            buttons.AddButton(cancel)
+            buttons.Add(cancel, 0, wx.LEFT, 8)
             self.SetEscapeId(wx.ID_CANCEL)
-        buttons.Realize()
         root.Add(buttons, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
         self.SetSizerAndFit(root)
         apply_material3(self)
