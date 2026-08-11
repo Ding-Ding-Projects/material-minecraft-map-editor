@@ -44,13 +44,24 @@ from amulet_map_editor.api.studio import context
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "ANCHORS",
+    "ANCHOR_BASE",
+    "ANCHOR_CENTRE",
+    "ANCHOR_MAXIMUM",
+    "ANCHOR_MINIMUM",
     "Activation",
     "BRIDGES",
+    "Outcome",
     "PendingObject",
+    "STOCK_OPERATIONS",
     "SelectionState",
     "ToolBridge",
     "activate",
+    "active_operation_name",
     "active_tool_name",
+    "anchor_label",
+    "anchor_offset",
+    "anchor_point",
     "bridge",
     "camera_location",
     "cancel_pending",
@@ -59,9 +70,12 @@ __all__ = [
     "install_surface_routes",
     "is_tool_surface",
     "keys",
+    "location_for_anchor",
     "movement_keys",
     "movement_sentence",
+    "normalise_anchor",
     "nudge_pending",
+    "paste_box",
     "pending_object",
     "selection_state",
     "set_pending_location",
@@ -95,6 +109,10 @@ class ToolBridge:
     missing: str = ""
     lift: str = ""
     needs_selection: bool = False
+    #: The operation plugin this surface asks the tool to select, by the name
+    #: its own ``export`` gives it.  Empty means the tool starts on whatever it
+    #: was last showing, which is what the plain ``operationOptions`` key means.
+    operation: str = ""
 
     @property
     def available(self) -> bool:
@@ -105,6 +123,38 @@ class ToolBridge:
 def _bridge(**kwargs: Any) -> Tuple[str, ToolBridge]:
     entry = ToolBridge(**kwargs)
     return entry.key, entry
+
+
+#: The stock operations the Operations tab offers as tiles: the surface key, the
+#: label the tile shows, and the operation plugin's own ``export["name"]``.  The
+#: third column is the one that matters -- it is handed to the Operation tool as
+#: the tool change's state, and the tool selects it in its own list.
+STOCK_OPERATIONS: Tuple[Tuple[str, str, str], ...] = (
+    ("operationClone", "Clone", "Clone"),
+    ("operationFill", "Fill", "Fill"),
+    ("operationReplace", "Replace", "Replace"),
+    ("operationSetBiome", "Set biome", "Set Biome"),
+    ("operationWaterlog", "Waterlog", "Waterlog"),
+)
+
+
+def _operation_bridges() -> Tuple[Tuple[str, ToolBridge], ...]:
+    """Return one bridge per stock operation, each naming its own operation."""
+    return tuple(
+        _bridge(
+            key=key,
+            label=label,
+            tool="Operation",
+            kind="operation",
+            operation=operation,
+            summary=(
+                f"Activates the editor's Operation tool with the {operation} "
+                "operation selected, so its own options and its Run control are "
+                "showing without the list having to be searched first."
+            ),
+        )
+        for key, label, operation in STOCK_OPERATIONS
+    )
 
 
 #: Every Studio surface key this module answers for.  A key that is not here is
@@ -210,6 +260,14 @@ BRIDGES: Mapping[str, ToolBridge] = MappingProxyType(
                     "options."
                 ),
             ),
+            # One key per stock operation, because one key for all of them is a
+            # tile that cannot mean anything different from its neighbour.  The
+            # five below shared ``operationOptions`` and therefore all arrived on
+            # whichever operation the chooser sorted first, which is Clone -- so
+            # Clone looked correct while its four siblings silently opened it
+            # instead of themselves.  ``operation`` is the plugin's own
+            # ``export["name"]``, and it is what the chooser is asked for.
+            *_operation_bridges(),
             _bridge(
                 key="exportStructure",
                 label="Export selection",
@@ -361,6 +419,34 @@ def active_tool_name(target: Any = None) -> str:
     return ""
 
 
+def _same_operation(left: str, right: str) -> bool:
+    """Return whether two operation names are the same one, spelled either way.
+
+    ``Set Biome`` is the plugin's spelling and ``Set biome`` is the tile's, so
+    an exact comparison would report a correct arrival as a failure.
+    """
+    return (
+        " ".join(str(left or "").split()).casefold()
+        == " ".join(str(right or "").split()).casefold()
+    )
+
+
+def active_operation_name(target: Any = None) -> str:
+    """Return the operation the editor's Operation tool is showing, or ``""``.
+
+    Read from the tool's own chooser, which is the control the user is looking
+    at, rather than from anything a caller remembers having asked for.
+    """
+    tool = tool_named("Operation", target)
+    if tool is None:
+        return ""
+    try:
+        return str(tool.active_operation_name or "")
+    except Exception:  # noqa: BLE001 - a tool without its chooser yet
+        log.debug("Could not read the selected operation", exc_info=True)
+        return ""
+
+
 def _settle(passes: int = 3) -> None:
     """Let the canvas handle the events just posted at it.
 
@@ -385,7 +471,15 @@ def _settle(passes: int = 3) -> None:
 
 
 def _post_tool_change(target: Any, name: str, state: Any = None) -> bool:
-    """Ask the editor to switch tools, the way its own buttons do."""
+    """Ask the editor to switch tools, the way its own buttons do.
+
+    A true answer means the event was **posted and settled**, not that the tool
+    changed: the switch is somebody else's handler and it may refuse.  Every
+    caller here therefore checks the canvas afterwards -- ``_switch`` against
+    ``active_tool_name`` and ``cancel_pending`` against the paste tool having
+    let go -- and a new caller that reports this return as an outcome would be
+    reporting that it asked.
+    """
     try:
         import wx
 
@@ -407,6 +501,105 @@ def _report(parent: Any, title: str, body: str, severity: str = "warning") -> No
         nonblocking.notify(parent, title, body, severity=severity)
     except Exception:  # pragma: no cover - the reporter itself is unavailable
         log.warning("%s: %s", title, body)
+
+
+def _say(english: str, cantonese: str) -> str:
+    """Return one message in the reader's language and tone.
+
+    The tone styles the voice and never the fact: ``studio_text`` leaves an
+    identifier, a coordinate or a count exactly as it was written and appends
+    its aside around the sentence, so a funny level cannot change which
+    operation failed or what the undo depth was.  When the copy module cannot
+    be reached at all the English is returned rather than nothing -- a message
+    in the wrong language is still a message, and silence is not.
+    """
+    try:
+        from amulet_map_editor.api.studio.copy import studio_text
+
+        return studio_text(english, cantonese)
+    except Exception:  # noqa: BLE001 - preferences unreadable this early
+        log.debug("Studio copy is unavailable; reporting in English", exc_info=True)
+        return english
+
+
+def _one_line(text: str) -> str:
+    """Flatten a heading onto one line for a surface that will not take two.
+
+    Bilingual mode joins its two labels with a newline, which is right for a
+    pane that renders a prominent line above a compact one and wrong for a
+    notification title: the store rejects every character below space, so a
+    two-line title raised out of the notifier and the message never reached the
+    notification centre at all.  Silently losing the report of a lost paste is
+    the same defect one layer further out, so the separator becomes the one the
+    notifier already uses for a folded body.
+    """
+    return " · ".join(part.strip() for part in str(text).splitlines() if part.strip())
+
+
+def _say_label(english: str, cantonese: str) -> str:
+    """Return a short heading in the reader's language, with no tone applied.
+
+    A notification title is a name rather than the application talking, and a
+    name with a funny-level aside on the end stops being a name and starts
+    being clipped.
+    """
+    try:
+        from amulet_map_editor.api.studio.copy import studio_label
+
+        return studio_label(english, cantonese)
+    except Exception:  # noqa: BLE001 - preferences unreadable this early
+        log.debug("Studio copy is unavailable; reporting in English", exc_info=True)
+        return english
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """What one attempt to change the world actually did.
+
+    ``bool(outcome)`` is ``ok``, so a caller that only wants a yes or no still
+    reads it as one and the older ``if not confirm_pending():`` shape keeps
+    working.  A caller that has to tell the user *what* went wrong reads
+    ``title`` and ``message``, which are already in the reader's language and
+    tone, and ``reason``, which is a stable token so a surface can decide what
+    to do without matching on prose.
+
+    ``reason`` is empty on success.  The failures are ``nothing-pending`` (the
+    paste tool is not holding anything, so the surface showing it is stale),
+    ``no-confirm`` (this build's paste tool has no confirm at all),
+    ``not-written`` (the confirm ran and the world did not change) and
+    ``still-held`` (the object was not dropped and is still drawn).  Those four
+    want four different things from the interface, which is exactly why a bare
+    ``False`` was not enough: it made "the tool went away" and "your blocks were
+    not written" the same answer.
+    """
+
+    ok: bool
+    reason: str = ""
+    title: str = ""
+    message: str = ""
+
+    def __bool__(self) -> bool:
+        return bool(self.ok)
+
+
+def _refused(
+    parent: Any,
+    reason: str,
+    title: Tuple[str, str],
+    message: Tuple[str, str],
+    severity: str = "error",
+) -> Outcome:
+    """Build one failed outcome and say it where the user can see it.
+
+    Reporting happens here rather than being left to the caller for the reason
+    the module's activations already report their own refusals: a caller that
+    forgets is a silent failure, and a silent failure after a button press is
+    indistinguishable from a success.
+    """
+    said_title = _one_line(_say_label(*title))
+    said_message = _say(*message)
+    _report(parent, said_title, said_message, severity=severity)
+    return Outcome(ok=False, reason=reason, title=said_title, message=said_message)
 
 
 # ---------------------------------------------------------------------------
@@ -453,6 +646,198 @@ def selection_state(target: Any = None) -> SelectionState:
 
 
 # ---------------------------------------------------------------------------
+# where a paste actually lands
+# ---------------------------------------------------------------------------
+#
+# The paste tool's ``location`` is the *centre* of the structure, not a corner.
+# amulet-core's clone takes ``rotation_point = (min + max) // 2`` of the source
+# bounds and displaces the whole thing by ``location - rotation_point``, so a
+# 4x1x4 slab sent to ``(8, 40, 8)`` fills ``(6, 40, 6)..(9, 40, 9)`` -- half a
+# structure away from the numbers the user typed, with nothing on screen saying
+# so.  That is the most likely cause of "cloning doesn't work" from somebody who
+# typed the coordinate they wanted.
+#
+# Since ``rotation_point`` is ``src_min + extent // 2`` for any source position,
+# the offset depends only on the extent, never on where the structure was copied
+# from.  So the box a paste will fill can be worked out here, from the extent and
+# the transform alone, and shown beside the numbers as they are typed.
+
+#: The anchor a typed position refers to.  ``ANCHOR_CENTRE`` is the editor's own
+#: behaviour and stays the default, so an existing habit keeps working.
+ANCHOR_CENTRE = "centre"
+ANCHOR_BASE = "base"
+ANCHOR_MINIMUM = "minimum"
+ANCHOR_MAXIMUM = "maximum"
+
+#: Every anchor, in the order they are offered, as ``(key, label)``.  The labels
+#: name a direction rather than a word like "origin", because which corner is
+#: meant is the whole question this control exists to answer.
+ANCHORS: Tuple[Tuple[str, str], ...] = (
+    (ANCHOR_CENTRE, "Centre of the copy"),
+    (ANCHOR_BASE, "Centre of its base"),
+    (ANCHOR_MINIMUM, "Lowest corner, -x -y -z"),
+    (ANCHOR_MAXIMUM, "Highest corner, +x +y +z"),
+)
+
+#: Bigger than any real structure, and far below the +/-30,000,000 a whole
+#: world's bounds report.  A pending object whose extent exceeds this is one
+#: whose bounds were not the structure's, so no box is claimed for it.
+MAX_PASTE_EXTENT = 1_000_000
+
+
+def normalise_anchor(anchor: Any) -> str:
+    """Return a known anchor key, falling back to the editor's own behaviour."""
+    value = str(anchor or "").strip().lower()
+    return value if value in dict(ANCHORS) else ANCHOR_CENTRE
+
+
+def anchor_label(anchor: Any) -> str:
+    """Return the human name of an anchor key."""
+    return dict(ANCHORS)[normalise_anchor(anchor)]
+
+
+def _rotate(
+    point: Tuple[float, float, float], radians: Tuple[float, float, float]
+) -> Tuple[float, float, float]:
+    """Rotate a point about the origin, x then y then z.
+
+    The same order and the same handedness as
+    :func:`amulet.utils.matrix.transform_matrix` with its default ``xyz``
+    order, which is what the paste itself uses.  Written out in plain
+    arithmetic so this module keeps its promise of importing without numpy or a
+    display.
+    """
+    x, y, z = (float(value) for value in point)
+    rx, ry, rz = radians
+    cos, sin = math.cos(rx), math.sin(rx)
+    y, z = y * cos - z * sin, y * sin + z * cos
+    cos, sin = math.cos(ry), math.sin(ry)
+    x, z = x * cos + z * sin, -x * sin + z * cos
+    cos, sin = math.cos(rz), math.sin(rz)
+    x, y = x * cos - y * sin, x * sin + y * cos
+    return x, y, z
+
+
+def paste_box(
+    location: Sequence[float],
+    extent: Sequence[int],
+    scale: Sequence[float] = (1.0, 1.0, 1.0),
+    rotation: Sequence[float] = (0.0, 0.0, 0.0),
+) -> Optional[Tuple[Tuple[int, int, int], Tuple[int, int, int]]]:
+    """Return the inclusive block box a paste would fill, or ``None``.
+
+    ``None`` means the held object's extent could not be read, which is a
+    different fact from an empty box and must not be shown as one: a readout
+    that quietly says ``0, 0, 0`` when it does not know is the failure this
+    whole surface exists to remove.
+
+    At the default transform this is exactly the box amulet-core writes.  Under
+    a rotation or a scale it is the axis-aligned bounding box of the transformed
+    structure, which is exact for the 90-degree turns the tool's own buttons
+    make and a true bound for anything in between.
+    """
+    try:
+        sizes = tuple(int(value) for value in extent)
+        origin = tuple(int(round(float(value))) for value in location)
+        factors = tuple(float(value) for value in scale)
+        radians = tuple(math.radians(float(value)) for value in rotation)
+    except (TypeError, ValueError):
+        return None
+    if len(sizes) != 3 or len(origin) != 3 or len(factors) != 3 or len(radians) != 3:
+        return None
+    if any(size <= 0 or size > MAX_PASTE_EXTENT for size in sizes):
+        return None
+
+    # The structure's own corners, relative to the point the paste rotates and
+    # displaces about.  ``low`` is the minimum block and ``high`` is one past
+    # the maximum, which is how amulet-core holds selection bounds.
+    low = tuple(-(size // 2) for size in sizes)
+    high = tuple(size - size // 2 for size in sizes)
+    corners = [
+        _rotate((x * factors[0], y * factors[1], z * factors[2]), radians)
+        for x in (low[0], high[0])
+        for y in (low[1], high[1])
+        for z in (low[2], high[2])
+    ]
+    # A hair of tolerance so an exact integer corner is not pushed a whole block
+    # outwards by the floating point a rotation of zero still goes through.
+    minimum = tuple(
+        origin[axis] + int(math.floor(min(corner[axis] for corner in corners) + 1e-9))
+        for axis in range(3)
+    )
+    maximum = tuple(
+        origin[axis]
+        + int(math.ceil(max(corner[axis] for corner in corners) - 1e-9))
+        - 1
+        for axis in range(3)
+    )
+    maximum = tuple(max(low, high) for low, high in zip(minimum, maximum))
+    return minimum, maximum  # type: ignore[return-value]
+
+
+def anchor_offset(
+    minimum: Sequence[int], maximum: Sequence[int], anchor: Any = ANCHOR_CENTRE
+) -> Tuple[int, int, int]:
+    """Return how far an anchor sits from the minimum corner of a box."""
+    size = tuple(int(high) - int(low) + 1 for low, high in zip(minimum, maximum))
+    key = normalise_anchor(anchor)
+    if key == ANCHOR_MINIMUM:
+        return (0, 0, 0)
+    if key == ANCHOR_MAXIMUM:
+        return tuple(max(0, value - 1) for value in size)  # type: ignore[return-value]
+    if key == ANCHOR_BASE:
+        return (size[0] // 2, 0, size[2] // 2)
+    return tuple(value // 2 for value in size)  # type: ignore[return-value]
+
+
+def anchor_point(
+    location: Sequence[float],
+    extent: Sequence[int],
+    scale: Sequence[float] = (1.0, 1.0, 1.0),
+    rotation: Sequence[float] = (0.0, 0.0, 0.0),
+    anchor: Any = ANCHOR_CENTRE,
+) -> Optional[Tuple[int, int, int]]:
+    """Return where a tool position reads as, under one anchor."""
+    box = paste_box(location, extent, scale, rotation)
+    if box is None:
+        return None
+    minimum, maximum = box
+    return tuple(  # type: ignore[return-value]
+        value + offset
+        for value, offset in zip(minimum, anchor_offset(minimum, maximum, anchor))
+    )
+
+
+def location_for_anchor(
+    point: Sequence[float],
+    extent: Sequence[int],
+    scale: Sequence[float] = (1.0, 1.0, 1.0),
+    rotation: Sequence[float] = (0.0, 0.0, 0.0),
+    anchor: Any = ANCHOR_CENTRE,
+) -> Optional[Tuple[int, int, int]]:
+    """Return the tool position that puts an anchor on a block.
+
+    The inverse of :func:`anchor_point`, and it is an exact inverse because the
+    transform only ever translates the box: the box at the origin plus the
+    position is the box at that position, so the position is the difference.
+    """
+    box = paste_box((0, 0, 0), extent, scale, rotation)
+    if box is None:
+        return None
+    minimum, maximum = box
+    offset = anchor_offset(minimum, maximum, anchor)
+    try:
+        wanted = tuple(int(round(float(value))) for value in point)
+    except (TypeError, ValueError):
+        return None
+    if len(wanted) != 3:
+        return None
+    return tuple(  # type: ignore[return-value]
+        value - start - shift for value, start, shift in zip(wanted, minimum, offset)
+    )
+
+
+# ---------------------------------------------------------------------------
 # the pending object
 # ---------------------------------------------------------------------------
 
@@ -477,6 +862,12 @@ class PendingObject:
     #: extracted structure's own bounds rather than the selection's, so a
     #: pending object that came from a file says what it really is.
     size: str = ""
+    #: The same measurement as numbers, per axis, or ``(0, 0, 0)`` when the
+    #: held object's bounds could not be read.  ``size`` is for showing and
+    #: this is for arithmetic: :func:`paste_box` needs the extent to say where
+    #: a paste will land, and parsing it back out of a sentence would be a
+    #: second place for the two to stop agreeing.
+    extent: Tuple[int, int, int] = (0, 0, 0)
 
 
 def camera_location(target: Any = None) -> Optional[Tuple[int, int, int]]:
@@ -539,45 +930,68 @@ def pending_object(target: Any = None) -> Optional[PendingObject]:
         drawn = active.renderer.fake_levels.active_level_index is not None
     except Exception:  # noqa: BLE001 - no renderer on this canvas
         drawn = False
+    extent = _pending_extent(active)
     return PendingObject(
         location=tuple(int(round(value)) for value in location),
         rotation=tuple(float(value) for value in rotation),
         scale=tuple(float(value) for value in scale),
         following=bool(getattr(tool, "_moving", False)),
         drawn=drawn,
-        size=_pending_size(active),
+        size=" by ".join(str(value) for value in extent) if any(extent) else "",
+        extent=extent,
     )
 
 
-def _pending_size(target: Any) -> str:
-    """Return the held object's own extent in blocks, or ``""``.
+def _pending_extent(target: Any) -> Tuple[int, int, int]:
+    """Return the held object's own extent in blocks, or ``(0, 0, 0)``.
 
     The structure's bounds are asked rather than the selection's, because the
-    two stop agreeing the moment a second thing is copied, and this row is
-    meant to say what is actually being carried.
+    two stop agreeing the moment a second thing is copied, and this is meant to
+    say what is actually being carried.
     """
     try:
         levels = target.renderer.fake_levels
         index = levels.active_level_index
         if index is None:
-            return ""
+            return (0, 0, 0)
         render_level = levels.render_levels[index]
         level = render_level.level
         bounds = level.bounds(render_level.dimension)
         extent = [int(high) - int(low) for low, high in zip(bounds.min, bounds.max)]
-        if not any(extent):
-            return ""
-        return " by ".join(str(value) for value in extent)
+        if len(extent) != 3:
+            return (0, 0, 0)
+        return (extent[0], extent[1], extent[2])
     except Exception:  # noqa: BLE001 - a renderer without a fake level
-        return ""
+        return (0, 0, 0)
 
 
-def _push_transform(tool: Any, target: Any) -> None:
-    """Send the tool's inputs to the renderer so the drawing agrees with them."""
+def _push_transform(tool: Any, target: Any) -> bool:
+    """Send the tool's inputs to the renderer so the drawing agrees with them.
+
+    Returns whether the renderer was told.  A false answer does **not** mean the
+    value was rejected: the tool's own inputs are what its confirm pastes, and
+    those have already been written by the caller, so a failure here means the
+    drawing has fallen behind the numbers rather than that the numbers were
+    lost.  That is why the callers still report success -- reporting a refusal
+    would be the opposite lie.
+
+    The tool's own updater used to be called bare.  Every caller here is a wx
+    button or a typed value, so a renderer that raised turned a value change
+    into an unhandled exception out of the event handler instead of a logged
+    warning; catching it keeps the tool usable and keeps the fault visible.
+    """
     update = getattr(tool, "_update_transform", None)
     if callable(update):
-        update()
-        return
+        try:
+            update()
+        except Exception:  # noqa: BLE001 - a renderer mid-teardown
+            log.warning(
+                "The paste tool's transform was set but the renderer refused it, "
+                "so the drawing may lag the values shown",
+                exc_info=True,
+            )
+            return False
+        return True
     try:
         target.renderer.fake_levels.active_transform = (
             _values(_tuple_input(tool, "_location"), (0, 0, 0)),
@@ -589,6 +1003,8 @@ def _push_transform(tool: Any, target: Any) -> None:
         )
     except Exception:  # noqa: BLE001 - no renderer to update
         log.debug("Could not push the pending transform to the renderer", exc_info=True)
+        return False
+    return True
 
 
 def stop_following(target: Any = None) -> bool:
@@ -597,6 +1013,14 @@ def stop_following(target: Any = None) -> bool:
     This is the same state the editor's own left click in the viewport toggles;
     an object still following the pointer takes its position from the pointer
     on every mouse move, so a typed coordinate would not survive one.
+
+    The flag is read back rather than assumed.  A tool that ignored the write --
+    a property with a setter of its own, a stand-in that does not carry the
+    attribute -- would otherwise leave this reporting that the object had been
+    set down while it went on following the pointer, and the next typed
+    coordinate would be overwritten with no sign of why.  The renderer's own
+    agreement is a separate question: see :func:`_push_transform` for why a
+    drawing that lags the values is not a failure of this call.
     """
     active = _resolve(target)
     tool = _paste_tool(active)
@@ -604,6 +1028,9 @@ def stop_following(target: Any = None) -> bool:
         return False
     tool._moving = False
     _push_transform(tool, active)
+    if getattr(tool, "_moving", False):
+        log.error("The paste tool is still following the pointer after being set down")
+        return False
     return True
 
 
@@ -695,7 +1122,7 @@ def _undo_depth(active: Any) -> Optional[int]:
         return None
 
 
-def confirm_pending(target: Any = None) -> bool:
+def confirm_pending(target: Any = None, parent: Any = None) -> Outcome:
     """Write the pending object into the world through the paste tool.
 
     The tool's own confirm is what runs, so the blocks written are the ones the
@@ -715,17 +1142,70 @@ def confirm_pending(target: Any = None) -> bool:
     When the depth cannot be read at all this reports the confirm as run and
     says so in the log, rather than inventing a failure: an unanswerable
     question is not a negative answer.
+
+    **Why it says so out loud.**  Returning ``False`` was necessary and was not
+    sufficient.  The swallowed exception is invisible by construction: the user
+    pressed Confirm, the progress dialog came and went, and every surface then
+    looked exactly as it does after a paste that worked.  So each refusal is
+    reported through the non-blocking notifier before it is returned, naming the
+    operation, what did not happen and what to do about it -- the same contract
+    :func:`activate` already keeps for its own refusals.  ``parent`` is the
+    window the notification is anchored to; ``None`` still records it.
     """
     active = _resolve(target)
     tool = _paste_tool(active)
     if tool is None:
-        return False
+        return _refused(
+            parent,
+            "nothing-pending",
+            ("Nothing to place", "冇嘢可以擺"),
+            (
+                "Confirm placement had nothing to write: the paste tool is not "
+                "holding an object. Copy or cut a selection, or import a "
+                "structure, and it will be held here ready to place.",
+                "「確認擺位」冇嘢好寫，因為貼上工具而家冇揸住嘢。複製或者剪一個選取"
+                "範圍，又或者匯入一個結構，佢就會喺呢度等你擺。",
+            ),
+            severity="info",
+        )
     confirm = getattr(tool, "confirm_paste", None)
     if not callable(confirm):
         log.error("This build's paste tool exposes no confirm")
-        return False
+        return _refused(
+            parent,
+            "no-confirm",
+            ("Confirm placement is unavailable", "確認擺位用唔到"),
+            (
+                "This build's paste tool exposes no confirm, so the object being "
+                "held cannot be written into the world. Nothing was changed. Use "
+                "Cancel to drop the object.",
+                "呢個 build 嘅貼上工具冇「確認」呢個功能，所以揸住嗰嚿嘢寫唔入世界。"
+                "世界乜都冇改到。撳「取消」放低佢。",
+            ),
+        )
     before = _undo_depth(active)
-    confirm()
+    try:
+        confirm()
+    except Exception:  # noqa: BLE001 - a confirm that raised before run_operation
+        # ``confirm_paste`` normally hands the work to ``run_operation``, which
+        # swallows.  A raise arriving here therefore means it did not even get
+        # that far, and letting it out of a button handler would take the whole
+        # callback with it.
+        log.exception("The paste tool's confirm raised before it ran the operation")
+        return _refused(
+            parent,
+            "not-written",
+            ("Confirm placement failed", "確認擺位失敗"),
+            (
+                "Confirm placement stopped with an error before the paste ran, so "
+                "no blocks were written and the world is unchanged. The object is "
+                "still being held: try Confirm placement again, or Cancel to drop "
+                "it. The error is in the application log.",
+                "「確認擺位」喺貼上開始之前就出錯停咗，所以一格方塊都冇寫入，個世界"
+                "冇變過。嗰嚿嘢仲揸喺手：可以再撳一次「確認擺位」，或者撳「取消」放低"
+                "佢。錯誤詳情喺程式嘅 log 度。",
+            ),
+        )
     _settle()
     after = _undo_depth(active)
     if before is None or after is None:
@@ -733,27 +1213,63 @@ def confirm_pending(target: Any = None) -> bool:
             "The world kept no undo history, so the paste was run without its "
             "outcome being checked"
         )
-        return True
+        return Outcome(ok=True)
     if after <= before:
         log.error(
             "The paste tool's confirm raised: the world's undo depth is still "
             "%d, so nothing was written",
             after,
         )
-        return False
-    return True
+        return _refused(
+            parent,
+            "not-written",
+            ("Confirm placement wrote nothing", "確認擺位乜都冇寫入"),
+            (
+                "Confirm placement ran and the world's undo history is still at "
+                f"{after}, so the paste was stopped by an error and no blocks were "
+                "written. The object is still being held: try Confirm placement "
+                "again, or Cancel to drop it. The error is in the application log.",
+                "「確認擺位」行咗，但係個世界嘅還原紀錄仲係停喺 "
+                f"{after}，即係貼上俾錯誤攔住咗，一格方塊都冇寫入。嗰嚿嘢仲揸喺手："
+                "可以再撳一次「確認擺位」，或者撳「取消」放低佢。錯誤詳情喺程式嘅 "
+                "log 度。",
+            ),
+        )
+    return Outcome(ok=True)
 
 
-def cancel_pending(target: Any = None) -> bool:
+def cancel_pending(target: Any = None, parent: Any = None) -> Outcome:
     """Drop the pending object without writing anything, back to Select.
 
     Leaving the paste tool is what discards it: the tool clears the renderer's
     copy as it is disabled, and nothing has touched the world up to that point.
+
+    The tool change is a posted event, so this checks afterwards that the object
+    really was let go rather than reporting that the event was posted.  The two
+    differ in the case that matters: a cancel that did not take leaves the object
+    still held and still drawn over the world, and a caller that believed the
+    post would hide the panel showing it -- so the object would still be there
+    with nothing on screen admitting it.
     """
     active = _resolve(target)
     if active is None or _paste_tool(active) is None:
-        return False
-    return _post_tool_change(active, "Select")
+        # Already holding nothing, which is the state Cancel exists to reach.
+        return Outcome(ok=True, reason="nothing-pending")
+    if _post_tool_change(active, "Select") and _paste_tool(active) is None:
+        return Outcome(ok=True)
+    return _refused(
+        parent,
+        "still-held",
+        ("Cancel did not drop the object", "取消放唔低嗰嚿嘢"),
+        (
+            "The editor was asked to leave the paste tool and it is still holding "
+            "the object, so the object is still drawn over the world. Nothing was "
+            "written either way. Try Cancel again, or switch to the Select tool in "
+            "the viewport.",
+            "已經叫個編輯器離開貼上工具，但係佢仲揸住嗰嚿嘢，所以個世界上面仲畫住"
+            "佢。無論點都冇嘢寫入過。再撳多次「取消」，或者喺畫面度轉去「選取」工具。",
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -949,7 +1465,8 @@ def activate(key: str, parent: Any = None, target: Any = None) -> Activation:
 
 def _switch(entry: ToolBridge, active: Any, parent: Any) -> Activation:
     """Start a tool that edits in place, and report what the canvas did."""
-    if not _post_tool_change(active, entry.tool):
+    state = {"operation": entry.operation} if entry.operation else None
+    if not _post_tool_change(active, entry.tool, state):
         message = f"The editor refused to switch to the {entry.tool} tool."
         _report(parent, f"{entry.label} did not start", message, severity="error")
         return _failed(entry, message)
@@ -961,6 +1478,29 @@ def _switch(entry: ToolBridge, active: Any, parent: Any) -> Activation:
         )
         _report(parent, f"{entry.label} did not start", message, severity="error")
         return _failed(entry, message, detail=running)
+    detail = f"The editor is now in its {running} tool."
+    if entry.operation:
+        # Asked back rather than assumed.  A tool that started and then selected
+        # something else is the exact failure these keys exist to end, and it is
+        # invisible from the fact that the tool started.
+        chosen = active_operation_name(active)
+        if _same_operation(chosen, entry.operation):
+            detail = (
+                f"The editor is now in its {running} tool with "
+                f"{chosen or entry.operation} selected."
+            )
+        else:
+            message = (
+                f"The editor was asked for the {entry.operation} operation and "
+                f"is showing {chosen or 'no operation'} instead."
+            )
+            _report(
+                parent,
+                f"{entry.label} did not start",
+                message,
+                severity="error",
+            )
+            return _failed(entry, message, detail=chosen)
     return Activation(
         key=entry.key,
         label=entry.label,
@@ -968,7 +1508,7 @@ def _switch(entry: ToolBridge, active: Any, parent: Any) -> Activation:
         tool=entry.tool,
         kind=entry.kind,
         message=entry.summary,
-        detail=f"The editor is now in its {running} tool.",
+        detail=detail,
         missing=entry.missing,
     )
 

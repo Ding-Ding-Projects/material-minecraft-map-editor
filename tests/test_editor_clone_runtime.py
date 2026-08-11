@@ -238,7 +238,9 @@ class Session:
         self.activation: Any = None
         self.pending_before: Any = None
         self.pending_after: Any = None
-        self.confirmed: bool = False
+        #: The bridge's ``Outcome``, which reads as a boolean and also carries
+        #: the reason a refusal gives, so a red assertion below says why.
+        self.confirmed: Any = None
         self.marker_before: List[Tuple[int, int, int]] = []
         self.marker_after: List[Tuple[int, int, int]] = []
         self.overlays: List[Dict[str, Any]] = []
@@ -257,6 +259,15 @@ class Session:
         # the Operations route, driven separately from the pending one
         self.operation_activation: Any = None
         self.operation_controls: List[Dict[str, Any]] = []
+        # the anchored paste: a corner typed into the real pane, confirmed, and
+        # then looked for in the world at exactly the corner that was typed
+        self.anchor_options: List[str] = []
+        self.anchor_chosen: str = ""
+        self.anchored_shown: List[str] = []
+        self.anchored_tool_location: Any = None
+        self.anchored_rows: Dict[str, str] = {}
+        self.anchored_confirmed: Any = None
+        self.marker_anchored: List[Tuple[int, int, int]] = []
 
 
 @pytest.fixture(scope="module")
@@ -335,6 +346,13 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         if level is not None:
             record.marker_after = _marker_points(level)
 
+        # The same tool is still holding the copy, which is what makes a second
+        # placement the supported repeat rather than a second clone.
+        _drive_anchored_paste(record)
+        level = context.current().level
+        if level is not None:
+            record.marker_anchored = _marker_points(level)
+
         # Last, because it leaves the paste tool: everything above is recorded
         # before the Operation tool takes over.  This is the route the panel
         # move was made for -- Operations > Clone and its four siblings -- and
@@ -357,6 +375,90 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
 #: from the paste destination, so the nudge and the confirmed clone cannot be
 #: mistaken for one another.
 NUDGE_START = (20, 30, 20)
+
+#: The corner typed into the pane with the lowest-corner anchor chosen.  Inside
+#: chunk ``(0, 0)`` so one chunk read finds it, and clear of both the source
+#: slab and the first paste so the three cannot be confused for one another.
+ANCHORED_CORNER = (11, 50, 11)
+
+#: What the tool's own position has to become for that corner to land there:
+#: the centre of a 4 by 1 by 4 copy whose minimum is ``ANCHORED_CORNER``.
+ANCHORED_CENTRE = (13, 50, 13)
+
+
+def _anchor_picker(pane: Any) -> Any:
+    """Return the pane's anchor combo, or ``None``."""
+    from amulet_map_editor.api.studio import properties_pane as pane_module
+    from amulet_map_editor.api.studio.widgets import SearchableChoice
+
+    stack = [pane]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, SearchableChoice) and str(node.label).startswith(
+            pane_module.ANCHOR_FIELD_LABEL
+        ):
+            return node
+        try:
+            stack.extend(node.GetChildren())
+        except Exception:  # noqa: BLE001 - a control mid-teardown
+            continue
+    return None
+
+
+def _drive_anchored_paste(record: "Session") -> None:
+    """Type a corner into the real pane and confirm, recording every step.
+
+    This is the route the whole anchor feature exists for, driven end to end
+    with nothing stubbed: the pane's own combo, the pane's own coordinate boxes,
+    the real paste tool underneath them, and afterwards the blocks in the world.
+
+    ``tests/test_paste_anchor_ui_contract.py`` drives the same controls against
+    a stand-in tool, which proves the screen and nothing about the wiring.  A
+    conversion that reached a fake and never reached the editor passes there and
+    fails here, which is the only reason this slower module is worth its two
+    minutes.
+    """
+    from amulet_map_editor.api.studio import properties_pane as pane_module
+
+    pane = editor_tools.host()
+    if pane is None:
+        record.notes.append("no properties pane is hosting the tool options")
+        return
+    picker = _anchor_picker(pane)
+    if picker is None:
+        record.notes.append("the pending controls offered no anchor picker")
+        return
+    record.anchor_options = [str(option) for option in picker.options]
+
+    # The anchor is a persisted setting and this is the user's real profile, so
+    # whatever it was is put back before the fixture returns.
+    previous = pane_module.load_paste_anchor()
+    try:
+        picker.set_value(
+            editor_tools.anchor_label(editor_tools.ANCHOR_MINIMUM), notify=True
+        )
+        _pump(0.3)
+        record.anchor_chosen = pane.position_anchor
+
+        field = pane._tool_fields.get("location")
+        if field is None:
+            record.notes.append("the pending controls offered no position boxes")
+            return
+        field.set_values([str(value) for value in ANCHORED_CORNER], notify=True)
+        _pump(0.4)
+        record.anchored_shown = [str(value) for value in field.values()]
+        held = editor_tools.pending_object()
+        record.anchored_tool_location = None if held is None else tuple(held.location)
+        record.anchored_rows = {
+            key: pane._tool_rows[key].value
+            for key, _label in pane_module.PASTE_BOX_ROWS
+            if key in pane._tool_rows
+        }
+
+        record.anchored_confirmed = editor_tools.confirm_pending()
+        _pump(1.5)
+    finally:
+        pane_module.store_paste_anchor(previous)
 
 
 def _first_focusable(pane: Any) -> Any:
@@ -684,7 +786,11 @@ def test_confirming_a_clone_writes_the_blocks_into_the_world(
     world the application itself has open, read block by block, rather than
     against anything the interface said about itself.
     """
-    assert session.confirmed, "the paste tool refused to confirm the placement"
+    assert session.confirmed, (
+        "the paste tool refused to confirm the placement: "
+        f"{getattr(session.confirmed, 'reason', '')} "
+        f"{getattr(session.confirmed, 'message', session.confirmed)}"
+    )
 
     minimum, maximum = _expected_paste_box()
     landed = _points_in(session.marker_after, minimum, maximum)
@@ -705,6 +811,132 @@ def test_a_clone_leaves_the_blocks_it_copied_alone(session: Session) -> None:
     assert len(still_there) == len(session.marker_before), (
         "cloning took blocks away from the source: "
         f"{len(session.marker_before)} before, {len(still_there)} after"
+    )
+
+
+# ----------------------------------------------------------------------
+# typing a corner, in the real editor, and finding the blocks at that corner
+# ----------------------------------------------------------------------
+
+
+def test_the_running_editor_offers_the_anchor_picker(session: Session) -> None:
+    """The picker exists on the pane the real tool is driving.
+
+    Not a restatement of the contract module: that one builds the pane around a
+    stand-in tool, so it proves the picker is drawn for an object the test
+    itself invented.  This one proves it is drawn for the object the editor is
+    actually holding, whose extent had to be read out of a real structure.
+    """
+    assert session.anchor_options, (
+        "the running editor's pending controls offer no anchor picker, so a "
+        f"typed coordinate can only ever mean the centre: {session.notes}"
+    )
+    assert len(session.anchor_options) == len(editor_tools.ANCHORS)
+    assert session.anchor_chosen == editor_tools.ANCHOR_MINIMUM, (
+        "choosing the lowest corner in the real pane left the anchor at "
+        f"{session.anchor_chosen!r}"
+    )
+
+
+def test_typing_a_corner_moves_the_real_tool_to_the_matching_centre(
+    session: Session,
+) -> None:
+    """The conversion reaches the paste tool, not just the pane's own boxes.
+
+    The tool pastes the centre it holds.  A pane that showed a corner and left
+    the tool where it was would look exactly right and paste the old position,
+    so the number checked here is the tool's, read back out of it afterwards.
+    """
+    assert (
+        session.anchored_tool_location is not None
+    ), f"nothing was holding the copy after the corner was typed: {session.notes}"
+    assert session.anchored_tool_location == ANCHORED_CENTRE, (
+        f"typing the corner {ANCHORED_CORNER} should have moved the paste tool "
+        f"to {ANCHORED_CENTRE}, and it is at {session.anchored_tool_location}"
+    )
+    assert session.anchored_shown == [str(value) for value in ANCHORED_CORNER], (
+        "the pane's own boxes no longer read the corner that was typed into "
+        f"them: {session.anchored_shown}"
+    )
+
+
+def test_the_pane_said_where_the_blocks_would_land(session: Session) -> None:
+    """The readout is checked against blocks, not against its own arithmetic.
+
+    This is the assertion the box rows exist for.  What the pane promised is
+    recorded before the confirm; what the world holds is read after it; and a
+    readout that is confidently wrong fails here rather than being believed.
+    """
+    assert (
+        session.anchored_rows
+    ), f"the pending controls showed no paste box at all: {session.notes}"
+    landed = _points_in(session.marker_anchored, ANCHORED_CORNER, (14, 50, 14))
+    assert landed, (
+        "no blocks landed in the box the pane promised, so there is nothing to "
+        f"check its claim against. Every marker afterwards: "
+        f"{sorted(session.marker_anchored)}"
+    )
+    minimum = tuple(min(point[axis] for point in landed) for axis in range(3))
+    maximum = tuple(max(point[axis] for point in landed) for axis in range(3))
+    said = list(session.anchored_rows.values())
+    assert said[0] == ", ".join(str(value) for value in minimum), (
+        f"the pane said the blocks would start at {said[0]!r} and they start "
+        f"at {minimum}"
+    )
+    assert said[1] == ", ".join(str(value) for value in maximum), (
+        f"the pane said the blocks would end at {said[1]!r} and they end at "
+        f"{maximum}"
+    )
+
+
+def test_a_clone_anchored_to_a_corner_lands_at_the_corner_that_was_typed(
+    session: Session,
+) -> None:
+    """The whole point, in one assertion, against blocks in a real world.
+
+    Somebody who types ``11, 50, 11`` with the lowest corner chosen must find
+    the copy starting at ``11, 50, 11``.  Before this the same typing put it at
+    ``9, 50, 9`` -- half a structure away, with nothing on screen saying why.
+    """
+    assert session.anchored_confirmed, (
+        "the paste tool refused to confirm the anchored placement: "
+        f"{getattr(session.anchored_confirmed, 'reason', '')} "
+        f"{getattr(session.anchored_confirmed, 'message', session.anchored_confirmed)}"
+    )
+    expected = SOURCE_SIZE[0] * SOURCE_SIZE[1] * SOURCE_SIZE[2]
+    landed = _points_in(session.marker_anchored, ANCHORED_CORNER, (14, 50, 14))
+    assert len(landed) == expected, (
+        f"a corner-anchored clone should have written {expected} marker blocks "
+        f"into {ANCHORED_CORNER}..{(14, 50, 14)} and wrote {len(landed)}. Every "
+        f"marker block in the chunk afterwards: {sorted(session.marker_anchored)}"
+    )
+    minimum = tuple(min(point[axis] for point in landed) for axis in range(3))
+    assert minimum == ANCHORED_CORNER, (
+        f"the lowest corner of the copy should be the {ANCHORED_CORNER} that "
+        f"was typed, and is {minimum}"
+    )
+    # Nothing outside the promised box: a paste that also scattered blocks
+    # elsewhere would satisfy the count above while being plainly wrong.
+    strays = [
+        point
+        for point in session.marker_anchored
+        if point not in landed and point not in session.marker_after
+    ]
+    assert (
+        not strays
+    ), f"the anchored clone wrote marker blocks outside its box: {strays}"
+
+
+def test_the_anchored_clone_left_the_first_one_alone(session: Session) -> None:
+    """Pasting again is a repeat, not a move: the earlier copy has to survive."""
+    minimum, maximum = _expected_paste_box()
+    still_there = _points_in(session.marker_anchored, minimum, maximum)
+    assert len(still_there) == len(
+        _points_in(session.marker_after, minimum, maximum)
+    ), (
+        "confirming a second placement took blocks away from the first: "
+        f"{len(_points_in(session.marker_after, minimum, maximum))} before, "
+        f"{len(still_there)} after"
     )
 
 

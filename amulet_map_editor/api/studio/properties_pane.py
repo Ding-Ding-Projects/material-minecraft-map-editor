@@ -59,6 +59,7 @@ from amulet_map_editor.api.studio.status_bar import (
     studio_canvas,
 )
 from amulet_map_editor.api.studio.widgets import (
+    SearchableChoice,
     SearchBar,
     SectionLabel,
     Stepper,
@@ -196,6 +197,83 @@ NUDGE_KEY_SENTENCE = (
 #: in advance -- it is what happens when you are already typing a coordinate,
 #: and by then the boxes it is about are the thing on screen.
 NUDGE_BOX_CAVEAT = "Inside a value box the arrow keys belong to that box instead."
+
+#: Where the chosen anchor is stored, so it survives a restart like any other
+#: setting.  One record for the profile rather than one per project: which
+#: point a coordinate means is a habit of the person, not a fact about a world.
+PASTE_ANCHOR_CONFIG_ID = "amulet_studio_paste_anchor"
+
+#: The heading over the anchor control, and the label it carries.
+ANCHOR_FIELD_LABEL = "Position refers to"
+
+#: What the three Position boxes mean, per anchor.
+#:
+#: The centre one is the disclosure this section was added for.  The editor
+#: puts the *centre* of a copy at the position it is given, so a 4 by 1 by 4
+#: slab asked for 8, 40, 8 fills 6, 40, 6 to 9, 40, 9 -- half a structure away
+#: from the numbers that were typed.  Nothing said so anywhere, which is the
+#: most likely reading of "cloning doesn't work" from somebody who typed the
+#: coordinate they wanted and looked there for the blocks.
+ANCHOR_SENTENCES: Dict[str, str] = {
+    editor_tools.ANCHOR_CENTRE: (
+        "x, y and z are the centre of the copy, not a corner. The blocks land "
+        "in the box below, which is half the copy away in every direction."
+    ),
+    editor_tools.ANCHOR_BASE: (
+        "x, y and z are the middle of the copy's bottom layer, so this is the "
+        "block it stands on. The blocks land in the box below."
+    ),
+    editor_tools.ANCHOR_MINIMUM: (
+        "x, y and z are the copy's lowest corner: its smallest x, its smallest "
+        "y and its smallest z. The blocks land in the box below."
+    ),
+    editor_tools.ANCHOR_MAXIMUM: (
+        "x, y and z are the copy's highest corner: its largest x, its largest "
+        "y and its largest z. The blocks land in the box below."
+    ),
+}
+
+#: What the section says when the held object's size could not be read.
+#:
+#: An unknown size is said rather than guessed at.  Without the extent there is
+#: no way to work out which block the centre lands on, so no box is drawn and
+#: no anchor is offered -- a picker that cannot do what its options say is
+#: worse than no picker, and a box readout that quietly shows the position
+#: three times would be the exact defect this section exists to remove.
+ANCHOR_SIZE_UNKNOWN = (
+    "The copy's size could not be read, so x, y and z are the position the "
+    "paste tool holds and the box the blocks will fill cannot be shown."
+)
+
+#: The two rows that say where the blocks actually go.
+PASTE_BOX_ROWS: Tuple[Tuple[str, str], ...] = (
+    ("paste_from", "Fills from"),
+    ("paste_to", "Fills to"),
+)
+
+#: An inclusive block box, or ``None`` when the copy's extent is unknown.
+PasteBox = Optional[Tuple[Tuple[int, int, int], Tuple[int, int, int]]]
+
+
+def load_paste_anchor() -> str:
+    """Return the stored anchor, or the editor's own behaviour."""
+    try:
+        stored = config.get(PASTE_ANCHOR_CONFIG_ID, editor_tools.ANCHOR_CENTRE)
+    except OSError:  # pragma: no cover - an unreadable profile
+        log.exception("Could not read the stored paste anchor")
+        return editor_tools.ANCHOR_CENTRE
+    return editor_tools.normalise_anchor(stored)
+
+
+def store_paste_anchor(anchor: str) -> bool:
+    """Persist the chosen anchor, saying whether it reached disk."""
+    try:
+        config.put(PASTE_ANCHOR_CONFIG_ID, editor_tools.normalise_anchor(anchor))
+    except OSError:
+        log.exception("Could not store the paste anchor")
+        return False
+    return True
+
 
 #: The controls whose own arrow-key behaviour must win over nudging.  An arrow
 #: press inside one of these moves a caret or changes a value, and doing that
@@ -646,20 +724,30 @@ class PropertyRow(wx.Control):
             max(label_height, value_height) + tokens.scaled(self.PADDING_Y) * 2,
         )
 
-    def set_value(self, value: str) -> None:
+    def set_value(self, value: str) -> bool:
         """Replace the value without rebuilding the row around it.
 
         A live row is re-read several times a second while a tool is running,
         and rebuilding the whole tab that often would take the keyboard out of
         whatever field the user was typing in.
+
+        The row is re-measured, and the caller is told whether anything moved so
+        it can lay the column out once rather than on every tick.  Without the
+        re-measure a row keeps the minimum width its first value asked for and
+        :meth:`_draw` elides anything longer -- survivable while every live row
+        said "yes" or "no", and not survivable for a row holding a coordinate,
+        which is exactly the value a reader would go to this row to check.
         """
         text = str(value)
         if text == self.value:
-            return
+            return False
         self.value = text
         self.SetName(f"{self.label}: {self.value}")
         self.SetToolTip(f"{self.label}: {self.value}")
+        self.InvalidateBestSize()
+        self.SetMinSize(self.DoGetBestSize())
         self.Refresh()
+        return True
 
     def refresh_theme(self) -> None:
         """Re-measure for the live density and repaint."""
@@ -925,9 +1013,22 @@ class PropertiesPane(wx.Panel):
         #: The tool this pane is showing the options for, and what activating
         #: it actually did.  ``None`` means no tool has been started.
         self.activation: Optional[editor_tools.Activation] = None
+        #: What the last confirm or cancel refused to do, ready to be shown
+        #: beside the object it refused about.  A toast can be missed and a log
+        #: line is not an interface, so the reason is kept here and rendered at
+        #: the top of the pending controls until the next attempt clears it.
+        #: It arrives already in the reader's language and tone from the bridge,
+        #: so it is shown as given rather than styled a second time.
+        self._pending_failure = ""
         self.nudge_step = DEFAULT_NUDGE_STEP
+        #: Which point of the copy the Position boxes name.  Loaded rather than
+        #: defaulted so a chosen anchor survives a restart, and it falls back to
+        #: the editor's own centre so an existing habit keeps working.
+        self.position_anchor = load_paste_anchor()
         self._tool_rows: Dict[str, PropertyRow] = {}
         self._tool_fields: Dict[str, VectorField] = {}
+        self._anchor_choice: Optional[SearchableChoice] = None
+        self._anchor_note: Optional[StudioText] = None
         self._tool_timer: Optional[wx.Timer] = None
         #: The width the current contents were wrapped for.  Wrapping is done
         #: once per build, so a pane the user has narrowed keeps paragraphs
@@ -1288,6 +1389,8 @@ class PropertiesPane(wx.Panel):
         # the timer must not be holding references to them when it next fires.
         self._tool_rows = {}
         self._tool_fields = {}
+        self._anchor_choice = None
+        self._anchor_note = None
 
         if self.tab == "properties":
             sections = self.visible_sections()
@@ -1430,6 +1533,9 @@ class PropertiesPane(wx.Panel):
     def clear_tool(self) -> None:
         """Take the Tool tab away, because no tool is running any more."""
         self.activation = None
+        # The failure belonged to an object that is no longer held, so keeping
+        # it would attach an old refusal to the next thing lifted.
+        self._pending_failure = ""
         self._stop_tool_timer()
         pill = self.tab_buttons.get(TOOL_TAB[0])
         if pill is not None:
@@ -1456,14 +1562,21 @@ class PropertiesPane(wx.Panel):
             self._tool_rows[live] = row
         self.body.Add(row, 0, wx.EXPAND | wx.BOTTOM, gap)
 
-    def _tool_note(self, text: str, gap: int) -> None:
-        """Add one wrapped paragraph of explanation to the Tool tab."""
+    def _tool_note(self, text: str, gap: int) -> Optional[StudioText]:
+        """Add one wrapped paragraph of explanation to the Tool tab.
+
+        The control is returned so a caller whose sentence changes without the
+        tab being rebuilt can keep hold of it -- the anchor disclosure is
+        rewritten the moment the anchor is chosen, and a rebuild there would
+        scroll the section the user is reading back off the top of the column.
+        """
         message = single_line(text)
         if not message:
-            return
+            return None
         note = StudioText(self.scroller, message, size_px=11, name=message)
         self._wrap_in_column(note)
         self.body.Add(note, 0, wx.EXPAND | wx.BOTTOM, gap)
+        return note
 
     def _tool_vector(
         self,
@@ -1639,6 +1752,13 @@ class PropertiesPane(wx.Panel):
             return
 
         self._tool_label(studio_label("Pending object"))
+        # Ahead of everything else, because it is the answer to the question the
+        # user is holding: they pressed Confirm and the object is still here.
+        # Already localized and toned by the bridge, so it is not passed through
+        # ``studio_text`` again -- that would append a second funny-level aside
+        # to a sentence that already has one.
+        if self._pending_failure:
+            self._tool_note(self._pending_failure, gap)
         # Directly under the heading, ahead of the object's own facts, because
         # this is the only place in the column it can be read.  A control
         # announces itself through its accessible name and a key press cannot,
@@ -1683,13 +1803,47 @@ class PropertiesPane(wx.Panel):
             )
 
         self._tool_label(studio_label("Position"))
+        values, box = self._anchor_values(pending)
+        # The picker first, because it says what the three boxes under it mean.
+        # It is only offered when the copy's size is known: without the extent
+        # there is no way to turn a corner into the position the tool holds, so
+        # an anchor other than the centre could not be honoured and offering it
+        # would be a control that lies about what it does.
+        if box is not None:
+            self._anchor_choice = SearchableChoice(
+                self.scroller,
+                studio_label(ANCHOR_FIELD_LABEL),
+                [label for _key, label in editor_tools.ANCHORS],
+                editor_tools.anchor_label(self.position_anchor),
+                on_change=self._on_anchor_chosen,
+            )
+            self._anchor_choice.SetToolTip(
+                single_line(
+                    studio_text(
+                        "Which point of the copy the x, y and z boxes name. "
+                        "The editor itself uses the centre.",
+                        "揀 x、y、z 係指嗰嚿嘢邊一點。編輯器本身係用正中心。",
+                    )
+                )
+            )
+            self.body.Add(self._anchor_choice, 0, wx.EXPAND | wx.BOTTOM, gap)
+        else:
+            self._anchor_choice = None
         self._tool_vector(
             "location",
             ("x", "y", "z"),
-            [str(value) for value in pending.location],
+            values,
             self._on_location_typed,
             gap,
         )
+        # The disclosure, directly under the boxes it is about.  A coordinate
+        # control that does not say which point of the object it names is a
+        # coordinate control the user has to discover by pasting and looking.
+        self._anchor_note = self._tool_note(
+            studio_text(self._anchor_sentence(box)), gap
+        )
+        for key, label in PASTE_BOX_ROWS:
+            self._tool_row(label, self._box_text(box, key), gap, live=key)
         # Beside the boxes it is about, rather than in the sentence above: it
         # describes what an arrow key does once one of these has focus, which
         # is a thing a user meets while typing here and not a shortcut they
@@ -1826,11 +1980,99 @@ class PropertiesPane(wx.Panel):
             return None
         return numbers if len(numbers) == 3 else None
 
+    # -- which point of the copy a position names ------------------------------
+    def _anchor_values(
+        self, pending: editor_tools.PendingObject
+    ) -> Tuple[List[str], PasteBox]:
+        """Return what the Position boxes should read, and the box it fills.
+
+        A ``None`` box means the copy's extent could not be read.  The boxes
+        then show the tool's own position unconverted, because converting it
+        would need the extent that is missing -- and a number silently offset
+        by a size nobody knows is worse than one that is simply the position.
+        """
+        box = editor_tools.paste_box(
+            pending.location, pending.extent, pending.scale, pending.rotation
+        )
+        if box is None:
+            return [str(value) for value in pending.location], None
+        point = editor_tools.anchor_point(
+            pending.location,
+            pending.extent,
+            pending.scale,
+            pending.rotation,
+            self.position_anchor,
+        )
+        if point is None:  # pragma: no cover - both read the same extent
+            return [str(value) for value in pending.location], box
+        return [str(value) for value in point], box
+
+    def _anchor_sentence(self, box: PasteBox) -> str:
+        """Return the sentence that says what x, y and z mean right now."""
+        if box is None:
+            return ANCHOR_SIZE_UNKNOWN
+        return ANCHOR_SENTENCES[editor_tools.normalise_anchor(self.position_anchor)]
+
+    @staticmethod
+    def _box_text(box: PasteBox, key: str) -> str:
+        """Return one corner of the paste box, or an honest unknown."""
+        if box is None:
+            return "not known"
+        corner = box[0] if key == PASTE_BOX_ROWS[0][0] else box[1]
+        return ", ".join(str(value) for value in corner)
+
+    def _on_anchor_chosen(self, label: str) -> None:
+        """Remember which point the Position boxes name, and re-read them."""
+        chosen = next(
+            (key for key, name in editor_tools.ANCHORS if name == label),
+            editor_tools.ANCHOR_CENTRE,
+        )
+        if chosen == self.position_anchor:
+            return
+        self.position_anchor = chosen
+        store_paste_anchor(chosen)
+        note = self._anchor_note
+        if note is not None:
+            try:
+                pending = editor_tools.pending_object()
+                box = (
+                    None
+                    if pending is None
+                    else editor_tools.paste_box(
+                        pending.location,
+                        pending.extent,
+                        pending.scale,
+                        pending.rotation,
+                    )
+                )
+                message = single_line(studio_text(self._anchor_sentence(box)))
+                note.SetLabel(message)
+                note.SetName(message)
+                self._wrap_in_column(note)
+            except RuntimeError:  # pragma: no cover - the note was replaced
+                self._anchor_note = None
+        # The position itself has not moved; only the point being named has, so
+        # the boxes are re-read rather than written back through the tool.
+        self._refresh_tool_live()
+        self.scroller.Layout()
+
     def _on_location_typed(self, values: Tuple[str, ...]) -> None:
         numbers = self._numbers(values)
         if numbers is None:
             return
-        editor_tools.set_pending_location(numbers)
+        pending = editor_tools.pending_object()
+        location: Sequence[float] = numbers
+        if pending is not None:
+            converted = editor_tools.location_for_anchor(
+                numbers,
+                pending.extent,
+                pending.scale,
+                pending.rotation,
+                self.position_anchor,
+            )
+            if converted is not None:
+                location = converted
+        editor_tools.set_pending_location(location)
         self._refresh_tool_live(fields=False)
 
     def _on_rotation_typed(self, values: Tuple[str, ...]) -> None:
@@ -1910,16 +2152,42 @@ class PropertiesPane(wx.Panel):
         self.rebuild()
 
     def _confirm_pending(self) -> None:
-        """Write the pending object into the world."""
-        if not editor_tools.confirm_pending():
+        """Write the pending object into the world.
+
+        The three outcomes need three different things from this pane, which is
+        why the bridge is asked *why* rather than only whether.  A paste that
+        wrote refreshes the history and redraws.  A paste that was stopped by an
+        error must keep the panel: the object is still held, so hiding the panel
+        would leave the user with a live copy, no controls for it, and a screen
+        that looks exactly like the one a successful paste leaves behind -- the
+        original defect, moved one layer out.  Only a tool that has genuinely
+        stopped holding anything takes the tab away.
+        """
+        outcome = editor_tools.confirm_pending(parent=self)
+        if outcome.ok:
+            self._pending_failure = ""
+            self.refresh_history(reread=True)
+            self.rebuild()
+            return
+        if outcome.reason == "nothing-pending":
             self._report_tool_gone()
             return
-        self.refresh_history(reread=True)
+        self._pending_failure = outcome.message
         self.rebuild()
 
     def _cancel_pending(self) -> None:
-        """Drop the pending object without writing anything."""
-        editor_tools.cancel_pending()
+        """Drop the pending object without writing anything.
+
+        The panel is taken away only once the object really has been let go.
+        Hiding it on a cancel that did not take would leave the copy drawn over
+        the world with nothing on screen admitting that it is still there.
+        """
+        outcome = editor_tools.cancel_pending(parent=self)
+        if not outcome.ok:
+            self._pending_failure = outcome.message
+            self.rebuild()
+            return
+        self._pending_failure = ""
         self.clear_tool()
 
     def _report_tool_gone(self) -> None:
@@ -1960,6 +2228,7 @@ class PropertiesPane(wx.Panel):
             self.rebuild()
             return
         running = editor_tools.active_tool_name()
+        position, box = self._anchor_values(pending)
         values = {
             "state": (
                 f"running as {running}"
@@ -1968,19 +2237,30 @@ class PropertiesPane(wx.Panel):
             ),
             "following": "yes" if pending.following else "no",
             "drawn": "yes" if pending.drawn else "no",
+            PASTE_BOX_ROWS[0][0]: self._box_text(box, PASTE_BOX_ROWS[0][0]),
+            PASTE_BOX_ROWS[1][0]: self._box_text(box, PASTE_BOX_ROWS[1][0]),
         }
+        moved = False
         for key, value in values.items():
             row = self._tool_rows.get(key)
             if row is None:
                 continue
             try:
-                row.set_value(value)
+                moved |= bool(row.set_value(value))
             except RuntimeError:  # pragma: no cover - the row has been replaced
                 self._tool_rows.pop(key, None)
+        if moved:
+            # A row that grew asked for more width, and nothing gives it any
+            # until the column is laid out again.  Only when something actually
+            # changed: this runs several times a second.
+            self.scroller.Layout()
         if not fields:
             return
         live = {
-            "location": [str(value) for value in pending.location],
+            # The anchored reading, not the raw position: the boxes are labelled
+            # by whatever anchor is chosen, and writing the tool's own centre
+            # into them would silently disagree with the sentence beneath.
+            "location": position,
             "rotation": [format_number(value) for value in pending.rotation],
             "scale": [format_number(value) for value in pending.scale],
         }
@@ -2242,6 +2522,9 @@ class PropertiesPane(wx.Panel):
 
 
 __all__ = [
+    "ANCHOR_FIELD_LABEL",
+    "ANCHOR_SENTENCES",
+    "ANCHOR_SIZE_UNKNOWN",
     "DEFAULT_NUDGE_STEP",
     "DEFAULT_REVISIONS",
     "DEFAULT_SECTIONS",
@@ -2250,6 +2533,8 @@ __all__ = [
     "MIN_PANEL_WIDTH",
     "NUDGE_FIELD_WIDTH",
     "NOTES_CONFIG_ID",
+    "PASTE_ANCHOR_CONFIG_ID",
+    "PASTE_BOX_ROWS",
     "NO_HISTORY_AVAILABLE",
     "NO_PROJECT_HISTORY",
     "NO_REVISIONS_YET",
@@ -2270,9 +2555,11 @@ __all__ = [
     "cursor_location",
     "format_timestamp",
     "load_notes",
+    "load_paste_anchor",
     "load_project_revisions",
     "note_for",
     "revision_from_event",
     "store_note",
+    "store_paste_anchor",
     "world_sections",
 ]
