@@ -2,13 +2,20 @@
 
 The navigator is the workspace's index.  It answers two questions -- which
 dimension am I editing, and which of my selection boxes is active -- and every
-row that answers one of them is a real control: it moves the selection, it
-reports back to the workspace, and it is reachable from the keyboard.
+row that answers one of them is a real control: selecting a dimension changes
+the dimension the editor is rendering, selecting a box makes it the active one,
+and adding a box adds it to the renderer's own selection.
+
+Both lists are read from the world the user has open, through
+:mod:`amulet_map_editor.api.studio.context`, and re-read whenever that world,
+its dimension, or its selection changes.  With no world open the panel says so
+in both lists rather than showing the last world's dimensions, because a list
+that outlives the thing it described is worse than an empty one.
 
 The dimension rows expand rather than merely decorating themselves with a
 chevron.  A chevron that never opens anything is a control that lies about what
-it does, so opening a dimension shows the two facts the workspace actually
-holds about it: its build height range and how many of its chunks are loaded.
+it does, so opening a dimension shows the two facts the world actually reports
+about it: its build height range and how many chunks it stores.
 """
 
 from __future__ import annotations
@@ -19,18 +26,20 @@ from typing import Callable, List, Optional, Sequence, Set, Tuple
 
 import wx
 
-from amulet_map_editor.api.studio import tokens
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio import context, tokens
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.search import SearchState
 from amulet_map_editor.api.studio.status_bar import (
     clear_container,
     open_studio_menu,
     single_line,
+    studio_canvas,
 )
 from amulet_map_editor.api.studio.widgets import (
     SearchBar,
     SectionLabel,
     StudioButton,
+    StudioText,
     draw_dashed_round_rect,
     draw_focus_ring,
     elide,
@@ -50,20 +59,111 @@ MIN_PANEL_WIDTH = 176
 _MEDIUM = getattr(wx, "FONTWEIGHT_MEDIUM", wx.FONTWEIGHT_NORMAL)
 
 
+#: What the dimension tree says with no world open.
+NO_WORLD_DIMENSIONS = studio_text(
+    "No world is open, so there are no dimensions to list.",
+    "而家未開世界，所以冇維度可以列出嚟。",
+)
+
+#: What the dimension tree says for a world that reports none of its own.
+NO_DIMENSIONS = studio_text(
+    "This world reports no dimensions.",
+    "呢個世界冇報返任何維度出嚟。",
+)
+
+#: What the selection list says with no world open.
+NO_WORLD_BOXES = studio_text(
+    "No world is open, so there is nothing to select in.",
+    "而家未開世界，所以冇嘢可以揀。",
+)
+
+#: What it says for an open world with nothing selected in it yet.
+NO_BOXES = studio_text(
+    "Nothing is selected. Draw a box in the viewport, or add one below.",
+    "而家咩都未揀。喺畫面度畫個範圍，或者喺下面加一個。",
+)
+
+#: The glyph each dimension is drawn with, chosen by what the dimension's own
+#: name ends in.  A dimension this build has never heard of still gets a glyph
+#: rather than a blank column.
+_DIMENSION_GLYPHS: Tuple[Tuple[str, str], ...] = (
+    ("overworld", "◎"),
+    ("the_nether", "◆"),
+    ("nether", "◆"),
+    ("the_end", "◇"),
+    ("end", "◇"),
+)
+_OTHER_DIMENSION_GLYPH = "◈"
+
+
+def dimension_glyph(name: str) -> str:
+    """Return the glyph a dimension row is drawn with."""
+    text = str(name).lower()
+    for suffix, glyph in _DIMENSION_GLYPHS:
+        if text.endswith(suffix):
+            return glyph
+    return _OTHER_DIMENSION_GLYPH
+
+
 @dataclass(frozen=True)
 class DimensionEntry:
-    """One dimension the project can edit, with the facts the row shows."""
+    """One dimension the open world reports, with the facts the row shows."""
 
     key: str
     label: str
     glyph: str
     chunks: int
     height_range: str
+    #: ``False`` when the chunk count could not be read at all, which is a
+    #: different statement from a dimension that genuinely holds no chunks.
+    counted: bool = True
+    #: ``True`` when the count stopped early, so ``chunks`` is a floor.
+    truncated: bool = False
+
+    def count_text(self) -> str:
+        """Return the count as the pill shows it, or an honest absence."""
+        if not self.counted:
+            return "—"
+        return f"{self.chunks:,}" + ("+" if self.truncated else "")
 
     def detail(self) -> str:
         """Return the line shown when the dimension row is expanded."""
+        if not self.counted:
+            return f"{self.height_range} · chunk count unavailable"
         plural = "chunk" if self.chunks == 1 else "chunks"
-        return f"{self.height_range} · {self.chunks} {plural} loaded"
+        more = " or more" if self.truncated else ""
+        return f"{self.height_range} · {self.chunks:,} {plural} stored{more}"
+
+
+def dimension_entries(
+    ctx: Optional[context.WorldContext] = None,
+) -> Tuple[DimensionEntry, ...]:
+    """Return one row per dimension the open world reports.
+
+    A dimension whose build range or chunk list could not be read still
+    appears, carrying the parts that did read, so one unreadable dimension
+    never empties the whole tree.
+    """
+    if ctx is None:
+        ctx = context.current()
+    entries: List[DimensionEntry] = []
+    for info in ctx.dimension_info:
+        entries.append(
+            DimensionEntry(
+                key=info.name,
+                label=info.name,
+                glyph=dimension_glyph(info.name),
+                chunks=int(info.chunk_count),
+                height_range=(
+                    f"y {info.min_y} to {info.max_y}"
+                    if info.has_range
+                    else "build range not reported"
+                ),
+                counted=bool(info.counted),
+                truncated=bool(info.truncated),
+            )
+        )
+    return tuple(entries)
 
 
 @dataclass(frozen=True)
@@ -107,22 +207,62 @@ class SelectionBox:
         return f"dx={deltas[0]}, dy={deltas[1]}, dz={deltas[2]} · {self.size_text()}"
 
 
-#: The dimensions the design's workspace shows, with the build height ranges the
-#: design's own height-limits surface records for this world.
-DEFAULT_DIMENSIONS: Tuple[DimensionEntry, ...] = (
-    DimensionEntry("overworld", "minecraft:overworld", "◎", 812, "-64 to 320"),
-    DimensionEntry("the_nether", "minecraft:the_nether", "◆", 96, "0 to 128"),
-    DimensionEntry("the_end", "minecraft:the_end", "◇", 24, "0 to 256"),
-)
+def selection_boxes(
+    ctx: Optional[context.WorldContext] = None,
+) -> Tuple[SelectionBox, ...]:
+    """Return one card per box in the world's current selection.
 
-#: The design's three selection boxes.  Box 1 is the one the design captions in
-#: the viewport; the two smaller boxes sit inside it, which is why the whole
-#: selection is still the 576 blocks the breadcrumb bar reports.
-DEFAULT_BOXES: Tuple[SelectionBox, ...] = (
-    SelectionBox("Box 1", (-2, 98, -49), (16, 2, 18)),
-    SelectionBox("Box 2", (2, 98, -45), (8, 2, 9)),
-    SelectionBox("Box 3", (6, 98, -42), (4, 2, 6)),
-)
+    The boxes are numbered in the order the renderer holds them, which is the
+    order the corners were drawn in, so the number beside a card matches the
+    box a user would count to in the viewport.
+    """
+    if ctx is None:
+        ctx = context.current()
+    return tuple(
+        SelectionBox(
+            f"Box {index}",
+            tuple(int(value) for value in box.min),
+            tuple(int(value) for value in box.size),
+        )
+        for index, box in enumerate(ctx.selection_boxes, start=1)
+    )
+
+
+def push_selection(boxes: Sequence[SelectionBox]) -> bool:
+    """Write ``boxes`` back to the renderer's own selection.
+
+    The renderer is the owner of the selection, so it is written first and the
+    world context is told afterwards.  With no renderer attached the context is
+    still updated, which keeps the panes agreeing with each other, and the
+    caller is told the renderer did not take it.
+    """
+    corners = tuple(
+        (
+            tuple(int(value) for value in box.minimum),
+            tuple(
+                int(start) + max(1, int(extent))
+                for start, extent in zip(box.minimum, box.size)
+            ),
+        )
+        for box in boxes
+    )
+    canvas = studio_canvas()
+    applied = False
+    if canvas is not None:
+        try:
+            canvas.selection.selection_corners = corners
+            applied = True
+        except Exception as err:  # noqa: BLE001 - a canvas being torn down
+            log.debug("The selection could not be given to the renderer: %s", err)
+    context.set_selection(corners)
+    return applied
+
+
+#: The dimension tree and the selection list are read from the open world, so
+#: the shipped lists are empty.  A panel constructed before a world is open
+#: shows its honest empty states rather than a world nobody has.
+DEFAULT_DIMENSIONS: Tuple[DimensionEntry, ...] = ()
+DEFAULT_BOXES: Tuple[SelectionBox, ...] = ()
 
 
 class _CountPill:
@@ -205,9 +345,8 @@ class DimensionRow(StudioButton):
     def _sync_name(self) -> None:
         state = "selected" if self.selected else "not selected"
         disclosure = "expanded" if self.expanded else "collapsed"
-        plural = "chunk" if self.entry.chunks == 1 else "chunks"
         self.SetName(
-            f"{self.entry.label}, {self.entry.chunks} {plural} loaded, "
+            f"{self.entry.label}, {self.entry.detail()}, "
             f"{state}, {disclosure}. Left and right arrows open and close it."
         )
 
@@ -274,7 +413,7 @@ class DimensionRow(StudioButton):
         gcdc.SetFont(tokens.mono_font(self, point_size(10)))
         count_left = _CountPill.draw(
             gcdc,
-            str(self.entry.chunks),
+            self.entry.count_text(),
             width - tokens.scaled(9),
             centre,
             variant_ink,
@@ -507,9 +646,12 @@ class DashedButton(StudioButton):
 class NavigatorPanel(wx.Panel):
     """The 224px column of dimensions and selection boxes.
 
-    The panel owns no world data: it is handed dimensions and boxes and reports
-    every choice back through its callbacks, so the workspace stays the single
-    place that knows which dimension and which box are current.
+    The panel keeps no world data of its own: both lists are read from the open
+    world every time it changes, and every choice is written straight back to
+    the editor -- picking a dimension changes the one being rendered, adding a
+    box adds it to the renderer's selection.  The callbacks remain so the
+    workspace still hears about each choice, but they are a report rather than
+    the route the change travels by.
     """
 
     WIDTH = PANEL_WIDTH
@@ -533,12 +675,21 @@ class NavigatorPanel(wx.Panel):
         self.on_add_box = on_add_box
         self.on_surface = on_surface
         self.on_command = on_command
-        self.dimensions: List[DimensionEntry] = list(dimensions)
-        self.boxes: List[SelectionBox] = list(boxes)
-        self.dimension_key = self.dimensions[0].key if self.dimensions else ""
+        ctx = context.current()
+        self.world_open = bool(ctx.open)
+        self.dimensions: List[DimensionEntry] = list(dimensions) or list(
+            dimension_entries(ctx)
+        )
+        self.boxes: List[SelectionBox] = list(boxes) or list(selection_boxes(ctx))
+        self.dimension_key = ctx.dimension or (
+            self.dimensions[0].key if self.dimensions else ""
+        )
         self.box_index = 0
         self.expanded: Set[str] = set()
         self.boxes_shown = True
+        #: Guards the report back to the owner in :meth:`apply_context`, so an
+        #: owner that rebuilds this panel in response cannot start a loop.
+        self._reporting = False
         self.search_state = SearchState(label="Navigator")
         self.SetName("Navigator")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
@@ -576,14 +727,28 @@ class NavigatorPanel(wx.Panel):
         self.tree_panel = wx.Panel(self.scroller, style=wx.TAB_TRAVERSAL)
         self.tree_sizer = wx.BoxSizer(wx.VERTICAL)
         self.tree_panel.SetSizer(self.tree_sizer)
+        self.tree_empty = StudioText(
+            self.tree_panel, "", size_px=11, name="Dimension list state"
+        )
         self.boxes_heading = SectionLabel(self.scroller, "Selection boxes")
-        self.boxes_count = wx.StaticText(self.scroller, label=str(len(self.boxes)))
-        self.boxes_count.SetName("Selection box count")
+        self.boxes_count = StudioText(
+            self.scroller,
+            str(len(self.boxes)),
+            size_px=10,
+            weight=_MEDIUM,
+            role="primary",
+            mono=True,
+            name="Selection box count",
+        )
         self.boxes_panel = wx.Panel(self.scroller, style=wx.TAB_TRAVERSAL)
         self.boxes_sizer = wx.BoxSizer(wx.VERTICAL)
         self.boxes_panel.SetSizer(self.boxes_sizer)
-        self.empty_label = wx.StaticText(self.scroller, label="")
-        self.empty_label.SetName("Navigator search result")
+        self.boxes_empty = StudioText(
+            self.boxes_panel, "", size_px=11, name="Selection list state"
+        )
+        self.empty_label = StudioText(
+            self.scroller, "", size_px=11, name="Navigator search result"
+        )
 
         header = wx.BoxSizer(wx.HORIZONTAL)
         header.Add(self.heading, 1, wx.ALIGN_CENTER_VERTICAL)
@@ -638,14 +803,111 @@ class NavigatorPanel(wx.Panel):
         # offer what can be done to a box, not what can be done to the tree
         # above it.
         self.boxes_panel.Bind(wx.EVT_CONTEXT_MENU, self._on_boxes_context_menu)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
+        context.subscribe(self._on_world_context)
         self._apply_theme()
         self.rebuild()
 
+    # -- the open world ------------------------------------------------------
+    def _on_world_context(self, ctx: context.WorldContext) -> None:
+        """Take a world change from any thread onto the one wx paints on."""
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        if wx.IsMainThread():
+            self.apply_context(ctx)
+        else:
+            wx.CallAfter(self.apply_context, ctx)
+
+    def apply_context(self, ctx: Optional[context.WorldContext] = None) -> None:
+        """Re-read both lists from the world that is open right now.
+
+        The owner is told afterwards, because surfaces outside this panel
+        mirror the same two facts -- the breadcrumb bar counts the selection,
+        the status bar names the dimension -- and a world that changed under
+        them without a word would leave them showing a count nobody could get
+        back to.  The report is guarded against re-entry so an owner that
+        rebuilds the panel in response cannot start a loop.
+        """
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        if ctx is None:
+            ctx = context.current()
+        previous_dimension = self.dimension_key
+        previous_boxes = list(self.boxes)
+        self.world_open = bool(ctx.open)
+        self.dimensions = list(dimension_entries(ctx))
+        self.boxes = list(selection_boxes(ctx))
+        keys = {entry.key for entry in self.dimensions}
+        if ctx.dimension in keys:
+            self.dimension_key = ctx.dimension
+        elif self.dimension_key not in keys:
+            self.dimension_key = self.dimensions[0].key if self.dimensions else ""
+        self.expanded &= keys
+        if self.boxes:
+            self.box_index = max(0, min(self.box_index, len(self.boxes) - 1))
+        else:
+            self.box_index = 0
+        self.rebuild()
+        if self._reporting:
+            return
+        self._reporting = True
+        try:
+            if self.dimension_key != previous_dimension:
+                invoke(self.on_dimension, self.dimension_key)
+            elif self.boxes != previous_boxes:
+                invoke(self.on_box, self.box_index)
+        finally:
+            self._reporting = False
+
+    def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
+        if event.GetEventObject() is self:
+            context.unsubscribe(self._on_world_context)
+        event.Skip()
+
     # -- content -------------------------------------------------------------
+    def _dimensions_note(self) -> str:
+        """Return what the tree says when it has no dimension to show."""
+        return NO_WORLD_DIMENSIONS if not self.world_open else NO_DIMENSIONS
+
+    def _boxes_note(self) -> str:
+        """Return what the selection list says when it has no box to show."""
+        return NO_WORLD_BOXES if not self.world_open else NO_BOXES
+
+    def _set_note(self, label: StudioText, base_name: str, text: str) -> None:
+        """Show one empty-state line, wrapped to the column it sits in.
+
+        The note keeps its own unwrapped text and lays it out at the width it
+        is given, so nothing a caller reads back has been edited by the layout.
+        ``wx.StaticText.Wrap`` wrote its line breaks into the label itself, so
+        ``GetLabel`` answered with newlines the caller never set -- and this
+        surface writes that same label into the accessible name.
+
+        Measured rather than assumed, because the obvious worry does not hold:
+        on wxWidgets 3.3.3 ``Wrap`` re-derives from the original text, so
+        re-wrapping at one width is idempotent and re-wrapping wider recovers
+        the string exactly.  The defect was the mangled read-back, not
+        cumulative degradation.  The text is still set before the width,
+        because that is the order the accessible name wants.
+        """
+        message = single_line(text)
+        label.SetLabel(message)
+        label.SetName(f"{base_name}: {message}" if message else base_name)
+        if message:
+            label.Wrap(
+                max(tokens.scaled(120), self.GetClientSize().width - tokens.scaled(28))
+            )
+        label.Show(bool(message))
+
     def rebuild(self) -> None:
-        """Rebuild both lists from the current data and search query."""
+        """Rebuild both lists from the open world and the search query."""
         state = self.search_state
-        clear_container(self.tree_sizer, self.tree_panel)
+        clear_container(self.tree_sizer, self.tree_panel, keep=(self.tree_empty,))
         matched_dimensions = [
             entry
             for entry in self.dimensions
@@ -669,8 +931,15 @@ class NavigatorPanel(wx.Panel):
                     wx.EXPAND | wx.BOTTOM,
                     gap,
                 )
+        self._set_note(
+            self.tree_empty,
+            "Dimension list state",
+            self._dimensions_note() if not self.dimensions else "",
+        )
+        if not self.dimensions:
+            self.tree_sizer.Add(self.tree_empty, 0, wx.EXPAND | wx.BOTTOM, gap)
 
-        clear_container(self.boxes_sizer, self.boxes_panel)
+        clear_container(self.boxes_sizer, self.boxes_panel, keep=(self.boxes_empty,))
         matched_boxes = [
             (index, box)
             for index, box in enumerate(self.boxes)
@@ -685,17 +954,24 @@ class NavigatorPanel(wx.Panel):
                 on_click=self.select_box,
             )
             self.boxes_sizer.Add(card, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(6))
+        self._set_note(
+            self.boxes_empty,
+            "Selection list state",
+            self._boxes_note() if not self.boxes else "",
+        )
+        if not self.boxes:
+            self.boxes_sizer.Add(
+                self.boxes_empty, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(6)
+            )
         self.add_button = DashedButton(
             self.boxes_panel,
-            studio_text("Add selection box", "加多個選取範圍"),
+            studio_label("Add selection box", "加多個選取範圍"),
             on_click=self._add_box,
             hint=single_line(
-                studio_text(
-                    "Add another box beside the current one.",
-                    "喺𠮶個範圍隔籬再加一個。",
-                )
+                self._add_box_hint(),
             ),
         )
+        self.add_button.Enable(self.world_open)
         self.boxes_sizer.Add(self.add_button, 0, wx.EXPAND)
 
         self.boxes_count.SetLabel(str(len(self.boxes)))
@@ -712,6 +988,20 @@ class NavigatorPanel(wx.Panel):
         self.scroller.Layout()
         self.Layout()
         self._apply_theme()
+
+    def _add_box_hint(self) -> str:
+        """Return what the add button promises, or why it cannot keep it."""
+        if not self.world_open:
+            return NO_WORLD_BOXES
+        if self.boxes:
+            return studio_text(
+                "Add a one-block box at the active box's corner.",
+                "喺而家嗰個範圍嘅角落加一格大嘅新範圍。",
+            )
+        return studio_text(
+            "Add a one-block box at this world's spawn point.",
+            "喺呢個世界嘅出生點加一格大嘅範圍。",
+        )
 
     def set_dimensions(self, dimensions: Sequence[DimensionEntry]) -> None:
         """Replace the dimension list, keeping the selection where it still exists."""
@@ -751,11 +1041,27 @@ class NavigatorPanel(wx.Panel):
 
     # -- behaviour -----------------------------------------------------------
     def select_dimension(self, key: str) -> None:
-        """Make ``key`` the active dimension and report it to the workspace."""
+        """Render ``key`` in the editor and report the change to the workspace.
+
+        The renderer is asked first, because it is the thing that actually
+        changes what the user is looking at; the world context is told
+        afterwards so the other panes follow.  A renderer that refuses the
+        change -- one that is mid-teardown, or has not finished loading -- is
+        logged and the dimension is left where it was rather than the panel
+        claiming a move that did not happen.
+        """
         if key == self.dimension_key:
             self.toggle_dimension(key)
             return
+        canvas = studio_canvas()
+        if canvas is not None:
+            try:
+                canvas.dimension = key
+            except Exception as err:  # noqa: BLE001 - a canvas being torn down
+                log.debug("The renderer would not switch to dimension %r: %s", key, err)
+                return
         self.dimension_key = key
+        context.set_dimension(key)
         self.rebuild()
         invoke(self.on_dimension, key)
 
@@ -796,19 +1102,31 @@ class NavigatorPanel(wx.Panel):
             return
         self.add_box()
 
-    def add_box(self) -> SelectionBox:
-        """Append a box beside the active one and select it.
+    def add_box(self) -> Optional[SelectionBox]:
+        """Add a one-block box to the world's selection and make it active.
 
-        The new box starts as a one-block cube at the active box's minimum
-        corner rather than at an invented location, so the coordinate it
-        reports is one the user can actually see in the current selection.
+        Where the box goes is read rather than chosen: beside the active box
+        when there is one, at the world's own spawn point when there is not,
+        and at the origin only when the world records no spawn.  With no world
+        open there is nothing to select in, so nothing is added and ``None``
+        says so.
         """
+        ctx = context.current()
+        if not ctx.open:
+            log.debug("No world is open, so no selection box was added")
+            return None
         anchor = self.selected_box()
-        origin = anchor.minimum if anchor is not None else (0, 0, 0)
-        box = SelectionBox(f"Box {len(self.boxes) + 1}", tuple(origin), (1, 1, 1))
+        if anchor is not None:
+            origin = tuple(int(value) for value in anchor.minimum)
+        elif ctx.spawn is not None:
+            origin = tuple(int(value) for value in ctx.spawn)
+        else:
+            origin = (0, 0, 0)
+        box = SelectionBox(f"Box {len(self.boxes) + 1}", origin, (1, 1, 1))
         self.boxes.append(box)
         self.box_index = len(self.boxes) - 1
         self.boxes_shown = True
+        push_selection(self.boxes)
         self.rebuild()
         invoke(self.on_box, self.box_index)
         return box
@@ -848,10 +1166,10 @@ class NavigatorPanel(wx.Panel):
         self.SetBackgroundColour(palette.surface_container)
         for panel in (self.scroller, self.tree_panel, self.boxes_panel):
             panel.SetBackgroundColour(palette.surface_container)
-        self.boxes_count.SetForegroundColour(palette.primary)
-        self.boxes_count.SetFont(tokens.mono_font(self, point_size(10), _MEDIUM))
-        self.empty_label.SetForegroundColour(palette.on_surface_variant)
-        self.empty_label.SetFont(tokens.font(self, point_size(11)))
+        # The four notes are owner-drawn and read their role colour and their
+        # font from the tokens on every paint, so a theme or interface-scale
+        # change reaches them through the repaint below rather than through a
+        # colour pushed in from here.
 
     def refresh_theme(self) -> None:
         """Re-read the palette for the panel and every row in it."""
@@ -880,13 +1198,21 @@ class NavigatorPanel(wx.Panel):
 __all__ = [
     "DEFAULT_BOXES",
     "DEFAULT_DIMENSIONS",
+    "MIN_PANEL_WIDTH",
+    "NO_BOXES",
+    "NO_DIMENSIONS",
+    "NO_WORLD_BOXES",
+    "NO_WORLD_DIMENSIONS",
+    "PANEL_WIDTH",
     "BoxCard",
     "DashedButton",
     "DimensionDetail",
     "DimensionEntry",
     "DimensionRow",
-    "MIN_PANEL_WIDTH",
     "NavigatorPanel",
-    "PANEL_WIDTH",
     "SelectionBox",
+    "dimension_entries",
+    "dimension_glyph",
+    "push_selection",
+    "selection_boxes",
 ]

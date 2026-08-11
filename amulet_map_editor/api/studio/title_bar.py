@@ -17,6 +17,14 @@ Every control here is painted rather than native.  The design asks for a
 close button that turns red under the pointer; none of those are shapes wx can
 produce from a stock button, and approximating them per surface is how a shell
 ends up looking like several products at once.
+
+Every string on this bar is a control label rather than a message, so all of
+them go through :func:`~amulet_map_editor.api.studio.copy.studio_label`, which
+applies the language mode and never the funny level.  The bar is the strongest
+case for that split: at level five the palette pill read "Tell me what to do
+(the code is dancing; the facts stay put)" in a 40-pixel strip, which both
+stopped being a name and pushed the window buttons off the edge.  Nothing here
+speaks to the reader, so nothing here takes tone.
 """
 
 from __future__ import annotations
@@ -28,7 +36,7 @@ import wx
 
 from amulet_map_editor.api import notifications
 from amulet_map_editor.api.studio import tokens, widgets
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio.copy import studio_label
 
 log = logging.getLogger(__name__)
 
@@ -56,8 +64,39 @@ BADGE_SIZE = 14
 CLOSE_HOVER_FILL = "#B3261E"
 CLOSE_HOVER_INK = "#FFFFFF"
 
+
+def _palette_chord() -> Tuple[int, int]:
+    """Return the palette chord as ``(modifier flags, key code)``.
+
+    Parsed from the shell's own accelerator table, so the chord the character
+    hook listens for, the chord the pill advertises, and the row every menu
+    draws are one binding rather than four copies of one.  A table this
+    platform cannot express falls back to the documented chord and says so,
+    because a title bar that cannot open the palette at all is worse than one
+    bound to a stale key.
+    """
+    fallback = (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F"))
+    try:
+        from amulet_map_editor.api.studio.context_menu import (
+            accelerator,
+            parse_accelerator,
+        )
+
+        parsed = parse_accelerator(accelerator(surface="palette"))
+    except Exception:  # pragma: no cover - the table is a plain mapping
+        log.exception("Could not read the command palette's accelerator")
+        return fallback
+    if parsed is None:
+        log.warning(
+            "The command palette accelerator cannot be expressed on this "
+            "platform; falling back to Ctrl+Shift+F"
+        )
+        return fallback
+    return parsed
+
+
 #: The keyboard chord that opens the command palette, as an accelerator pair.
-PALETTE_ACCELERATOR: Tuple[int, int] = (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F"))
+PALETTE_ACCELERATOR: Tuple[int, int] = _palette_chord()
 
 #: wxPython 4.1 added a medium weight; older builds fall back to normal rather
 #: than raising while the bar is being constructed.
@@ -67,14 +106,36 @@ _MEDIUM = getattr(wx, "FONTWEIGHT_MEDIUM", wx.FONTWEIGHT_NORMAL)
 def single_line(text: str) -> str:
     """Fold a bilingual two-line string onto one line for a 40-pixel strip.
 
-    :func:`~amulet_map_editor.api.studio.copy.studio_text` returns the English
-    above the Cantonese so a roomy surface can render a prominent label over a
-    compact one.  The title bar has no second line to give, so the two are
-    joined with a separator instead: crowding is a layout problem, but dropping
-    the Cantonese would silently turn bilingual mode back into English.
+    :func:`~amulet_map_editor.api.studio.copy.studio_label` and its message
+    counterpart both return the English above the Cantonese so a roomy surface
+    can render a prominent label over a compact one.  The title bar has no
+    second line to give, so the two are joined with a separator instead:
+    crowding is a layout problem, but dropping the Cantonese would silently turn
+    bilingual mode back into English.
     """
     parts = [part.strip() for part in str(text).split("\n") if part.strip()]
     return " · ".join(parts)
+
+
+def palette_accelerator() -> str:
+    """Return the key that really opens the command palette, or ``""``.
+
+    The pill beside the title exists to teach that key, so it resolves it from
+    the shared accelerator table -- the same table
+    :func:`install_palette_shortcut` installs the binding from -- rather than
+    carrying its own copy of the text.  Two copies of one binding is how a
+    shortcut comes to be advertised in a shell that no longer answers to it.
+
+    An unreadable table answers with an empty string, and the pill then shows
+    its label alone: no shortcut is a smaller lie than a wrong one.
+    """
+    try:
+        from amulet_map_editor.api.studio.context_menu import accelerator
+
+        return accelerator(surface="palette")
+    except Exception:  # pragma: no cover - the table is a plain mapping
+        log.exception("Could not read the command palette's accelerator")
+        return ""
 
 
 def unread_notification_count() -> int:
@@ -485,12 +546,29 @@ class _ShortcutPill(_BarControl):
         )
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
+        """Return the width this pill needs, measured the way it is drawn.
+
+        The measurement has to go through a ``wx.GCDC`` because that is what
+        :meth:`_paint_content` draws with, and the two contexts do not agree:
+        GDI+ returns this label two pixels wider than GDI and the chord three
+        wider.  Measured with the plain context the control came out five pixels
+        narrower than its own text, so the paint handler elided every single
+        time -- the pill read "Tell me what to …" at funny level one as well as
+        five, in every language, which looks exactly like a clipped interface
+        and is really two device contexts disagreeing about one string.
+        """
+        client = wx.ClientDC(self)
+        try:
+            dc: wx.DC = wx.GCDC(client)
+        except TypeError:  # pragma: no cover - platform without a graphics context
+            dc = client
         label_font, accel_font = self._fonts()
         dc.SetFont(label_font)
         label_width = dc.GetTextExtent(self.label)[0]
         dc.SetFont(accel_font)
         accel_width = dc.GetTextExtent(self.accelerator)[0]
+        if dc is not client:
+            del dc
         width = (
             tokens.scaled(self.PADDING_LEFT)
             + label_width
@@ -605,14 +683,24 @@ class StudioTitleBar(wx.Panel):
             tokens.scaled(BAR_PADDING_LEFT),
         )
 
-        self.title_label = wx.StaticText(
-            self, label=self._title, style=wx.ST_ELLIPSIZE_END
+        self.title_label = widgets.StudioText(
+            self,
+            self._title,
+            size_px=13,
+            weight=_MEDIUM,
+            role="on_surface",
+            ellipsize=True,
+            name="Project title",
         )
-        self.title_label.SetName("Project title")
         row.Add(self.title_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, gap)
 
-        self.saved_label = wx.StaticText(self, label="", style=wx.ST_ELLIPSIZE_END)
-        self.saved_label.SetName("Save state")
+        self.saved_label = widgets.StudioText(
+            self,
+            "",
+            size_px=12,
+            ellipsize=True,
+            name="Save state",
+        )
         row.Add(self.saved_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, gap)
 
         row.Add(
@@ -624,7 +712,7 @@ class StudioTitleBar(wx.Panel):
 
         self.command_buttons: Dict[str, _GlyphButton] = {}
         for key, glyph, english, cantonese in self.DOCUMENT_COMMANDS:
-            hint = single_line(studio_text(english, cantonese))
+            hint = single_line(studio_label(english, cantonese))
             button = _GlyphButton(
                 self,
                 glyph,
@@ -642,12 +730,15 @@ class StudioTitleBar(wx.Panel):
 
         row.AddStretchSpacer(1)
 
+        # The pill's whole job is to teach the shortcut, so it reads the one
+        # table the shell actually installs rather than restating the key: a
+        # written-down copy of a binding is a copy that can stop matching it.
         self.palette_button = _ShortcutPill(
             self,
-            studio_text("Tell me what to do", "話我知你想做乜"),
-            "Ctrl+Shift+F",
+            studio_label("Tell me what to do", "話我知你想做乜"),
+            palette_accelerator(),
             hint=single_line(
-                studio_text(
+                studio_label(
                     "Search every command, setting, and pane.",
                     "搵勻每個指令、設定同面板。",
                 )
@@ -658,7 +749,7 @@ class StudioTitleBar(wx.Panel):
 
         self.notifications_button = _NotificationButton(
             self,
-            hint=single_line(studio_text("Notifications", "通知")),
+            hint=single_line(studio_label("Notifications", "通知")),
             on_click=lambda: self.open_surface("notifications"),
         )
         row.Add(
@@ -679,7 +770,7 @@ class StudioTitleBar(wx.Panel):
             self,
             "—",
             name="Minimize window",
-            hint=single_line(studio_text("Minimize window", "縮到最細")),
+            hint=single_line(studio_label("Minimize window", "縮到最細")),
             width=WINDOW_BUTTON_WIDTH,
             glyph_px=12,
             on_click=self.minimise,
@@ -690,7 +781,7 @@ class StudioTitleBar(wx.Panel):
             self,
             "□",
             name="Maximize window",
-            hint=single_line(studio_text("Maximize window", "放到最大")),
+            hint=single_line(studio_label("Maximize window", "放到最大")),
             width=WINDOW_BUTTON_WIDTH,
             glyph_px=11,
             on_click=self.toggle_maximise,
@@ -701,7 +792,7 @@ class StudioTitleBar(wx.Panel):
             self,
             "×",
             name="Close window",
-            hint=single_line(studio_text("Close window", "閂咗個視窗")),
+            hint=single_line(studio_label("Close window", "閂咗個視窗")),
             width=WINDOW_BUTTON_WIDTH,
             glyph_px=14,
             on_click=self.close_window,
@@ -799,7 +890,7 @@ class StudioTitleBar(wx.Panel):
                 button = self.command_buttons.get(key)
                 if button is None:
                     continue
-                hint = single_line(studio_text(english, cantonese))
+                hint = single_line(studio_label(english, cantonese))
                 if handler is None:
                     button.Enable(False)
                     button.describe(
@@ -865,9 +956,9 @@ class StudioTitleBar(wx.Panel):
         """
         self._saved = bool(saved)
         text = single_line(
-            studio_text("Saved", "已儲存")
+            studio_label("Saved", "已儲存")
             if self._saved
-            else studio_text("Unsaved changes", "仲有嘢未儲存")
+            else studio_label("Unsaved changes", "仲有嘢未儲存")
         )
         self.saved_label.SetLabel(text)
         self.saved_label.SetName(f"Save state: {text}")
@@ -909,13 +1000,13 @@ class StudioTitleBar(wx.Panel):
             self.maximise_button.set_glyph("❐")
             self.maximise_button.describe(
                 "Restore window",
-                single_line(studio_text("Restore window", "還原視窗大細")),
+                single_line(studio_label("Restore window", "還原視窗大細")),
             )
         else:
             self.maximise_button.set_glyph("□")
             self.maximise_button.describe(
                 "Maximize window",
-                single_line(studio_text("Maximize window", "放到最大")),
+                single_line(studio_label("Maximize window", "放到最大")),
             )
 
     def _on_frame_state(self, event: wx.Event) -> None:
@@ -1002,13 +1093,15 @@ class StudioTitleBar(wx.Panel):
 
     # -- appearance -----------------------------------------------------------
     def apply_theme(self) -> None:
-        """Push the live palette into the bar's native labels and its own size."""
+        """Push the live palette into the bar's labels and its own size.
+
+        The two labels are owner-drawn and take their font from the tokens on
+        every paint, so only the save state's ink is set here -- it is the one
+        colour that follows the document rather than the theme.
+        """
         palette = tokens.palette()
         self.SetBackgroundColour(palette.surface_container)
         self.SetMinSize(wx.Size(-1, self.bar_height()))
-        self.title_label.SetFont(tokens.font(self, widgets.point_size(13), _MEDIUM))
-        self.title_label.SetForegroundColour(palette.on_surface)
-        self.saved_label.SetFont(tokens.font(self, widgets.point_size(12)))
         self.saved_label.SetForegroundColour(
             palette.on_surface_variant if self._saved else palette.primary
         )
@@ -1054,25 +1147,50 @@ class StudioTitleBar(wx.Panel):
         event.Skip()
 
 
+def _same_key(pressed: int, wanted: int) -> bool:
+    """Return whether a pressed key code is the one the chord names.
+
+    ``wx`` reports a letter as its uppercase code from a character hook, but
+    not on every platform and not for every layout, so the two are compared
+    case-insensitively rather than assuming.  A code that is not a character at
+    all -- a function key, ``Tab`` -- compares exactly.
+    """
+    if pressed == wanted:
+        return True
+    try:
+        return chr(pressed).upper() == chr(wanted).upper()
+    except (ValueError, OverflowError):
+        return False
+
+
 def install_palette_shortcut(
     window: wx.Window, opener: Optional[Callable[[], Any]] = None
 ) -> Callable[[], None]:
-    """Make Ctrl+Shift+F open the command palette anywhere inside ``window``.
+    """Make the palette chord open the command palette anywhere in ``window``.
 
     The chord is bound as a character hook on the top-level window rather than
     through an accelerator table on purpose: an accelerator is swallowed by a
     focused text control, and "anywhere in the application" has to include the
     moment the user is typing in a field.  The returned callable removes the
     binding again.
+
+    Which chord it is comes from :data:`PALETTE_ACCELERATOR`, and therefore from
+    the shell's accelerator table, so the key this hook answers to is the key
+    the pill beside the title advertises -- by construction, rather than by two
+    hand-written conditions happening to agree.
     """
     target = window.GetTopLevelParent() or window
+    flags, wanted = PALETTE_ACCELERATOR
+    wants_ctrl = bool(flags & wx.ACCEL_CTRL)
+    wants_shift = bool(flags & wx.ACCEL_SHIFT)
+    wants_alt = bool(flags & wx.ACCEL_ALT)
 
     def _on_char_hook(event: wx.KeyEvent) -> None:
         if (
-            event.ControlDown()
-            and event.ShiftDown()
-            and not event.AltDown()
-            and event.GetKeyCode() in (ord("F"), ord("f"))
+            event.ControlDown() == wants_ctrl
+            and event.ShiftDown() == wants_shift
+            and event.AltDown() == wants_alt
+            and _same_key(event.GetKeyCode(), wanted)
         ):
             if opener is not None:
                 widgets.invoke(opener)
@@ -1094,6 +1212,7 @@ __all__ = [
     "PALETTE_ACCELERATOR",
     "StudioTitleBar",
     "install_palette_shortcut",
+    "palette_accelerator",
     "single_line",
     "unread_notification_count",
 ]

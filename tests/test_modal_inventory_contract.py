@@ -52,6 +52,14 @@ EXPECTED_MODAL_CALLS = Counter(
             "dialog",
         ),
         ("amulet_map_editor/api/studio/widgets.py", "ImageSlot.browse", "dialog"),
+        # Exporting a surface writes a file, and where it is written and in
+        # which format is the user's decision to make before anything is
+        # written -- the one kind of question this contract keeps modal.
+        (
+            "amulet_map_editor/api/studio/spec_dialog.py",
+            "SpecDialog._do_export",
+            "chooser",
+        ),
         (
             "amulet_map_editor/api/wx/ui/base_select.py",
             "BaseSelect._open_regex_builder",
@@ -123,19 +131,13 @@ EXPECTED_MODAL_CALLS = Counter(
             "open_level_from_dialog",
             "select_world",
         ),
+        # The tab manager's four searches and its bulk-close query are shared
+        # ``SearchBar`` fields now, so their builders open the anchored popover
+        # and fall back to ``SearchBar._open_builder_dialog`` above rather than
+        # to two modals of the tab manager's own.
         (
             "amulet_map_editor/api/wx/ui/tab_manager.py",
             "TabManagerDialog._new_group",
-            "dialog",
-        ),
-        (
-            "amulet_map_editor/api/wx/ui/tab_manager.py",
-            "TabManagerDialog._open_regex_builder",
-            "dialog",
-        ),
-        (
-            "amulet_map_editor/api/wx/ui/tab_manager.py",
-            "TabManagerDialog._open_close_regex_builder",
             "dialog",
         ),
         (

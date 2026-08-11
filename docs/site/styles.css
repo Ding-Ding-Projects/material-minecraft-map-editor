@@ -17,6 +17,9 @@
 /* ------------------------------------------------------------------ tokens */
 
 :root {
+  --outline-variant: #c4c6d0;
+  --secondary: #5b5d72;
+  --surface-container-high: #e9e7ef;
   color-scheme: light;
 
   /* Material 3 colour roles, light. --primary is rewritten at runtime by the
@@ -74,6 +77,9 @@
 }
 
 html[data-theme="dark"] {
+  --outline-variant: #44464f;
+  --secondary: #c4c5dd;
+  --surface-container-high: #2a2831;
   color-scheme: dark;
   --surface: #111318;
   --surface-container: #1d1f25;

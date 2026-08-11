@@ -23,7 +23,40 @@ blank rectangle and not a decorative screenshot.
 
 Right-clicking the viewport opens the viewport context menu: searchable, with
 each entry's keyboard shortcut shown right-aligned, and carrying
-**Edit appearance…** like every other menu.
+**Edit appearance…** like every other menu. The shortcuts on the selection and
+projection rows are read from the user's own 3D editor key configuration, not
+from the shipped defaults, so a rebound key is the one the menu prints.
+
+**While a renderer canvas is hosted, the right button belongs to the camera.**
+Right-drag rotates the view and right-click changes mouse mode, so no menu
+opens over the live world — not the viewport menu and not the shared two-row
+appearance popup the Material layer otherwise binds to every window it styles.
+A menu that opens on that gesture does not merely add a menu, it cancels the
+drag mid-motion, which is what made looking around impossible. The viewport
+panel and the canvas it hosts both set `_material3_appearance_menu_disabled`,
+which the shared handler now reads when the menu is raised rather than only
+when it is bound — the canvas is created and styled inside the world notebook
+long before this pane is handed it, so a bind-time-only check came too late to
+see it.
+
+Nothing is lost, only moved off the plain right button:
+
+- The **HUD overlays** — chips, minimap, compass, tool buttons, corner
+  handles — are separate windows and still raise **Edit appearance…** on an
+  ordinary right-click.
+- **Shift+right-click** over the viewport opens the viewport menu, whose last
+  row is **Edit appearance…** for the pane itself.
+- The **Element appearance** surface, from the command palette, edits whatever
+  control has focus.
+
+With no renderer attached — the drawn stand-in before a world is open — a plain
+right-click opens the viewport menu as before.
+
+**Deselect active box** and **Deselect all boxes** run the same two changes the
+editor's `ACT_DESELECT_BOX` and `ACT_DESELECT_ALL_BOXES` keys make: one drops
+the active box from the selection, the other clears it. They were greyed out
+while printing those very keys, which taught the reader a working feature was
+missing; a row that cannot run now prints no shortcut at all.
 
 ## Configuration
 

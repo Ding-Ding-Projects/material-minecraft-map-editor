@@ -11,6 +11,12 @@ new panel.
 Nothing in this module reaches the network, opens a file, or reads a
 preference.  It imports only :mod:`amulet_map_editor.api.studio.search`, which
 is itself wx-free, so it stays importable anywhere.
+
+The card content is transcribed from the design.  Where the design names a
+private repository, skill, project, or account, the transcription describes it
+in ordinary professional English instead: this repository is public and those
+names are not, so a card says "a private operations target" where the design
+said which one.  Nothing else is paraphrased.
 """
 
 from __future__ import annotations
@@ -945,17 +951,106 @@ def render_article(item: Article, suffix: str = ".md") -> str:
 # views
 # ---------------------------------------------------------------------------
 
+#: The skill inventory the Skills view lists.  Three skills come from the
+#: canonical catalog; the rest belong to a private operations target and are
+#: described by what they do rather than named, because this repository is
+#: public and their names are not.
+SKILL_INVENTORY: Tuple[CardRow, ...] = (
+    CardRow(
+        name="Shared guidance skill",
+        detail="One manifest with its canonical payload, agents, and references",
+        tag="canonical",
+    ),
+    CardRow(
+        name="Transit ride counter",
+        detail="One manifest with its scripts and README",
+        tag="canonical",
+    ),
+    CardRow(
+        name="Release-grade shutdown",
+        detail="One manifest with its agents and the ship-and-clean workflow",
+        tag="canonical",
+    ),
+    CardRow(
+        name="Private service operation",
+        detail="One manifest covering service operation and its safety contract",
+        tag="private",
+    ),
+    CardRow(
+        name="Private world operations",
+        detail="One manifest with its agents and scripts",
+        tag="private",
+    ),
+    CardRow(
+        name="Private world backup",
+        detail="One manifest with its container-registry backup script",
+        tag="private",
+    ),
+    CardRow(
+        name="Private map update",
+        detail="One manifest that refreshes a published map",
+        tag="private",
+    ),
+    CardRow(
+        name="Private service smoke test",
+        detail="One manifest with its smoke-test script",
+        tag="private",
+    ),
+)
+
+#: The same private target, as the Skills view lists it a second time: the
+#: instruction snapshot and the skill copies kept together, so a new agent can
+#: operate the service without rediscovering its safety contract.
+PRIVATE_TARGET_SKILLS: Tuple[CardRow, ...] = (
+    CardRow(
+        name="Private service operation",
+        detail="Service operation and safety contract",
+        tag="private",
+    ),
+    CardRow(
+        name="Private world operations",
+        detail="World operations with agents and scripts",
+        tag="private",
+    ),
+    CardRow(
+        name="Private world backup",
+        detail="A container-registry backup script",
+        tag="private",
+    ),
+    CardRow(
+        name="Private service smoke test",
+        detail="A smoke-test script",
+        tag="private",
+    ),
+)
+
+
 MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="overview",
         label="Overview",
-        glyph="◈",
+        glyph="⌂",
         title="Overview",
         subtitle=(
-            "What this console holds, how much of it there is, and where each "
-            "part is kept on this machine."
+            "Inspect synchronizers, skills, memory, and release operations "
+            "from one calm surface."
         ),
         cards=(
+            MemoryCard(
+                title="Repository health",
+                span=8,
+                stat="Connected",
+                body="main · the canonical guidance repository's own origin",
+            ),
+            MemoryCard(
+                title="Managed surface",
+                span=4,
+                stat="3",
+                body=(
+                    f"Discovered skill families, with {len(ARTICLES)} feature "
+                    "documents available to read."
+                ),
+            ),
             MemoryCard(
                 title="What this console is",
                 span=7,
@@ -1042,13 +1137,31 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="sync",
         label="Sync",
-        glyph="⟳",
+        glyph="↻",
         title="Sync",
-        subtitle=(
-            "What is copied between the canonical instruction set and this "
-            "installation, when it last ran, and the evidence it left behind."
-        ),
+        subtitle="Inspect sync with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Synchronizer",
+                span=8,
+                body=(
+                    "The console invokes the repository's own PowerShell "
+                    "synchronizer. Status is read-only."
+                ),
+                code=(
+                    "claude   current   ~/.claude/rules/shared-agent-guidance.md\n"
+                    "codex    current   ~/.codex/AGENTS.md\n"
+                    "exit 0"
+                ),
+            ),
+            MemoryCard(
+                title="Safety",
+                span=4,
+                body=(
+                    "Credential intake never occurs in this renderer. Secrets "
+                    "use the approved one-time local intake flow."
+                ),
+            ),
             MemoryCard(
                 title="Last run",
                 span=4,
@@ -1165,15 +1278,49 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
         label="Skills",
         glyph="✦",
         title="Skills",
-        subtitle=(
-            "The installed skills, what each one triggers on, and where its "
-            "instructions are read from."
-        ),
+        subtitle="Inspect skills with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Skills inventory",
+                span=8,
+                rows=SKILL_INVENTORY,
+            ),
+            MemoryCard(
+                title="Skill contract",
+                span=4,
+                body=(
+                    "Every discovered skill is searchable and opens from its "
+                    "real source path. The inventory covers the canonical "
+                    "catalog, managed discovery locations, and local Codex "
+                    "copies."
+                ),
+            ),
+            MemoryCard(
+                title="Convenience skills",
+                span=4,
+                body=(
+                    "Five repo-local skills, mirrored for Codex and Claude, "
+                    "trigger focused completion, UI, search-builder, "
+                    "release-proof, and live-status workflows from ordinary "
+                    "task language."
+                ),
+            ),
+            MemoryCard(
+                title="Private target",
+                span=8,
+                body=(
+                    "A private operations target keeps its source-instruction "
+                    "snapshot and the server, map, backup, and "
+                    "world-operation skill copies together, so a new agent can "
+                    "operate the service without rediscovering its safety "
+                    "contract."
+                ),
+                rows=PRIVATE_TARGET_SKILLS,
+            ),
             MemoryCard(
                 title="Installed",
                 span=4,
-                stat="7",
+                stat=str(len(SKILL_INVENTORY)),
                 body=(
                     "Each skill is a folder holding one manifest and one "
                     "instruction file. A folder missing either is listed as "
@@ -1183,7 +1330,7 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
             MemoryCard(
                 title="Manifests validated",
                 span=4,
-                stat="7 of 7",
+                stat=f"{len(SKILL_INVENTORY)} of {len(SKILL_INVENTORY)}",
                 body=(
                     "Validation runs at load: name, version, triggers, entry "
                     "file, and declared write locations. A manifest that fails "
@@ -1304,11 +1451,45 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
         label="Memory",
         glyph="▤",
         title="Memory",
-        subtitle=(
-            "The preference and history records stored on this machine, their "
-            "size, and what happens to each one over time."
-        ),
+        subtitle="Inspect memory with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Durable memory",
+                span=8,
+                rows=(
+                    CardRow(
+                        name="Shared working agreement",
+                        detail=(
+                            "The durable instruction payload, installed as one "
+                            "managed block"
+                        ),
+                        tag="›",
+                    ),
+                    CardRow(
+                        name="Personal vocabulary file",
+                        detail=(
+                            "A private user-supplied file, read only where the "
+                            "user has placed one"
+                        ),
+                        tag="›",
+                    ),
+                    CardRow(
+                        name="Self-hosted runner notes",
+                        detail="One feature article under the operations domain",
+                        tag="›",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Reader",
+                span=4,
+                code=(
+                    "# Shared working agreement\n"
+                    "\n"
+                    "Global memory means durable supported\n"
+                    "instruction files and skills."
+                ),
+            ),
             MemoryCard(
                 title="Stored on disk",
                 span=4,
@@ -1430,11 +1611,11 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key=DOCS_VIEW_KEY,
         label="Docs",
-        glyph="◫",
+        glyph="❑",
         title="Docs",
         subtitle=(
-            "Every feature article shipped with this build, searchable by "
-            "title, path, summary, and body text, and filterable by domain."
+            "Every feature article in the canonical catalog, searchable and "
+            "readable offline."
         ),
         cards=(
             MemoryCard(
@@ -1468,11 +1649,34 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
         label="History",
         glyph="◷",
         title="History",
-        subtitle=(
-            "The actions this application has recorded, newest first, and what "
-            "restoring one of them actually does."
-        ),
+        subtitle="Inspect history with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Version history",
+                span=8,
+                rows=(
+                    CardRow(
+                        name="updated",
+                        detail="The shared working agreement · 10 Aug 2026",
+                        tag="Restore",
+                    ),
+                    CardRow(
+                        name="created",
+                        detail=(
+                            "A release-grade shutdown skill manifest " "· 09 Aug 2026"
+                        ),
+                        tag="Restore",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Local Git history",
+                span=4,
+                body=(
+                    "Restoring creates a new revision, so the previous state "
+                    "remains undoable."
+                ),
+            ),
             MemoryCard(
                 title="Recorded actions",
                 span=4,
@@ -1595,13 +1799,37 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="changelog",
         label="Changelog",
-        glyph="≡",
+        glyph="♧",
         title="Changelog",
-        subtitle=(
-            "Recent releases, what each one changed, and the commit every "
-            "entry points at."
-        ),
+        subtitle="Inspect changelog with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Released versions",
+                span=8,
+                rows=(
+                    CardRow(
+                        name="v0.1.2810",
+                        detail=(
+                            "Published for source 94630111cb48 · setups "
+                            "report NotSigned"
+                        ),
+                        tag="latest",
+                    ),
+                    CardRow(
+                        name="0.10.0-dev.414",
+                        detail="Unsigned Setup.exe, RELEASES, and full .nupkg",
+                        tag="verified",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Release evidence",
+                span=4,
+                body=(
+                    "Every row comes from the repository release API. A "
+                    "missing commit is shown plainly rather than guessed."
+                ),
+            ),
             MemoryCard(
                 title="Current build",
                 span=4,
@@ -1708,13 +1936,39 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="operations",
         label="Operations",
-        glyph="▸",
+        glyph="▣",
         title="Operations",
-        subtitle=(
-            "The maintenance operations you can run by hand, what each one "
-            "touches, and whether it can be undone."
-        ),
+        subtitle="Inspect operations with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Operations evidence",
+                span=8,
+                rows=(
+                    CardRow(
+                        name="Git status",
+                        detail="Clean working tree",
+                        tag="local",
+                    ),
+                    CardRow(
+                        name="Open issues",
+                        detail="0 open issue(s)",
+                        tag="read-only",
+                    ),
+                    CardRow(
+                        name="CI runs",
+                        detail="1 observed workflow run",
+                        tag="status-bound",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Post Discussion progress",
+                span=4,
+                body=(
+                    "An explicit user-initiated write through the local "
+                    "authenticated gh CLI. Nothing is auto-posted."
+                ),
+            ),
             MemoryCard(
                 title="Available",
                 span=4,
@@ -1853,13 +2107,131 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="security",
         label="Security",
-        glyph="◆",
+        glyph="◇",
         title="Security",
-        subtitle=(
-            "How this application handles a secret, and the four places one is "
-            "never written."
-        ),
+        subtitle="Inspect security with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Security boundary",
+                span=8,
+                body=(
+                    "Secrets are never requested in chat, placed in source, "
+                    "logged, or written into exports."
+                ),
+                rows=(
+                    CardRow(
+                        name="One-time secret intake",
+                        detail="Ephemeral, least-privileged, protected claim",
+                        tag="✓",
+                    ),
+                    CardRow(
+                        name="Destructive actions",
+                        detail="Two keys, full-range slider, emergency exit",
+                        tag="✓",
+                    ),
+                    CardRow(
+                        name="Vault-only secret storage",
+                        detail=(
+                            "TOTP secrets live in the local vault and are "
+                            "omitted from ordinary exports, with the omission "
+                            "stated out loud"
+                        ),
+                        tag="✓",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Review source",
+                span=4,
+                body=("Open the durable security contract in the external " "editor."),
+            ),
+            MemoryCard(
+                title="Builder containment",
+                span=8,
+                body=(
+                    "The replacement builder's gzip and Base64 body proved "
+                    "reversible, so the repository was made private "
+                    "immediately and its history is treated as tainted. No "
+                    "release route is claimed until authenticated encryption "
+                    "and a stronger verifier land."
+                ),
+                rows=(
+                    CardRow(
+                        name="Failed run 31343231288",
+                        detail="Created no release",
+                        tag="contained",
+                    ),
+                    CardRow(
+                        name="Helper boundary",
+                        detail=(
+                            "The build body loads its checked-native helper "
+                            "from the decrypted source/build tree"
+                        ),
+                        tag="repaired",
+                    ),
+                    CardRow(
+                        name="Privacy verifier",
+                        detail=(
+                            "Previously checked plaintext only; now covers the "
+                            "encoded payload"
+                        ),
+                        tag="repaired",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Failure propagation",
+                span=4,
+                body=(
+                    "Every Node, npm, PowerShell, Bash, and GitHub CLI command "
+                    "runs through one exit-code-checking helper. A dynamic "
+                    "regression proves exit code 7 aborts before packaging or "
+                    "publication."
+                ),
+                code=(
+                    "run(): exit 7 → abort\n"
+                    "captured output retained\n"
+                    "package dir cleanup guaranteed"
+                ),
+            ),
+            MemoryCard(
+                title="Signing policy",
+                span=8,
+                body=(
+                    "Code signing is prohibited. Signing inputs are cleared, "
+                    "manifests disable signing controls, and every Squirrel "
+                    "setup artifact must report NotSigned or the build fails "
+                    "closed."
+                ),
+                rows=(
+                    CardRow(
+                        name="forceCodeSigning",
+                        detail="false in both app manifests",
+                        tag="off",
+                    ),
+                    CardRow(
+                        name="signExecutable",
+                        detail="false in both app manifests",
+                        tag="off",
+                    ),
+                    CardRow(
+                        name="Updater copy",
+                        detail="Identifies unsigned updates explicitly",
+                        tag="stated",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Vocabulary contracts",
+                span=4,
+                body=(
+                    "Private conversation aliases for the operating system, "
+                    "execution host, and guard-family terms are carried in the "
+                    "synchronized payload only. Allowlists keep commands, "
+                    "identifiers, paths, logs, Git refs, and published records "
+                    "on ordinary technical wording."
+                ),
+            ),
             MemoryCard(
                 title="Secrets in source",
                 span=4,
@@ -1971,13 +2343,106 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="twoFactor",
         label="Two-factor",
-        glyph="◎",
+        glyph="⛨",
         title="Two-factor",
-        subtitle=(
-            "Pairing an authenticator application, confirming before the "
-            "requirement is armed, and how the codes are verified."
-        ),
+        subtitle="Inspect two-factor with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Authenticator pairing",
+                span=8,
+                body=(
+                    "Pairing draws the QR locally from a standard "
+                    "otpauth://totp/ URI and shows the manual base32 and its "
+                    "parameters beside it, with a real text alternative and "
+                    "dark-on-light contrast in both themes. One typed code "
+                    "confirms the pairing before the factor arms."
+                ),
+                rows=(
+                    CardRow(
+                        name="Locally drawn QR",
+                        detail=(
+                            "Third-party QR services are prohibited outright: "
+                            "rendering a secret through somebody else's server "
+                            "is sharing it"
+                        ),
+                        tag="local only",
+                    ),
+                    CardRow(
+                        name="Manual entry",
+                        detail=(
+                            "Base32 secret with algorithm, digits, and period "
+                            "shown beside the code"
+                        ),
+                        tag="shown",
+                    ),
+                    CardRow(
+                        name="Confirm before arming",
+                        detail=(
+                            "One typed code must verify, so a mistyped secret "
+                            "cannot lock you out"
+                        ),
+                        tag="required",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Standards",
+                span=4,
+                body=(
+                    "RFC 6238 is implemented over RFC 4226 and checked against "
+                    "the published test vectors. Observed clock skew is "
+                    "reported rather than hidden."
+                ),
+                code=(
+                    "TOTP  RFC 6238\n"
+                    "HOTP  RFC 4226\n"
+                    "vectors: pass\n"
+                    "skew:  +1.2 s reported"
+                ),
+            ),
+            MemoryCard(
+                title="Authenticator destination",
+                span=8,
+                body=(
+                    "Every user-facing app ships its own authenticator for "
+                    "arbitrary TOTP secrets."
+                ),
+                rows=(
+                    CardRow(
+                        name="Large grouped codes",
+                        detail="Read at a glance, grouped for typing",
+                        tag="✓",
+                    ),
+                    CardRow(
+                        name="Live countdown",
+                        detail="Neither colour-only nor motion-only",
+                        tag="accessible",
+                    ),
+                    CardRow(
+                        name="Next-code peek",
+                        detail="Avoids submitting a code as it expires",
+                        tag="✓",
+                    ),
+                    CardRow(
+                        name="Entry list",
+                        detail="Searchable and bulk-manageable",
+                        tag="✓",
+                    ),
+                    CardRow(
+                        name="Storage",
+                        detail="Vault-only; secrets omitted from ordinary exports",
+                        tag="vault",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Export boundary",
+                span=4,
+                body=(
+                    "An export that would have contained a secret says so "
+                    "instead of including it."
+                ),
+            ),
             MemoryCard(
                 title="State",
                 span=4,
@@ -2093,13 +2558,76 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="locks",
         label="Locks",
-        glyph="▦",
+        glyph="⚿",
         title="Locks",
-        subtitle=(
-            "Per-item locks, what they do and do not protect, and why there is "
-            "no master credential."
-        ),
+        subtitle="Inspect locks with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Locked tabs and appearance",
+                span=8,
+                body=(
+                    "Any tab, tab group, appearance property, preset, or bulk "
+                    "selection can be locked behind its own password or TOTP "
+                    "secret. There is no master credential and no inheritance, "
+                    "so a padlocked tab and the font size inside it are two "
+                    "locks with two answers."
+                ),
+                rows=(
+                    CardRow(
+                        name="Tab · 1.17 Height",
+                        detail="Password lock",
+                        tag="locked",
+                    ),
+                    CardRow(
+                        name="Tab group · Survival worlds",
+                        detail="TOTP lock",
+                        tag="locked",
+                    ),
+                    CardRow(
+                        name="Appearance · Accent colour",
+                        detail="Password lock, independent of the tab",
+                        tag="locked",
+                    ),
+                    CardRow(
+                        name="Preset · Studio dark v3",
+                        detail="Unlocked",
+                        tag="open",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Honest framing",
+                span=4,
+                body=(
+                    "The contract states plainly that this is a for-fun speed "
+                    "bump rather than a security boundary, and names the local "
+                    "application-data folder that resets every lock at once."
+                ),
+            ),
+            MemoryCard(
+                title="Support Tickets",
+                span=12,
+                body=(
+                    "Recovery routes through a fictional local support desk. It "
+                    "files a ticket, advances its status with the gravity of a "
+                    "service desk that has read the manual once, and resolves "
+                    "the case by opening the folder so you can delete it "
+                    "yourself. The desk deletes nothing and sends nothing, and "
+                    "carries one unstyled line admitting nobody is reading it."
+                ),
+                rows=(
+                    CardRow(
+                        name="Ticket 1042 · Forgotten tab password",
+                        detail="Triaged → Investigating → Awaiting user action",
+                        tag="open",
+                    ),
+                    CardRow(
+                        name="Ticket 1041 · Appearance lock reset",
+                        detail="Resolved by opening the reset folder",
+                        tag="closed",
+                    ),
+                ),
+            ),
             MemoryCard(
                 title="Locked items",
                 span=4,
@@ -2186,13 +2714,120 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="statusHub",
         label="Status Hub",
-        glyph="◉",
+        glyph="◎",
         title="Status Hub",
-        subtitle=(
-            "Session records, the order they refresh in, and exactly what a "
-            "session key is allowed to read."
-        ),
+        subtitle="Inspect the status hub with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Sessions",
+                span=8,
+                body=(
+                    "One card per agent session with first-user bootstrap "
+                    "registration, mobile access, and interactive question "
+                    "replies delivered to per-session inboxes."
+                ),
+                rows=(
+                    CardRow(
+                        name="Session · amulet-ui",
+                        detail="Live · last event 12 s ago",
+                        tag="active",
+                    ),
+                    CardRow(
+                        name="Session · builder-repair",
+                        detail="Idle · awaiting user answer",
+                        tag="waiting",
+                    ),
+                    CardRow(
+                        name="Questions",
+                        detail="Replies land in the session's key-protected inbox",
+                        tag="delivered",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Runtime repair",
+                span=4,
+                body=(
+                    "The static server returns .mjs runtime helpers as "
+                    "text/javascript, so the client runtime loads instead of "
+                    "leaving both initial views blank. The integration suite "
+                    "asserts the MIME header before the registration and "
+                    "answer-inbox flow."
+                ),
+                code="Content-Type: text/javascript; charset=utf-8",
+            ),
+            MemoryCard(
+                title="Refresh ordering",
+                span=8,
+                body=(
+                    "App-wide loadState() sequencing means direct bootstrap, "
+                    "login, registration, message, and answer reloads cannot "
+                    "repaint over a newer state load."
+                ),
+                rows=(
+                    CardRow(
+                        name="Stale responses",
+                        detail=(
+                            "Same-generation stale results and stale SSE "
+                            "generations are rejected"
+                        ),
+                        tag="guarded",
+                    ),
+                    CardRow(
+                        name="Ready announcement",
+                        detail="Survives an event overtaking the initial refresh",
+                        tag="guarded",
+                    ),
+                    CardRow(
+                        name="Session keys",
+                        detail="Malformed records fail closed; valid legacy keys migrate",
+                        tag="fail closed",
+                    ),
+                    CardRow(
+                        name="Dashboard projection",
+                        detail=(
+                            "Session, question, and reply activity uses a "
+                            "strict public allowlist"
+                        ),
+                        tag="metadata only",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Interface",
+                span=4,
+                body=(
+                    "Independent regex-capable session, settings, and "
+                    "command-palette searches with inventory-accurate "
+                    "previews, plain-text reset actions that do not validate "
+                    "regex until opted in, exact card reveal and focus from "
+                    "palette results, stale-result warnings, focus restoration "
+                    "after live refresh, injective heading ids, and persisted "
+                    "density that preserves 48px controls."
+                ),
+            ),
+            MemoryCard(
+                title="Build status",
+                span=12,
+                body="Refreshes automatically about every fifteen minutes.",
+                rows=(
+                    CardRow(
+                        name="Status",
+                        detail="Last run 2026-08-04 15:53 UTC",
+                        tag="SUCCESS",
+                    ),
+                    CardRow(
+                        name="Run log",
+                        detail="Public builder workflow run 30926032039",
+                        tag="recorded",
+                    ),
+                    CardRow(
+                        name="Project",
+                        detail="p7d81310a58b",
+                        tag="id",
+                    ),
+                ),
+            ),
             MemoryCard(
                 title="Sessions",
                 span=4,
@@ -2331,13 +2966,34 @@ MEMORY_VIEWS: Tuple[MemoryView, ...] = (
     MemoryView(
         key="settings",
         label="Settings",
-        glyph="◍",
+        glyph="⚙",
         title="Settings",
-        subtitle=(
-            "Console preferences: what it opens on, how much it shows, and "
-            "what it is allowed to do without asking."
-        ),
+        subtitle="Inspect settings with local, searchable evidence.",
         cards=(
+            MemoryCard(
+                title="Language and voice",
+                span=8,
+                rows=(
+                    CardRow(
+                        name="Language mode",
+                        detail="English · Yue · Bilingual",
+                        tag="English",
+                    ),
+                    CardRow(
+                        name="Narrator",
+                        detail="Optional narrator, off by default",
+                        tag="off",
+                    ),
+                ),
+            ),
+            MemoryCard(
+                title="Every surface",
+                span=4,
+                body=(
+                    "Search fields, tabs, cards, menus, notifications, and "
+                    "palette keep their state local to this profile."
+                ),
+            ),
             MemoryCard(
                 title="Opens on",
                 span=4,

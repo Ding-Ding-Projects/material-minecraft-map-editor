@@ -17,23 +17,53 @@ project forbids, so :func:`validate` refuses one.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from amulet_map_editor.api.studio.search import SearchState
+from amulet_map_editor.api.studio.selection_fields import (
+    SELECTION_COMMAND,
+    SELECTION_FIELDS,
+    SELECTION_FIELD_LABELS,
+    SELECTION_GROUP,
+    SELECTION_LIMIT,
+    SELECTION_TAB,
+    SelectionField,
+    parse_selection_box,
+    selection_box_values,
+    selection_field,
+    selection_field_problems,
+)
 
 __all__ = [
     "COMMAND_KEYS",
     "RIBBON_TABS",
+    "STRUCTURE_FORMATS",
     "RibbonButton",
     "RibbonField",
     "RibbonGroup",
     "RibbonOption",
     "RibbonSelect",
     "RibbonTab",
+    "SELECTION_COMMAND",
+    "SELECTION_FIELDS",
+    "SELECTION_FIELD_LABELS",
+    "SELECTION_GROUP",
+    "SELECTION_LIMIT",
+    "SELECTION_TAB",
+    "SelectionField",
+    "StructureFormat",
     "TAB_KEYS",
     "all_buttons",
     "buttons",
+    "parse_selection_box",
     "search",
+    "selection_box_values",
+    "selection_field",
+    "selection_field_problems",
+    "structure_format",
+    "structure_format_label",
+    "structure_format_operation",
+    "structure_format_values",
     "surface_keys",
     "tab",
     "validate",
@@ -78,10 +108,18 @@ class RibbonButton:
 
 @dataclass(frozen=True)
 class RibbonField:
-    """One labelled value in a ribbon group's field grid."""
+    """One labelled value in a ribbon group's field grid.
+
+    ``command`` is the shell action a committed edit raises -- Enter pressed in
+    the box, or the box left -- exactly as :attr:`RibbonSelect.command` is for a
+    dropdown.  A field without one stores what was typed and does nothing else,
+    which is what every box in this ribbon did until the Coordinates grid was
+    wired to the editor's selection.
+    """
 
     label: str
     value: str = ""
+    command: str = ""
 
 
 @dataclass(frozen=True)
@@ -188,6 +226,140 @@ def _options(*pairs: Tuple[str, str]) -> Tuple[RibbonOption, ...]:
 
 
 # ----------------------------------------------------------------------------
+# structure export formats
+# ----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StructureFormat:
+    """One structure file format the Export group offers, and its exporter.
+
+    ``value`` is what the dropdown stores, ``label`` is what it shows, and
+    ``operation`` is the export plugin's own ``export["name"]`` -- the string
+    the editor's Export tool puts in its chooser.  The name rather than the
+    identifier, because the operation loader's identifier is the plugin file's
+    path *on this installation*, so it is different on every machine and cannot
+    be written down here.
+    """
+
+    value: str
+    label: str
+    operation: str
+
+    @property
+    def option(self) -> RibbonOption:
+        """Return this format as the dropdown option it becomes."""
+        return RibbonOption(self.value, self.label)
+
+
+#: Every format the Structures > Export dropdown offers, beside the export
+#: operation each one runs.
+#:
+#: The two halves are written out side by side because neither derives from the
+#: other, and every rule that looks like it could derive one is wrong here.
+#: ``schem`` runs ``Export Sponge Schematic`` while ``schematic`` runs ``Export
+#: Schematic (legacy)``: a suffix, prefix or containment match sends Sponge's
+#: ``.schem`` to the legacy exporter, and does it silently, because both are
+#: real exporters and both write a file the user then has to open to discover is
+#: the wrong one.  A hand-written table can be read and disagreed with; a
+#: derivation cannot.
+#:
+#: A format with no exporter does not belong in this table, and therefore does
+#: not appear in the dropdown: the options below are built from it rather than
+#: listed a second time, so the list a user picks from cannot offer a format
+#: nothing can write.
+STRUCTURE_FORMATS: Tuple[StructureFormat, ...] = (
+    StructureFormat(
+        "construction",
+        "construction (.construction)",
+        "Export Construction",
+    ),
+    StructureFormat(
+        "mcstructure",
+        "mcstructure (.mcstructure)",
+        "Export Bedrock .mcstructure",
+    ),
+    StructureFormat(
+        "schematic",
+        "schematic (.schematic)",
+        "Export Schematic (legacy)",
+    ),
+    StructureFormat(
+        "schem",
+        "Sponge schem (.schem)",
+        "Export Sponge Schematic",
+    ),
+)
+
+_STRUCTURE_FORMATS_BY_VALUE: Dict[str, StructureFormat] = {
+    item.value: item for item in STRUCTURE_FORMATS
+}
+
+
+def structure_format(value: str) -> Optional[StructureFormat]:
+    """Return the structure format stored as ``value``, or ``None``."""
+    return _STRUCTURE_FORMATS_BY_VALUE.get(str(value))
+
+
+def structure_format_operation(value: str) -> str:
+    """Return the export operation ``value`` runs, or ``""`` for an unknown one.
+
+    An empty answer is a refusal, not a default.  Falling back to the first
+    exporter is what the dropdown effectively did before it was wired to
+    anything, and it is indistinguishable from working.
+    """
+    found = structure_format(value)
+    return found.operation if found is not None else ""
+
+
+def structure_format_label(value: str) -> str:
+    """Return the label the dropdown shows for ``value``, or ``""``."""
+    found = structure_format(value)
+    return found.label if found is not None else ""
+
+
+def structure_format_values() -> Tuple[str, ...]:
+    """Return every stored format value, in the order the dropdown lists them."""
+    return tuple(item.value for item in STRUCTURE_FORMATS)
+
+
+# ----------------------------------------------------------------------------
+# the selection's six coordinate boxes
+# ----------------------------------------------------------------------------
+#
+# The table, the parser and their faults live in
+# :mod:`amulet_map_editor.api.studio.selection_fields`, because deciding what a
+# typed coordinate means is behaviour and this module is data.  They are
+# re-exported here so a reader looking for the ribbon's content finds them
+# where the rest of it is.
+
+
+def _selection_field_problems() -> List[str]:
+    """Return every fault in the coordinate table and in the boxes drawn."""
+    group = next(
+        (
+            item
+            for item in tab(SELECTION_TAB).groups  # type: ignore[union-attr]
+            if item.title == SELECTION_GROUP
+        ),
+        None,
+    )
+    if group is None:
+        return [f"The {SELECTION_TAB} tab has no {SELECTION_GROUP} group"]
+    problems = selection_field_problems(
+        (entry.label, entry.value) for entry in group.fields
+    )
+    for entry in group.fields:
+        if entry.command != SELECTION_COMMAND:
+            problems.append(
+                f"Coordinate box {entry.label!r} raises {entry.command or 'nothing'} "
+                f"rather than {SELECTION_COMMAND!r}, so typing in it moves no "
+                "selection"
+            )
+    return problems
+
+
+# ----------------------------------------------------------------------------
 # the seventeen tabs
 # ----------------------------------------------------------------------------
 
@@ -236,7 +408,7 @@ _HOME = RibbonTab(
                     surface="moveTool",
                 ),
             ),
-            launcher="cloneTool",
+            launcher="operationOptions",
         ),
         RibbonGroup(
             "Editing",
@@ -294,7 +466,7 @@ _HOME = RibbonTab(
                     command="setDimension",
                 ),
             ),
-            launcher="viewControls",
+            launcher="controls",
         ),
         RibbonGroup(
             "Panes",
@@ -434,13 +606,18 @@ _SELECTION = RibbonTab(
         ),
         RibbonGroup(
             "Coordinates",
-            fields=(
-                RibbonField("x1", "-2"),
-                RibbonField("x2", "13"),
-                RibbonField("y1", "98"),
-                RibbonField("y2", "99"),
-                RibbonField("z1", "-49"),
-                RibbonField("z2", "-32"),
+            # Built from the binding table rather than listed a second time, and
+            # carrying no value: the six numbers a reader sees here are facts
+            # about the open world, and a literal written into a definition is a
+            # fact about nothing.  These shipped with the design's mock numbers
+            # in them -- x1=-2, y1=98 and the rest -- and nothing ever replaced
+            # them with the world's own, so with a real world open the ribbon
+            # described a selection box that did not exist and went on
+            # describing it while the real one was dragged, added to and
+            # cleared.
+            fields=tuple(
+                RibbonField(item.label, command=SELECTION_COMMAND)
+                for item in SELECTION_FIELDS
             ),
             launcher="goto",
         ),
@@ -468,36 +645,40 @@ _OPERATIONS = RibbonTab(
         RibbonGroup(
             "Stock operations",
             buttons=(
+                # One surface key each.  They shared ``operationOptions`` until
+                # the five keys below existed, which meant every tile started
+                # the Operation tool on whichever operation its list sorted
+                # first: Clone looked right and its four siblings opened Clone.
                 _button(
                     "Clone",
                     "⧉",
                     "Copy the selection to another location",
-                    surface="operationOptions",
+                    surface="operationClone",
                     primary=True,
                 ),
                 _button(
                     "Fill",
                     "▧",
                     "Fill the selection with one block",
-                    surface="operationOptions",
+                    surface="operationFill",
                 ),
                 _button(
                     "Replace",
                     "⇄",
                     "Swap one block for another in the selection",
-                    surface="operationOptions",
+                    surface="operationReplace",
                 ),
                 _button(
                     "Set biome",
                     "❋",
                     "Apply a biome across the selection",
-                    surface="operationOptions",
+                    surface="operationSetBiome",
                 ),
                 _button(
                     "Waterlog",
                     "≈",
                     "Waterlog eligible blocks in the selection",
-                    surface="operationOptions",
+                    surface="operationWaterlog",
                 ),
             ),
             launcher="operationOptions",
@@ -578,13 +759,9 @@ _STRUCTURES = RibbonTab(
             selects=(
                 RibbonSelect(
                     "Format",
-                    _options(
-                        ("construction", "construction (.construction)"),
-                        ("mcstructure", "mcstructure (.mcstructure)"),
-                        ("schematic", "schematic (.schematic)"),
-                        ("schem", "Sponge schem (.schem)"),
-                    ),
-                    value="construction",
+                    tuple(item.option for item in STRUCTURE_FORMATS),
+                    value=STRUCTURE_FORMATS[0].value,
+                    command="setExportFormat",
                 ),
             ),
             launcher="exportStructure",
@@ -592,15 +769,27 @@ _STRUCTURES = RibbonTab(
     ),
 )
 
+# The Chunks tab had a "Draw range" group in front of this one: two editable
+# boxes, Min Y = -64 and Max Y = 320, sized and labelled exactly like renderer
+# controls.  They were not.  Measured by typing into the real widget, all that
+# moved was one entry in ``RibbonBar.field_values``, whose only reader is the
+# group panel that re-seeds the box with what it last stored.
+#
+# They could not have done anything, because there is no vertical draw limit in
+# this application to be wired to.  ``RenderLevel`` owns ``render_distance`` (a
+# horizontal radius in chunks) and the construction-time booleans ``draw_floor``
+# and ``draw_ceil``; the only Y-wise filter in the geometry path is
+# ``RenderChunk._limit_bounds``, which clips to the level's own build range and
+# is a fixed argument the edit renderer leaves false.
+#
+# So the group is gone rather than given a renderer feature invented to justify
+# it.  ``heightLimits``, which it launched, is still reached by its own button on
+# the Worldgen tab.  ``tests/test_chunks_draw_range.py`` holds both halves: the
+# tab offers no box, and the renderer still owns nothing for one to set.
 _CHUNKS = RibbonTab(
     "chunks",
     "Chunks",
     (
-        RibbonGroup(
-            "Draw range",
-            fields=(RibbonField("Min Y", "-64"), RibbonField("Max Y", "320")),
-            launcher="heightLimits",
-        ),
         RibbonGroup(
             "Chunks",
             buttons=(
@@ -725,16 +914,22 @@ _TERRAIN = RibbonTab(
             ),
             launcher="surfacePaint",
         ),
-        RibbonGroup(
-            "Brush",
-            fields=(
-                RibbonField("Radius", "12"),
-                RibbonField("Strength", "0.45"),
-                RibbonField("Falloff", "smooth"),
-                RibbonField("Height", "98"),
-            ),
-            launcher="brushSettings",
-        ),
+        # A fourth group, titled "Brush", used to sit here: four outlined boxes
+        # holding Radius 12, Strength 0.45, Falloff smooth and Height 98.  They
+        # were removed rather than relabelled because of what they claimed to
+        # configure.  ``editor_tools`` records that this build has no brush tool
+        # at all -- the editor ships Select, Paste, Operation, Import, Export and
+        # Chunk, and none of them paints a shape along the pointer -- so the four
+        # boxes were enabled, editable, on screen, and offering to tune a feature
+        # the application does not have.  They tuned nothing even in principle:
+        # ``field_values`` is written by ``set_field`` and read by exactly one
+        # caller, the group panel that re-seeds the box with what it last stored.
+        # A static preview would have kept ribbon width to advertise something
+        # unbuilt; the space is better empty.  Neither surface was orphaned by
+        # this -- ``brushSettings`` is the Tools tab's Paint > Brush tile, and
+        # ``terrainBrush`` is the Sculpt group's launcher above.
+        # ``tests/test_terrain_brush_group.py`` holds both halves: the tab offers
+        # no box, and the brush tool is still missing for one to configure.
     ),
 )
 
@@ -1293,7 +1488,7 @@ _VIEW = RibbonTab(
                     command="setDensity",
                 ),
             ),
-            launcher="prefs",
+            launcher="presets",
         ),
         RibbonGroup(
             "Show",
@@ -1590,7 +1785,7 @@ _AUTOMATE = RibbonTab(
                 _button("History", "⟲", "Version history", surface="history"),
                 _button("Release notes", "♧", "Release notes", surface="changelog"),
             ),
-            launcher="history",
+            launcher="notifications",
         ),
         RibbonGroup(
             "Memory",
@@ -1707,6 +1902,15 @@ COMMAND_KEYS: Tuple[str, ...] = tuple(
             for select in group.selects
             if select.command
         }
+        # A field grid raises commands too, and left out of this set the shell
+        # registry check would never look for the handler behind a typed box.
+        | {
+            entry.command
+            for item in RIBBON_TABS
+            for group in item.groups
+            for entry in group.fields
+            if entry.command
+        }
     )
 )
 
@@ -1750,6 +1954,19 @@ def validate() -> Tuple[str, ...]:
             for select in group.selects:
                 if not select.options:
                     problems.append(f"Dropdown {where}/{select.label} has no options")
+                if not select.command:
+                    # The Format dropdown shipped without one.  It stored the
+                    # user's choice, raised nothing, and was read by nobody, so
+                    # picking "schematic (.schematic)" and pressing Export
+                    # exported a .construction and said "Export Construction"
+                    # back.  A control that operates and decides nothing is the
+                    # exact defect a button naming neither a surface nor a
+                    # command is refused for above; a dropdown gets the same
+                    # rule rather than a softer one.
+                    problems.append(
+                        f"Dropdown {where}/{select.label} raises no command, so "
+                        "changing it runs nothing and its value is read by nobody"
+                    )
                 if select.value and not select.label_for(select.value):
                     problems.append(
                         f"Dropdown {where}/{select.label} defaults to a value that "
@@ -1758,7 +1975,56 @@ def validate() -> Tuple[str, ...]:
             for entry in group.fields:
                 if not entry.label:
                     problems.append(f"A field in group {where} has no label")
+                if not entry.command:
+                    # The same rule the dropdown above gets, and for the same
+                    # reason.  Every box in this ribbon's field grids raised
+                    # nothing: what was typed went into a dictionary whose only
+                    # reader re-seeded the widget it came from, so the six
+                    # Coordinates boxes could be filled in with anything at all
+                    # and the world never heard about it.
+                    problems.append(
+                        f"Field {where}/{entry.label} raises no command, so "
+                        "typing in it changes nothing and its value is read by "
+                        "nobody"
+                    )
+    problems.extend(_structure_format_problems())
+    problems.extend(_selection_field_problems())
     return tuple(problems)
+
+
+def _structure_format_problems() -> List[str]:
+    """Return every fault in the hand-written structure format table.
+
+    A hand-written table is the right shape here and has the failure modes of
+    one: a row copied and half edited, two formats left pointing at the same
+    exporter, a blank cell.  Two rows sharing an exporter is the interesting
+    one, because it is what the dropdown effectively was -- four options, one
+    destination -- and it reads as correct to anybody skimming the table.
+    """
+    problems: List[str] = []
+    values: List[str] = []
+    operations: List[str] = []
+    for item in STRUCTURE_FORMATS:
+        where = f"Structure format {item.value or '<blank>'}"
+        if not item.value:
+            problems.append("A structure format has no stored value")
+        if not item.label:
+            problems.append(f"{where} has no dropdown label")
+        if not item.operation:
+            problems.append(
+                f"{where} names no export operation, so choosing it can only "
+                "run whichever exporter the tool was already showing"
+            )
+        values.append(item.value)
+        operations.append(item.operation)
+    for value in {item for item in values if values.count(item) > 1}:
+        problems.append(f"Structure format value {value!r} is listed twice")
+    for operation in {item for item in operations if operations.count(item) > 1}:
+        problems.append(
+            f"Two structure formats both run the export operation "
+            f"{operation!r}, so one of them writes a file it does not name"
+        )
+    return problems
 
 
 def iter_tabs() -> Iterable[RibbonTab]:

@@ -55,7 +55,13 @@ class LocalHistoryDialog(wx.Dialog):
         self.feedback = wx.StaticText(self, label="")
         self.feedback.SetName("Local history filter status")
         root.Add(self.feedback, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
-        self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_MULTIPLE_SEL)
+        self.list = wx.ListCtrl(
+            self,  # Multiple selection is wx.ListCtrl's default. The style flag that
+            # used to be named here does not exist in wxPython, so the
+            # lookup raised AttributeError before this window could be
+            # built at all. The opposite flag is wx.LC_SINGLE_SEL.
+            style=wx.LC_REPORT,
+        )
         self.list.SetName("Local history events")
         for index, label in enumerate(
             ("Action", "Record", "Type", "Timestamp", "Event")

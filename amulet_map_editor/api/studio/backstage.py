@@ -24,7 +24,6 @@ from __future__ import annotations
 import logging
 import math
 import os
-import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -36,7 +35,7 @@ import wx
 
 from amulet_map_editor.api import preferences
 from amulet_map_editor.api.studio import recents, tokens, widgets
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.recents import RecentEntry
 from amulet_map_editor.api.studio.search import SearchState
 
@@ -63,8 +62,16 @@ TABS: Tuple[str, ...] = ("home", "open", "info", "convert", "features", "account
 COMMAND_SAVE = "save"
 COMMAND_CLOSE_PROJECT = "close_project"
 COMMAND_EXPORT_SELECTION = "export_selection"
+#: The command that brings the user to the Convert page.  This view is that
+#: command's destination rather than one of its callers: the conversion runs
+#: here, so pressing Convert does not ask the shell to navigate anywhere.
 COMMAND_CONVERT = "convert_world"
 COMMAND_UPDATE_RESTART = "update_restart"
+
+#: The logger the conversion extension reports its own result through.  Its
+#: completion notification is raised from a worker thread, which wx refuses, so
+#: the log is the only place that result actually arrives.
+CONVERT_LOGGER = "amulet_map_editor.programs.convert.convert"
 
 #: Surface keys this view opens.  These match the shared surface index.
 SURFACE_PREFERENCES = "prefs"
@@ -114,6 +121,16 @@ MEASURE_SECONDS = 8.0
 
 #: Filenames a world directory may carry as its own icon.
 WORLD_ICON_NAMES: Tuple[str, ...] = ("world_icon.jpeg", "world_icon.png", "icon.png")
+
+#: The most worlds one scan of the installed save directories will identify
+#: before it stops and says it stopped.  Identifying a world opens its format
+#: wrapper, so an installation holding thousands of them is bounded rather than
+#: left to run for minutes behind a spinner.
+MAX_DETECTED_WORLDS = 400
+
+#: The most detected worlds the Open page lists inline before it says how many
+#: more matched.  The page is a route into a world, not a file manager.
+MAX_DETECTED_WORLD_ROWS = 12
 
 #: Structure formats the Open tab accepts.
 STRUCTURE_WILDCARD = (
@@ -273,6 +290,35 @@ def surface_export_text(
         lines.append(f"| `{cells[0]}` | {cells[1]} | {cells[2]} | {cells[3]} |")
     lines.append("")
     return "\n".join(lines)
+
+
+class _ConversionLog(logging.Handler):
+    """Collect what the conversion extension itself reported about a run.
+
+    The extension swallows its own exception, builds a message from it, and
+    then tries to raise a notification from its worker thread -- which wx
+    refuses, so that message never reaches the user.  It does reach the log
+    first, so the log is where the real verdict is read from.  Inventing a
+    verdict here instead would mean reporting a success this module never
+    observed.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.INFO)
+        self.records: List[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+    def verdict(self) -> Tuple[Optional[bool], str]:
+        """Return ``(succeeded, message)``; ``None`` when nothing was reported."""
+        for record in reversed(self.records):
+            if record.levelno >= logging.ERROR:
+                return False, record.getMessage()
+        for record in reversed(self.records):
+            if "Finished converting" in record.getMessage():
+                return True, record.getMessage()
+        return None, ""
 
 
 def _card_body(card: wx.Window, padding: int = 18) -> wx.BoxSizer:
@@ -560,10 +606,14 @@ class _Text(wx.Control):
 
 
 def _heading(parent: wx.Window, english: str, cantonese: str, size_px: float) -> _Text:
-    """Build one of the two big page headings the design uses."""
+    """Build one of the two big page headings the design uses.
+
+    A heading names the page, so it is built with ``studio_label`` and carries
+    no tone.  The paragraph underneath it is the application talking and does.
+    """
     return _Text(
         parent,
-        studio_text(english, cantonese),
+        studio_label(english, cantonese),
         size_px=size_px,
         weight=_LIGHT,
         role="on_surface",
@@ -575,10 +625,15 @@ def _heading(parent: wx.Window, english: str, cantonese: str, size_px: float) ->
 def _eyebrow(
     parent: wx.Window, english: str, cantonese: str, size_px: float = 13
 ) -> _Text:
-    """Build the uppercase primary caption that titles a block."""
+    """Build the uppercase primary caption that titles a block.
+
+    Titling is naming, so this takes no tone either -- and an eyebrow is set in
+    uppercase with letter tracking on a single line, which is the least
+    forgiving place in the whole design to append a clause to.
+    """
     return _Text(
         parent,
-        studio_text(english, cantonese),
+        studio_label(english, cantonese),
         size_px=size_px,
         weight=_MEDIUM,
         role="primary",
@@ -719,7 +774,13 @@ class _RailButton(_HoverControl):
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class _Template:
-    """One card in the "New" gallery, transcribed from the design."""
+    """One card in the "New" gallery, and exactly what pressing it does.
+
+    ``action`` names a real route through the application.  A card whose hint
+    promises something the build cannot yet do carries that promise in
+    :attr:`unavailable` instead of in the hint, so the card says so on its face
+    rather than appearing to work and doing nothing.
+    """
 
     title: str
     cantonese_title: str
@@ -727,48 +788,50 @@ class _Template:
     cantonese_hint: str
     glyph: str
     action: str
+    #: Why this card cannot do what it describes, or ``""`` when it can.
+    unavailable: str = ""
 
 
 TEMPLATES: Tuple[_Template, ...] = (
     _Template(
-        "Blank world project",
-        "空白世界專案",
-        "Open a world and start with one empty selection box.",
-        "開一個世界，由一個空嘅選取範圍開始。",
+        "Open a world folder",
+        "開啟世界資料夾",
+        "Browse for a save directory. Amulet reads level.dat to identify it.",
+        "揀一個存檔資料夾，Amulet 會讀 level.dat 去分辨格式。",
         "▢",
-        "open",
+        "open_folder",
     ),
     _Template(
-        "Structure library",
-        "結構庫",
-        "Import and stage .construction, .schem, and .mcstructure files.",
-        "匯入同準備 .construction、.schem 同 .mcstructure 檔案。",
+        "Open a structure file",
+        "開啟結構檔案",
+        "Open a .construction, .schem, .schematic, or .mcstructure file.",
+        "開啟 .construction、.schem、.schematic 或者 .mcstructure 檔案。",
         "❖",
-        "open",
+        "open_structure",
     ),
     _Template(
         "Conversion job",
         "轉換工作",
-        "Pair a source and destination world before merging chunks.",
-        "先配對來源同目的地世界，再合併區塊。",
+        "Pair a source and destination world, then merge the chunks across.",
+        "配對來源同目的地世界，再將區塊合併過去。",
         "⇄",
         "convert",
     ),
     _Template(
         "Chunk repair",
         "區塊修復",
-        "Prune, regenerate, or restore chunks from a backup world.",
-        "從備份世界修剪、重新生成或者還原區塊。",
+        "Open a world; pruning and regenerating chunks is the editor's Chunk tool.",
+        "開一個世界；修剪同重新生成區塊要用編輯器嘅區塊工具。",
         "▦",
-        "open",
+        "chunk_repair",
     ),
     _Template(
         "Classroom kit",
         "課堂套件",
-        "School-mode presentation lock with English-only copy.",
-        "課堂模式簡報鎖定，只用英文文案。",
+        "Open the settings where School mode and its unlock credential live.",
+        "開啟設定，喺嗰度設定課堂模式同解鎖密碼。",
         "✎",
-        "open",
+        "school_mode",
     ),
 )
 
@@ -792,10 +855,21 @@ class _TemplateCard(_HoverControl):
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.template = template
         self.on_choose = on_click
-        self.title = studio_text(template.title, template.cantonese_title)
+        # The title names the card and the hint is the sentence underneath it
+        # explaining what the card does -- a name and a message sitting two
+        # lines apart, which is why they take different functions.  All five
+        # hints are full sentences and all five are also this card's tooltip.
+        self.title = studio_label(template.title, template.cantonese_title)
         self.hint = studio_text(template.hint, template.cantonese_hint)
+        name = f"{template.title} — {template.hint}"
+        if template.unavailable:
+            # On the card, in the tooltip, and in the accessible name: a card
+            # that cannot do what it says has to say so in all three, because
+            # a user reaches it through any one of them.
+            self.hint = f"{self.hint}\nNot yet available: {template.unavailable}"
+            name += f". Not yet available: {template.unavailable}"
         self._width = 0
-        self._setup(f"{template.title} — {template.hint}")
+        self._setup(name)
         self.SetToolTip(self.hint)
         self.SetInitialSize(self.DoGetBestSize())
 
@@ -936,10 +1010,10 @@ class _RecentHeader(wx.Control):
         super().__init__(parent, style=wx.BORDER_NONE)
         self.labels = (
             "",
-            studio_text("Name", "名稱"),
-            studio_text("Platform", "平台"),
-            studio_text("Location", "位置"),
-            studio_text("Opened", "開啟時間"),
+            studio_label("Name", "名稱"),
+            studio_label("Platform", "平台"),
+            studio_label("Location", "位置"),
+            studio_label("Opened", "開啟時間"),
         )
         self.SetName("Recent projects table columns")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
@@ -1381,7 +1455,9 @@ class _SourceRow(_HoverControl):
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.source = source
         self.on_choose = on_click
-        self.title = studio_text(source.title, source.cantonese_title)
+        # Same split as ``_TemplateCard``: the row's title names it, the hint
+        # below is the application explaining it and keeps its tone.
+        self.title = studio_label(source.title, source.cantonese_title)
         self.hint = studio_text(source.hint, source.cantonese_hint)
         self._width = 0
         self._setup(f"{source.title} — {source.hint}")
@@ -2080,144 +2156,211 @@ class _SurfaceCard(_HoverControl):
 # ---------------------------------------------------------------------------
 # world discovery
 # ---------------------------------------------------------------------------
-def minecraft_save_roots() -> List[Path]:
-    """Return the directories a Minecraft installation keeps its saves in.
+#: ``select_world.find_world_paths`` clears and refills one module-level list
+#: in place, so two scans running at once can leave one of them reading a list
+#: the other has just emptied.  The symptom is a machine that plainly has a
+#: Minecraft installation being told it has none, on some runs and not others,
+#: which is worse than a slow scan.  One lock makes discovery a single reader.
+_DISCOVERY_LOCK = threading.Lock()
 
-    Only the conventional per-user locations are consulted, and only ones that
-    exist are returned, so the Open page can say exactly where it looked when
-    it finds nothing.
+
+def minecraft_save_roots() -> List[Tuple[str, Path]]:
+    """Return the save directories this machine's installations actually have.
+
+    The discovery itself belongs to
+    :mod:`amulet_map_editor.api.wx.ui.select_world`, which already knows about
+    the Java launcher, every Bedrock edition including the Education, Netease,
+    and GDK builds, and the per-profile layouts Modrinth and CurseForge use.
+    Deriving the list a second time here would produce a shorter answer that
+    quietly disagreed with the one the rest of the application uses, so this
+    asks that module and reports only the directories that exist.
     """
-    home = Path.home()
-    candidates: List[Path] = []
-    if os.name == "nt":
-        appdata = os.environ.get("APPDATA")
-        local = os.environ.get("LOCALAPPDATA")
-        if appdata:
-            candidates.append(Path(appdata) / ".minecraft" / "saves")
-        if local:
-            candidates.append(
-                Path(local)
-                / "Packages"
-                / "Microsoft.MinecraftUWP_8wekyb3d8bbwe"
-                / "LocalState"
-                / "games"
-                / "com.mojang"
-                / "minecraftWorlds"
-            )
-    elif sys.platform == "darwin":
-        candidates.append(
-            home / "Library" / "Application Support" / "minecraft" / "saves"
-        )
-    else:
-        candidates.append(home / ".minecraft" / "saves")
-        candidates.append(
-            home
-            / ".local"
-            / "share"
-            / "mcpelauncher"
-            / "games"
-            / "com.mojang"
-            / "minecraftWorlds"
-        )
-    candidates.append(home / ".minecraft" / "saves")
-    seen: List[Path] = []
-    for candidate in candidates:
+    from amulet_map_editor.api.wx.ui import select_world
+
+    with _DISCOVERY_LOCK:
         try:
-            resolved = candidate.expanduser()
+            select_world.find_world_paths()
+            discovered = list(select_world.minecraft_world_paths)
+        except Exception:  # pragma: no cover - a profile this host cannot read
+            log.exception("The installed Minecraft directories could not be listed")
+            return []
+    roots: List[Tuple[str, Path]] = []
+    seen: List[Path] = []
+    for group, directory in discovered:
+        try:
+            path = Path(directory).expanduser()
+            if path in seen or not path.is_dir():
+                continue
         except (OSError, RuntimeError):
             continue
-        if resolved not in seen:
-            seen.append(resolved)
-    return seen
+        seen.append(path)
+        roots.append((str(group), path))
+    return roots
 
 
 @dataclass(frozen=True)
 class DetectedWorld:
-    """One world found in an installation on this machine."""
+    """One world found in an installation on this machine.
+
+    Every field is read from the world itself through the same loader the
+    editor opens it with, so a world listed here is a world Amulet can open.
+    """
 
     name: str
     path: str
     platform: str
+    version: str = ""
+    group: str = ""
+    last_played: int = 0
 
     def haystack(self) -> str:
         """Return the text a search field matches this world against."""
-        return f"{self.name} {self.platform} {self.path}"
+        return f"{self.name} {self.platform} {self.version} {self.group} {self.path}"
+
+    def detail(self) -> str:
+        """Return the second line a list row shows for this world."""
+        played = _format_timestamp(self.last_played)
+        parts = [part for part in (self.version, self.group) if part]
+        if played:
+            parts.append(f"last played {played}")
+        return " · ".join(parts) or self.path
 
 
-def detect_worlds(limit: int = 400) -> Tuple[List[DetectedWorld], List[Path]]:
-    """Return the worlds found on this machine and the roots that were read.
+@dataclass(frozen=True)
+class WorldScan:
+    """What one pass over the installed save directories established."""
 
-    The platform is read from what is actually in the directory -- a Bedrock
-    world carries ``levelname.txt`` and a ``db`` folder -- rather than from
-    which directory it was found in, because a world moved between installs
-    keeps its own format and not its new neighbours'.
+    worlds: Tuple[DetectedWorld, ...] = ()
+    roots: Tuple[Tuple[str, Path], ...] = ()
+    skipped: int = 0
+    truncated: bool = False
+    error: str = ""
+
+    def summary(self) -> str:
+        """Return the sentence stating what was read and what was not."""
+        if self.error:
+            return (
+                f"The installed Minecraft directories could not be read: {self.error}"
+            )
+        if not self.roots:
+            return (
+                "No Minecraft installation was found on this machine, so there "
+                "is nothing to list. Browse for a world folder instead."
+            )
+        found = (
+            f"{len(self.worlds)} world{'' if len(self.worlds) == 1 else 's'} found in "
+            f"{len(self.roots)} save "
+            f"{'directory' if len(self.roots) == 1 else 'directories'}"
+        )
+        if self.truncated:
+            found += f", stopped at {MAX_DETECTED_WORLDS:,}"
+        if self.skipped:
+            found += (
+                f". {self.skipped} folder{'' if self.skipped == 1 else 's'} "
+                "matched no loader and cannot be opened here"
+            )
+        return found + "."
+
+    def roots_text(self) -> str:
+        """Return the directories that were read, one per line."""
+        return "\n".join(f"{group} — {path}" for group, path in self.roots)
+
+
+def _format_timestamp(seconds: int) -> str:
+    """Return an epoch time as a local date, or ``""`` when it is not recorded."""
+    if not seconds:
+        return ""
+    try:
+        return datetime.fromtimestamp(int(seconds)).strftime("%d %b %Y, %H:%M")
+    except (OSError, OverflowError, TypeError, ValueError):
+        return ""
+
+
+def detect_worlds(limit: int = MAX_DETECTED_WORLDS) -> WorldScan:
+    """Return every world Amulet can open in this machine's installations.
+
+    Each candidate directory is identified by ``amulet.load_format``, which is
+    the same call the editor makes when it opens a world, so the name, version,
+    and platform shown are the world's own rather than a guess made from which
+    folder it was sitting in.  A directory no loader matches is counted and
+    reported rather than listed, because offering to open something that cannot
+    be opened is worse than saying it was skipped.
+
+    This walks and reads every save directory on the machine, so it belongs on
+    a worker thread rather than on the thread drawing the screen.
     """
-    found: List[DetectedWorld] = []
     roots = minecraft_save_roots()
-    for root in roots:
+    if not roots:
+        return WorldScan()
+    from amulet import load_format
+
+    found: List[DetectedWorld] = []
+    skipped = 0
+    truncated = False
+    for group, root in roots:
         try:
-            if not root.is_dir():
-                continue
             children = sorted(root.iterdir())
         except OSError:
             continue
         for child in children:
-            if len(found) >= limit:
-                return found, roots
+            if len(found) >= max(1, int(limit)):
+                truncated = True
+                break
             try:
                 if not child.is_dir():
                     continue
-                bedrock = (child / "levelname.txt").is_file() or (child / "db").is_dir()
-                java = (child / "level.dat").is_file()
-                if not bedrock and not java:
-                    continue
-                name = child.name
-                if bedrock:
-                    try:
-                        label = (child / "levelname.txt").read_text(
-                            encoding="utf-8", errors="replace"
-                        )
-                        name = label.strip().splitlines()[0][:120] or child.name
-                    except (OSError, IndexError):
-                        name = child.name
-                found.append(
-                    DetectedWorld(
-                        name=name,
-                        path=str(child),
-                        platform="Bedrock" if bedrock else "Java",
-                    )
-                )
             except OSError:
                 continue
-    return found, roots
+            try:
+                world_format = load_format(str(child))
+            except Exception:  # noqa: BLE001 - any unloadable folder lands here
+                skipped += 1
+                continue
+            try:
+                found.append(
+                    DetectedWorld(
+                        name=str(world_format.level_name) or child.name,
+                        path=str(child),
+                        platform=str(world_format.platform).title(),
+                        version=str(world_format.game_version_string),
+                        group=group,
+                        last_played=int(world_format.last_played or 0),
+                    )
+                )
+            except Exception:  # noqa: BLE001 - a wrapper that will not describe itself
+                skipped += 1
+    found.sort(key=lambda world: (-world.last_played, world.name.lower()))
+    return WorldScan(
+        worlds=tuple(found),
+        roots=tuple(roots),
+        skipped=skipped,
+        truncated=truncated,
+    )
 
 
 class _WorldPickerDialog(wx.Dialog):
     """A searchable list of the worlds found in this machine's installations."""
 
-    def __init__(self, parent: wx.Window) -> None:
+    def __init__(self, parent: wx.Window, scan: Optional[WorldScan] = None) -> None:
         super().__init__(
             parent,
-            title=studio_text("Choose a world", "揀一個世界"),
+            title=studio_label("Choose a world", "揀一個世界"),
             style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
         )
         self.chosen: Optional[DetectedWorld] = None
-        self._worlds, self._roots = detect_worlds()
+        # The scan reads every save directory on the machine and asks a loader
+        # to identify each world, so it is handed in when the Open page has
+        # already done it and run on a worker thread when it has not.  Doing it
+        # here on the dialog's own thread is what would make opening the picker
+        # feel like the application had hung.
+        self._scan = scan
         self.state = SearchState(label="Detected worlds")
         palette = tokens.palette()
         self.SetBackgroundColour(palette.surface)
         root = wx.BoxSizer(wx.VERTICAL)
-        summary = (
-            f"{len(self._worlds)} worlds found in "
-            f"{len([path for path in self._roots if path.is_dir()])} installation "
-            "directories on this machine."
-            if self._worlds
-            else "No worlds were found. These directories were read:\n"
-            + "\n".join(str(path) for path in self._roots)
-        )
         self.summary = _Text(
             self,
-            summary,
+            self._summary_text(),
             size_px=13,
             role="on_surface_variant",
             wrap_width=_px(560),
@@ -2247,11 +2390,70 @@ class _WorldPickerDialog(wx.Dialog):
         self.SetSize(wx.Size(_px(640), _px(560)))
         self.Bind(wx.EVT_BUTTON, self._on_ok, id=wx.ID_OK)
         self._refill()
+        if self._scan is None:
+            threading.Thread(
+                target=self._scan_worker, name="amulet-studio-world-scan", daemon=True
+            ).start()
+
+    def _summary_text(self) -> str:
+        if self._scan is None:
+            return studio_text(
+                "Reading the installed Minecraft directories…",
+                "讀緊已安裝嘅 Minecraft 資料夾…",
+            )
+        text = self._scan.summary()
+        roots = self._scan.roots_text()
+        if not self._scan.worlds and roots:
+            text += "\nThese directories were read:\n" + roots
+        return text
+
+    def _scan_worker(self) -> None:
+        try:
+            scan = detect_worlds()
+        except Exception as error:  # noqa: BLE001 - report it rather than hang
+            log.exception("The installed worlds could not be scanned")
+            scan = WorldScan(error=str(error))
+        wx.CallAfter(self._apply_scan, scan)
+
+    def _apply_scan(self, scan: WorldScan) -> None:
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:  # pragma: no cover - the dialog has already gone
+            return
+        self._scan = scan
+        self.summary.set_text(self._summary_text())
+        self._refill()
+        self.Layout()
+
+    def _worlds(self) -> Tuple[DetectedWorld, ...]:
+        return () if self._scan is None else self._scan.worlds
 
     def _refill(self) -> None:
         self.list_sizer.Clear(delete_windows=True)
+        if self._scan is None:
+            self.list_sizer.Add(
+                _Text(
+                    self.list_panel,
+                    studio_text(
+                        "Reading the installed worlds. Each one is identified by "
+                        "the same loader the editor opens it with.",
+                        "讀緊已安裝嘅世界，每個都用編輯器開世界嗰個載入器去辨認。",
+                    ),
+                    size_px=13,
+                    role="on_surface_variant",
+                    wrap_width=_px(560),
+                    name="Detected worlds progress",
+                ),
+                0,
+                wx.EXPAND | wx.BOTTOM,
+                _px(8),
+            )
+            self.list_panel.Layout()
+            self.list_panel.FitInside()
+            return
         matches = [
-            world for world in self._worlds if self.state.matches(world.haystack())
+            world for world in self._worlds() if self.state.matches(world.haystack())
         ]
         if not matches:
             self.list_sizer.Add(
@@ -2270,10 +2472,11 @@ class _WorldPickerDialog(wx.Dialog):
             row = widgets.ListRow(
                 self.list_panel,
                 world.name,
-                world.path,
+                world.detail(),
                 world.platform,
                 on_click=lambda chosen=world: self._choose(chosen),
             )
+            row.SetToolTip(f"{world.name}\n{world.path}")
             self.list_sizer.Add(row, 0, wx.EXPAND | wx.BOTTOM, _px(4))
         self.list_panel.Layout()
         self.list_panel.FitInside()
@@ -2283,8 +2486,9 @@ class _WorldPickerDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
     def _on_ok(self, event: wx.CommandEvent) -> None:
-        if self.chosen is None and self._worlds:
-            self.chosen = self._worlds[0]
+        worlds = self._worlds()
+        if self.chosen is None and worlds:
+            self.chosen = worlds[0]
         event.Skip()
 
 
@@ -2444,9 +2648,25 @@ class BackstageView(wx.Panel):
         self.recent_filter = "All"
         self.recent_state = SearchState(label="Recent projects")
         self.surface_state = SearchState(label="All surfaces")
+        self.detected_state = SearchState(label="Detected worlds")
         self.update_status = "unknown"
         self.update_version = ""
         self.update_detail = ""
+
+        # The installed worlds, and the one scan that identified them.  Kept on
+        # the view rather than rebuilt per page so switching back to Open shows
+        # the list at once instead of reading every save directory again.
+        self._detected_scan: Optional[WorldScan] = None
+        self._detected_thread: Optional[threading.Thread] = None
+        self._detected_generation = 0
+        self._detected_host: Optional[wx.Panel] = None
+        self._detected_summary: Optional[_Text] = None
+        # The conversion the Convert page has running, if any.
+        self._conversion: Optional[wx.Window] = None
+        self._conversion_timer: Optional[wx.Timer] = None
+        self._conversion_log: Optional[_ConversionLog] = None
+        self._convert_progress: Optional[_Text] = None
+        self._convert_button: Optional[widgets.StudioButton] = None
 
         self.store = recents.store()
         self._width_targets: List[Callable[[int], None]] = []
@@ -2621,7 +2841,7 @@ class BackstageView(wx.Panel):
         for key, english, cantonese, glyph in items:
             button = _RailButton(
                 self.rail,
-                studio_text(english, cantonese),
+                studio_label(english, cantonese),
                 glyph,
                 on_click=lambda tab=key: self.set_tab(tab),
                 active=key == self.tab,
@@ -2637,7 +2857,7 @@ class BackstageView(wx.Panel):
         options_row.Add(
             _RailButton(
                 self.rail,
-                studio_text("Options", "選項"),
+                studio_label("Options", "選項"),
                 "⚙",
                 on_click=lambda: self._open_surface(SURFACE_PREFERENCES),
                 name="Options",
@@ -2653,7 +2873,7 @@ class BackstageView(wx.Panel):
             back_row.Add(
                 _RailButton(
                     self.rail,
-                    studio_text("Back to project", "返回專案"),
+                    studio_label("Back to project", "返回專案"),
                     "←",
                     on_click=lambda: widgets.invoke(self.on_workspace),
                     filled=True,
@@ -2678,10 +2898,20 @@ class BackstageView(wx.Panel):
         new title can never orphan a stored profile.
         """
         try:
-            return preferences.resolve_display_name("{display_name} Studio")
+            chosen = preferences.resolve_display_name("{display_name}").strip()
         except (TypeError, ValueError, OSError):
             log.debug("Could not resolve the display name", exc_info=True)
             return "Amulet Studio"
+        if not chosen:
+            return "Amulet Studio"
+        # The suffix is part of the SHIPPED name, not something to bolt onto a
+        # chosen one. Appending it unconditionally turned "My Map Studio" into
+        # "My Map Studio Studio", and would make any rename read as somebody
+        # else's product line. A renamed application shows exactly the name the
+        # user typed; only the default gains the word.
+        if chosen == preferences.DEFAULT_DISPLAY_NAME:
+            return f"{chosen} Studio"
+        return chosen
 
     # -- body ----------------------------------------------------------------
     def _on_body_size(self, event: wx.SizeEvent) -> None:
@@ -2721,6 +2951,10 @@ class BackstageView(wx.Panel):
         self._convert_error = None
         self._output_slot = None
         self._recent_search = None
+        self._detected_host = None
+        self._detected_summary = None
+        self._convert_progress = None
+        self._convert_button = None
         self.body_sizer.Clear(delete_windows=True)
         palette = tokens.palette()
         self.content = wx.Panel(self.body, style=wx.TAB_TRAVERSAL)
@@ -2823,7 +3057,7 @@ class BackstageView(wx.Panel):
         for name in recents.FILTERS:
             chip = widgets.Chip(
                 parent,
-                studio_text(
+                studio_label(
                     name,
                     {"All": "全部", "Worlds": "世界", "Projects": "專案"}.get(
                         name, name
@@ -2838,7 +3072,7 @@ class BackstageView(wx.Panel):
         header.AddStretchSpacer()
         self._recent_search = self._search_bar(
             parent,
-            studio_text("Search recent projects and worlds", "搜尋最近嘅專案同世界"),
+            studio_label("Search recent projects and worlds", "搜尋最近嘅專案同世界"),
             self.recent_state,
             on_change=lambda _state: self._refresh_recent(),
             min_width=460,
@@ -2852,7 +3086,7 @@ class BackstageView(wx.Panel):
         self._bulk_labels = {}
         displayed: List[str] = []
         for action in BULK_ACTIONS:
-            label = studio_text(action, BULK_CANTONESE.get(action, ""))
+            label = studio_label(action, BULK_CANTONESE.get(action, ""))
             self._bulk_labels[label] = action
             displayed.append(label)
         self._bulk = widgets.BulkActionBar(
@@ -2963,15 +3197,45 @@ class BackstageView(wx.Panel):
                 self.content.Layout()
 
     def _start_template(self, template: _Template) -> None:
+        """Run what a template card says it does, or say why it cannot.
+
+        No card opens a nameless empty project: reporting a project as open
+        when nothing was opened is the one outcome that makes every other
+        number on the screen untrustworthy.
+        """
+        if template.unavailable:
+            self._notify(
+                f"{template.title} is not available yet",
+                template.unavailable,
+                severity="warning",
+            )
+            return
         if template.action == "convert":
             self.set_tab("convert")
             return
-        title = studio_text(template.title, template.cantonese_title).split("\n")[0]
+        if template.action == "open_folder":
+            self._open_world_folder()
+            return
+        if template.action == "open_structure":
+            self._open_structure_file()
+            return
+        if template.action == "chunk_repair":
+            if self._open_world_folder():
+                self._notify(
+                    "World opened for chunk repair",
+                    "Pruning, regenerating, and restoring chunks are in the 3D "
+                    "editor's Chunk tool, which is now available for this world.",
+                )
+            return
+        if template.action == "school_mode":
+            self._open_surface(SURFACE_PREFERENCES)
+            return
         self._notify(
-            "Template chosen",
-            f"{template.title} — choose the world or files it will work on next.",
+            f"{template.title} did nothing",
+            f"This card asks for the action {template.action!r}, which this "
+            "build does not route anywhere. Nothing was opened or changed.",
+            severity="error",
         )
-        widgets.invoke(self.on_open_project, title, "")
 
     def _open_recent(self, entry: RecentEntry) -> None:
         self.store.add(
@@ -3236,6 +3500,49 @@ class BackstageView(wx.Panel):
             row = _SourceRow(block, source, on_click=self._run_open_source)
             rows.append(row)
             inner.Add(row, 0, wx.EXPAND | wx.BOTTOM, _px(10))
+
+        # The worlds this machine actually has, listed rather than hidden
+        # behind a dialog: the commonest thing a user wants to do on this page
+        # is open one of their own worlds, and a list they can see and search
+        # is a shorter route to that than a button that opens another list.
+        inner.AddSpacer(_px(18))
+        header = wx.BoxSizer(wx.HORIZONTAL)
+        header.Add(
+            _eyebrow(block, "Detected worlds", "偵測到嘅世界"),
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            _px(16),
+        )
+        header.AddStretchSpacer()
+        header.Add(
+            self._search_bar(
+                block,
+                studio_label("Search detected worlds", "搜尋偵測到嘅世界"),
+                self.detected_state,
+                on_change=lambda _state: self._refresh_detected(),
+                min_width=420,
+            ),
+            0,
+            wx.ALIGN_TOP,
+        )
+        inner.Add(header, 0, wx.EXPAND | wx.BOTTOM, _px(10))
+        self._detected_summary = _Text(
+            block,
+            studio_text(
+                "Reading the installed Minecraft directories…",
+                "讀緊已安裝嘅 Minecraft 資料夾…",
+            ),
+            size_px=13,
+            role="on_surface_variant",
+            name="Detected worlds summary",
+        )
+        inner.Add(self._detected_summary, 0, wx.EXPAND | wx.BOTTOM, _px(10))
+        self._detected_host = wx.Panel(block, style=wx.TAB_TRAVERSAL)
+        self._detected_host.SetBackgroundColour(tokens.palette().surface)
+        self._detected_host.SetName("Detected worlds")
+        self._detected_host.SetSizer(wx.BoxSizer(wx.VERTICAL))
+        inner.Add(self._detected_host, 0, wx.EXPAND)
+
         advisory = _Advisory(
             block,
             studio_text(
@@ -3251,8 +3558,130 @@ class BackstageView(wx.Panel):
                 text.set_available_width(min(_px(900), width)),
                 [item.set_available_width(min(_px(900), width)) for item in items],
                 note.set_available_width(min(_px(900), width)),
+                self._detected_summary.set_available_width(min(_px(900), width)),
             )
         )
+        self._refresh_detected()
+        self._scan_detected_worlds()
+
+    # -- open: the worlds this machine actually has --------------------------
+    def _scan_detected_worlds(self, *, force: bool = False) -> None:
+        """Identify the installed worlds off the UI thread, once per view.
+
+        Identifying a world opens its format wrapper and reads its level data,
+        so this is never done on the thread drawing the page.  The generation
+        counter is what stops a slow scan from writing its answer into a page
+        the user has already navigated away from.
+        """
+        if self._detected_scan is not None and not force:
+            return
+        if self._detected_thread is not None and self._detected_thread.is_alive():
+            return
+        self._detected_generation += 1
+        generation = self._detected_generation
+
+        def worker() -> None:
+            try:
+                scan = detect_worlds()
+            except Exception as error:  # noqa: BLE001 - say so rather than hang
+                log.exception("The installed worlds could not be scanned")
+                scan = WorldScan(error=str(error))
+            wx.CallAfter(self._apply_detected_scan, generation, scan)
+
+        self._detected_thread = threading.Thread(
+            target=worker, name="amulet-studio-world-scan", daemon=True
+        )
+        self._detected_thread.start()
+
+    def _apply_detected_scan(self, generation: int, scan: WorldScan) -> None:
+        if generation != self._detected_generation:
+            return
+        self._detected_scan = scan
+        self._refresh_detected()
+
+    def _refresh_detected(self) -> None:
+        host = getattr(self, "_detected_host", None)
+        if host is None:
+            return
+        sizer = host.GetSizer()
+        try:
+            sizer.Clear(delete_windows=True)
+        except RuntimeError:  # pragma: no cover - the page has been rebuilt
+            return
+        scan = self._detected_scan
+        if self._detected_summary is not None:
+            self._detected_summary.set_text(
+                studio_text(
+                    "Reading the installed Minecraft directories…",
+                    "讀緊已安裝嘅 Minecraft 資料夾…",
+                )
+                if scan is None
+                else scan.summary()
+            )
+            self._detected_summary.set_available_width(
+                min(_px(900), self._available_width or _px(900))
+            )
+        if scan is None:
+            host.Layout()
+            self._apply_widths()
+            return
+        matches = [
+            world
+            for world in scan.worlds
+            if self.detected_state.matches(world.haystack())
+        ]
+        if not matches:
+            message = (
+                self.detected_state.describe_matches(0, "world")
+                if scan.worlds
+                else scan.roots_text()
+                or "No installed Minecraft save directory was found on this machine."
+            )
+            sizer.Add(
+                _Text(
+                    host,
+                    message,
+                    size_px=13,
+                    role="on_surface_variant",
+                    wrap_width=self._available_width or _px(680),
+                    name="Detected worlds result count",
+                ),
+                0,
+                wx.EXPAND,
+            )
+        for world in matches[:MAX_DETECTED_WORLD_ROWS]:
+            row = widgets.ListRow(
+                host,
+                world.name,
+                world.detail(),
+                world.platform,
+                on_click=lambda chosen=world: self._open_detected(chosen),
+            )
+            row.SetToolTip(f"{world.name}\n{world.path}")
+            sizer.Add(row, 0, wx.EXPAND | wx.BOTTOM, _px(4))
+        remainder = len(matches) - MAX_DETECTED_WORLD_ROWS
+        if remainder > 0:
+            sizer.Add(
+                _Text(
+                    host,
+                    f"{remainder} more world{'' if remainder == 1 else 's'} match. "
+                    "Narrow the search, or use "
+                    "“Pick from a detected Minecraft install” to see them all.",
+                    size_px=12,
+                    role="on_surface_variant",
+                    wrap_width=self._available_width or _px(680),
+                    name="Detected worlds remainder",
+                ),
+                0,
+                wx.EXPAND | wx.TOP,
+                _px(6),
+            )
+        host.Layout()
+        self._apply_widths()
+
+    def _open_detected(self, world: DetectedWorld) -> None:
+        """Open one of the worlds found on this machine."""
+        self._open_path(world.name, world.path, world.platform, "Worlds")
 
     def _run_open_source(self, source: _OpenSource) -> None:
         if source.key == "folder":
@@ -3265,12 +3694,18 @@ class BackstageView(wx.Panel):
             self.set_tab("home")
             self.focus_recent_search()
 
-    def _open_world_folder(self) -> None:
+    def _open_world_folder(self) -> bool:
+        """Browse for a save directory with the platform's own folder picker.
+
+        Returns whether a world was actually handed to the shell, so a caller
+        that wants to say something afterwards can tell the difference between
+        a world opening and the user pressing Cancel.
+        """
         from amulet_map_editor.api.wx.ui import path_dialog
 
         chosen = path_dialog.choose_path(self, "Choose a world folder", directory=True)
         if not chosen:
-            return
+            return False
         root = Path(chosen)
         if not root.is_dir():
             self._notify(
@@ -3278,12 +3713,13 @@ class BackstageView(wx.Panel):
                 f"{root} is not a directory, so it cannot be opened as a world.",
                 severity="error",
             )
-            return
-        platform = self._detect_platform(root)
-        self._open_path(root.name, str(root), platform, "Worlds")
+            return False
+        name, platform = self._identify_world(root)
+        self._open_path(name, str(root), platform, "Worlds")
+        return True
 
     def _open_detected_world(self) -> None:
-        dialog = _WorldPickerDialog(self)
+        dialog = _WorldPickerDialog(self, self._detected_scan)
         try:
             if dialog.ShowModal() != wx.ID_OK or dialog.chosen is None:
                 return
@@ -3292,7 +3728,7 @@ class BackstageView(wx.Panel):
             dialog.Destroy()
         self._open_path(chosen.name, chosen.path, chosen.platform, "Worlds")
 
-    def _open_structure_file(self) -> None:
+    def _open_structure_file(self) -> bool:
         with wx.FileDialog(
             self,
             "Open a structure file",
@@ -3300,7 +3736,7 @@ class BackstageView(wx.Panel):
             style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
         ) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
-                return
+                return False
             target = Path(dialog.GetPath())
         self._open_path(
             target.stem,
@@ -3308,18 +3744,27 @@ class BackstageView(wx.Panel):
             f"{target.suffix.lstrip('.') or 'structure'} file",
             "Projects",
         )
+        return True
 
     @staticmethod
-    def _detect_platform(root: Path) -> str:
-        """Name the world's format from the files that are actually present."""
+    def _identify_world(root: Path) -> Tuple[str, str]:
+        """Return a chosen folder's own name and platform, as its format says.
+
+        The loader is asked first, because it is what will actually open the
+        world; when no loader matches, the reply says exactly that rather than
+        naming a platform the application cannot then load.
+        """
         try:
-            if (root / "levelname.txt").is_file() or (root / "db").is_dir():
-                return "Bedrock"
-            if (root / "level.dat").is_file():
-                return "Java"
-        except OSError:
-            pass
-        return "Format not detected"
+            from amulet import load_format
+
+            world_format = load_format(str(root))
+            return (
+                str(world_format.level_name) or root.name,
+                str(world_format.platform).title(),
+            )
+        except Exception:  # noqa: BLE001 - an unloadable folder is reported, not fatal
+            log.debug("No loader matched %s", root, exc_info=True)
+        return root.name, "No loader matched this folder"
 
     def _open_path(self, name: str, path: str, platform: str, tag: str) -> None:
         kind = "World project" if tag == "Worlds" else "Structure project"
@@ -3328,6 +3773,58 @@ class BackstageView(wx.Panel):
         self._notify("Opening", f"{name} — {path}")
 
     # -- info ----------------------------------------------------------------
+    @staticmethod
+    def _world_context():
+        """Return what the open world says about itself, or an empty context.
+
+        The context module is the one place that reads the open level, so the
+        backstage asks it rather than reading the level a second way and
+        arriving at a slightly different answer from every other surface.
+        """
+        try:
+            from amulet_map_editor.api.studio import context as world_context
+
+            return world_context.current()
+        except Exception:  # pragma: no cover - a build without the context
+            log.debug("The Studio world context is unavailable", exc_info=True)
+
+            class _Absent:
+                """Reads as "nothing is open", which is exactly what is known."""
+
+                open = False
+                name = ""
+                path = ""
+                platform = ""
+                version = ""
+                game_version = ""
+                seed = ""
+                size_on_disk = 0
+                level = None
+                dimension_info: Tuple = ()
+
+                @staticmethod
+                def reason(_key: str) -> str:
+                    return ""
+
+            return _Absent()
+
+    @staticmethod
+    def _dimensions_value(world) -> str:
+        """Return one line naming every dimension and what it holds."""
+        records = getattr(world, "dimension_info", ()) or ()
+        if not records:
+            return "This world reports no dimensions"
+        parts = []
+        for info in records:
+            if info.counted:
+                chunks = f"{info.chunk_count:,} chunks" + (
+                    "+" if info.truncated else ""
+                )
+            else:
+                chunks = "chunk count unavailable"
+            parts.append(f"{info.name} ({chunks})")
+        return ", ".join(parts)
+
     def _build_info(self, parent: wx.Panel, sizer: wx.BoxSizer) -> None:
         block = self._max_width_block(parent, sizer, 960)
         inner = block.GetSizer()
@@ -3337,9 +3834,18 @@ class BackstageView(wx.Panel):
             wx.EXPAND | wx.BOTTOM,
             _px(8),
         )
+        world = self._world_context()
         subtitle = _Text(
             block,
-            self.doc_title,
+            (
+                self.doc_title
+                if self.project_open
+                else studio_text(
+                    "No project is open. Everything below says so rather than "
+                    "describing the project that was open last.",
+                    "而家冇開任何專案。下面每一行都會照直講，唔會講返上次開嗰個。",
+                )
+            ),
             size_px=15,
             role="on_surface_variant",
             name="Open project",
@@ -3351,32 +3857,68 @@ class BackstageView(wx.Panel):
         rows_sizer = wx.BoxSizer(wx.VERTICAL)
         rows_panel.SetSizer(rows_sizer)
         entry = self.store.get(self.project_path or self.doc_title)
-        platform = self.project_platform or (entry.platform if entry else "")
-        definitions = (
-            ("name", "Name", "名稱", self.doc_title),
+        absent = "No project is open"
+        # The open level answers first, because it is the world itself; the
+        # recent record is only consulted for a project the level cannot
+        # describe, and neither is allowed to invent a value.
+        name = (world.name if world.open else "") or (
+            self.doc_title if self.project_open else absent
+        )
+        platform = (
+            world.platform.title() if world.open and world.platform else ""
+        ) or (self.project_platform or (entry.platform if entry else ""))
+        path = (world.path if world.open else "") or (self.project_path or absent)
+        definitions = [
+            ("name", "Name", "名稱", name),
             (
                 "platform",
                 "Platform",
                 "平台",
-                platform or "Not detected",
+                platform or (absent if not self.project_open else "Not detected"),
             ),
-            (
-                "path",
-                "Path",
-                "路徑",
-                self.project_path or "No project is open",
-            ),
-            ("size", "Size on disk", "硬碟用量", "Measuring…"),
-            ("chunks", "Chunks", "區塊", "Counting…"),
-            (
-                "revisions",
-                "Revisions",
-                "版本",
-                "Reading the local history…",
-            ),
+            ("path", "Path", "路徑", path),
+        ]
+        if world.open:
+            definitions.append(
+                (
+                    "version",
+                    "Game version",
+                    "遊戲版本",
+                    world.game_version
+                    or world.version
+                    or "This world does not record a game version",
+                )
+            )
+            definitions.append(
+                (
+                    "dimensions",
+                    "Dimensions",
+                    "維度",
+                    self._dimensions_value(world),
+                )
+            )
+            definitions.append(
+                (
+                    "seed",
+                    "Seed",
+                    "種子碼",
+                    world.seed or world.reason("seed") or "Not recorded in level.dat",
+                )
+            )
+        definitions.extend(
+            [
+                ("size", "Size on disk", "硬碟用量", "Measuring…"),
+                ("chunks", "Chunks", "區塊", "Counting…"),
+                (
+                    "revisions",
+                    "Revisions",
+                    "版本",
+                    "Reading the local history…",
+                ),
+            ]
         )
         for key, english, cantonese, value in definitions:
-            row = _InfoRow(rows_panel, studio_text(english, cantonese), value)
+            row = _InfoRow(rows_panel, studio_label(english, cantonese), value)
             self._info_rows[key] = row
             rows_sizer.Add(row, 0, wx.EXPAND | wx.BOTTOM, _px(12))
         columns.Add(rows_panel, 1, wx.EXPAND | wx.RIGHT, _px(20))
@@ -3409,7 +3951,7 @@ class BackstageView(wx.Panel):
         for english, cantonese, variant, handler in buttons:
             button = widgets.StudioButton(
                 actions,
-                studio_text(english, cantonese),
+                studio_label(english, cantonese),
                 variant=variant,
                 on_click=handler,
                 name=english,
@@ -3462,15 +4004,16 @@ class BackstageView(wx.Panel):
         """
         if not self._info_rows:
             return
-        if not self.project_open or not self.project_path:
+        world = self._world_context()
+        path = (world.path if world.open else "") or self.project_path
+        if not path:
             self._set_info("size", "No project is open")
             self._set_info("chunks", "No project is open")
             self._set_info("revisions", "No project is open")
             return
         self._measure_generation += 1
         generation = self._measure_generation
-        path = self.project_path
-        key = self.project_path or self.doc_title
+        key = path or self.doc_title
 
         def worker() -> None:
             measurement = _measure_project(path)
@@ -3525,14 +4068,18 @@ class BackstageView(wx.Panel):
             wx.EXPAND | wx.BOTTOM,
             _px(12),
         )
-        if self.project_open:
+        # The source is the world that is actually open, because that is the
+        # level whose chunks the conversion reads. The card therefore describes
+        # that level rather than whatever the shell was last told to call it.
+        world = self._world_context()
+        if world.open:
             row = wx.BoxSizer(wx.HORIZONTAL)
-            row.Add(_WorldTile(input_card, self.project_path), 0, wx.RIGHT, _px(14))
+            row.Add(_WorldTile(input_card, world.path), 0, wx.RIGHT, _px(14))
             labels = wx.BoxSizer(wx.VERTICAL)
             labels.Add(
                 _Text(
                     input_card,
-                    self.doc_title,
+                    world.name or Path(world.path).name or "Unnamed world",
                     size_px=15,
                     role="on_surface",
                     name="Input world name",
@@ -3543,7 +4090,11 @@ class BackstageView(wx.Panel):
             labels.Add(
                 _Text(
                     input_card,
-                    self.project_platform or "Platform not detected",
+                    world.game_version
+                    or " ".join(
+                        part for part in (world.platform.title(), world.version) if part
+                    )
+                    or "This world does not report a platform",
                     size_px=13,
                     role="on_surface_variant",
                     name="Input world platform",
@@ -3556,7 +4107,7 @@ class BackstageView(wx.Panel):
             row.Add(
                 widgets.StudioButton(
                     input_card,
-                    studio_text("Change", "更改"),
+                    studio_label("Change", "更改"),
                     variant="outlined",
                     on_click=self._open_world_folder,
                     name="Change the input world",
@@ -3570,7 +4121,10 @@ class BackstageView(wx.Panel):
             input_sizer.Add(
                 _EmptySlot(
                     input_card,
-                    studio_text("No source world selected", "未揀來源世界"),
+                    studio_text(
+                        "No world is open, so there are no chunks to convert",
+                        "冇開任何世界，所以冇區塊可以轉換",
+                    ),
                 ),
                 0,
                 wx.EXPAND | wx.BOTTOM,
@@ -3579,7 +4133,7 @@ class BackstageView(wx.Panel):
             input_sizer.Add(
                 widgets.StudioButton(
                     input_card,
-                    studio_text("Select input world", "揀來源世界"),
+                    studio_label("Select input world", "揀來源世界"),
                     variant="outlined",
                     on_click=self._open_world_folder,
                     name="Select input world",
@@ -3606,7 +4160,7 @@ class BackstageView(wx.Panel):
         output_sizer.Add(
             widgets.StudioButton(
                 output_card,
-                studio_text("Select output world", "揀目的地世界"),
+                studio_label("Select output world", "揀目的地世界"),
                 variant="outlined",
                 on_click=self._select_output_world,
                 name="Select output world",
@@ -3617,18 +4171,17 @@ class BackstageView(wx.Panel):
         inner.Add(output_card, 0, wx.EXPAND | wx.BOTTOM, _px(16))
 
         actions = wx.BoxSizer(wx.HORIZONTAL)
+        self._convert_button = widgets.StudioButton(
+            block,
+            studio_label("Convert", "轉換"),
+            variant="filled",
+            on_click=self._run_convert,
+            name="Convert",
+            hint="Merge the source chunks into the destination world",
+        )
+        self._convert_button.Enable(self._conversion is None)
         actions.Add(
-            widgets.StudioButton(
-                block,
-                studio_text("Convert", "轉換"),
-                variant="filled",
-                on_click=self._run_convert,
-                name="Convert",
-                hint="Merge the source chunks into the destination world",
-            ),
-            0,
-            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
-            _px(14),
+            self._convert_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, _px(14)
         )
         self._convert_error = _Text(
             block,
@@ -3638,17 +4191,46 @@ class BackstageView(wx.Panel):
             name="Conversion readiness",
         )
         actions.Add(self._convert_error, 1, wx.ALIGN_CENTER_VERTICAL)
-        inner.Add(actions, 0, wx.EXPAND)
+        inner.Add(actions, 0, wx.EXPAND | wx.BOTTOM, _px(10))
+        self._convert_progress = _Text(
+            block,
+            (
+                "Converting…"
+                if self._conversion is not None
+                else studio_text(
+                    "Nothing is converting. Progress appears here, counted in "
+                    "chunks written, once one starts.",
+                    "而家冇轉換緊。開始之後，呢度會顯示已經寫咗幾多個區塊。",
+                )
+            ),
+            size_px=13,
+            role="on_surface_variant",
+            name="Conversion progress",
+        )
+        inner.Add(self._convert_progress, 0, wx.EXPAND)
         self._register_width(
-            lambda width, text=intro: text.set_available_width(min(_px(860), width))
+            lambda width, text=intro, progress=self._convert_progress: (
+                text.set_available_width(min(_px(860), width)),
+                progress.set_available_width(min(_px(860), width)),
+            )
         )
 
     def _convert_blocker(self) -> str:
         """Return the honest reason conversion cannot start, or an empty line."""
-        if not self.project_open:
-            return "Select a source world before converting."
+        if self._conversion is not None:
+            return "A conversion is already running. Wait for it to finish."
+        world = self._world_context()
+        if not world.open or world.level is None:
+            return (
+                "Open the source world first: conversion reads the chunks out "
+                "of the world that is open."
+            )
         if not self.convert_output:
-            return "Select a world before converting."
+            return "Choose the destination world before converting."
+        if os.path.normcase(os.path.abspath(self.convert_output)) == os.path.normcase(
+            os.path.abspath(world.path or "")
+        ):
+            return "The destination is the source world. Choose a different folder."
         return ""
 
     def _select_output_world(self) -> None:
@@ -3661,7 +4243,8 @@ class BackstageView(wx.Panel):
             return
         self.convert_output = chosen
         if self._output_slot is not None:
-            self._output_slot.set_text(chosen)
+            name, platform = self._identify_world(Path(chosen))
+            self._output_slot.set_text(f"{name} · {platform}\n{chosen}")
         if self._convert_error is not None:
             self._convert_error.set_text(self._convert_blocker())
         if self.content is not None:
@@ -3669,13 +4252,194 @@ class BackstageView(wx.Panel):
             self.body.FitInside()
 
     def _run_convert(self) -> None:
+        """Start the real conversion, or say exactly why it cannot start.
+
+        The conversion itself is the editor's own Convert extension: the same
+        code path, the same loader, the same chunk-by-chunk save, so a world
+        converted from here and a world converted from the extension are
+        converted by one implementation rather than two that resemble each
+        other.  The extension is built without being shown, because what is
+        wanted from it is its behaviour and not its layout.
+        """
         blocker = self._convert_blocker()
         if blocker:
             if self._convert_error is not None:
                 self._convert_error.set_text(blocker)
             self._notify("Conversion not started", blocker, severity="warning")
             return
-        self._run(COMMAND_CONVERT)
+        world = self._world_context()
+        destination = self.convert_output
+        try:
+            from amulet import load_format
+            from amulet_map_editor.programs.convert.convert import ConvertExtension
+        except Exception as error:  # noqa: BLE001 - report the real import failure
+            self._report_convert_failure("This build cannot convert worlds", str(error))
+            return
+        try:
+            load_format(destination)
+        except Exception as error:  # noqa: BLE001 - an unloadable destination
+            self._report_convert_failure(
+                f"No loader matched {destination}",
+                f"{type(error).__name__}: {error}. Choose a destination folder "
+                "Amulet can open.",
+            )
+            return
+        try:
+            extension = ConvertExtension(self, world.level)
+        except Exception as error:  # noqa: BLE001 - the extension refused to build
+            self._report_convert_failure(
+                "The conversion could not be prepared",
+                f"{type(error).__name__}: {error}",
+            )
+            return
+        extension.Hide()
+        extension.out_world_path = destination
+        # The extension reports progress by calling this with the chunk it has
+        # reached and the total; wrapping it rather than replacing it keeps the
+        # extension's own gauge correct while the page shows the same figures.
+        original = extension._update_loading_bar
+
+        def relay(chunk_index: int, chunk_total: int) -> None:
+            original(chunk_index, chunk_total)
+            wx.CallAfter(self._show_convert_progress, chunk_index, chunk_total)
+
+        extension._update_loading_bar = relay
+        # The extension's own tail raises when it tries to notify from its
+        # worker thread, which wx refuses. Swallowing that here keeps a real
+        # completion from being reported as a crashed thread; the verdict comes
+        # from the log the extension had already written by that point.
+        convert_method = extension._convert_method
+
+        def guarded() -> None:
+            try:
+                convert_method()
+            except Exception:  # noqa: BLE001 - the tail, not the conversion
+                log.debug(
+                    "The conversion extension raised after finishing", exc_info=True
+                )
+
+        extension._convert_method = guarded
+        self._conversion_log = _ConversionLog()
+        logging.getLogger(CONVERT_LOGGER).addHandler(self._conversion_log)
+        self._conversion = extension
+        if self._convert_button is not None:
+            self._convert_button.Enable(False)
+        if self._convert_error is not None:
+            self._convert_error.set_text("")
+        self._show_convert_progress(0, 0)
+        try:
+            extension._convert_event(None)
+        except Exception as error:  # noqa: BLE001 - starting the thread failed
+            self._finish_conversion()
+            self._report_convert_failure(
+                "The conversion did not start", f"{type(error).__name__}: {error}"
+            )
+            return
+        if self._conversion_timer is None:
+            self._conversion_timer = wx.Timer(self)
+            self.Bind(wx.EVT_TIMER, self._watch_conversion, self._conversion_timer)
+        self._conversion_timer.Start(500)
+        self._notify(
+            "Conversion started",
+            f"Writing {world.name or 'the open world'} into {destination}. "
+            "Progress is counted in chunks on the Convert page.",
+        )
+
+    def _show_convert_progress(self, chunk_index: int, chunk_total: int) -> None:
+        """Show the chunk the conversion has genuinely reached."""
+        if self._convert_progress is None:
+            return
+        if chunk_total:
+            share = max(0.0, min(1.0, chunk_index / chunk_total))
+            text = (
+                f"Converting: {int(chunk_index):,} of {int(chunk_total):,} chunks "
+                f"written ({share * 100:.1f}%)."
+            )
+        else:
+            text = (
+                "Converting: the destination is opening and the chunk count is "
+                "not known yet."
+            )
+        try:
+            self._convert_progress.set_text(text)
+            self._convert_progress.set_available_width(
+                min(_px(860), self._available_width or _px(860))
+            )
+            if self.content is not None:
+                self.content.Layout()
+        except RuntimeError:  # pragma: no cover - the page has been rebuilt
+            return
+
+    def _watch_conversion(self, _event: wx.TimerEvent) -> None:
+        """Notice when the conversion thread has finished, and report its result."""
+        extension = self._conversion
+        if extension is None:
+            self._finish_conversion()
+            return
+        try:
+            running = getattr(extension, "_thread", None) is not None
+        except RuntimeError:  # pragma: no cover - the extension has gone
+            running = False
+        if running:
+            return
+        succeeded, message = (
+            self._conversion_log.verdict()
+            if self._conversion_log is not None
+            else (None, "")
+        )
+        destination = self.convert_output
+        self._finish_conversion()
+        if succeeded is True:
+            title, severity = "Conversion finished", "success"
+            body = message or f"The chunks were written into {destination}."
+        elif succeeded is False:
+            title, severity = "Conversion failed", "error"
+            body = message
+        else:
+            title, severity = "Conversion ended without a result", "warning"
+            body = (
+                "The conversion thread stopped without reporting either a "
+                f"success or a failure. Check {destination} before relying on it."
+            )
+        if self._convert_progress is not None:
+            try:
+                self._convert_progress.set_text(f"{title}. {body}")
+                self._convert_progress.set_available_width(
+                    min(_px(860), self._available_width or _px(860))
+                )
+                if self.content is not None:
+                    self.content.Layout()
+            except RuntimeError:  # pragma: no cover - the page has been rebuilt
+                pass
+        self._notify(title, body, severity=severity)
+
+    def _finish_conversion(self) -> None:
+        """Let go of the conversion, whatever its outcome was."""
+        if self._conversion_timer is not None and self._conversion_timer.IsRunning():
+            self._conversion_timer.Stop()
+        if self._conversion_log is not None:
+            logging.getLogger(CONVERT_LOGGER).removeHandler(self._conversion_log)
+            self._conversion_log = None
+        extension, self._conversion = self._conversion, None
+        if extension is not None:
+            try:
+                extension.Destroy()
+            except RuntimeError:  # pragma: no cover - already destroyed
+                pass
+        if self._convert_button is not None:
+            try:
+                self._convert_button.Enable(True)
+            except RuntimeError:  # pragma: no cover - the page has been rebuilt
+                pass
+
+    def _report_convert_failure(self, title: str, detail: str) -> None:
+        """State exactly why a conversion cannot run, on the page and in a toast."""
+        if self._convert_error is not None:
+            try:
+                self._convert_error.set_text(f"{title}: {detail}")
+            except RuntimeError:  # pragma: no cover - the page has been rebuilt
+                pass
+        self._notify(title, detail, severity="error")
 
     # -- all surfaces --------------------------------------------------------
     def _build_features(self, parent: wx.Panel, sizer: wx.BoxSizer) -> None:
@@ -3700,7 +4464,7 @@ class BackstageView(wx.Panel):
         row = wx.BoxSizer(wx.HORIZONTAL)
         search = self._search_bar(
             parent,
-            studio_text("Search all surfaces", "搜尋所有介面"),
+            studio_label("Search all surfaces", "搜尋所有介面"),
             self.surface_state,
             on_change=lambda _state: self._refresh_surfaces(),
             min_width=480,
@@ -3717,7 +4481,7 @@ class BackstageView(wx.Panel):
         row.Add(
             widgets.StudioButton(
                 parent,
-                studio_text("Export list…", "匯出清單…"),
+                studio_label("Export list…", "匯出清單…"),
                 variant="outlined",
                 on_click=self._export_surfaces,
                 name="Export the surface list",
@@ -3888,7 +4652,7 @@ class BackstageView(wx.Panel):
         updates_sizer.Add(
             _Text(
                 updates,
-                studio_text("Updates", "更新"),
+                studio_label("Updates", "更新"),
                 size_px=17,
                 role="on_surface",
                 name="Updates",
@@ -3911,7 +4675,7 @@ class BackstageView(wx.Panel):
         ready = self.update_status == "ready_to_restart"
         restart = widgets.StudioButton(
             updates,
-            studio_text("Restart to install", "重新啟動安裝"),
+            studio_label("Restart to install", "重新啟動安裝"),
             variant="filled",
             on_click=lambda: self._run(COMMAND_UPDATE_RESTART),
             name="Restart to install",
@@ -3926,7 +4690,7 @@ class BackstageView(wx.Panel):
         update_row.Add(
             widgets.StudioButton(
                 updates,
-                studio_text("Release notes", "發行說明"),
+                studio_label("Release notes", "發行說明"),
                 variant="outlined",
                 on_click=lambda: self._open_surface(SURFACE_CHANGELOG),
                 name="Release notes",
@@ -3942,7 +4706,7 @@ class BackstageView(wx.Panel):
         memory_sizer.Add(
             _Text(
                 memory,
-                studio_text("Global memory", "全域記憶庫"),
+                studio_label("Global memory", "全域記憶庫"),
                 size_px=17,
                 role="on_surface",
                 name="Global memory",
@@ -3968,7 +4732,7 @@ class BackstageView(wx.Panel):
         memory_sizer.Add(
             widgets.StudioButton(
                 memory,
-                studio_text("Open memory console", "開啟記憶主控台"),
+                studio_label("Open memory console", "開啟記憶主控台"),
                 variant="tonal",
                 on_click=lambda: self._open_surface(SURFACE_MEMORY),
                 name="Open memory console",
@@ -4077,6 +4841,8 @@ __all__ = [
     "BULK_ACTIONS",
     "BackstageView",
     "DetectedWorld",
+    "MAX_DETECTED_WORLDS",
+    "MAX_DETECTED_WORLD_ROWS",
     "OPEN_SOURCES",
     "ProjectMeasurement",
     "RAIL_WIDTH",
@@ -4084,6 +4850,7 @@ __all__ = [
     "SURFACE_EXPORT_VERSION",
     "TABS",
     "TEMPLATES",
+    "WorldScan",
     "detect_worlds",
     "minecraft_save_roots",
     "surface_export_text",

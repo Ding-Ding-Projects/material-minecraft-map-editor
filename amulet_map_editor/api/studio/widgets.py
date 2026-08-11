@@ -17,10 +17,21 @@ reaches the network: block previews are generated placeholders and say so.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import re
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import wx
 
@@ -157,6 +168,53 @@ def remember_section(key: str, expanded: bool) -> None:
 # ----------------------------------------------------------------------------
 
 
+@contextlib.contextmanager
+def measuring(window: wx.Window) -> Iterator[wx.DC]:
+    """Yield a device context that measures text the way painting draws it.
+
+    Every Studio surface paints through a ``wx.GCDC``: :func:`paint_context`
+    wraps one around the buffered paint context, and a capture wraps one around
+    its own bitmap.  A plain ``wx.ClientDC`` measures through GDI instead, and
+    the two do not agree.  On wxPython 4.3.1 / wxWidgets 3.3.3 the design's
+    filled button face reports ``"Confirm clone"`` as 81 pixels wide through the
+    client context and 83 through the graphics one.
+
+    Two pixels is enough to break every label in the shell.  A control sized
+    from the narrower measurement is *always* a hair narrower than the text it
+    then has to draw, so the ellipsis in :func:`elide` fires on labels that were
+    meant to fit exactly: "Confirm clone" became "Confirm clo…", "Cancel clone"
+    became "Cancel clo…", and "Apply" -- five characters on a button with
+    twenty-four pixels of padding either side -- became "Ap…".  It looks like a
+    layout that ran out of room and it is really a measurement taken with the
+    wrong ruler.
+
+    Measuring through the same wrapper that draws is what makes "a control is
+    sized to its own text" true rather than nearly true.  The client context is
+    kept alive for as long as the wrapper, because a ``wx.GCDC`` over a released
+    device context measures nothing.
+    """
+    source = wx.ClientDC(window)
+    try:
+        wrapper: wx.DC = wx.GCDC(source)
+    except TypeError:  # pragma: no cover - platform boundary
+        # Without the wrapper the measurement is the platform's own, which is
+        # also what such a build would paint with, so the two still agree.
+        yield source
+        return
+    try:
+        yield wrapper
+    finally:
+        del wrapper
+
+
+#: Slack added to a measured label before it becomes a control's width.
+#: ``GetTextExtent`` reports whole pixels while the graphics renderer lays glyphs
+#: out on fractional positions, so a control sized to the reported width can
+#: still be a fraction of a pixel short of the drawing.  One pixel each side
+#: costs nothing and removes the last case where a label that fits is elided.
+TEXT_SLACK = 1
+
+
 def elide(dc: wx.DC, text: str, max_width: int) -> str:
     """Return ``text`` shortened with an ellipsis so it fits ``max_width``."""
     if max_width <= 0 or not text:
@@ -174,6 +232,39 @@ def elide(dc: wx.DC, text: str, max_width: int) -> str:
         else:
             high = middle - 1
     return text[:low] + ellipsis
+
+
+def note_elision(window: wx.Window, full: str, drawn: str, *, hint: str = "") -> None:
+    """Keep the whole of an elided label reachable from the control itself.
+
+    Sizing a control from its measured text is the first half of the answer to
+    a clipped label; the other half is what happens when a container genuinely
+    cannot give a control the width its text needs.  A label cut to "Confirm
+    clo…" with nothing behind it is information the interface has simply lost,
+    and a screen-reader user hears the same stump.
+
+    So the ellipsis is only ever half of the presentation: whenever a widget
+    draws less than its full text it puts the full text in its own tooltip
+    here, alongside whatever hint it already carried.  The accessible name is
+    untouched, because every widget in this module is installed with its
+    complete label as its name and keeps it when the drawing shortens -- what
+    is on screen changes, what the control is called does not.
+
+    The tooltip is only written when it would change, because this runs from a
+    paint handler.
+    """
+    full_text = str(full)
+    hint_text = str(hint or "")
+    wanted = hint_text
+    if full_text and str(drawn) != full_text:
+        wanted = f"{full_text}\n{hint_text}" if hint_text else full_text
+    if getattr(window, "_elision_tooltip", None) == wanted:
+        return
+    window._elision_tooltip = wanted
+    try:
+        window.SetToolTip(wanted or None)
+    except (RuntimeError, TypeError):  # pragma: no cover - the window has gone
+        log.debug("Could not record an elided label for %s", window.GetName())
 
 
 def wrap_text(dc: wx.DC, text: str, max_width: int, max_lines: int = 2) -> List[str]:
@@ -255,6 +346,101 @@ def draw_dashed_round_rect(
 _paint_fallback_reported = False
 
 
+#: Windows currently being drawn into a capture bitmap rather than the screen,
+#: keyed by ``id``. Only ever non-empty inside :func:`render_via_paint`.
+_capture_redirect: Dict[int, Tuple[wx.DC, wx.DC]] = {}
+
+#: The names an owner-drawn widget binds to ``EVT_PAINT`` in this codebase.
+#: Tried in order; the first callable one is the widget's drawing code.
+_PAINT_HANDLER_NAMES = ("_on_paint", "_paint", "_on_draw")
+
+
+def render_via_paint(window: wx.Window, dc: wx.DC, rect: wx.Rect) -> bool:
+    """Draw ``window``'s own paint handler into ``dc`` at ``rect``.
+
+    A widget that paints in ``EVT_PAINT`` can normally only be photographed by
+    reading the screen underneath it, and a window positioned off-screen -- which
+    is how captures avoid disturbing the desktop -- has no screen underneath it
+    to read.  The result is a file where some controls are correct and others
+    are white rectangles, with nothing in the capture reporting which.
+
+    Rather than ask fourteen widget classes each to grow a second copy of their
+    drawing code, this drives the drawing code they already have.  The shared
+    :func:`paint_context` helper is the single point every one of them gets its
+    device context from, so redirecting that for the duration of one call is
+    enough to send an entire subtree into a bitmap instead of onto the screen.
+
+    ``SetDeviceOrigin`` is what makes the widget's own coordinates -- which
+    start at its top-left, as they must -- land at the right place in a
+    composite of the whole window.
+
+    Returns whether the widget drew.
+    """
+    handler = None
+    for name in _PAINT_HANDLER_NAMES:
+        candidate = getattr(window, name, None)
+        if callable(candidate):
+            handler = candidate
+            break
+    if handler is None:
+        return False
+
+    # wx.PaintEvent() takes an id on wxPython 4.3.1 -- constructing one without
+    # arguments raises TypeError. That failure is caught below and looks
+    # identical to "this widget cannot draw", so every widget fell silently
+    # through to the blit route and arrived white, with the report calling it a
+    # capture. Build the event the way this wx build wants it, and keep a stub
+    # for a build that wants something else again: a paint handler uses almost
+    # nothing of the event it is handed.
+    try:
+        event: Any = wx.PaintEvent(window.GetId())
+    except TypeError:
+
+        class _StubPaintEvent:
+            def Skip(self, *_args: Any, **_kwargs: Any) -> None:
+                return None
+
+            def GetEventObject(self) -> wx.Window:
+                return window
+
+            def GetId(self) -> int:
+                return window.GetId()
+
+        event = _StubPaintEvent()
+
+    # The origin is set BEFORE the wrapper is built, and this order is the
+    # whole of it. A wx.GCDC carries its own graphics transform, taken from the
+    # device context at the moment it is constructed; moving the origin
+    # afterwards moves the plain context and leaves the wrapper where it was.
+    #
+    # Owner-drawn widgets do almost all their drawing through the wrapper --
+    # that is what makes a rounded corner a curve rather than a staircase -- so
+    # building it first sent every label, chip and card to the top-left of the
+    # bitmap. The result was a capture with the interface drawn correctly in
+    # one place and every piece of its text piled up in the corner, which reads
+    # as a rendering catastrophe and is really two coordinate systems.
+    origin = dc.GetDeviceOrigin()
+    dc.SetDeviceOrigin(origin.x + rect.x, origin.y + rect.y)
+    try:
+        wrapper: wx.DC = wx.GCDC(dc)
+    except TypeError:
+        wrapper = dc
+
+    key = id(window)
+    _capture_redirect[key] = (dc, wrapper)
+    try:
+        handler(event)
+        return True
+    except Exception:  # noqa: BLE001 - a widget that cannot draw is the finding
+        log.debug("render_via_paint failed for %s", window.GetName(), exc_info=True)
+        return False
+    finally:
+        _capture_redirect.pop(key, None)
+        if wrapper is not dc:
+            del wrapper
+        dc.SetDeviceOrigin(origin.x, origin.y)
+
+
 def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.DC]:
     """Return a cleared buffered device context and its antialiased wrapper.
 
@@ -281,6 +467,34 @@ def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.D
     the interface changes, which leaves nobody able to tell a degraded build
     from a badly drawn one.
     """
+    redirect = _capture_redirect.get(id(window))
+    if redirect is not None:
+        # A capture is driving this widget's paint handler into a bitmap rather
+        # than onto the screen. Handing back the capture's device context is
+        # what lets the handler draw normally, with no knowledge that it is
+        # being photographed and no second copy of its drawing code to keep in
+        # step. See render_via_paint.
+        #
+        # The background is filled here for the same reason it is filled below:
+        # a caller hands us a background because it expects to be drawing onto
+        # it, and every widget in this codebase relies on that. Returning the
+        # context without clearing left each one drawing onto whatever the
+        # bitmap already held, so a page that paints cards and section labels
+        # but no field of its own came out as light cards floating on pure
+        # black -- which reads as a catastrophic theme failure in an interface
+        # that has no dark surface in it at all.
+        #
+        # The fill is bounded to this widget's own client area rather than the
+        # whole device context: the context is shared by the entire composite,
+        # and clearing all of it would erase every sibling already drawn.
+        capture_dc = redirect[0]
+        size = window.GetClientSize()
+        if size.width > 0 and size.height > 0:
+            capture_dc.SetBrush(wx.Brush(background))
+            capture_dc.SetPen(wx.Pen(background))
+            capture_dc.DrawRectangle(0, 0, size.width, size.height)
+        return redirect
+
     global _paint_fallback_reported
     for factory in (wx.BufferedPaintDC, wx.PaintDC):
         try:
@@ -314,6 +528,31 @@ def paint_context(window: wx.Window, background: wx.Colour) -> Tuple[wx.DC, wx.D
     dc.SetBackground(wx.Brush(background))
     dc.Clear()
     return dc, dc
+
+
+@contextlib.contextmanager
+def translated(dc: wx.DC, rect: wx.Rect) -> Iterator[None]:
+    """Move ``dc``'s origin to ``rect``'s corner for the enclosed drawing.
+
+    Every :meth:`_Themed.render_to` body draws in its own coordinates, from
+    ``0, 0`` to the widget's width and height, because that is what a paint
+    handler has always given it.  A capture, though, draws a child into a
+    parent's bitmap at the child's offset, so the same code has to land
+    somewhere else on the surface.
+
+    Shifting the device origin is what makes both true at once: the drawing
+    code is unchanged and every coordinate in it is interpreted relative to
+    ``rect``.  The previous origin is read rather than assumed -- a scrolled
+    window's paint context carries one -- and restored on the way out even when
+    the drawing raises, because a device context left translated would move
+    every later paint on that surface.
+    """
+    origin = dc.GetDeviceOrigin()
+    dc.SetDeviceOrigin(origin.x + rect.x, origin.y + rect.y)
+    try:
+        yield
+    finally:
+        dc.SetDeviceOrigin(origin.x, origin.y)
 
 
 class _Themed:
@@ -362,6 +601,78 @@ class _Themed:
     def palette(self) -> tokens.StudioPalette:
         """Return the live palette; resolved per paint so a change lands at once."""
         return tokens.palette()
+
+    # -- painting ------------------------------------------------------------
+    def _backdrop(self) -> wx.Colour:
+        """Return the colour this widget clears itself to before it draws.
+
+        A Studio widget paints its own background, so it starts from whatever
+        is behind it -- its parent's colour -- and draws its shape on top.  A
+        widget whose backdrop is fixed by the design rather than inherited
+        overrides this.
+        """
+        palette = self.palette()
+        parent = self.GetParent()
+        backdrop = parent.GetBackgroundColour() if parent else palette.surface
+        return backdrop if backdrop.IsOk() else palette.surface
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw this widget's current appearance into ``dc`` at ``rect``.
+
+        This is the whole of a Studio widget's painting, reachable without a
+        paint event, without a window handle, and without anybody looking at
+        the screen.  That last part is the point.  ``wx.ClientDC`` *reads* a
+        window's on-screen surface, so on a hidden desktop -- where nothing is
+        ever composited -- it returns the buffer's leftovers rather than the
+        interface; ``PrintWindow`` asks the window to draw, which native
+        controls answer and owner-drawn ones do not, because there is no
+        ``WM_PRINT`` handler behind an ``EVT_PAINT`` handler.  Both routes
+        photographed this interface as empty rectangles.
+
+        Calling the drawing code directly has neither problem: the appearance
+        comes from the same method the screen gets, so a capture matrix on a
+        hidden desktop and a running window cannot disagree.
+
+        The default paints the widget's backdrop and nothing else, which is the
+        honest appearance of a container that draws no shape of its own.  Every
+        painted widget overrides it, and ``_on_paint`` below is a thin caller
+        of whichever override applies.
+        """
+        with self._painting(dc, rect):
+            pass
+
+    @contextlib.contextmanager
+    def _painting(self, dc: wx.DC, rect: wx.Rect) -> Iterator[wx.Rect]:
+        """Prepare ``dc`` for one :meth:`render_to` body and yield its own rect.
+
+        It does the two things every painted widget starts with: moves the
+        origin to ``rect`` so the enclosed drawing can keep working in the
+        widget's own coordinates, and fills the backdrop, which is what a
+        paint context's ``Clear`` does on the way in.  Filling it here rather
+        than only there is what makes ``render_to`` complete on its own -- a
+        capture calls it with no paint context in sight, and a widget that drew
+        its shape but not its background would show whatever its parent had
+        painted through the corners its shape does not cover.
+        """
+        with translated(dc, rect):
+            local = wx.Rect(0, 0, rect.width, rect.height)
+            dc.SetBrush(wx.Brush(self._backdrop()))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(local)
+            yield local
+
+    def _on_paint(self, _event: wx.PaintEvent) -> None:
+        """Paint the widget by asking it to render into its own paint context.
+
+        Every Studio widget shares this handler: the drawing lives in
+        :meth:`render_to`, so the screen and a capture take the same route
+        through the same code rather than one of them taking a second one that
+        can rot unnoticed.
+        """
+        dc, gcdc = paint_context(self, self._backdrop())
+        width, height = self.GetClientSize()
+        self.render_to(gcdc, wx.Rect(0, 0, width, height))
+        del gcdc
 
     def _apply_theme(self, palette: tokens.StudioPalette) -> None:
         """Push palette colours into any native children.  Overridden as needed."""
@@ -449,9 +760,12 @@ class _Interactive(_Themed):
 
     # Every control mixing this in defines ``activate`` -- what the control
     # does when it is clicked, tapped, or reached with Enter or Space -- and
-    # ``_on_paint``.  They are deliberately not defined here: a default would
-    # let a control that forgot one look finished while doing nothing, whereas
-    # a missing attribute fails loudly the moment the control is constructed.
+    # ``render_to``.  ``activate`` is deliberately not defined here: a default
+    # would let a control that forgot one look finished while doing nothing,
+    # whereas a missing attribute fails loudly the moment it is activated.
+    # ``render_to`` does have a default, on ``_Themed``, because a widget that
+    # forgot to override it draws its backdrop and is visibly blank rather than
+    # raising inside a paint handler and leaving the whole surface unpainted.
 
 
 # ----------------------------------------------------------------------------
@@ -587,42 +901,47 @@ class StudioButton(wx.Control, _Interactive):
     # -- geometry ------------------------------------------------------------
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         padding, _radius, size_px, weight, _fixed = self._metrics()
-        dc = wx.ClientDC(self)
-        dc.SetFont(self._label_font(size_px, weight))
-        label = self.GetLabel()
-        if self.variant == "ribbon":
-            lines = wrap_text(dc, label or " ", tokens.scaled(_RIBBON_LABEL_WIDTH), 2)
+        with measuring(self) as dc:
+            dc.SetFont(self._label_font(size_px, weight))
+            label = self.GetLabel()
+            if self.variant == "ribbon":
+                lines = wrap_text(
+                    dc, label or " ", tokens.scaled(_RIBBON_LABEL_WIDTH), 2
+                )
+                text_width = max(dc.GetTextExtent(line)[0] for line in lines)
+                line_height = dc.GetCharHeight()
+                width = max(
+                    tokens.scaled(_RIBBON_MIN_WIDTH),
+                    text_width + TEXT_SLACK * 2 + tokens.scaled(padding) * 2,
+                    tokens.scaled(_RIBBON_BADGE) + tokens.scaled(padding) * 2,
+                    tokens.scaled(self._min_width),
+                )
+                height = (
+                    tokens.scaled(9)
+                    + tokens.scaled(_RIBBON_BADGE)
+                    + tokens.scaled(6)
+                    + line_height * len(lines)
+                    + tokens.scaled(8)
+                )
+                return wx.Size(width, height)
+            height = self._height_for()
+            if self.variant == "icon" and not label.strip():
+                return wx.Size(
+                    max(tokens.scaled(_ICON_WIDTH), tokens.scaled(self._min_width)),
+                    height,
+                )
+            lines = [line for line in label.split("\n") if line] or [" "]
             text_width = max(dc.GetTextExtent(line)[0] for line in lines)
-            line_height = dc.GetCharHeight()
-            width = max(
-                tokens.scaled(_RIBBON_MIN_WIDTH),
-                text_width + tokens.scaled(padding) * 2,
-                tokens.scaled(_RIBBON_BADGE) + tokens.scaled(padding) * 2,
-                tokens.scaled(self._min_width),
-            )
-            height = (
-                tokens.scaled(9)
-                + tokens.scaled(_RIBBON_BADGE)
-                + tokens.scaled(6)
-                + line_height * len(lines)
-                + tokens.scaled(8)
-            )
-            return wx.Size(width, height)
-        height = self._height_for()
-        if self.variant == "icon" and not label.strip():
-            return wx.Size(
-                max(tokens.scaled(_ICON_WIDTH), tokens.scaled(self._min_width)), height
-            )
-        lines = [line for line in label.split("\n") if line] or [" "]
-        text_width = max(dc.GetTextExtent(line)[0] for line in lines)
-        if self.glyph:
-            text_width += dc.GetTextExtent(f"{self.glyph} ")[0]
-        width = text_width + tokens.scaled(padding) * 2
-        if self.variant == "icon":
-            width = max(width, tokens.scaled(_ICON_WIDTH))
-        if len(lines) > 1:
-            height = max(height, dc.GetCharHeight() * len(lines) + tokens.scaled(10))
-        return wx.Size(max(width, tokens.scaled(self._min_width)), height)
+            if self.glyph:
+                text_width += dc.GetTextExtent(f"{self.glyph} ")[0]
+            width = text_width + TEXT_SLACK * 2 + tokens.scaled(padding) * 2
+            if self.variant == "icon":
+                width = max(width, tokens.scaled(_ICON_WIDTH))
+            if len(lines) > 1:
+                height = max(
+                    height, dc.GetCharHeight() * len(lines) + tokens.scaled(10)
+                )
+            return wx.Size(max(width, tokens.scaled(self._min_width)), height)
 
     # -- behaviour -----------------------------------------------------------
     def set_label(self, text: str) -> None:
@@ -643,29 +962,23 @@ class StudioButton(wx.Control, _Interactive):
         self._emit_button()
 
     # -- painting ------------------------------------------------------------
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the button's shape, label, and focus ring into ``dc``."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        if not backdrop.IsOk():
-            backdrop = palette.surface
-        dc, gcdc = paint_context(self, backdrop)
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        padding, radius, size_px, weight, _fixed = self._metrics()
-        fill, ink, border = self._state_colours(palette)
-        scaled_radius = (
-            radius if radius >= tokens.RADIUS_PILL else tokens.scaled(radius)
-        )
-        if fill is not None or border is not None:
-            tokens.draw_round_rect(gcdc, rect, scaled_radius, fill, border)
-        if self.variant == "ribbon":
-            self._paint_ribbon(gcdc, palette, rect, size_px, weight, ink)
-        else:
-            self._paint_label(gcdc, rect, padding, size_px, weight, ink)
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, scaled_radius, palette.primary)
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            padding, radius, size_px, weight, _fixed = self._metrics()
+            fill, ink, border = self._state_colours(palette)
+            scaled_radius = (
+                radius if radius >= tokens.RADIUS_PILL else tokens.scaled(radius)
+            )
+            if fill is not None or border is not None:
+                tokens.draw_round_rect(dc, rect, scaled_radius, fill, border)
+            if self.variant == "ribbon":
+                self._paint_ribbon(dc, palette, rect, size_px, weight, ink)
+            else:
+                self._paint_label(dc, rect, padding, size_px, weight, ink)
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, scaled_radius, palette.primary)
 
     def _paint_label(
         self,
@@ -698,6 +1011,7 @@ class StudioButton(wx.Control, _Interactive):
             for line in lines[1:]:
                 rendered.append(elide(dc, line, available))
                 heights.append(dc.GetCharHeight())
+        note_elision(self, label, "\n".join(rendered), hint=self.hint)
         total = sum(heights)
         y = rect.y + max(0, (rect.height - total) // 2)
         for index, line in enumerate(rendered):
@@ -744,6 +1058,9 @@ class StudioButton(wx.Control, _Interactive):
             tokens.scaled(_RIBBON_LABEL_WIDTH), rect.width - tokens.scaled(8)
         )
         lines = wrap_text(dc, self.GetLabel(), available, 2)
+        note_elision(
+            self, " ".join(self.GetLabel().split()), " ".join(lines), hint=self.hint
+        )
         y = badge_rect.GetBottom() + tokens.scaled(6)
         for line in lines:
             text_width = dc.GetTextExtent(line)[0]
@@ -814,14 +1131,14 @@ class Chip(wx.Control, _Interactive):
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(14), _MEDIUM))
-        lines = self.GetLabel().split("\n") or [" "]
-        width = max(dc.GetTextExtent(line or " ")[0] for line in lines)
-        height = max(
-            tokens.scaled(32), dc.GetCharHeight() * len(lines) + tokens.scaled(8)
-        )
-        return wx.Size(width + tokens.scaled(32), height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(14), _MEDIUM))
+            lines = self.GetLabel().split("\n") or [" "]
+            width = max(dc.GetTextExtent(line or " ")[0] for line in lines)
+            height = max(
+                tokens.scaled(32), dc.GetCharHeight() * len(lines) + tokens.scaled(8)
+            )
+            return wx.Size(width + TEXT_SLACK * 2 + tokens.scaled(32), height)
 
     def set_selected(self, selected: bool) -> None:
         """Set the chip's state without running its callback."""
@@ -836,41 +1153,41 @@ class Chip(wx.Control, _Interactive):
         invoke(self.on_click, self.selected)
         self._emit_button()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the chip's outline or fill, its label, and its focus ring."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        radius = tokens.scaled(tokens.RADIUS_SM)
-        if self.selected:
-            fill, ink, border = (
-                palette.primary_container,
-                palette.on_primary_container,
-                palette.primary_container,
-            )
-        else:
-            fill, ink, border = (None, palette.on_surface, palette.outline)
-            if self._pressed or self._hovered:
-                fill = tokens.blend(
-                    palette.surface, palette.primary, 0.12 if self._pressed else 0.06
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            radius = tokens.scaled(tokens.RADIUS_SM)
+            if self.selected:
+                fill, ink, border = (
+                    palette.primary_container,
+                    palette.on_primary_container,
+                    palette.primary_container,
                 )
-        tokens.draw_round_rect(gcdc, rect, radius, fill, border)
-        gcdc.SetFont(tokens.font(self, point_size(14), _MEDIUM))
-        gcdc.SetTextForeground(ink)
-        lines = self.GetLabel().split("\n")
-        available = max(0, width - tokens.scaled(24))
-        line_height = gcdc.GetCharHeight()
-        y = (height - line_height * len(lines)) // 2
-        for line in lines:
-            text = elide(gcdc, line, available)
-            text_width = gcdc.GetTextExtent(text)[0]
-            gcdc.DrawText(text, (width - text_width) // 2, y)
-            y += line_height
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, radius, palette.primary)
-        del gcdc
+            else:
+                fill, ink, border = (None, palette.on_surface, palette.outline)
+                if self._pressed or self._hovered:
+                    fill = tokens.blend(
+                        palette.surface,
+                        palette.primary,
+                        0.12 if self._pressed else 0.06,
+                    )
+            tokens.draw_round_rect(dc, rect, radius, fill, border)
+            dc.SetFont(tokens.font(self, point_size(14), _MEDIUM))
+            dc.SetTextForeground(ink)
+            lines = self.GetLabel().split("\n")
+            available = max(0, width - tokens.scaled(24))
+            line_height = dc.GetCharHeight()
+            y = (height - line_height * len(lines)) // 2
+            rendered = [elide(dc, line, available) for line in lines]
+            note_elision(self, self.GetLabel(), "\n".join(rendered))
+            for text in rendered:
+                text_width = dc.GetTextExtent(text)[0]
+                dc.DrawText(text, (width - text_width) // 2, y)
+                y += line_height
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, radius, palette.primary)
 
 
 class SectionLabel(wx.Control, _Themed):
@@ -896,13 +1213,13 @@ class SectionLabel(wx.Control, _Themed):
         return tokens.font(self, point_size(10), wx.FONTWEIGHT_BOLD)
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(self._font())
-        text = self.GetLabel().upper()
-        return wx.Size(
-            tracked_width(dc, text, tokens.scaled(self.TRACKING)) + 2,
-            dc.GetCharHeight() + tokens.scaled(2),
-        )
+        with measuring(self) as dc:
+            dc.SetFont(self._font())
+            text = self.GetLabel().upper()
+            return wx.Size(
+                tracked_width(dc, text, tokens.scaled(self.TRACKING)) + TEXT_SLACK * 2,
+                dc.GetCharHeight() + tokens.scaled(2),
+            )
 
     def set_label(self, text: str) -> None:
         """Replace the caption and re-measure it."""
@@ -912,17 +1229,289 @@ class SectionLabel(wx.Control, _Themed):
         self.SetMinSize(self.DoGetBestSize())
         self.Refresh()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the tracked uppercase caption, shortened only if it must be."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        gcdc.SetFont(self._font())
-        gcdc.SetTextForeground(palette.on_surface_variant)
-        draw_tracked_text(
-            gcdc, self.GetLabel().upper(), 0, 0, tokens.scaled(self.TRACKING)
+        with self._painting(dc, rect) as rect:
+            dc.SetFont(self._font())
+            dc.SetTextForeground(palette.on_surface_variant)
+            tracking = tokens.scaled(self.TRACKING)
+            text = self.GetLabel().upper()
+            drawn = text
+            # A caption is sized to its own tracked width, so this only bites
+            # when a container squeezed it -- and then the whole caption is
+            # still one tooltip away rather than gone.
+            if tracked_width(dc, text, tracking) > rect.width:
+                body = text
+                while body and tracked_width(dc, f"{body}…", tracking) > rect.width:
+                    body = body[:-1]
+                drawn = f"{body}…" if body else ""
+            note_elision(self, text, drawn)
+            draw_tracked_text(dc, drawn, 0, 0, tracking)
+
+
+class StudioText(wx.Control, _Themed):
+    """One block of laid-out text: a caption, a status line, or a paragraph.
+
+    ``wx.StaticText`` is the control this replaces, and it loses three things
+    the shell needs.  It takes its ink from a native foreground colour rather
+    than a palette role, so a theme change leaves it behind unless every
+    surface remembers to recolour it by hand.  It cannot letter-space, and its
+    ``Wrap`` writes the line breaks into the label itself, so ``GetLabel``
+    answers with newlines the caller never set -- which matters wherever a
+    surface copies that label into an accessible name.  And -- the reason a
+    capture of this interface used to come back with holes in it -- it paints
+    through the platform rather than through :meth:`_Themed.render_to`, so on a
+    desktop nobody is looking at, where there is no surface to read back, it
+    photographs as a blank rectangle.
+
+    It is deliberately drop-in for the control it replaces.  ``SetLabel``,
+    ``GetLabel``, ``Wrap`` and ``SetForegroundColour`` all behave as a caller
+    of ``wx.StaticText`` expects, so migrating a surface is a constructor swap
+    rather than a rewrite of everything that talks to it afterwards.  Setting a
+    foreground colour explicitly wins over the palette role, because a caller
+    that paints its own error ink means it; :meth:`set_role` hands control back.
+    """
+
+    # Class-level defaults, because wx may call an overridden setter from
+    # inside ``wx.Control.__init__`` -- before ``__init__`` below has bound the
+    # instance attribute the override reads.  An AttributeError raised there
+    # surfaces as a control that cannot be constructed at all.
+    _font_override: Optional[wx.Font] = None
+    _ink_override: Optional[wx.Colour] = None
+    _named: bool = False
+    _best: wx.Size = wx.Size(1, 1)
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        label: str = "",
+        *,
+        size_px: float = 13,
+        weight: int = wx.FONTWEIGHT_NORMAL,
+        role: str = "on_surface_variant",
+        line_height: float = 1.4,
+        wrap_width: int = 0,
+        mono: bool = False,
+        uppercase: bool = False,
+        tracking: float = 0.0,
+        max_lines: int = 64,
+        ellipsize: bool = False,
+        name: str = "",
+    ) -> None:
+        super().__init__(parent, style=wx.BORDER_NONE)
+        wx.Control.SetLabel(self, str(label))
+        self._size_px = float(size_px)
+        self._weight = weight
+        self._role = str(role)
+        self._line_factor = float(line_height)
+        self._wrap_width = max(0, int(wrap_width))
+        self._mono = bool(mono)
+        self._uppercase = bool(uppercase)
+        self._tracking = float(tracking)
+        self._max_lines = max(1, int(max_lines))
+        self._ellipsize = bool(ellipsize)
+        self._font_override: Optional[wx.Font] = None
+        self._ink_override: Optional[wx.Colour] = None
+        self._lines: List[str] = []
+        self._install(name or str(label).replace("\n", " ") or "Text")
+        # After ``_install``, which goes through the ``SetName`` override and
+        # would otherwise mark every control as explicitly named -- including
+        # the ones whose name is only the label echoed back.
+        self._named = bool(name)
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
+        self._relayout()
+
+    # Text is read, never operated, so it stays out of the tab order: a caption
+    # that takes focus is a stop on the keyboard path to nowhere.
+    def AcceptsFocus(self) -> bool:  # noqa: N802 - wx API spelling
+        return False
+
+    def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
+        return False
+
+    # -- content -------------------------------------------------------------
+    def SetLabel(self, label: str) -> None:  # noqa: N802 - wx API spelling
+        """Replace the text and re-measure it.
+
+        A control given an explicit ``name`` keeps it.  ``wx.StaticText`` never
+        renamed itself on a new label, and a status line whose accessible name
+        is "Local history filter status" must not silently become whatever its
+        last message happened to say -- a screen reader user navigating by name
+        would find a different control every time the filter changed.
+        """
+        text = str(label)
+        if text == self.GetLabel():
+            return
+        wx.Control.SetLabel(self, text)
+        if not self._named:
+            self.SetName(text.replace("\n", " ") or "Text")
+        self._relayout()
+        self.Refresh()
+
+    def SetName(self, name: str) -> None:  # noqa: N802 - wx API spelling
+        """Set the accessible name, and stop deriving it from the label."""
+        self._named = bool(name)
+        super().SetName(name)
+
+    def set_text(self, text: str) -> None:
+        """Replace the text.  The Studio spelling of :meth:`SetLabel`."""
+        self.SetLabel(text)
+
+    def Wrap(self, width: int) -> None:  # noqa: N802 - wx API spelling
+        """Wrap to ``width``, as ``wx.StaticText.Wrap`` does.
+
+        A width of ``-1`` or ``0`` means no wrapping, matching the control this
+        replaces, so a surface that passes the platform's own sentinel does not
+        silently collapse to a single-character column.
+        """
+        self.set_available_width(0 if int(width) <= 0 else int(width))
+
+    def set_available_width(self, width: int) -> None:
+        """Rewrap to a new width, growing or shrinking the control to match."""
+        width = max(0, int(width))
+        if width == self._wrap_width:
+            return
+        self._wrap_width = width
+        self._relayout()
+        self.Refresh()
+
+    def set_role(self, role: str) -> None:
+        """Paint the ink from a palette role again, dropping any explicit colour."""
+        self._role = str(role)
+        self._ink_override = None
+        self.Refresh()
+
+    def SetForegroundColour(  # noqa: N802 - wx API spelling
+        self, colour: wx.Colour
+    ) -> bool:
+        """Paint the ink in ``colour``, overriding the palette role.
+
+        The role is how a caption follows the theme; an explicit colour is how
+        a status line goes red when its filter is invalid.  Both have to work,
+        so the explicit one wins until :meth:`set_role` takes it back.
+        """
+        resolved = colour_of(colour) if colour is not None else None
+        self._ink_override = (
+            resolved if resolved is not None and resolved.IsOk() else None
         )
-        del gcdc
+        result = super().SetForegroundColour(colour)
+        self.Refresh()
+        return result
+
+    def SetFont(self, font: wx.Font) -> bool:  # noqa: N802 - wx API spelling
+        """Adopt ``font`` for measurement and drawing, overriding ``size_px``."""
+        self._font_override = (
+            wx.Font(font) if font is not None and font.IsOk() else None
+        )
+        result = super().SetFont(font)
+        self._relayout()
+        self.Refresh()
+        return result
+
+    def set_size_px(self, size_px: float, *, weight: Optional[int] = None) -> None:
+        """Return to a token-driven font at a new design size."""
+        self._size_px = float(size_px)
+        if weight is not None:
+            self._weight = weight
+        self._font_override = None
+        self._relayout()
+        self.Refresh()
+
+    # -- geometry ------------------------------------------------------------
+    def _font(self) -> wx.Font:
+        if self._font_override is not None:
+            return self._font_override
+        return tokens.font(
+            self, point_size(self._size_px), self._weight, mono=self._mono
+        )
+
+    def text_font(self) -> wx.Font:
+        """Return the font this actually draws with.
+
+        ``GetFont`` cannot answer this.  Nothing pushes a font into a control
+        that resolves its own from ``size_px`` and the live interface scale, so
+        ``GetFont`` returns the platform's default GUI font -- a different
+        family at a different size from the one on screen.  A caller that has
+        to measure the text before setting it (the pane statuses break their
+        own lines, because a Cantonese sentence carries no spaces to break on)
+        needs the real one, or it wraps to a width the drawing never had.
+        """
+        return self._font()
+
+    def _display_text(self) -> str:
+        text = self.GetLabel()
+        return text.upper() if self._uppercase else text
+
+    def _leading(self, dc: wx.DC) -> int:
+        return max(1, int(round(dc.GetCharHeight() * self._line_factor)))
+
+    def _relayout(self) -> None:
+        with measuring(self) as dc:
+            dc.SetFont(self._font())
+            text = self._display_text()
+            tracking = tokens.scaled(int(self._tracking)) if self._tracking else 0
+            if self._wrap_width > 0 and not self._ellipsize:
+                self._lines = wrap_text(
+                    dc, text, self._wrap_width, max_lines=self._max_lines
+                )
+            else:
+                self._lines = text.split("\n") or [""]
+            width = max(
+                (tracked_width(dc, line, tracking) for line in self._lines),
+                default=0,
+            )
+            if self._wrap_width > 0:
+                width = min(width, self._wrap_width)
+            height = self._leading(dc) * max(1, len(self._lines))
+        self._best = wx.Size(max(1, width + TEXT_SLACK * 2), max(1, height))
+        self.InvalidateBestSize()
+        self.SetMinSize(self._best)
+        self.SetInitialSize(self._best)
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        return wx.Size(self._best)
+
+    def _apply_theme(self, palette: tokens.StudioPalette) -> None:
+        """Re-measure, because the font this draws with may have just changed.
+
+        Interface scale and the chosen font family both feed
+        :func:`tokens.font`, so a preferences change moves the text without
+        moving the control around it.  ``wx.StaticText`` got this for free:
+        every surface pushed a fresh ``SetFont`` into it on a theme change,
+        which re-measured as a side effect.  Nothing pushes a font in here, so
+        the re-measure has to be asked for -- otherwise the text grows and the
+        control it sits in stays the size it was, which is a clipped label.
+        """
+        if self._font_override is None:
+            self._relayout()
+
+    # -- painting ------------------------------------------------------------
+    def _ink(self, palette: tokens.StudioPalette) -> wx.Colour:
+        if self._ink_override is not None:
+            return self._ink_override
+        return palette.role(self._role)
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw every line of the text, shortened only when it must be."""
+        palette = self.palette()
+        with self._painting(dc, rect) as rect:
+            dc.SetFont(self._font())
+            dc.SetTextForeground(self._ink(palette))
+            tracking = tokens.scaled(int(self._tracking)) if self._tracking else 0
+            leading = self._leading(dc)
+            drawn: List[str] = []
+            y = 0
+            for line in self._lines:
+                text = elide(dc, line, rect.width) if self._ellipsize else line
+                drawn.append(text)
+                if tracking:
+                    draw_tracked_text(dc, text, 0, y, tracking)
+                else:
+                    dc.DrawText(text, 0, y)
+                y += leading
+            note_elision(self, "\n".join(self._lines), "\n".join(drawn))
 
 
 class Card(wx.Panel, _Themed):
@@ -948,20 +1537,17 @@ class Card(wx.Panel, _Themed):
     def _apply_theme(self, palette: tokens.StudioPalette) -> None:
         self.SetBackgroundColour(palette.role(self.role))
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the card's rounded surface and its optional outline."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        tokens.draw_round_rect(
-            gcdc,
-            wx.Rect(0, 0, width, height),
-            tokens.scaled(self.radius),
-            palette.role(self.role),
-            palette.outline_variant if self.border else None,
-        )
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            tokens.draw_round_rect(
+                dc,
+                rect,
+                tokens.scaled(self.radius),
+                palette.role(self.role),
+                palette.outline_variant if self.border else None,
+            )
 
 
 class Divider(wx.Control, _Themed):
@@ -985,18 +1571,13 @@ class Divider(wx.Control, _Themed):
         thickness = max(1, tokens.scaled(1))
         return wx.Size(thickness, 16) if self.vertical else wx.Size(16, thickness)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Fill the hairline rule."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, _gcdc = paint_context(
-            self, backdrop if backdrop.IsOk() else palette.surface
-        )
-        width, height = self.GetClientSize()
-        dc.SetBrush(wx.Brush(palette.outline_variant))
-        dc.SetPen(wx.TRANSPARENT_PEN)
-        dc.DrawRectangle(0, 0, width, height)
-        del _gcdc
+        with self._painting(dc, rect) as rect:
+            dc.SetBrush(wx.Brush(palette.outline_variant))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(0, 0, rect.width, rect.height)
 
 
 def format_number(value: float) -> str:
@@ -1058,29 +1639,228 @@ class ToggleSwitch(wx.Control, _Interactive):
             return
         super()._on_key_down(event)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the switch track and its knob at the current value."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        track = wx.Rect(0, 0, width, height)
-        if self.value:
-            fill, border = palette.primary, palette.primary
-            knob_colour = palette.on_primary
-        else:
-            fill, border = palette.surface_container_high, palette.outline
-            knob_colour = palette.outline
-        tokens.draw_round_rect(gcdc, track, height // 2, fill, border)
-        knob = tokens.scaled(self.KNOB)
-        padding = tokens.scaled(self.PADDING)
-        knob_x = width - padding - knob if self.value else padding
-        gcdc.SetBrush(wx.Brush(knob_colour))
-        gcdc.SetPen(wx.TRANSPARENT_PEN)
-        gcdc.DrawEllipse(knob_x, (height - knob) // 2, knob, knob)
-        if self.HasFocus():
-            draw_focus_ring(gcdc, track, height // 2, palette.primary)
-        del gcdc
+        with self._painting(dc, rect) as track:
+            width, height = track.width, track.height
+            if self.value:
+                fill, border = palette.primary, palette.primary
+                knob_colour = palette.on_primary
+            else:
+                fill, border = palette.surface_container_high, palette.outline
+                knob_colour = palette.outline
+            tokens.draw_round_rect(dc, track, height // 2, fill, border)
+            knob = tokens.scaled(self.KNOB)
+            padding = tokens.scaled(self.PADDING)
+            knob_x = width - padding - knob if self.value else padding
+            dc.SetBrush(wx.Brush(knob_colour))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawEllipse(knob_x, (height - knob) // 2, knob, knob)
+            if self.HasFocus():
+                draw_focus_ring(dc, track, height // 2, palette.primary)
+
+
+class StudioCheckBox(wx.Control, _Interactive):
+    """The M3 checkbox: an 18px box, its tick, and the label beside it.
+
+    A switch and a checkbox are not interchangeable, which is why this exists
+    beside :class:`ToggleSwitch` rather than instead of it.  A switch says a
+    setting is on or off and applies immediately; a checkbox says an item is
+    included, and reads wrong on a row that opts one search field into regex or
+    ticks one entry in a list.  Substituting one for the other is a change to
+    what the control means, not a restyle.
+
+    It is drop-in for ``wx.CheckBox``: ``GetValue``, ``SetValue``,
+    ``IsChecked``, ``SetLabel`` and ``GetLabel`` keep their spelling, and
+    activation posts a real ``wx.EVT_CHECKBOX`` whose ``IsChecked`` answers
+    correctly -- so a surface that already binds the event keeps working
+    untouched, exactly as :class:`StudioButton` does for ``wx.EVT_BUTTON``.
+    """
+
+    BOX = 18
+    RADIUS = 2
+    BORDER = 2
+    GAP = 8
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        label: str = "",
+        *,
+        value: bool = False,
+        size_px: float = 12,
+        on_change: Optional[Callable[[bool], None]] = None,
+        name: str = "",
+    ) -> None:
+        super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
+        wx.Control.SetLabel(self, str(label))
+        self.value = bool(value)
+        self.on_change = on_change
+        self._size_px = float(size_px)
+        self._install(name or str(label) or "Checkbox")
+        self._bind_interaction()
+        self.SetInitialSize(self.DoGetBestSize())
+
+    # -- geometry ------------------------------------------------------------
+    def _font(self) -> wx.Font:
+        return tokens.font(self, point_size(self._size_px))
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        box = tokens.scaled(self.BOX)
+        label = self.GetLabel()
+        if not label:
+            return wx.Size(box, box)
+        with measuring(self) as dc:
+            dc.SetFont(self._font())
+            text_width, text_height = dc.GetTextExtent(label)
+        return wx.Size(
+            box + tokens.scaled(self.GAP) + text_width + TEXT_SLACK * 2,
+            max(box, text_height),
+        )
+
+    # -- state ---------------------------------------------------------------
+    def GetValue(self) -> bool:  # noqa: N802 - wx API spelling
+        """Return whether the box is ticked."""
+        return self.value
+
+    def IsChecked(self) -> bool:  # noqa: N802 - wx API spelling
+        """Return whether the box is ticked.  The ``wx.CheckBox`` spelling."""
+        return self.value
+
+    def SetValue(self, value: bool) -> None:  # noqa: N802 - wx API spelling
+        """Tick or clear the box without reporting the change.
+
+        ``wx.CheckBox.SetValue`` does not fire ``EVT_CHECKBOX`` either, so a
+        surface that sets a box from stored state does not re-enter its own
+        handler here any more than it did before.
+        """
+        self.set_value(value)
+
+    def set_value(self, value: bool, *, notify: bool = False) -> None:
+        """Set the box; ``notify`` decides whether the callback and event run."""
+        self.value = bool(value)
+        self.Refresh()
+        if notify:
+            invoke(self.on_change, self.value)
+            self._emit_checkbox()
+
+    def SetLabel(self, label: str) -> None:  # noqa: N802 - wx API spelling
+        """Replace the label and re-measure the control around it."""
+        wx.Control.SetLabel(self, str(label))
+        self.InvalidateBestSize()
+        self.SetMinSize(self.DoGetBestSize())
+        self.Refresh()
+
+    def _apply_theme(self, palette: tokens.StudioPalette) -> None:
+        """Re-measure: the label's font follows the interface scale.
+
+        The box is a fixed 18 design pixels but the label beside it is not, so
+        a scale change that leaves the control at its old width crops its own
+        text.  The native checkbox this replaces was re-measured by the
+        ``SetFont`` every surface pushed into it on a theme change.
+        """
+        self.InvalidateBestSize()
+        self.SetMinSize(self.DoGetBestSize())
+
+    def activate(self) -> None:
+        if not self.IsEnabled():
+            return
+        self.set_value(not self.value, notify=True)
+
+    def _emit_checkbox(self) -> None:
+        """Post the event a ``wx.CheckBox`` would post, carrying its state.
+
+        ``wx.CommandEvent.IsChecked`` reads the integer payload, so a handler
+        that asks the event rather than the control -- which is the ordinary
+        way to write one -- gets the right answer.
+        """
+        command = wx.CommandEvent(wx.EVT_CHECKBOX.typeId, self.GetId())
+        command.SetEventObject(self)
+        command.SetInt(1 if self.value else 0)
+        self.GetEventHandler().ProcessEvent(command)
+
+    # -- painting ------------------------------------------------------------
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the box, its tick, the label, and the focus ring."""
+        palette = self.palette()
+        with self._painting(dc, rect) as rect:
+            enabled = self.IsEnabled()
+            box = tokens.scaled(self.BOX)
+            top = rect.y + max(0, (rect.height - box) // 2)
+            square = wx.Rect(rect.x, top, box, box)
+            if self.value:
+                fill = palette.primary if enabled else palette.outline
+                tokens.draw_round_rect(
+                    dc, square, tokens.scaled(self.RADIUS), fill, fill
+                )
+                self._draw_tick(dc, square, palette.on_primary)
+            else:
+                border = palette.on_surface_variant if enabled else palette.outline
+                if self._hovered and enabled:
+                    border = palette.primary
+                tokens.draw_round_rect(
+                    dc,
+                    square,
+                    tokens.scaled(self.RADIUS),
+                    None,
+                    border,
+                    border_width=max(1, tokens.scaled(self.BORDER)),
+                )
+            content = wx.Rect(square)
+            label = self.GetLabel()
+            if label:
+                dc.SetFont(self._font())
+                ink = palette.on_surface_variant if enabled else palette.outline
+                dc.SetTextForeground(ink)
+                left = square.GetRight() + 1 + tokens.scaled(self.GAP)
+                drawn = elide(dc, label, max(0, rect.GetRight() + 1 - left))
+                note_elision(self, label, drawn)
+                text_height = dc.GetCharHeight()
+                dc.DrawText(
+                    drawn, left, rect.y + max(0, (rect.height - text_height) // 2)
+                )
+                content = wx.Rect(
+                    square.x,
+                    rect.y,
+                    min(rect.width, left - square.x + dc.GetTextExtent(drawn)[0]),
+                    rect.height,
+                )
+            if self.HasFocus():
+                # The ring hugs the box and its label rather than the allocated
+                # rectangle: a checkbox stretched by an EXPAND flag is as wide
+                # as its column, and a ring drawn around that reads as a
+                # selected row rather than a focused control.
+                draw_focus_ring(
+                    dc, content, tokens.scaled(self.RADIUS), palette.primary
+                )
+
+    def _draw_tick(self, dc: wx.DC, square: wx.Rect, ink: wx.Colour) -> None:
+        """Stroke the checkmark inside a ticked box.
+
+        It is drawn rather than set as a glyph because a font that lacks the
+        character renders its own name or a placeholder box, and a checkbox
+        whose tick is a hollow rectangle reads as unchecked.
+        """
+        pen = wx.Pen(ink, max(2, tokens.scaled(2)))
+        pen.SetCap(wx.CAP_ROUND)
+        pen.SetJoin(wx.JOIN_ROUND)
+        dc.SetPen(pen)
+        dc.SetBrush(wx.TRANSPARENT_BRUSH)
+        left = square.x + square.width * 0.24
+        middle_x = square.x + square.width * 0.43
+        right = square.x + square.width * 0.76
+        middle_y = square.y + square.height * 0.52
+        bottom = square.y + square.height * 0.70
+        top = square.y + square.height * 0.32
+        dc.DrawLines(
+            [
+                wx.Point(round(left), round(middle_y)),
+                wx.Point(round(middle_x), round(bottom)),
+                wx.Point(round(right), round(top)),
+            ]
+        )
+        dc.SetPen(wx.NullPen)
 
 
 class Stepper(wx.Control, _Interactive):
@@ -1113,6 +1893,7 @@ class Stepper(wx.Control, _Interactive):
         self.suffix = str(suffix)
         self.on_change = on_change
         self._editing = ""
+        self._field_cache: Optional[int] = None
         self._install(
             f"Value between {format_number(self.minimum)} and "
             f"{format_number(self.maximum)}"
@@ -1129,16 +1910,58 @@ class Stepper(wx.Control, _Interactive):
         return max(self.minimum, min(self.maximum, number))
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, point_size(10)))
-        range_width = dc.GetTextExtent(self._range_text())[0]
-        width = (
-            tokens.scaled(self.BUTTON) * 2
-            + tokens.scaled(self.FIELD)
-            + tokens.scaled(self.GAP) * 3
-            + range_width
+        with measuring(self) as dc:
+            dc.SetFont(tokens.mono_font(self, point_size(10)))
+            range_width = dc.GetTextExtent(self._range_text())[0]
+            field = self._field_width(dc)
+            width = (
+                tokens.scaled(self.BUTTON) * 2
+                + field
+                + tokens.scaled(self.GAP) * 3
+                + range_width
+                + TEXT_SLACK * 2
+            )
+            return wx.Size(
+                width, max(tokens.scaled(self.BUTTON), tokens.control_height())
+            )
+
+    def _field_width(self, dc: Optional[wx.DC] = None) -> int:
+        """Return how wide the value box has to be for any value it can hold.
+
+        The design's width was measured against a two-digit value with no
+        suffix.  A stepper bounded at 100000, or one carrying "blocks" after
+        its number, needs more -- and sizing to the *current* value instead
+        would resize the control on every keystroke.  Both bounds are measured,
+        so the box is as wide as the widest thing it will ever show and then
+        stops moving.
+
+        The result is remembered because the hit regions are worked out from it
+        on every paint and every click, and neither of those should be paying
+        for a graphics context.  The bounds and the suffix do not change after
+        construction; a density or scale change goes through
+        :meth:`refresh_theme`, which clears it.
+        """
+        cached = getattr(self, "_field_cache", None)
+        if cached is not None:
+            return cached
+        if dc is None:
+            with measuring(self) as own:
+                return self._field_width(own)
+        dc.SetFont(tokens.mono_font(self, point_size(12)))
+        widest = max(
+            dc.GetTextExtent(f"{format_number(bound)} {self.suffix}".strip() or " ")[0]
+            for bound in (self.minimum, self.maximum)
         )
-        return wx.Size(width, max(tokens.scaled(self.BUTTON), tokens.control_height()))
+        width = max(
+            tokens.scaled(self.FIELD), widest + TEXT_SLACK * 2 + tokens.scaled(12)
+        )
+        self._field_cache = width
+        return width
+
+    def refresh_theme(self) -> None:
+        """Re-read the tokens, forgetting the measurement they were taken at."""
+        self._field_cache = None
+        super().refresh_theme()
 
     def _range_text(self) -> str:
         text = f"{format_number(self.minimum)} … {format_number(self.maximum)}"
@@ -1172,11 +1995,20 @@ class Stepper(wx.Control, _Interactive):
         else:
             self.Refresh()
 
-    def _regions(self) -> Tuple[wx.Rect, wx.Rect, wx.Rect]:
-        height = self.GetClientSize().height
+    def _regions(
+        self, height: Optional[int] = None
+    ) -> Tuple[wx.Rect, wx.Rect, wx.Rect]:
+        """Return the minus, value, and plus rectangles, top to bottom centred.
+
+        ``height`` lets a render honour the rect it was handed instead of the
+        control's own client size, so the same geometry serves a paint and a
+        capture that draws this stepper somewhere else on a bitmap.
+        """
+        if height is None:
+            height = self.GetClientSize().height
         button = tokens.scaled(self.BUTTON)
         gap = tokens.scaled(self.GAP)
-        field = tokens.scaled(self.FIELD)
+        field = self._field_width()
         top = (height - button) // 2
         minus = wx.Rect(0, top, button, button)
         value = wx.Rect(button + gap, top, field, button)
@@ -1232,57 +2064,49 @@ class Stepper(wx.Control, _Interactive):
             return
         event.Skip()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the two arrow buttons, the value box, and the range readout."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        minus, value, plus = self._regions()
-        radius = tokens.scaled(tokens.RADIUS_SM)
-        for rect, glyph in ((minus, "−"), (plus, "＋")):
-            tokens.draw_round_rect(gcdc, rect, radius, None, palette.outline)
-            gcdc.SetFont(tokens.font(self, point_size(14)))
-            gcdc.SetTextForeground(palette.primary)
-            text_width, text_height = gcdc.GetTextExtent(glyph)
-            gcdc.DrawText(
-                glyph,
-                rect.x + (rect.width - text_width) // 2,
-                rect.y + (rect.height - text_height) // 2,
-            )
-        editing = bool(self._editing)
-        tokens.draw_round_rect(
-            gcdc,
-            value,
-            radius,
-            palette.surface,
-            palette.primary if editing else palette.outline,
-            border_width=2 if editing else 1,
-        )
-        gcdc.SetFont(tokens.mono_font(self, point_size(12)))
-        gcdc.SetTextForeground(palette.on_surface)
-        text = elide(gcdc, self._display_text(), value.width - tokens.scaled(12))
-        text_width, text_height = gcdc.GetTextExtent(text)
-        gcdc.DrawText(
-            text,
-            value.x + (value.width - text_width) // 2,
-            value.y + (value.height - text_height) // 2,
-        )
-        gcdc.SetFont(tokens.mono_font(self, point_size(10)))
-        gcdc.SetTextForeground(palette.on_surface_variant)
-        gcdc.DrawText(
-            self._range_text(),
-            plus.GetRight() + tokens.scaled(self.GAP),
-            value.y + (value.height - gcdc.GetCharHeight()) // 2,
-        )
-        if self.HasFocus():
-            draw_focus_ring(
-                gcdc,
-                wx.Rect(0, 0, *self.GetClientSize()),
+        with self._painting(dc, rect) as area:
+            minus, value, plus = self._regions(area.height)
+            radius = tokens.scaled(tokens.RADIUS_SM)
+            for rect, glyph in ((minus, "−"), (plus, "＋")):
+                tokens.draw_round_rect(dc, rect, radius, None, palette.outline)
+                dc.SetFont(tokens.font(self, point_size(14)))
+                dc.SetTextForeground(palette.primary)
+                text_width, text_height = dc.GetTextExtent(glyph)
+                dc.DrawText(
+                    glyph,
+                    rect.x + (rect.width - text_width) // 2,
+                    rect.y + (rect.height - text_height) // 2,
+                )
+            editing = bool(self._editing)
+            tokens.draw_round_rect(
+                dc,
+                value,
                 radius,
-                palette.primary,
-                inset=0,
+                palette.surface,
+                palette.primary if editing else palette.outline,
+                border_width=2 if editing else 1,
             )
-        del gcdc
+            dc.SetFont(tokens.mono_font(self, point_size(12)))
+            dc.SetTextForeground(palette.on_surface)
+            text = elide(dc, self._display_text(), value.width - tokens.scaled(12))
+            text_width, text_height = dc.GetTextExtent(text)
+            dc.DrawText(
+                text,
+                value.x + (value.width - text_width) // 2,
+                value.y + (value.height - text_height) // 2,
+            )
+            dc.SetFont(tokens.mono_font(self, point_size(10)))
+            dc.SetTextForeground(palette.on_surface_variant)
+            dc.DrawText(
+                self._range_text(),
+                plus.GetRight() + tokens.scaled(self.GAP),
+                value.y + (value.height - dc.GetCharHeight()) // 2,
+            )
+            if self.HasFocus():
+                draw_focus_ring(dc, area, radius, palette.primary, inset=0)
 
 
 class _ValuePill(wx.Control, _Themed):
@@ -1300,10 +2124,12 @@ class _ValuePill(wx.Control, _Themed):
         return False
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
-        width = dc.GetTextExtent(self.GetLabel() or " ")[0]
-        return wx.Size(width + tokens.scaled(24), tokens.scaled(26))
+        with measuring(self) as dc:
+            dc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
+            width = dc.GetTextExtent(self.GetLabel() or " ")[0]
+            return wx.Size(
+                width + TEXT_SLACK * 2 + tokens.scaled(24), tokens.scaled(26)
+            )
 
     def set_text(self, text: str) -> None:
         """Replace the readout and re-measure the pill around it."""
@@ -1313,24 +2139,22 @@ class _ValuePill(wx.Control, _Themed):
         self.SetMinSize(self.DoGetBestSize())
         self.Refresh()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the filled pill and the readout centred inside it."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        tokens.draw_round_rect(
-            gcdc,
-            wx.Rect(0, 0, width, height),
-            tokens.scaled(tokens.RADIUS_SM),
-            palette.primary,
-        )
-        gcdc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
-        gcdc.SetTextForeground(palette.on_primary)
-        text = elide(gcdc, self.GetLabel(), width - tokens.scaled(8))
-        text_width, text_height = gcdc.GetTextExtent(text)
-        gcdc.DrawText(text, (width - text_width) // 2, (height - text_height) // 2)
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            tokens.draw_round_rect(
+                dc,
+                rect,
+                tokens.scaled(tokens.RADIUS_SM),
+                palette.primary,
+            )
+            dc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
+            dc.SetTextForeground(palette.on_primary)
+            text = elide(dc, self.GetLabel(), width - tokens.scaled(8))
+            text_width, text_height = dc.GetTextExtent(text)
+            dc.DrawText(text, (width - text_width) // 2, (height - text_height) // 2)
 
 
 class RangeRow(wx.Panel, _Themed):
@@ -1360,8 +2184,9 @@ class RangeRow(wx.Panel, _Themed):
         self.on_change = on_change
         self._install(self.label or "Range")
         self._scale = max(1, round(1 / self.step)) if self.step < 1 else 1
-        self._caption = wx.StaticText(self, label=self.label)
-        self._caption.SetFont(tokens.font(self, point_size(14)))
+        self._caption = StudioText(
+            self, self.label, size_px=14, role="on_surface", name=self.label or "Range"
+        )
         self._pill = _ValuePill(self, format_number(value))
         self._slider = wx.Slider(
             self,
@@ -1415,15 +2240,18 @@ class RangeRow(wx.Panel, _Themed):
             if self.GetParent()
             else palette.surface
         )
-        self._caption.SetForegroundColour(palette.on_surface)
-        self._caption.SetFont(tokens.font(self, point_size(14)))
+        # The caption reads its ink from the ``on_surface`` role and its font
+        # from the tokens on every paint, so a theme or scale change lands
+        # without this pushing anything into it.
         self._slider.SetBackgroundColour(self.GetBackgroundColour())
         self._slider.SetForegroundColour(palette.primary)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        del gcdc
-        del dc
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    # The row draws nothing of its own: its caption, pill, and slider are all
+    # real child windows, so the inherited ``render_to`` -- which fills the
+    # backdrop and stops -- is the whole of its appearance.
 
 
 class Swatch(wx.Control, _Interactive):
@@ -1463,19 +2291,15 @@ class Swatch(wx.Control, _Interactive):
         invoke(self.on_click, self.colour)
         self._emit_button()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the colour chip and its hover or focus border."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        radius = tokens.scaled(9)
-        border = palette.primary if self._hovered else palette.outline
-        tokens.draw_round_rect(gcdc, rect, radius, self.colour, border)
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, radius, palette.primary)
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            radius = tokens.scaled(9)
+            border = palette.primary if self._hovered else palette.outline
+            tokens.draw_round_rect(dc, rect, radius, self.colour, border)
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, radius, palette.primary)
 
 
 class ProgressRow(wx.Panel, _Themed):
@@ -1496,48 +2320,64 @@ class ProgressRow(wx.Panel, _Themed):
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(12)))
-        height = dc.GetCharHeight() + tokens.scaled(self.BAR_HEIGHT) + tokens.scaled(8)
-        return wx.Size(240, height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(12)))
+            height = (
+                dc.GetCharHeight() + tokens.scaled(self.BAR_HEIGHT) + tokens.scaled(8)
+            )
+            # The hint and the readout share one line, so the row is as wide as
+            # both of them plus the gap between; the design's 240 is the floor
+            # rather than the answer, and it was not scaled at all before.
+            hint_width = dc.GetTextExtent(self.hint)[0]
+            dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+            label_width = dc.GetTextExtent(self.label)[0]
+            width = max(
+                tokens.scaled(240),
+                hint_width + label_width + tokens.scaled(24) + TEXT_SLACK * 2,
+            )
+            return wx.Size(width, height)
 
     def set_progress(self, fraction: float, label: str = "") -> None:
         """Update the bar and, when given, its readout."""
         self.fraction = max(0.0, min(1.0, float(fraction)))
-        if label:
+        if label and str(label) != self.label:
             self.label = str(label)
+            # The readout is part of what the row is measured against, so a
+            # longer one has to re-measure rather than push the hint off.
+            self.InvalidateBestSize()
+            self.SetMinSize(self.DoGetBestSize())
         self.SetName(f"{self.hint} {self.label}".strip() or "Progress")
         self.Refresh()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the hint, the readout, and the bar under them."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        gcdc.SetFont(tokens.font(self, point_size(12)))
-        text_height = gcdc.GetCharHeight()
-        gcdc.SetTextForeground(palette.on_surface_variant)
-        label_width = gcdc.GetTextExtent(self.label)[0]
-        gcdc.DrawText(elide(gcdc, self.hint, max(0, width - label_width - 12)), 0, 0)
-        gcdc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
-        gcdc.SetTextForeground(palette.primary)
-        gcdc.DrawText(self.label, max(0, width - label_width), 0)
-        bar_height = tokens.scaled(self.BAR_HEIGHT)
-        bar_top = text_height + tokens.scaled(8)
-        track = wx.Rect(0, bar_top, width, bar_height)
-        tokens.draw_round_rect(
-            gcdc, track, bar_height // 2, palette.surface_container_high
-        )
-        filled = int(width * self.fraction)
-        if filled > 0:
+        with self._painting(dc, rect) as rect:
+            width = rect.width
+            dc.SetFont(tokens.font(self, point_size(12)))
+            text_height = dc.GetCharHeight()
+            dc.SetTextForeground(palette.on_surface_variant)
+            label_width = dc.GetTextExtent(self.label)[0]
+            hint = elide(dc, self.hint, max(0, width - label_width - tokens.scaled(12)))
+            note_elision(self, self.hint, hint)
+            dc.DrawText(hint, 0, 0)
+            dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+            dc.SetTextForeground(palette.primary)
+            dc.DrawText(self.label, max(0, width - label_width), 0)
+            bar_height = tokens.scaled(self.BAR_HEIGHT)
+            bar_top = text_height + tokens.scaled(8)
+            track = wx.Rect(0, bar_top, width, bar_height)
             tokens.draw_round_rect(
-                gcdc,
-                wx.Rect(0, bar_top, filled, bar_height),
-                bar_height // 2,
-                palette.primary,
+                dc, track, bar_height // 2, palette.surface_container_high
             )
-        del gcdc
+            filled = int(width * self.fraction)
+            if filled > 0:
+                tokens.draw_round_rect(
+                    dc,
+                    wx.Rect(0, bar_top, filled, bar_height),
+                    bar_height // 2,
+                    palette.primary,
+                )
 
 
 # ----------------------------------------------------------------------------
@@ -1590,6 +2430,9 @@ class _TextBox(wx.Panel, _Themed):
         self.text.SetName(name)
         if placeholder:
             self.text.SetHint(str(placeholder))
+            # A field narrower than its own placeholder shows a clipped prompt
+            # and nothing else; the whole prompt stays reachable here.
+            self.text.SetToolTip(str(placeholder))
         self._apply_theme(self.palette())
         self.Bind(wx.EVT_PAINT, self._on_paint)
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
@@ -1601,13 +2444,29 @@ class _TextBox(wx.Panel, _Themed):
             self.text.Bind(wx.EVT_TEXT_ENTER, self._on_enter)
         self.SetInitialSize(self.DoGetBestSize())
 
+    #: The design's field width, and the widest a field will grow to hold its
+    #: own placeholder.  Past that the hint is left to the tooltip: a field
+    #: scrolls its content, so nothing typed is ever lost, but a placeholder
+    #: nobody can read is a prompt that failed at the one job it has.
+    WIDTH = 160
+    MAX_WIDTH = 360
+
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         height = (
             tokens.scaled(self._height)
             if self._height is not None
             else tokens.control_height()
         )
-        return wx.Size(tokens.scaled(160), height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(self.size_px), mono=self._mono))
+            hint = self.text.GetHint() if getattr(self, "text", None) else ""
+            content = dc.GetTextExtent(str(hint) or " ")[0]
+            padding = tokens.scaled(11) * 2 + self._prefix_width(dc)
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(tokens.scaled(self.WIDTH), content + padding + TEXT_SLACK * 2),
+        )
+        return wx.Size(width, height)
 
     def value(self) -> str:
         """Return the current text."""
@@ -1633,8 +2492,8 @@ class _TextBox(wx.Panel, _Themed):
     def _on_size(self, event: wx.SizeEvent) -> None:
         width, height = self.GetClientSize()
         padding = tokens.scaled(11)
-        dc = wx.ClientDC(self)
-        prefix = self._prefix_width(dc)
+        with measuring(self) as dc:
+            prefix = self._prefix_width(dc)
         text_height = self.text.GetBestSize().height
         self.text.SetSize(
             padding + prefix,
@@ -1670,30 +2529,36 @@ class _TextBox(wx.Panel, _Themed):
             text.SetForegroundColour(palette.on_surface)
             text.SetFont(tokens.font(self, point_size(self.size_px), mono=self._mono))
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the field outline and its axis prefix.
+
+        The text itself belongs to the native ``wx.TextCtrl`` inside this
+        panel, which is a window of its own and paints itself.
+        """
         palette = self.palette()
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        tokens.draw_round_rect(
-            gcdc,
-            rect,
-            tokens.scaled(self.radius),
-            palette.role(self.fill_role),
-            palette.primary if self._focused else palette.outline,
-            border_width=2 if self._focused else 1,
-        )
-        if self.prefix:
-            gcdc.SetFont(tokens.mono_font(self, point_size(10)))
-            gcdc.SetTextForeground(
-                colour_of(self.prefix_colour, palette.on_surface_variant)
+        with self._painting(dc, rect) as rect:
+            height = rect.height
+            tokens.draw_round_rect(
+                dc,
+                rect,
+                tokens.scaled(self.radius),
+                palette.role(self.fill_role),
+                palette.primary if self._focused else palette.outline,
+                border_width=2 if self._focused else 1,
             )
-            gcdc.DrawText(
-                self.prefix,
-                tokens.scaled(11),
-                (height - gcdc.GetCharHeight()) // 2,
-            )
-        del gcdc
+            if self.prefix:
+                dc.SetFont(tokens.mono_font(self, point_size(10)))
+                dc.SetTextForeground(
+                    colour_of(self.prefix_colour, palette.on_surface_variant)
+                )
+                dc.DrawText(
+                    self.prefix,
+                    tokens.scaled(11),
+                    (height - dc.GetCharHeight()) // 2,
+                )
 
 
 class OutlinedField(wx.Panel, _Themed):
@@ -1702,11 +2567,26 @@ class OutlinedField(wx.Panel, _Themed):
     ``on_change`` receives the new text on every keystroke.  The label is
     painted over the outline rather than placed above it, which is what makes
     the field read as one control instead of two stacked ones.
+
+    ``on_commit`` receives it once the value is *finished* -- Enter pressed, or
+    the field left -- and only when it differs from what was last committed or
+    set.  A field whose value drives something real needs both: a per-keystroke
+    callback cannot be the one that acts, because a user typing ``-250`` has
+    passed through ``-`` and ``-2`` on the way, and acting on those means
+    reporting two problems and one wrong answer before they have finished the
+    word.  Giving the callback also puts ``wx.TE_PROCESS_ENTER`` on the text
+    control, so Enter reaches the field rather than the surrounding dialog.
     """
 
     LABEL_TOP = 6
     BOX_HEIGHT = 48
     TEXT_PADDING = 15
+    #: The design's field width, and the widest one will grow to hold its own
+    #: floating label.  The label is painted into the outline, so unlike the
+    #: value it cannot scroll: a field narrower than its label loses the name
+    #: of the thing being edited.
+    WIDTH = 220
+    MAX_WIDTH = 420
 
     def __init__(
         self,
@@ -1717,15 +2597,25 @@ class OutlinedField(wx.Panel, _Themed):
         placeholder: str = "",
         mono: bool = True,
         on_change: Optional[Callable[[str], None]] = None,
+        on_commit: Optional[Callable[[str], None]] = None,
     ) -> None:
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.label = str(label)
         self.on_change = on_change
+        self.on_commit = on_commit
         self._mono = bool(mono)
         self._focused = False
+        #: The last value this field has handed to ``on_commit``, or been given
+        #: by :meth:`set_value`.  A commit that matches it is not raised again,
+        #: so tabbing through a row of untouched fields runs nothing.
+        self._committed = str(value)
         self._install(self.label or "Field", listen=False)
         self.text = wx.TextCtrl(
-            self, value=str(value), style=wx.BORDER_NONE, name=self.label or "Field"
+            self,
+            value=str(value),
+            style=wx.BORDER_NONE
+            | (wx.TE_PROCESS_ENTER if on_commit is not None else 0),
+            name=self.label or "Field",
         )
         self.text.SetName(self.label or "Field")
         if placeholder:
@@ -1735,31 +2625,69 @@ class OutlinedField(wx.Panel, _Themed):
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.Bind(wx.EVT_SIZE, self._on_size)
         self.text.Bind(wx.EVT_TEXT, self._on_text)
+        if on_commit is not None:
+            self.text.Bind(wx.EVT_TEXT_ENTER, self._on_enter)
         self.text.Bind(wx.EVT_SET_FOCUS, self._on_focus_change)
         self.text.Bind(wx.EVT_KILL_FOCUS, self._on_focus_change)
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         height = tokens.scaled(self.LABEL_TOP) + tokens.scaled(self.BOX_HEIGHT)
-        return wx.Size(tokens.scaled(220), height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(11)))
+            label_width = dc.GetTextExtent(self.label or " ")[0]
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(
+                tokens.scaled(self.WIDTH),
+                label_width + tokens.scaled(30) + TEXT_SLACK * 2,
+            ),
+        )
+        return wx.Size(width, height)
 
     def value(self) -> str:
         """Return the current text."""
         return self.text.GetValue()
 
     def set_value(self, text: str, *, notify: bool = False) -> None:
-        """Replace the text; silent by default."""
+        """Replace the text; silent by default.
+
+        The new text becomes what a later commit is compared against, so a
+        field refilled from somewhere else does not then raise ``on_commit``
+        the next time it is merely tabbed through.
+        """
+        self._committed = str(text)
         if notify:
             self.text.SetValue(str(text))
         else:
             self.text.ChangeValue(str(text))
         self.Refresh()
 
+    def commit(self) -> None:
+        """Hand the current text to ``on_commit``, if it has changed."""
+        if self.on_commit is None:
+            return
+        current = self.text.GetValue()
+        if current == self._committed:
+            return
+        # Recorded before the callback runs, not after: the handler may write
+        # back into this field, and a commit that recorded afterwards would
+        # overwrite what the handler had just put there with what the user
+        # typed, so the next commit would compare against the wrong text.
+        self._committed = current
+        invoke(self.on_commit, current)
+
     def SetFocus(self) -> None:  # noqa: N802 - wx API spelling
         self.text.SetFocus()
 
-    def _box_rect(self) -> wx.Rect:
-        width, _height = self.GetClientSize()
+    def _box_rect(self, width: Optional[int] = None) -> wx.Rect:
+        """Return the outlined box below the floating label.
+
+        ``width`` lets a render use the rect it was handed rather than the
+        control's own client size.
+        """
+        if width is None:
+            width, _height = self.GetClientSize()
         return wx.Rect(
             0,
             tokens.scaled(self.LABEL_TOP),
@@ -1784,8 +2712,17 @@ class OutlinedField(wx.Panel, _Themed):
         invoke(self.on_change, self.text.GetValue())
         event.Skip()
 
+    def _on_enter(self, event: wx.CommandEvent) -> None:
+        self.commit()
+        event.Skip()
+
     def _on_focus_change(self, event: wx.FocusEvent) -> None:
         self._focused = event.GetEventType() == wx.EVT_SET_FOCUS.typeId
+        if not self._focused:
+            # Leaving commits too, so a value typed and then tabbed away from is
+            # not silently discarded -- which, in a field that drives something
+            # real, looks exactly like the field being ignored.
+            self.commit()
         self.Refresh()
         event.Skip()
 
@@ -1802,37 +2739,41 @@ class OutlinedField(wx.Panel, _Themed):
             text.SetForegroundColour(palette.on_surface)
             text.SetFont(tokens.font(self, point_size(14), mono=self._mono))
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the outlined box and the label notched into its top edge."""
         palette = self.palette()
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        box = self._box_rect()
-        border = palette.primary if self._focused else palette.outline
-        tokens.draw_round_rect(
-            gcdc,
-            box,
-            tokens.scaled(4),
-            None,
-            border,
-            border_width=2 if self._focused else 1,
-        )
-        if self.label:
-            gcdc.SetFont(tokens.font(self, point_size(11)))
-            label = elide(gcdc, self.label, max(0, box.width - tokens.scaled(30)))
-            label_width = gcdc.GetTextExtent(label)[0]
-            notch = wx.Rect(
-                tokens.scaled(11),
-                0,
-                label_width + tokens.scaled(8),
-                gcdc.GetCharHeight(),
+        with self._painting(dc, rect) as rect:
+            box = self._box_rect(rect.width)
+            border = palette.primary if self._focused else palette.outline
+            tokens.draw_round_rect(
+                dc,
+                box,
+                tokens.scaled(4),
+                None,
+                border,
+                border_width=2 if self._focused else 1,
             )
-            gcdc.SetBrush(wx.Brush(self.GetBackgroundColour()))
-            gcdc.SetPen(wx.TRANSPARENT_PEN)
-            gcdc.DrawRectangle(notch)
-            gcdc.SetTextForeground(
-                palette.primary if self._focused else palette.on_surface_variant
-            )
-            gcdc.DrawText(label, notch.x + tokens.scaled(4), 0)
-        del gcdc
+            if self.label:
+                dc.SetFont(tokens.font(self, point_size(11)))
+                label = elide(dc, self.label, max(0, box.width - tokens.scaled(30)))
+                note_elision(self, self.label, label)
+                label_width = dc.GetTextExtent(label)[0]
+                notch = wx.Rect(
+                    tokens.scaled(11),
+                    0,
+                    label_width + tokens.scaled(8),
+                    dc.GetCharHeight(),
+                )
+                dc.SetBrush(wx.Brush(self.GetBackgroundColour()))
+                dc.SetPen(wx.TRANSPARENT_PEN)
+                dc.DrawRectangle(notch)
+                dc.SetTextForeground(
+                    palette.primary if self._focused else palette.on_surface_variant
+                )
+                dc.DrawText(label, notch.x + tokens.scaled(4), 0)
 
 
 class PathField(wx.Panel, _Themed):
@@ -1908,8 +2849,9 @@ class PathField(wx.Panel, _Themed):
                 wx.ALIGN_BOTTOM | wx.LEFT,
                 tokens.scaled(tokens.SPACE_SM),
             )
-        self.feedback = wx.StaticText(self, label="")
-        self.feedback.SetName(f"{self.label} validation")
+        self.feedback = StudioText(
+            self, "", size_px=11, name=f"{self.label} validation"
+        )
         root = wx.BoxSizer(wx.VERTICAL)
         root.Add(row, 0, wx.EXPAND)
         root.Add(self.feedback, 0, wx.EXPAND | wx.TOP, tokens.scaled(tokens.SPACE_XS))
@@ -1965,8 +2907,14 @@ class PathField(wx.Panel, _Themed):
             message = f"{kind} found."
             colour = palette.on_surface_variant
         self.feedback.SetLabel(message)
-        self.feedback.SetForegroundColour(colour)
-        self.feedback.SetFont(tokens.font(self, point_size(11)))
+        # Only the error red is pushed in.  Handing the ordinary colour back as
+        # an explicit override would pin it to the palette that was live when
+        # the path was last validated, so the line would keep the old theme's
+        # grey after a theme change; ``set_role`` returns it to the palette.
+        if self._valid:
+            self.feedback.set_role("on_surface_variant")
+        else:
+            self.feedback.SetForegroundColour(colour)
         self.Layout()
         return self._valid
 
@@ -1999,9 +2947,10 @@ class PathField(wx.Panel, _Themed):
             else palette.surface
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        feedback = getattr(self, "feedback", None)
-        if feedback is not None:
-            feedback.SetFont(tokens.font(self, point_size(11)))
+        # The feedback line resolves its own font from the live interface
+        # scale; re-validating is what re-picks the ink, which is either the
+        # palette's error red or its ordinary variant.
+        if getattr(self, "feedback", None) is not None:
             self._validate(self.field.value())
 
 
@@ -2051,10 +3000,14 @@ class SearchBar(wx.Panel, _Themed):
         )
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self.field, 1, wx.ALIGN_CENTER_VERTICAL)
-        self.regex_box: Optional[wx.CheckBox] = None
+        self.regex_box: Optional[StudioCheckBox] = None
         if show_regex:
-            self.regex_box = wx.CheckBox(self, label="Regex")
-            self.regex_box.SetValue(bool(state.regex))
+            self.regex_box = StudioCheckBox(
+                self,
+                "Regex",
+                value=bool(state.regex),
+                size_px=11,
+            )
             self.regex_box.SetName(f"Use a regular expression for {state.label}")
             self.regex_box.SetToolTip(
                 "Plain text is the default. Turn this on to read the query as a "
@@ -2082,8 +3035,12 @@ class SearchBar(wx.Panel, _Themed):
                 wx.ALIGN_CENTER_VERTICAL | wx.LEFT,
                 tokens.scaled(tokens.SPACE_XS),
             )
-        self.feedback = wx.StaticText(self, label=state.feedback())
-        self.feedback.SetName(f"{state.label} search feedback")
+        self.feedback = StudioText(
+            self,
+            state.feedback(),
+            size_px=10 if compact else 11,
+            name=f"{state.label} search feedback",
+        )
         root = wx.BoxSizer(wx.VERTICAL)
         root.Add(row, 0, wx.EXPAND)
         root.Add(self.feedback, 0, wx.EXPAND | wx.TOP, tokens.scaled(tokens.SPACE_XS))
@@ -2107,11 +3064,14 @@ class SearchBar(wx.Panel, _Themed):
         """Re-read the state's honest status line and show it."""
         message = self.state.feedback()
         self.feedback.SetLabel(message)
-        palette = self.palette()
         invalid = self.state.regex and not self.state.is_valid()
-        self.feedback.SetForegroundColour(
-            palette.error if invalid else palette.on_surface_variant
-        )
+        # Only the error red is pushed in; the ordinary colour goes back to the
+        # palette role, so a theme change does not leave the line inked in the
+        # previous theme's grey.
+        if invalid:
+            self.feedback.SetForegroundColour(self.palette().error)
+        else:
+            self.feedback.set_role("on_surface_variant")
         if self.builder_button is not None:
             self.builder_button.SetToolTip(message)
         self.Layout()
@@ -2199,12 +3159,12 @@ class SearchBar(wx.Panel, _Themed):
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
         feedback = getattr(self, "feedback", None)
         if feedback is not None:
-            feedback.SetFont(tokens.font(self, point_size(10 if self.compact else 11)))
+            feedback.set_size_px(10 if self.compact else 11)
             self.refresh_feedback()
-        if self.regex_box is not None:
-            self.regex_box.SetBackgroundColour(self.GetBackgroundColour())
-            self.regex_box.SetForegroundColour(palette.on_surface_variant)
-            self.regex_box.SetFont(tokens.font(self, point_size(11)))
+        # The regex box is owner-drawn and reads its own ink, border, and font
+        # from the tokens on every paint, so there is nothing to push into it
+        # here.  ``refresh_theme`` on this panel repaints it along with the
+        # rest of the row.
 
 
 class AnchoredPopup(wx.PopupTransientWindow):
@@ -2270,23 +3230,32 @@ class AnchoredPopup(wx.PopupTransientWindow):
         size, so fitting the popup around one collapses it to a couple of rows
         and silently hides everything below the cut -- which is the exact
         failure the scrolling was added to prevent.
+
+        The arithmetic follows the root sizer rather than approximating it.
+        The header is added with the inset above it and the content with the
+        inset on all four sides, so three insets of vertical space are spoken
+        for, not two-and-a-bit: the old sum was four pixels short at the
+        shipped tokens, and four pixels is exactly enough to slice the bottom
+        row of a menu in half lengthways while leaving every row above it
+        looking perfect.  The header is measured into the width too, because a
+        search field wider than the list it filters was being cut off at
+        "Reg".
         """
         area = self.work_area()
         self.header.Fit()
-        header_height = self.header.GetBestSize().height
+        header_size = self.header.GetBestSize()
+        header_height = header_size.height
         content_min = self.content_sizer.GetMinSize()
         self.content.SetVirtualSize(content_min)
-        inset = (tokens.scaled(self.MARGIN) + tokens.scaled(self.PADDING)) * 2
+        inset = tokens.scaled(self.MARGIN) + tokens.scaled(self.PADDING)
 
-        width = content_min.width + inset
+        width = max(content_min.width, header_size.width) + inset * 2
         if self.requested_width:
             width = tokens.scaled(self.requested_width)
         width = max(width, self.anchor.GetSize().width)
         width = min(width, max(120, area.width - tokens.scaled(16)))
 
-        height = (
-            header_height + content_min.height + inset + tokens.scaled(self.PADDING)
-        )
+        height = header_height + content_min.height + inset * 3
         limit = area.height - tokens.scaled(24)
         if self.requested_max_height:
             limit = min(limit, tokens.scaled(self.requested_max_height))
@@ -2330,17 +3299,33 @@ class AnchoredPopup(wx.PopupTransientWindow):
                     refresh()
         self.Refresh()
 
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the popup's elevated card into ``dc`` at ``rect``.
+
+        The popup is a ``wx.PopupTransientWindow`` rather than a ``_Themed``
+        widget, so it carries its own copy of the contract instead of
+        inheriting one -- same public method, same meaning, reachable by a
+        capture without a paint event.
+        """
+        palette = tokens.palette()
+        with translated(dc, rect):
+            width, height = rect.width, rect.height
+            dc.SetBrush(wx.Brush(palette.surface))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(0, 0, width, height)
+            margin = tokens.scaled(self.MARGIN)
+            card = wx.Rect(margin, margin, width - margin * 2, height - margin * 2)
+            radius = tokens.scaled(tokens.RADIUS_MD)
+            tokens.draw_elevation(dc, card, radius, 2, palette.dark)
+            tokens.draw_round_rect(
+                dc, card, radius, palette.surface, palette.outline_variant
+            )
+
     def _on_paint(self, _event: wx.PaintEvent) -> None:
         palette = tokens.palette()
         dc, gcdc = paint_context(self, palette.surface)
         width, height = self.GetClientSize()
-        margin = tokens.scaled(self.MARGIN)
-        card = wx.Rect(margin, margin, width - margin * 2, height - margin * 2)
-        radius = tokens.scaled(tokens.RADIUS_MD)
-        tokens.draw_elevation(gcdc, card, radius, 2, palette.dark)
-        tokens.draw_round_rect(
-            gcdc, card, radius, palette.surface, palette.outline_variant
-        )
+        self.render_to(gcdc, wx.Rect(0, 0, width, height))
         del gcdc
 
 
@@ -2397,14 +3382,20 @@ class _RegexBuilderPopup(AnchoredPopup):
             mono=False,
             on_change=self._on_edit,
         )
-        self.feedback = wx.StaticText(self.content, label="")
-        self.feedback.SetName("Regex builder feedback")
-        self.feedback.SetForegroundColour(palette.on_surface_variant)
-        self.feedback.SetFont(tokens.font(self.feedback, 9))
-        self.preview = wx.StaticText(self.content, label="")
-        self.preview.SetName("Regex builder match preview")
-        self.preview.SetForegroundColour(palette.on_surface)
-        self.preview.SetFont(tokens.mono_font(self.preview, 9))
+        # 12 design pixels is the 9pt these two were built at: ``point_size``
+        # is the one conversion, so keeping the design number here keeps the
+        # rendered size identical to the native controls they replace.
+        self.feedback = StudioText(
+            self.content, "", size_px=12, name="Regex builder feedback"
+        )
+        self.preview = StudioText(
+            self.content,
+            "",
+            size_px=12,
+            mono=True,
+            role="on_surface",
+            name="Regex builder match preview",
+        )
 
         actions = wx.BoxSizer(wx.HORIZONTAL)
         actions.AddStretchSpacer()
@@ -2458,11 +3449,13 @@ class _RegexBuilderPopup(AnchoredPopup):
     def _refresh_preview(self) -> None:
         """Show whether the pattern compiles and what it matches right now."""
         probe = self._current()
-        palette = tokens.palette()
         self.feedback.SetLabel(probe.feedback())
-        self.feedback.SetForegroundColour(
-            palette.error if not probe.is_valid() else palette.on_surface_variant
-        )
+        # Only the error red is pushed in; the ordinary colour goes back to the
+        # palette role rather than being pinned to whichever theme was live.
+        if probe.is_valid():
+            self.feedback.set_role("on_surface_variant")
+        else:
+            self.feedback.SetForegroundColour(tokens.palette().error)
         if not probe.is_active():
             self.preview.SetLabel("Type a pattern to see what it matches.")
         elif not probe.is_valid():
@@ -2518,12 +3511,16 @@ class _OptionRow(wx.Control, _Interactive):
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(12)))
-        width = dc.GetTextExtent(self.GetLabel() or " ")[0] + tokens.scaled(26)
-        if self.swatch:
-            width += tokens.scaled(self.SWATCH + 8)
-        return wx.Size(width, tokens.scaled(self.HEIGHT))
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(12)))
+            width = (
+                dc.GetTextExtent(self.GetLabel() or " ")[0]
+                + TEXT_SLACK * 2
+                + tokens.scaled(26)
+            )
+            if self.swatch:
+                width += tokens.scaled(self.SWATCH + 8)
+            return wx.Size(width, tokens.scaled(self.HEIGHT))
 
     def set_selected(self, selected: bool) -> None:
         """Mark this row as the chosen option."""
@@ -2533,38 +3530,43 @@ class _OptionRow(wx.Control, _Interactive):
     def activate(self) -> None:
         invoke(self.on_click, self.GetLabel())
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
+        # The row lives inside a popup, whose surface is the design's rather
+        # than whatever the parent window happens to report.
+        return self.palette().surface
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the row's selection or hover fill, its swatch, and its label."""
         palette = self.palette()
-        dc, gcdc = paint_context(self, palette.surface)
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        radius = tokens.scaled(7)
-        if self.selected:
-            tokens.draw_round_rect(gcdc, rect, radius, palette.primary_container)
-            ink = palette.on_primary_container
-        elif self._hovered or self._pressed:
-            tokens.draw_round_rect(gcdc, rect, radius, palette.surface_container_high)
-            ink = palette.on_surface
-        else:
-            ink = palette.on_surface
-        left = tokens.scaled(9)
-        if self.swatch:
-            side = tokens.scaled(self.SWATCH)
-            tokens.draw_round_rect(
-                gcdc,
-                wx.Rect(left, (height - side) // 2, side, side),
-                tokens.scaled(4),
-                colour_of(self.swatch),
-                palette.outline_variant,
-            )
-            left += side + tokens.scaled(8)
-        gcdc.SetFont(tokens.font(self, point_size(12)))
-        gcdc.SetTextForeground(ink)
-        text = elide(gcdc, self.GetLabel(), max(0, width - left - tokens.scaled(9)))
-        gcdc.DrawText(text, left, (height - gcdc.GetCharHeight()) // 2)
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, radius, palette.primary)
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            radius = tokens.scaled(7)
+            if self.selected:
+                tokens.draw_round_rect(dc, rect, radius, palette.primary_container)
+                ink = palette.on_primary_container
+            elif self._hovered or self._pressed:
+                tokens.draw_round_rect(dc, rect, radius, palette.surface_container_high)
+                ink = palette.on_surface
+            else:
+                ink = palette.on_surface
+            left = tokens.scaled(9)
+            if self.swatch:
+                side = tokens.scaled(self.SWATCH)
+                tokens.draw_round_rect(
+                    dc,
+                    wx.Rect(left, (height - side) // 2, side, side),
+                    tokens.scaled(4),
+                    colour_of(self.swatch),
+                    palette.outline_variant,
+                )
+                left += side + tokens.scaled(8)
+            dc.SetFont(tokens.font(self, point_size(12)))
+            dc.SetTextForeground(ink)
+            text = elide(dc, self.GetLabel(), max(0, width - left - tokens.scaled(9)))
+            note_elision(self, self.GetLabel(), text)
+            dc.DrawText(text, left, (height - dc.GetCharHeight()) // 2)
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, radius, palette.primary)
 
 
 class SearchableChoice(wx.Panel, _Interactive):
@@ -2626,9 +3628,30 @@ class SearchableChoice(wx.Panel, _Interactive):
     def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
         return True
 
+    #: The design's combo width, and the widest one grows to.  The value is
+    #: elided rather than scrolled, so a combo narrower than the option it is
+    #: showing hides the current choice; both the label and the longest option
+    #: are measured.
+    WIDTH = 220
+    MAX_WIDTH = 420
+
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         height = tokens.scaled(self.LABEL_TOP) + tokens.scaled(self.BOX_HEIGHT)
-        return wx.Size(tokens.scaled(220), height)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(14)))
+            values = [*self.options, self.value] or [" "]
+            value_width = max(dc.GetTextExtent(text or " ")[0] for text in values)
+            dc.SetFont(tokens.font(self, point_size(11)))
+            label_width = dc.GetTextExtent(self.label or " ")[0]
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(
+                tokens.scaled(self.WIDTH),
+                value_width + tokens.scaled(46) + TEXT_SLACK * 2,
+                label_width + tokens.scaled(30) + TEXT_SLACK * 2,
+            ),
+        )
+        return wx.Size(width, height)
 
     # -- value ---------------------------------------------------------------
     def set_value(self, value: str, *, notify: bool = False) -> None:
@@ -2644,6 +3667,10 @@ class SearchableChoice(wx.Panel, _Interactive):
         self.options = [str(option) for option in options]
         if self.value not in self.options:
             self.value = self.options[0] if self.options else ""
+        # A new option list is new content, and the combo is sized to the
+        # widest thing it can show.
+        self.InvalidateBestSize()
+        self.SetMinSize(self.DoGetBestSize())
         self.Refresh()
 
     def filtered_options(self) -> List[str]:
@@ -2712,12 +3739,13 @@ class SearchableChoice(wx.Panel, _Interactive):
         self._rows = []
         matches = self.filtered_options()
         if not matches:
-            empty = wx.StaticText(
+            message = self.state.describe_matches(0, "option")
+            empty = StudioText(
                 popup.content,
-                label=self.state.describe_matches(0, "option"),
+                message,
+                size_px=12,
+                name=f"{self.state.label} options: {message}",
             )
-            empty.SetForegroundColour(tokens.palette().on_surface_variant)
-            empty.SetFont(tokens.font(self, point_size(12)))
             popup.content_sizer.Add(empty, 0, wx.ALL, tokens.scaled(tokens.SPACE_SM))
         for option in matches:
             row = _OptionRow(
@@ -2760,62 +3788,67 @@ class SearchableChoice(wx.Panel, _Interactive):
         super()._on_key_down(event)
 
     # -- painting ------------------------------------------------------------
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the closed combo: its outline, value, caret, and notched label."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        box = wx.Rect(
-            0,
-            tokens.scaled(self.LABEL_TOP),
-            width,
-            height - tokens.scaled(self.LABEL_TOP),
-        )
-        focused = self.HasFocus() or self._popup is not None
-        border = palette.primary if focused else palette.outline
-        if self._hovered and not focused:
-            border = palette.on_surface
-        tokens.draw_round_rect(
-            gcdc, box, tokens.scaled(4), None, border, border_width=2 if focused else 1
-        )
-        gcdc.SetFont(tokens.font(self, point_size(14)))
-        gcdc.SetTextForeground(palette.on_surface)
-        available = max(0, box.width - tokens.scaled(46))
-        value = elide(gcdc, self.value, available)
-        gcdc.DrawText(
-            value,
-            tokens.scaled(15),
-            box.y + (box.height - gcdc.GetCharHeight()) // 2,
-        )
-        gcdc.SetFont(tokens.font(self, point_size(10)))
-        gcdc.SetTextForeground(palette.on_surface_variant)
-        caret_width = gcdc.GetTextExtent("▾")[0]
-        gcdc.DrawText(
-            "▾",
-            box.width - tokens.scaled(15) - caret_width,
-            box.y + (box.height - gcdc.GetCharHeight()) // 2,
-        )
-        if self.label:
-            gcdc.SetFont(tokens.font(self, point_size(11)))
-            label = elide(gcdc, self.label, max(0, box.width - tokens.scaled(30)))
-            label_width = gcdc.GetTextExtent(label)[0]
-            notch = wx.Rect(
-                tokens.scaled(11),
+        backdrop = self._backdrop()
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            box = wx.Rect(
                 0,
-                label_width + tokens.scaled(8),
-                gcdc.GetCharHeight(),
+                tokens.scaled(self.LABEL_TOP),
+                width,
+                height - tokens.scaled(self.LABEL_TOP),
             )
-            gcdc.SetBrush(wx.Brush(backdrop if backdrop.IsOk() else palette.surface))
-            gcdc.SetPen(wx.TRANSPARENT_PEN)
-            gcdc.DrawRectangle(notch)
-            gcdc.SetTextForeground(
-                palette.primary if focused else palette.on_surface_variant
+            focused = self.HasFocus() or self._popup is not None
+            border = palette.primary if focused else palette.outline
+            if self._hovered and not focused:
+                border = palette.on_surface
+            tokens.draw_round_rect(
+                dc,
+                box,
+                tokens.scaled(4),
+                None,
+                border,
+                border_width=2 if focused else 1,
             )
-            gcdc.DrawText(label, notch.x + tokens.scaled(4), 0)
-        if self.HasFocus():
-            draw_focus_ring(gcdc, box, tokens.scaled(4), palette.primary)
-        del gcdc
+            dc.SetFont(tokens.font(self, point_size(14)))
+            dc.SetTextForeground(palette.on_surface)
+            available = max(0, box.width - tokens.scaled(46))
+            value = elide(dc, self.value, available)
+            note_elision(self, self.value, value, hint=self.label)
+            dc.DrawText(
+                value,
+                tokens.scaled(15),
+                box.y + (box.height - dc.GetCharHeight()) // 2,
+            )
+            dc.SetFont(tokens.font(self, point_size(10)))
+            dc.SetTextForeground(palette.on_surface_variant)
+            caret_width = dc.GetTextExtent("▾")[0]
+            dc.DrawText(
+                "▾",
+                box.width - tokens.scaled(15) - caret_width,
+                box.y + (box.height - dc.GetCharHeight()) // 2,
+            )
+            if self.label:
+                dc.SetFont(tokens.font(self, point_size(11)))
+                label = elide(dc, self.label, max(0, box.width - tokens.scaled(30)))
+                label_width = dc.GetTextExtent(label)[0]
+                notch = wx.Rect(
+                    tokens.scaled(11),
+                    0,
+                    label_width + tokens.scaled(8),
+                    dc.GetCharHeight(),
+                )
+                dc.SetBrush(wx.Brush(backdrop))
+                dc.SetPen(wx.TRANSPARENT_PEN)
+                dc.DrawRectangle(notch)
+                dc.SetTextForeground(
+                    palette.primary if focused else palette.on_surface_variant
+                )
+                dc.DrawText(label, notch.x + tokens.scaled(4), 0)
+            if self.HasFocus():
+                draw_focus_ring(dc, box, tokens.scaled(4), palette.primary)
 
 
 # ----------------------------------------------------------------------------
@@ -2861,31 +3894,30 @@ class TextureTile(wx.Panel, _Themed):
         self.SetToolTip(f"{self.block_id} — {self.label}")
         self.Refresh()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the generated tile, its outline, and the placeholder chip."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        side = max(1, min(width, height))
-        bitmap = blocks.block_tile_bitmap(self.block_id, side)
-        dc.DrawBitmap(bitmap, 0, 0, False)
-        rect = wx.Rect(0, 0, width, height)
-        tokens.draw_round_rect(
-            gcdc, rect, tokens.scaled(11), None, palette.outline_variant
-        )
-        gcdc.SetFont(tokens.mono_font(self, point_size(9)))
-        text_width, text_height = gcdc.GetTextExtent(self.label)
-        chip = wx.Rect(
-            tokens.scaled(6),
-            height - text_height - tokens.scaled(9),
-            text_width + tokens.scaled(14),
-            text_height + tokens.scaled(4),
-        )
-        tokens.draw_round_rect(gcdc, chip, tokens.scaled(5), palette.scrim)
-        gcdc.SetTextForeground(wx.Colour(255, 255, 255, 255))
-        gcdc.DrawText(self.label, chip.x + tokens.scaled(7), chip.y + tokens.scaled(2))
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            side = max(1, min(width, height))
+            bitmap = blocks.block_tile_bitmap(self.block_id, side)
+            dc.DrawBitmap(bitmap, 0, 0, False)
+            tokens.draw_round_rect(
+                dc, rect, tokens.scaled(11), None, palette.outline_variant
+            )
+            dc.SetFont(tokens.mono_font(self, point_size(9)))
+            text_width, text_height = dc.GetTextExtent(self.label)
+            chip = wx.Rect(
+                tokens.scaled(6),
+                height - text_height - tokens.scaled(9),
+                text_width + tokens.scaled(14),
+                text_height + tokens.scaled(4),
+            )
+            tokens.draw_round_rect(dc, chip, tokens.scaled(5), palette.scrim)
+            dc.SetTextForeground(wx.Colour(255, 255, 255, 255))
+            dc.DrawText(
+                self.label, chip.x + tokens.scaled(7), chip.y + tokens.scaled(2)
+            )
 
 
 class _FaceButton(wx.Control, _Interactive):
@@ -2920,26 +3952,25 @@ class _FaceButton(wx.Control, _Interactive):
     def activate(self) -> None:
         invoke(self.on_click, self.face)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw one face preview and its hover or focus border."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        side = max(1, min(width, height))
-        dc.DrawBitmap(
-            blocks.block_tile_bitmap(self.block_id, side, self.brightness), 0, 0, False
-        )
-        rect = wx.Rect(0, 0, width, height)
-        border = (
-            palette.primary
-            if (self._hovered or self.HasFocus())
-            else palette.outline_variant
-        )
-        tokens.draw_round_rect(gcdc, rect, tokens.scaled(6), None, border)
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, tokens.scaled(6), palette.primary)
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            side = max(1, min(rect.width, rect.height))
+            dc.DrawBitmap(
+                blocks.block_tile_bitmap(self.block_id, side, self.brightness),
+                0,
+                0,
+                False,
+            )
+            border = (
+                palette.primary
+                if (self._hovered or self.HasFocus())
+                else palette.outline_variant
+            )
+            tokens.draw_round_rect(dc, rect, tokens.scaled(6), None, border)
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, tokens.scaled(6), palette.primary)
 
 
 class FaceRow(wx.Panel, _Themed):
@@ -2975,10 +4006,11 @@ class FaceRow(wx.Panel, _Themed):
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        del gcdc
-        del dc
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    # The three face buttons are windows of their own, so the row's whole
+    # appearance is the backdrop the inherited ``render_to`` fills.
 
 
 class _ImageDropTarget(wx.FileDropTarget):
@@ -3136,51 +4168,48 @@ class ImageSlot(wx.Panel, _Themed):
             return
         event.Skip()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the dropped image, or the dashed empty target and its hint."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        radius = tokens.scaled(10)
-        tokens.draw_round_rect(gcdc, rect, radius, palette.surface_container)
-        if self._preview is not None and self._preview.IsOk():
-            scale = min(
-                width / max(1, self._preview.GetWidth()),
-                height / max(1, self._preview.GetHeight()),
-            )
-            image = self._preview.ConvertToImage().Scale(
-                max(1, int(self._preview.GetWidth() * scale)),
-                max(1, int(self._preview.GetHeight() * scale)),
-                wx.IMAGE_QUALITY_HIGH,
-            )
-            bitmap = wx.Bitmap(image)
-            dc.DrawBitmap(
-                bitmap,
-                (width - bitmap.GetWidth()) // 2,
-                (height - bitmap.GetHeight()) // 2,
-                True,
-            )
-            tokens.draw_round_rect(gcdc, rect, radius, None, palette.outline_variant)
-        else:
-            draw_dashed_round_rect(
-                gcdc,
-                rect,
-                radius,
-                palette.primary if self._hovered else palette.outline,
-            )
-            gcdc.SetFont(tokens.font(self, point_size(12)))
-            gcdc.SetTextForeground(palette.on_surface_variant)
-            lines = wrap_text(gcdc, self.hint, width - tokens.scaled(24), 2)
-            y = (height - gcdc.GetCharHeight() * len(lines)) // 2
-            for line in lines:
-                text_width = gcdc.GetTextExtent(line)[0]
-                gcdc.DrawText(line, (width - text_width) // 2, y)
-                y += gcdc.GetCharHeight()
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, radius, palette.primary)
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            radius = tokens.scaled(10)
+            tokens.draw_round_rect(dc, rect, radius, palette.surface_container)
+            if self._preview is not None and self._preview.IsOk():
+                scale = min(
+                    width / max(1, self._preview.GetWidth()),
+                    height / max(1, self._preview.GetHeight()),
+                )
+                image = self._preview.ConvertToImage().Scale(
+                    max(1, int(self._preview.GetWidth() * scale)),
+                    max(1, int(self._preview.GetHeight() * scale)),
+                    wx.IMAGE_QUALITY_HIGH,
+                )
+                bitmap = wx.Bitmap(image)
+                dc.DrawBitmap(
+                    bitmap,
+                    (width - bitmap.GetWidth()) // 2,
+                    (height - bitmap.GetHeight()) // 2,
+                    True,
+                )
+                tokens.draw_round_rect(dc, rect, radius, None, palette.outline_variant)
+            else:
+                draw_dashed_round_rect(
+                    dc,
+                    rect,
+                    radius,
+                    palette.primary if self._hovered else palette.outline,
+                )
+                dc.SetFont(tokens.font(self, point_size(12)))
+                dc.SetTextForeground(palette.on_surface_variant)
+                lines = wrap_text(dc, self.hint, width - tokens.scaled(24), 2)
+                y = (height - dc.GetCharHeight() * len(lines)) // 2
+                for line in lines:
+                    text_width = dc.GetTextExtent(line)[0]
+                    dc.DrawText(line, (width - text_width) // 2, y)
+                    y += dc.GetCharHeight()
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, radius, palette.primary)
 
 
 class ListRow(wx.Control, _Interactive):
@@ -3224,17 +4253,37 @@ class ListRow(wx.Control, _Interactive):
     def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
         return self.on_click is not None
 
+    #: The design's row width, and the widest a row grows to before its name
+    #: and detail start eliding into their own tooltip.
+    WIDTH = 240
+    MAX_WIDTH = 520
+
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
-        name_height = dc.GetCharHeight()
-        dc.SetFont(tokens.font(self, point_size(12)))
-        detail_height = dc.GetCharHeight() if self.detail else 0
-        height = max(
-            tokens.control_height(),
-            name_height + detail_height + tokens.scaled(20),
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            name_height = dc.GetCharHeight()
+            text_width = dc.GetTextExtent(self.row_name or " ")[0]
+            dc.SetFont(tokens.font(self, point_size(12)))
+            detail_height = dc.GetCharHeight() if self.detail else 0
+            if self.detail:
+                text_width = max(text_width, dc.GetTextExtent(self.detail)[0])
+            dc.SetFont(tokens.mono_font(self, point_size(11)))
+            tag_width = dc.GetTextExtent(self.tag)[0] if self.tag else 0
+            height = max(
+                tokens.control_height(),
+                name_height + detail_height + tokens.scaled(20),
+            )
+        chrome = tokens.scaled(36) + (
+            tokens.scaled(self.SWATCH + 11) if self.swatch else 0
         )
-        return wx.Size(tokens.scaled(240), height)
+        width = min(
+            tokens.scaled(self.MAX_WIDTH),
+            max(
+                tokens.scaled(self.WIDTH),
+                text_width + tag_width + chrome + TEXT_SLACK * 2,
+            ),
+        )
+        return wx.Size(width, height)
 
     def activate(self) -> None:
         if self.on_click is None:
@@ -3242,60 +4291,65 @@ class ListRow(wx.Control, _Interactive):
         invoke(self.on_click)
         self._emit_button()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the row surface, its swatch, its two lines, and its tag."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        radius = tokens.scaled(tokens.RADIUS_SM + 2)
-        interactive = self.on_click is not None
-        border = (
-            palette.primary
-            if interactive and (self._hovered or self.HasFocus())
-            else palette.outline_variant
-        )
-        tokens.draw_round_rect(gcdc, rect, radius, palette.surface_container, border)
-        left = tokens.scaled(12)
-        if self.swatch:
-            side = tokens.scaled(self.SWATCH)
-            tokens.draw_round_rect(
-                gcdc,
-                wx.Rect(left, (height - side) // 2, side, side),
-                tokens.scaled(6),
-                colour_of(self.swatch),
-                palette.outline_variant,
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            radius = tokens.scaled(tokens.RADIUS_SM + 2)
+            interactive = self.on_click is not None
+            border = (
+                palette.primary
+                if interactive and (self._hovered or self.HasFocus())
+                else palette.outline_variant
             )
-            left += side + tokens.scaled(11)
-        gcdc.SetFont(tokens.mono_font(self, point_size(11)))
-        tag_width = gcdc.GetTextExtent(self.tag)[0] if self.tag else 0
-        if self.tag:
-            gcdc.SetTextForeground(palette.primary)
-            gcdc.DrawText(
-                self.tag,
-                width - tokens.scaled(12) - tag_width,
-                (height - gcdc.GetCharHeight()) // 2,
+            tokens.draw_round_rect(dc, rect, radius, palette.surface_container, border)
+            left = tokens.scaled(12)
+            if self.swatch:
+                side = tokens.scaled(self.SWATCH)
+                tokens.draw_round_rect(
+                    dc,
+                    wx.Rect(left, (height - side) // 2, side, side),
+                    tokens.scaled(6),
+                    colour_of(self.swatch),
+                    palette.outline_variant,
+                )
+                left += side + tokens.scaled(11)
+            dc.SetFont(tokens.mono_font(self, point_size(11)))
+            tag_width = dc.GetTextExtent(self.tag)[0] if self.tag else 0
+            if self.tag:
+                dc.SetTextForeground(palette.primary)
+                dc.DrawText(
+                    self.tag,
+                    width - tokens.scaled(12) - tag_width,
+                    (height - dc.GetCharHeight()) // 2,
+                )
+            available = max(0, width - left - tag_width - tokens.scaled(24))
+            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            dc.SetTextForeground(palette.on_surface)
+            name_height = dc.GetCharHeight()
+            detail_height = 0
+            if self.detail:
+                detail_font = tokens.font(self, point_size(12))
+                dc.SetFont(detail_font)
+                detail_height = dc.GetCharHeight()
+            top = (height - name_height - detail_height) // 2
+            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            drawn_name = elide(dc, self.row_name, available)
+            dc.DrawText(drawn_name, left, top)
+            drawn_detail = self.detail
+            if self.detail:
+                dc.SetFont(tokens.font(self, point_size(12)))
+                dc.SetTextForeground(palette.on_surface_variant)
+                drawn_detail = elide(dc, self.detail, available)
+                dc.DrawText(drawn_detail, left, top + name_height)
+            note_elision(
+                self,
+                " · ".join(part for part in (self.row_name, self.detail) if part),
+                " · ".join(part for part in (drawn_name, drawn_detail) if part),
             )
-        available = max(0, width - left - tag_width - tokens.scaled(24))
-        gcdc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
-        gcdc.SetTextForeground(palette.on_surface)
-        name_height = gcdc.GetCharHeight()
-        detail_height = 0
-        if self.detail:
-            detail_font = tokens.font(self, point_size(12))
-            gcdc.SetFont(detail_font)
-            detail_height = gcdc.GetCharHeight()
-        top = (height - name_height - detail_height) // 2
-        gcdc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
-        gcdc.DrawText(elide(gcdc, self.row_name, available), left, top)
-        if self.detail:
-            gcdc.SetFont(tokens.font(self, point_size(12)))
-            gcdc.SetTextForeground(palette.on_surface_variant)
-            gcdc.DrawText(elide(gcdc, self.detail, available), left, top + name_height)
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, radius, palette.primary)
-        del gcdc
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, radius, palette.primary)
 
 
 # ----------------------------------------------------------------------------
@@ -3399,10 +4453,11 @@ class VectorField(wx.Panel, _Themed):
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        del gcdc
-        del dc
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    # Each component box and the camera button is its own window, so the
+    # inherited backdrop fill is the whole of this panel's appearance.
 
 
 class _Slot(wx.Control, _Interactive):
@@ -3433,51 +4488,50 @@ class _Slot(wx.Control, _Interactive):
     def activate(self) -> None:
         invoke(self.on_click, self.slot)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the slot's tile or empty fill, its label, and its stack count."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        radius = tokens.scaled(7)
-        block_id = str(self.slot.get("block_id") or "")
-        if block_id:
-            dc.DrawBitmap(
-                blocks.block_tile_bitmap(block_id, max(1, min(width, height))),
-                0,
-                0,
-                False,
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            radius = tokens.scaled(7)
+            block_id = str(self.slot.get("block_id") or "")
+            if block_id:
+                dc.DrawBitmap(
+                    blocks.block_tile_bitmap(block_id, max(1, min(width, height))),
+                    0,
+                    0,
+                    False,
+                )
+            else:
+                tokens.draw_round_rect(dc, rect, radius, palette.surface_container_high)
+            selected = bool(self.slot.get("selected"))
+            border = (
+                palette.primary
+                if (selected or self._hovered or self.HasFocus())
+                else palette.outline_variant
             )
-        else:
-            tokens.draw_round_rect(gcdc, rect, radius, palette.surface_container_high)
-        selected = bool(self.slot.get("selected"))
-        border = (
-            palette.primary
-            if (selected or self._hovered or self.HasFocus())
-            else palette.outline_variant
-        )
-        tokens.draw_round_rect(gcdc, rect, radius, None, border)
-        short = str(self.slot.get("short") or "")
-        if short and not block_id:
-            gcdc.SetFont(tokens.mono_font(self, point_size(9)))
-            gcdc.SetTextForeground(palette.on_surface_variant)
-            text = elide(gcdc, short, width - tokens.scaled(6))
-            text_width, text_height = gcdc.GetTextExtent(text)
-            gcdc.DrawText(text, (width - text_width) // 2, (height - text_height) // 2)
-        count = str(self.slot.get("count") or "")
-        if count:
-            gcdc.SetFont(tokens.mono_font(self, point_size(9), _MEDIUM))
-            gcdc.SetTextForeground(palette.on_surface)
-            count_width, count_height = gcdc.GetTextExtent(count)
-            gcdc.DrawText(
-                count,
-                width - count_width - tokens.scaled(3),
-                height - count_height - tokens.scaled(2),
-            )
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, radius, palette.primary)
-        del gcdc
+            tokens.draw_round_rect(dc, rect, radius, None, border)
+            short = str(self.slot.get("short") or "")
+            if short and not block_id:
+                dc.SetFont(tokens.mono_font(self, point_size(9)))
+                dc.SetTextForeground(palette.on_surface_variant)
+                text = elide(dc, short, width - tokens.scaled(6))
+                text_width, text_height = dc.GetTextExtent(text)
+                dc.DrawText(
+                    text, (width - text_width) // 2, (height - text_height) // 2
+                )
+            count = str(self.slot.get("count") or "")
+            if count:
+                dc.SetFont(tokens.mono_font(self, point_size(9), _MEDIUM))
+                dc.SetTextForeground(palette.on_surface)
+                count_width, count_height = dc.GetTextExtent(count)
+                dc.DrawText(
+                    count,
+                    width - count_width - tokens.scaled(3),
+                    height - count_height - tokens.scaled(2),
+                )
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, radius, palette.primary)
 
 
 class SlotGrid(wx.Panel, _Themed):
@@ -3514,10 +4568,10 @@ class SlotGrid(wx.Panel, _Themed):
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        del gcdc
-        del dc
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    # Every slot is its own control, so the grid itself only has a backdrop.
 
 
 class TreeRows(wx.Panel, _Themed):
@@ -3573,15 +4627,20 @@ class TreeRows(wx.Panel, _Themed):
         return True
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, point_size(12)))
-        width = tokens.scaled(200)
-        for glyph, label, _selected in self.nodes:
-            width = max(
-                width, dc.GetTextExtent(f"{glyph} {label}")[0] + tokens.scaled(40)
+        with measuring(self) as dc:
+            dc.SetFont(tokens.mono_font(self, point_size(12)))
+            width = tokens.scaled(200)
+            for glyph, label, _selected in self.nodes:
+                width = max(
+                    width,
+                    dc.GetTextExtent(f"{glyph} {label}")[0]
+                    + TEXT_SLACK * 2
+                    + tokens.scaled(40),
+                )
+            rows = max(1, len(self.nodes))
+            return wx.Size(
+                width, rows * tokens.scaled(self.ROW_HEIGHT) + tokens.scaled(20)
             )
-        rows = max(1, len(self.nodes))
-        return wx.Size(width, rows * tokens.scaled(self.ROW_HEIGHT) + tokens.scaled(20))
 
     def select(self, index: int, *, notify: bool = True) -> None:
         """Move the selection, wrapping inside the list."""
@@ -3619,54 +4678,53 @@ class TreeRows(wx.Panel, _Themed):
         else:
             event.Skip()
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the tree frame and one monospaced line per node."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        frame = wx.Rect(0, 0, width, height)
-        tokens.draw_round_rect(
-            gcdc,
-            frame,
-            tokens.scaled(tokens.RADIUS_SM + 2),
-            palette.surface_container,
-            palette.outline_variant,
-        )
-        gcdc.SetFont(tokens.mono_font(self, point_size(12)))
-        row_height = tokens.scaled(self.ROW_HEIGHT)
-        y = tokens.scaled(10)
-        for index, (glyph, label, _selected) in enumerate(self.nodes):
-            row = wx.Rect(tokens.scaled(6), y, width - tokens.scaled(12), row_height)
-            if index == self.selected:
-                tokens.draw_round_rect(
-                    gcdc, row, tokens.scaled(6), palette.primary_container
-                )
-                ink = palette.on_primary_container
-            else:
-                ink = palette.on_surface
-            text_y = y + (row_height - gcdc.GetCharHeight()) // 2
-            x = row.x + tokens.scaled(8)
-            if glyph:
-                gcdc.SetTextForeground(
-                    palette.on_primary_container
-                    if index == self.selected
-                    else palette.primary
-                )
-                gcdc.DrawText(glyph, x, text_y)
-                x += gcdc.GetTextExtent(glyph)[0] + tokens.scaled(8)
-            gcdc.SetTextForeground(ink)
-            gcdc.DrawText(
-                elide(gcdc, label, max(0, row.GetRight() - x - tokens.scaled(6))),
-                x,
-                text_y,
+        with self._painting(dc, rect) as frame:
+            width = frame.width
+            tokens.draw_round_rect(
+                dc,
+                frame,
+                tokens.scaled(tokens.RADIUS_SM + 2),
+                palette.surface_container,
+                palette.outline_variant,
             )
-            y += row_height
-        if self.HasFocus():
-            draw_focus_ring(
-                gcdc, frame, tokens.scaled(tokens.RADIUS_SM + 2), palette.primary
-            )
-        del gcdc
+            dc.SetFont(tokens.mono_font(self, point_size(12)))
+            row_height = tokens.scaled(self.ROW_HEIGHT)
+            y = tokens.scaled(10)
+            for index, (glyph, label, _selected) in enumerate(self.nodes):
+                row = wx.Rect(
+                    tokens.scaled(6), y, width - tokens.scaled(12), row_height
+                )
+                if index == self.selected:
+                    tokens.draw_round_rect(
+                        dc, row, tokens.scaled(6), palette.primary_container
+                    )
+                    ink = palette.on_primary_container
+                else:
+                    ink = palette.on_surface
+                text_y = y + (row_height - dc.GetCharHeight()) // 2
+                x = row.x + tokens.scaled(8)
+                if glyph:
+                    dc.SetTextForeground(
+                        palette.on_primary_container
+                        if index == self.selected
+                        else palette.primary
+                    )
+                    dc.DrawText(glyph, x, text_y)
+                    x += dc.GetTextExtent(glyph)[0] + tokens.scaled(8)
+                dc.SetTextForeground(ink)
+                dc.DrawText(
+                    elide(dc, label, max(0, row.GetRight() - x - tokens.scaled(6))),
+                    x,
+                    text_y,
+                )
+                y += row_height
+            if self.HasFocus():
+                draw_focus_ring(
+                    dc, frame, tokens.scaled(tokens.RADIUS_SM + 2), palette.primary
+                )
 
 
 class _KeyButton(wx.Control, _Interactive):
@@ -3688,10 +4746,14 @@ class _KeyButton(wx.Control, _Interactive):
         self.SetInitialSize(self.DoGetBestSize())
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(13)))
-        width = dc.GetTextExtent(self.GetLabel())[0] + tokens.scaled(28)
-        return wx.Size(width, dc.GetCharHeight() + tokens.scaled(28))
+        with measuring(self) as dc:
+            dc.SetFont(tokens.font(self, point_size(13)))
+            width = (
+                dc.GetTextExtent(self.GetLabel())[0]
+                + TEXT_SLACK * 2
+                + tokens.scaled(28)
+            )
+            return wx.Size(width, dc.GetCharHeight() + tokens.scaled(28))
 
     def set_held(self, held: bool, *, notify: bool = True) -> None:
         """Hold or release this key."""
@@ -3704,36 +4766,33 @@ class _KeyButton(wx.Control, _Interactive):
     def activate(self) -> None:
         self.set_held(not self.held)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the key in its held or waiting state."""
         palette = self.palette()
-        parent = self.GetParent()
-        backdrop = parent.GetBackgroundColour() if parent else palette.surface
-        dc, gcdc = paint_context(self, backdrop if backdrop.IsOk() else palette.surface)
-        width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        radius = tokens.scaled(11)
-        if self.held:
-            fill, ink, border = (
-                palette.primary_container,
-                palette.on_primary_container,
-                palette.primary,
-            )
-        else:
-            fill, ink, border = (
-                palette.surface_container,
-                palette.primary if self._hovered else palette.on_surface,
-                palette.primary if self._hovered else palette.outline_variant,
-            )
-        tokens.draw_round_rect(gcdc, rect, radius, fill, border)
-        gcdc.SetFont(tokens.font(self, point_size(13)))
-        gcdc.SetTextForeground(ink)
-        label = self.GetLabel() + (" · held" if self.held else "")
-        text = elide(gcdc, label, width - tokens.scaled(16))
-        text_width, text_height = gcdc.GetTextExtent(text)
-        gcdc.DrawText(text, (width - text_width) // 2, (height - text_height) // 2)
-        if self.HasFocus():
-            draw_focus_ring(gcdc, rect, radius, palette.primary)
-        del gcdc
+        with self._painting(dc, rect) as rect:
+            width, height = rect.width, rect.height
+            radius = tokens.scaled(11)
+            if self.held:
+                fill, ink, border = (
+                    palette.primary_container,
+                    palette.on_primary_container,
+                    palette.primary,
+                )
+            else:
+                fill, ink, border = (
+                    palette.surface_container,
+                    palette.primary if self._hovered else palette.on_surface,
+                    palette.primary if self._hovered else palette.outline_variant,
+                )
+            tokens.draw_round_rect(dc, rect, radius, fill, border)
+            dc.SetFont(tokens.font(self, point_size(13)))
+            dc.SetTextForeground(ink)
+            label = self.GetLabel() + (" · held" if self.held else "")
+            text = elide(dc, label, width - tokens.scaled(16))
+            text_width, text_height = dc.GetTextExtent(text)
+            dc.DrawText(text, (width - text_width) // 2, (height - text_height) // 2)
+            if self.HasFocus():
+                draw_focus_ring(dc, rect, radius, palette.primary)
 
 
 class KeyGate(wx.Panel, _Themed):
@@ -3759,14 +4818,15 @@ class KeyGate(wx.Panel, _Themed):
         self.authorized = False
         self._flourish = 0
         self._install("Two-key authorisation")
-        self.status = wx.StaticText(
+        self.status = StudioText(
             self,
-            label=(
+            (
                 "Hold both keys, then drag the slider all the way to the right "
                 "to authorise."
             ),
+            size_px=12,
+            name="Authorisation status",
         )
-        self.status.SetName("Authorisation status")
         keys = wx.BoxSizer(wx.HORIZONTAL)
         self.key_a = _KeyButton(self, "Press A", on_change=self._key_changed)
         self.key_l = _KeyButton(self, "Press L", on_change=self._key_changed)
@@ -3897,30 +4957,31 @@ class KeyGate(wx.Panel, _Themed):
             else palette.surface
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        status = getattr(self, "status", None)
-        if status is not None:
-            status.SetForegroundColour(palette.on_surface_variant)
-            status.SetFont(tokens.font(self, point_size(12)))
+        # The status resolves its own ink and font from the palette and the
+        # live interface scale; pushing either in here would pin what it tracks.
         slider = getattr(self, "slider", None)
         if slider is not None:
             slider.SetBackgroundColour(self.GetBackgroundColour())
             slider.SetForegroundColour(palette.primary)
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the completion flourish ring, when one is running."""
         palette = self.palette()
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        if self._flourish:
-            width, height = self.GetClientSize()
-            ring = wx.Rect(0, 0, width, height)
-            tokens.draw_round_rect(
-                gcdc,
-                ring,
-                tokens.scaled(tokens.RADIUS_MD),
-                None,
-                tokens.blend(palette.surface, palette.primary, self._flourish / 6.0),
-                border_width=2,
-            )
-        del gcdc
+        with self._painting(dc, rect) as ring:
+            if self._flourish:
+                tokens.draw_round_rect(
+                    dc,
+                    ring,
+                    tokens.scaled(tokens.RADIUS_MD),
+                    None,
+                    tokens.blend(
+                        palette.surface, palette.primary, self._flourish / 6.0
+                    ),
+                    border_width=2,
+                )
 
 
 class CollapsibleSection(wx.Panel, _Themed):
@@ -3998,10 +5059,11 @@ class CollapsibleSection(wx.Panel, _Themed):
         if body is not None:
             body.SetBackgroundColour(self.GetBackgroundColour())
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        del gcdc
-        del dc
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    # The header button and the body panel paint themselves, so the section
+    # itself is only its backdrop.
 
 
 class BulkActionBar(wx.Panel, _Themed):
@@ -4031,8 +5093,9 @@ class BulkActionBar(wx.Panel, _Themed):
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.on_action = on_action
         self._install("Bulk actions", listen=False)
-        self.count = wx.StaticText(self, label="Nothing selected")
-        self.count.SetName("Selection count")
+        self.count = StudioText(
+            self, "Nothing selected", size_px=12, name="Selection count"
+        )
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self.count, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, tokens.SPACE_MD)
         self.buttons: List[StudioButton] = []
@@ -4075,15 +5138,14 @@ class BulkActionBar(wx.Panel, _Themed):
             else palette.surface
         )
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
-        count = getattr(self, "count", None)
-        if count is not None:
-            count.SetForegroundColour(palette.on_surface_variant)
-            count.SetFont(tokens.font(self, point_size(12)))
+        # The count resolves its own ink and font from the palette and the live
+        # interface scale; pushing either in here would pin what it tracks.
 
-    def _on_paint(self, _event: wx.PaintEvent) -> None:
-        dc, gcdc = paint_context(self, self.GetBackgroundColour())
-        del gcdc
-        del dc
+    def _backdrop(self) -> wx.Colour:
+        return self.GetBackgroundColour()
+
+    # The count label and every action button is its own window, so the bar
+    # itself is only its backdrop.
 
 
 __all__ = [
@@ -4112,6 +5174,8 @@ __all__ = [
     "SlotGrid",
     "Stepper",
     "StudioButton",
+    "StudioCheckBox",
+    "StudioText",
     "Swatch",
     "TextureTile",
     "ToggleSwitch",

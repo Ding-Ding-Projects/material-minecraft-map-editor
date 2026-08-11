@@ -1,12 +1,13 @@
 from typing import TYPE_CHECKING, Optional, Tuple, Generator, List
 import numpy
-import math
 
 from amulet.api.chunk import Chunk
 from amulet.api.block import UniversalAirLikeBlocks
 from amulet.api.errors import ChunkLoadError
 
-from amulet_map_editor.api.opengl.matrix import rotation_matrix_xy
+from amulet_map_editor.api.opengl.mesh.selection.box.handles import (
+    cursor_ray_direction,
+)
 
 from amulet.api.data_types import PointCoordinatesNDArray
 
@@ -27,34 +28,36 @@ class RaycastBehaviour(BaseBehaviour):
         The x,y,z vector for the direction the camera is facing
         :return: (x, y, z) numpy float array ranging from -1 to 1
         """
-        look_vector = numpy.array([0, 0, 1, 0])
+        return self.cursor_look_vector()
 
-        delta_x, delta_y = (
-            (0.0, 0.0)
-            if self.canvas.camera.rotating
-            else self.canvas.mouse.mouse_xy_relative
-        )
-        if delta_x and delta_y:
-            screen_dx = math.atan(
-                delta_x
-                * self.canvas.camera.aspect_ratio
-                * math.tan(math.radians(self.canvas.camera.fov / 2))
-            )
-            screen_dy = math.atan(
-                delta_y
-                * math.cos(screen_dx)
-                * math.tan(math.radians(self.canvas.camera.fov / 2))
-            )
-            look_vector = numpy.matmul(
-                rotation_matrix_xy(screen_dy, -screen_dx),
-                look_vector,
+    def cursor_look_vector(
+        self, cursor: Optional[Tuple[float, float]] = None
+    ) -> numpy.ndarray:
+        """The world direction a viewport position points along.
+
+        ``cursor`` is a viewport position in ``[-1, 1]`` on each axis, defaulting
+        to wherever the pointer actually is.  Passing one explicitly is what lets
+        a handle drag ask "where would the cursor be pointing if it were *here*"
+        without moving the real pointer.
+
+        The arithmetic itself lives in :func:`handles.cursor_ray_direction`, so
+        the editor's picking and a handle drag cannot come to different answers
+        about the same pixel.
+        """
+        if cursor is None:
+            cursor = (
+                (0.0, 0.0)
+                if self.canvas.camera.rotating
+                else self.canvas.mouse.mouse_xy_relative
             )
         ry, rx = self.canvas.camera.rotation
-        look_vector = numpy.matmul(
-            rotation_matrix_xy(*numpy.radians([rx, -ry])), look_vector
-        )[:3]
-        look_vector[abs(look_vector) < 0.000001] = 0.000001
-        return look_vector
+        return cursor_ray_direction(
+            ry,
+            rx,
+            self.canvas.camera.fov,
+            self.canvas.camera.aspect_ratio,
+            cursor,
+        )
 
     def closest_block_3d(
         self, max_distance: float = 100

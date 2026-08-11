@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from amulet_map_editor.api.studio.search import SearchState
 
@@ -36,6 +36,9 @@ __all__ = [
     "COMMANDS",
     "COMMAND_GROUPS",
     "CHAR_HOOK_ACCELERATORS",
+    "CONDITIONS",
+    "CONDITION_REASONS",
+    "REQUIREMENTS",
     "Command",
     "accelerator",
     "accelerator_entries",
@@ -43,9 +46,13 @@ __all__ = [
     "command",
     "group",
     "keys",
+    "label_for",
     "mismatched_accelerators",
+    "requirements",
     "resolve",
     "search",
+    "unavailable_hint",
+    "unmet_reason",
 ]
 
 
@@ -135,6 +142,7 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     ("openBackstage", "Open the project screen", "Project"),
     ("backToWorkspace", "Back to the workspace", "Project"),
     ("export", "Export the selection", "Project"),
+    ("setExportFormat", "Choose the structure export format", "Project"),
     ("importFile", "Import a structure file", "Project"),
     ("importChunks", "Import chunks from another world", "Project"),
     ("convertWorld", "Convert this world to another platform", "Project"),
@@ -151,9 +159,16 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     # -- Selection -----------------------------------------------------------
     ("addBox", "Add a selection box", "Selection"),
     ("removeBox", "Remove the active selection box", "Selection"),
+    ("duplicateBox", "Duplicate the active selection box", "Selection"),
+    ("deselectAllBoxes", "Deselect every selection box", "Selection"),
     ("moveBox", "Move the active selection box", "Selection"),
     ("movePoint1", "Move selection point 1", "Selection"),
     ("movePoint2", "Move selection point 2", "Selection"),
+    (
+        "setSelectionBounds",
+        "Move the active selection box to the typed coordinates",
+        "Selection",
+    ),
     # -- Chunks --------------------------------------------------------------
     ("createChunks", "Create the empty chunks in the selection", "Chunks"),
     ("deleteChunks", "Delete the selected chunks", "Chunks"),
@@ -166,6 +181,7 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     ("reloadPlugins", "Reload the Python operations", "Operations"),
     # -- View ----------------------------------------------------------------
     ("projection", "Switch the viewport projection", "View"),
+    ("frameDimension", "Frame this dimension in the viewport", "View"),
     ("cameraSpeed", "Set the camera speed", "View"),
     ("setDimension", "Switch dimension", "View"),
     ("togglePane", "Show or hide the properties pane", "View"),
@@ -202,8 +218,15 @@ _BY_KEY: Mapping[str, Command] = MappingProxyType(
 #: says ``closeProject`` -- and because renaming a key in somebody else's module
 #: would silently break the button that uses it.  An alias never appears in a
 #: listing: one action deserves exactly one row in the palette.
+#:
+#: ``deselectBox`` is here rather than in :data:`_DEFINITIONS` because the 3D
+#: editor's ``ACT_DESELECT_BOX`` and this registry's ``removeBox`` do the same
+#: thing to the same selection -- both drop the last box from it -- and two rows
+#: in the palette for one action would be two names for one outcome.  The
+#: viewport menu keeps its own label, which is the design's wording for it.
 ALIASES: Mapping[str, str] = MappingProxyType(
     {
+        "deselectBox": "removeBox",
         "saveProject": "save",
         "save_project": "save",
         "close_project": "closeProject",
@@ -223,6 +246,108 @@ ALIASES: Mapping[str, str] = MappingProxyType(
 )
 
 
+#: The conditions a command can require before it is able to do anything.
+#:
+#: These are deliberately about the *world*, not about the interface: whether a
+#: level is open, whether the 3D editor is attached to it, whether the user has
+#: drawn a selection, whether anything has been copied, and how deep the level's
+#: own undo stack is.  The shell reads each one from the live editor rather than
+#: from Studio state, so a control is disabled because the world cannot answer
+#: the command, never because a panel has not been told about it yet.
+CONDITIONS: Tuple[str, ...] = (
+    "project",
+    "editor",
+    "selection",
+    "clipboard",
+    "undo",
+    "redo",
+)
+
+
+#: Why each condition being unmet stops a command, phrased as the clause a
+#: disabled control puts in its tooltip.  A control the user cannot press has to
+#: say which condition it is waiting for; "unavailable" on its own reads as a
+#: defect in the application rather than as a state of their world.
+CONDITION_REASONS: Mapping[str, str] = MappingProxyType(
+    {
+        "project": "no world is open",
+        "editor": "this world has no 3D editor attached",
+        "selection": "nothing is selected",
+        "clipboard": "nothing has been copied yet",
+        "undo": "there is nothing to undo",
+        "redo": "there is nothing to redo",
+    }
+)
+
+
+#: What each command needs before it can run, in the order it should be
+#: reported.  A command absent from this table needs nothing and is therefore
+#: always available: switching a theme, opening the palette, and reading the
+#: changelog do not depend on a world.
+#:
+#: ``editor`` implies ``project`` and is listed alone where it applies, because
+#: naming both would make a disabled tile say two things when the first one is
+#: the whole story.
+REQUIREMENTS: Mapping[str, Tuple[str, ...]] = MappingProxyType(
+    {
+        # -- Project ---------------------------------------------------------
+        "save": ("editor",),
+        "closeProject": ("project",),
+        "convertWorld": ("project",),
+        "openInEditor": ("project",),
+        "export": ("editor", "selection"),
+        "importFile": ("editor",),
+        "importChunks": ("editor", "selection"),
+        # -- Editing ---------------------------------------------------------
+        "undo": ("editor", "undo"),
+        "redo": ("editor", "redo"),
+        "copy": ("editor", "selection"),
+        "cut": ("editor", "selection"),
+        "paste": ("editor", "clipboard"),
+        "delete": ("editor", "selection"),
+        "selectAll": ("editor",),
+        "goto": ("editor",),
+        # -- Selection -------------------------------------------------------
+        "addBox": ("editor",),
+        "removeBox": ("editor", "selection"),
+        "duplicateBox": ("editor", "selection"),
+        "deselectAllBoxes": ("editor", "selection"),
+        "moveBox": ("editor", "selection"),
+        "movePoint1": ("editor", "selection"),
+        "movePoint2": ("editor", "selection"),
+        # There has to be a box before its corners can be typed: the six boxes
+        # in Selection > Coordinates describe the active selection box, and with
+        # nothing selected there is no box for them to describe.
+        "setSelectionBounds": ("editor", "selection"),
+        # -- Chunks ----------------------------------------------------------
+        "createChunks": ("editor", "selection"),
+        "deleteChunks": ("editor", "selection"),
+        "deleteUnselectedChunks": ("editor", "selection"),
+        # -- Transform -------------------------------------------------------
+        "rotate": ("editor", "selection"),
+        "flip": ("editor", "selection"),
+        # -- Operations ------------------------------------------------------
+        # ``editor`` alone, and not ``("editor", "selection")`` like its
+        # neighbours, is a decision rather than an omission.  This command does
+        # two things: it brings the Operation tool to the front, and it runs
+        # whatever that tool has chosen.  Only the second half needs a
+        # selection -- every operation is handed ``selection.selection_group``
+        # and an empty group means it acts on nothing -- and gating the whole
+        # command would leave the user unable to reach the list of operations
+        # until after they had selected something, which is the wrong way
+        # round.  So the requirement stays at ``editor`` and
+        # ``StudioShell._run_active_operation`` declines the *run* when nothing
+        # is selected, naming the tool's own Run button so an operation that
+        # genuinely ignores the selection is still reachable.
+        "runOperation": ("editor",),
+        "reloadPlugins": ("editor",),
+        # -- View ------------------------------------------------------------
+        "setDimension": ("project",),
+        "frameDimension": ("editor",),
+    }
+)
+
+
 def resolve(key: object) -> str:
     """Return the canonical key for ``key``, following one alias hop.
 
@@ -231,6 +356,57 @@ def resolve(key: object) -> str:
     """
     name = str(key or "").strip()
     return ALIASES.get(name, name)
+
+
+#: Readable names for the keys :data:`REQUIREMENTS` covers that are surfaces
+#: rather than commands.  The shell routes ``goto`` to the editor's own camera
+#: dialog, so it needs a precondition and a sentence like any command, but it
+#: has no row in :data:`COMMANDS` to take a label from.
+_SURFACE_LABELS: Mapping[str, str] = MappingProxyType({"goto": "Teleport the camera"})
+
+
+def label_for(key: object) -> str:
+    """Return the visible name for a command or a routed surface key."""
+    resolved = resolve(key)
+    entry = _BY_KEY.get(resolved)
+    if entry is not None:
+        return entry.label
+    return _SURFACE_LABELS.get(resolved, resolved)
+
+
+def requirements(key: object) -> Tuple[str, ...]:
+    """Return what ``key`` needs before it can run, aliases included."""
+    return REQUIREMENTS.get(resolve(key), ())
+
+
+def unmet_reason(condition: str) -> str:
+    """Return the clause naming why ``condition`` stops a command.
+
+    An unknown condition returns a statement that says exactly that, rather
+    than an empty string a caller would splice into a sentence and produce
+    "Save changes is unavailable: ." from.
+    """
+    name = str(condition)
+    return CONDITION_REASONS.get(name, f"the condition {name!r} is not met")
+
+
+def unavailable_hint(key: object, unmet: Iterable[str]) -> str:
+    """Return the tooltip a control shows while ``key`` cannot be run.
+
+    ``unmet`` is the conditions that failed, in report order.  The result names
+    the command and every condition it is waiting for, because a user looking at
+    a greyed-out tile is asking exactly one question and this is the answer to
+    it.  An empty ``unmet`` returns an empty string: a command that can run has
+    nothing to explain and keeps the hint it shipped with.
+    """
+    reasons = [unmet_reason(name) for name in unmet]
+    if not reasons:
+        return ""
+    label = label_for(key)
+    if len(reasons) == 1:
+        return f"{label} is unavailable: {reasons[0]}."
+    joined = ", ".join(reasons[:-1]) + f", and {reasons[-1]}"
+    return f"{label} is unavailable: {joined}."
 
 
 def command(key: object) -> Optional[Command]:

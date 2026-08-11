@@ -25,6 +25,10 @@ If you are new to the interface, start with
 ## Editing a world
 
 - [Editing tools](editing-tools/README.md)
+- [Grab handles on the selection box](selection-handles/README.md) — dragging
+  the box itself, and the keyboard routes that do the same
+- [Where a pasted copy lands](paste-anchor/README.md) — what the Position
+  numbers name, and the box the blocks will fill
 - [MCEdit2 tool set](mcedit2-tools/README.md)
 - [Terrain tools](terrain/README.md)
 - [Build tools](build/README.md)
@@ -75,6 +79,8 @@ If you are new to the interface, start with
 ## Builds and delivery
 
 - [Build scripts](build-scripts/README.md)
+- [The capture matrix](capture-matrix/README.md) — how the README's screenshots
+  are taken, including the menus and overlays a page capture cannot see
 - [Release delivery contract](release-delivery/README.md)
 - [Release code name](release-code-name/README.md)
 - [Updater](updater/README.md)

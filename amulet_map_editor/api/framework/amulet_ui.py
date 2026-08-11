@@ -1,7 +1,10 @@
 from __future__ import annotations
 import wx
+
+from amulet_map_editor.api.studio import tokens
+
 from wx.lib.agw import flatnotebook
-from typing import Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 import traceback
 import logging
 import sys
@@ -63,6 +66,17 @@ NOTEBOOK_MENU_STYLE = (
 )
 NOTEBOOK_STYLE = NOTEBOOK_MENU_STYLE | flatnotebook.FNB_X_ON_TAB
 UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+#: How long an informational toast stays before retiring itself.
+#: Warnings and errors are exempt: they persist until dismissed.
+NOTIFICATION_DISMISS_MS = 8000
+
+#: How long to wait before looking again for an editor canvas that is still
+#: being built, and how long to keep looking before saying it never arrived.
+#: The canvas is created on a worker thread that loads a resource pack and
+#: builds a texture atlas, so it is genuinely absent for a few seconds after a
+#: world opens rather than merely slow to appear.
+CANVAS_HOST_RETRY_MS = 400
+CANVAS_HOST_TIMEOUT_SECONDS = 300.0
 
 CLOSEABLE_PAGE_TYPE = Union[WorldPageUI]
 
@@ -107,9 +121,16 @@ class AmuletUI(wx.Frame):
     The frame's content is the Amulet Studio shell: a title bar, the backstage
     project screen, and the editing workspace.  The world notebook still exists
     below it -- it owns world loading, per-page unsaved-work protection, and the
-    tab dock the tab manager edits -- and is handed to the workspace viewport
-    once a world is open, so the real renderer draws inside the new shell rather
-    than beside it.
+    tab dock the tab manager edits -- but it stays hidden.  What the workspace
+    viewport is given is the active editor's canvas itself, so the viewport
+    shows the world and nothing else: no second tab strip, and no About or
+    Convert page nested inside the view of the world.  Those two extensions
+    stay reachable from the ribbon, the command palette, and the backstage.
+
+    The canvas is borrowed rather than taken.  Its owning extension keeps it in
+    the notebook's page tree and is handed it back before that page is closed,
+    because a canvas left parented to the viewport after its extension is
+    destroyed is a window drawing a world that no longer exists.
     """
 
     # The notebook to hold world pages
@@ -126,13 +147,25 @@ class AmuletUI(wx.Frame):
             id=wx.ID_ANY,
             title=title,
             pos=wx.DefaultPosition,
-            size=wx.Size(1000, 620),
+            size=wx.Size(tokens.scaled(1000), tokens.scaled(620)),
             style=wx.NO_BORDER | wx.TAB_TRAVERSAL | wx.CLIP_CHILDREN | wx.RESIZE_BORDER,
         )
-        self.SetMinSize(wx.Size(570, 620))
+        # Scaled, because this is the size below which the layout stops fitting
+        # -- and on a 150% display the layout needs 150% of the pixels to fit
+        # in. A fixed floor here lets the window be dragged to a size where
+        # every scaled child inside it is clipped, which reads as a broken
+        # interface rather than as a window that is simply too small.
+        self.SetMinSize(wx.Size(tokens.scaled(570), tokens.scaled(620)))
         icon = wx.Icon()
         icon.CopyFromBitmap(image.logo.amulet_logo.bitmap())
         self.SetIcon(icon)
+
+        # The canvas the Studio viewport has borrowed, with the page and the
+        # extension it must go back to: ``(page, owner, canvas)``.
+        self._hosted_canvas: Optional[tuple[WorldPageUI, wx.Window, wx.Window]] = None
+        self._canvas_host_timer: Optional[wx.CallLater] = None
+        self._canvas_host_deadline: Optional[float] = None
+        self._world_context_key: Optional[tuple[str, int]] = None
 
         self._shell = wx.Panel(self)
         self._shell_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -185,7 +218,9 @@ class AmuletUI(wx.Frame):
         self._update_banner_sizer.Add(self._update_banner_actions_sizer, 0, wx.EXPAND)
         self._update_banner.SetSizer(self._update_banner_sizer)
         self._update_banner.Hide()
-        self._shell_sizer.Add(self._update_banner, 0, wx.EXPAND | wx.ALL, 8)
+        # Deliberately not added to the shell sizer: see
+        # _position_notification_toasts. A sizer child here is a banner
+        # that displaces the interface; this is an overlay that does not.
         self._tab_content = wx.Panel(self._shell)
         self._tab_content_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._level_notebook = AmuletLevelNotebook(
@@ -283,16 +318,79 @@ class AmuletUI(wx.Frame):
         toast = NotificationToast(
             self._shell, title, body, severity, self._dismiss_notification
         )
+        # Float it over the interface rather than inserting it into the shell's
+        # sizer. As a sizer child a toast became a full-width banner across the
+        # top that reflowed the whole window and pushed the application down --
+        # which is displacement, not notification, and it is what a
+        # non-blocking surface must never do.
         self._notification_toasts.append(toast)
-        self._shell_sizer.Insert(
-            1, toast, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8
-        )
-        self._shell.Layout()
+        toast.SetName(f"Notification toast: {title}")
+        self._position_notification_toasts()
+        toast.Raise()
+        toast.Show()
+        # Informational toasts retire themselves; warnings and errors stay until
+        # they are read, because those are the ones that matter after the moment
+        # has passed.
+        if severity not in ("warning", "error"):
+            wx.CallLater(
+                NOTIFICATION_DISMISS_MS,
+                lambda: self._dismiss_notification(toast),
+            )
+
+    def _position_notification_toasts(self) -> None:
+        """Stack the live toasts up from the bottom-right of the interface.
+
+        They are positioned, never laid out: a toast must not take space from
+        the surface it is reporting about, and it must not move anything the
+        reader is currently looking at.
+        """
+        if self.IsBeingDeleted():
+            return
+        shell = getattr(self, "_shell", None)
+        if shell is None:
+            return
+        margin = 16
+        width, height = shell.GetClientSize()
+        bottom = height - margin
+
+        # The update card sits lowest so a burst of toasts never pushes a
+        # standing offer off the bottom of the window.
+        banner = getattr(self, "_update_banner", None)
+        if banner is not None and banner.IsShown():
+            try:
+                banner.Fit()
+                size = banner.GetSize()
+                banner_width = min(max(size.width, 320), max(320, width - margin * 2))
+                banner.SetSize(wx.Size(banner_width, size.height))
+                bottom -= size.height
+                banner.SetPosition(wx.Point(width - banner_width - margin, bottom))
+                bottom -= 8
+                banner.Raise()
+            except RuntimeError:
+                pass
+
+        for toast in reversed(self._notification_toasts):
+            try:
+                if toast.IsBeingDeleted():
+                    continue
+                toast.Fit()
+                size = toast.GetSize()
+                toast_width = min(max(size.width, 280), max(280, width - margin * 2))
+                toast.SetSize(wx.Size(toast_width, size.height))
+                bottom -= size.height
+                toast.SetPosition(wx.Point(width - toast_width - margin, bottom))
+                bottom -= 8
+                toast.Raise()
+            except RuntimeError:
+                # A toast destroyed between the list and here is not an error;
+                # the next reposition drops it.
+                continue
 
     def _dismiss_notification(self, toast: NotificationToast) -> None:
         if toast not in self._notification_toasts:
             return
         self._notification_toasts.remove(toast)
+        self._position_notification_toasts()
         self._shell_sizer.Detach(toast)
         toast.Destroy()
         self._shell.Layout()
@@ -521,21 +619,301 @@ class AmuletUI(wx.Frame):
             return
         page = self.active_world_page()
         if page is None:
+            self.release_hosted_canvas()
+            self._cancel_canvas_host_retry()
+            self._clear_world_context()
             studio.detach_project()
             return
         # The Studio owns tab management, so the legacy side rail would be a
         # second, contradictory list of the same tabs inside the viewport.
         self._tab_rail.Hide()
         self._select_editor_program(page)
-        studio.set_canvas(self._tab_content)
-        # The notebook now lives inside the Studio viewport, which the shared
-        # Material traversal deliberately does not enter; style it from here so
-        # the world pages keep the palette every other native surface uses.
+        self._host_editor_canvas(page, studio)
+        if not (studio.project_open and studio.project_path == page.path):
+            studio.attach_project(
+                page.world_name, page.path, self._world_platform(page)
+            )
+        self._publish_world_context(page)
+
+    # -- the editor canvas inside the Studio viewport ------------------------
+    def hosted_canvas(self) -> Optional[wx.Window]:
+        """Return the canvas the Studio viewport is currently showing."""
+        return None if self._hosted_canvas is None else self._hosted_canvas[2]
+
+    def _host_editor_canvas(self, page: WorldPageUI, studio) -> None:
+        """Put the active editor's canvas and its own controls in the viewport.
+
+        The canvas moves, and so does every panel the editor draws over it.
+        The extension itself stays where the world notebook put it, so the
+        notebook's page tree is never handed a window that is no longer one of
+        its children -- but its panels are not part of that tree's layout, and
+        leaving them behind is what used to strand every editing control on a
+        hidden page.  See :meth:`_host_editor_overlays`.
+        """
+        program = self.active_editor_program()
+        if program is None:
+            self.release_hosted_canvas()
+            studio.set_canvas(None)
+            self._set_viewport_reason(
+                "This world loaded no 3D editor, so there is no renderer to show. "
+                "The log records which extension failed to load."
+            )
+            return
+        canvas = getattr(program, "_canvas", None)
+        building = getattr(program, "_setup_thread", None) is not None
+        if canvas is None or building or not canvas.IsShown():
+            self.release_hosted_canvas()
+            studio.set_canvas(None)
+            self._await_editor_canvas()
+            return
+        self._cancel_canvas_host_retry()
+        if self._hosted_canvas is not None and self._hosted_canvas[2] is canvas:
+            studio.set_canvas(canvas)
+            return
+        self.release_hosted_canvas()
+        owner = canvas.GetParent()
+        sizer = owner.GetSizer() if owner is not None else None
+        if sizer is not None:
+            sizer.Detach(canvas)
+        self._hosted_canvas = (page, owner, canvas)
+        studio.set_canvas(canvas)
+        self._host_editor_overlays(canvas, canvas.GetParent())
+        self._set_viewport_reason("")
+        # The world pages are outside the Studio's own token traversal, so they
+        # are styled from here rather than being left with the default palette.
         apply_material3(self._tab_content)
         self._tab_content.Layout()
-        if studio.project_open and studio.project_path == page.path:
+
+    @staticmethod
+    def editor_overlay_windows(canvas: Optional[wx.Window]) -> List[wx.Window]:
+        """Return every panel the editor draws over ``canvas``.
+
+        The editor builds its controls as siblings of the canvas rather than
+        as children of it -- the undo/save panel, the row of tool buttons, and
+        one options panel per tool -- and positions them in canvas
+        coordinates.  They are what a user presses to paste, to place, to pick
+        an operation and to run it.
+
+        Every registered tool is asked, not just the running one.  The tool
+        manager's own ``windows()`` answers for the active tool alone, which
+        would be enough to move what is on screen right now and would strand
+        the next tool the user picks: all six are constructed eagerly at
+        startup, so all six are moved once, here.
+        """
+        windows: List[wx.Window] = []
+        if canvas is None:
+            return windows
+
+        def take(source: Any) -> None:
+            getter = getattr(source, "windows", None)
+            if not callable(getter):
+                return
+            try:
+                found = list(getter())
+            except Exception:  # noqa: BLE001 - a tool mid-teardown answers this
+                log.debug("An editor tool would not list its windows", exc_info=True)
+                return
+            windows.extend(window for window in found if window)
+
+        take(getattr(canvas, "_file_panel", None))
+        manager = getattr(canvas, "_tool_sizer", None)
+        if manager is not None:
+            panel = getattr(manager, "_tool_panel", None)
+            if panel:
+                windows.append(panel)
+            try:
+                tools = list(canvas.tools.values())
+            except Exception:  # noqa: BLE001 - a canvas without its tool manager
+                log.debug("The editor tools could not be listed", exc_info=True)
+                tools = []
+            for tool in tools:
+                take(tool)
+        # One tool can hand back a window another already listed, and
+        # reparenting the same window twice is wasted work rather than an
+        # error; the order is kept so the file panel stays on top.
+        unique: List[wx.Window] = []
+        for window in windows:
+            if not any(window is seen for seen in unique):
+                unique.append(window)
+        return unique
+
+    def _host_editor_overlays(
+        self, canvas: Optional[wx.Window], host: Optional[wx.Window]
+    ) -> int:
+        """Move the editor's own control panels onto ``host``, beside the canvas.
+
+        The viewport gives the canvas its whole client area at ``(0, 0)``, so
+        host coordinates and canvas coordinates are the same numbers.  That is
+        why nothing here repositions anything: each panel's own ``_resize``
+        already places it in canvas coordinates, and it goes on being right.
+
+        Returns how many panels moved, so a caller can tell "there were none"
+        from "they are all still on the hidden page".
+        """
+        if canvas is None or host is None:
+            return 0
+        moved = 0
+        for window in self.editor_overlay_windows(canvas):
+            try:
+                if window.GetParent() is not host:
+                    window.Reparent(host)
+                    moved += 1
+                # Raised whether or not it moved: the viewport raises the
+                # children it knew about at the moment it took the canvas, and
+                # these arrived afterwards, so an unraised panel would sit
+                # behind the GL surface and never be seen.
+                window.Raise()
+            except Exception:  # noqa: BLE001 - a window already being destroyed
+                log.debug("An editor panel could not follow the canvas", exc_info=True)
+        if moved:
+            try:
+                # The panels size themselves from the canvas, which has just
+                # been given the viewport's size; without this they keep the
+                # geometry they were built with on the hidden page.
+                canvas.SendSizeEvent()
+            except Exception:  # noqa: BLE001 - the canvas is tearing down
+                log.debug("The editor canvas refused a resize", exc_info=True)
+        return moved
+
+    def _await_editor_canvas(self) -> None:
+        """Say the renderer is still starting, and look again shortly.
+
+        The alternative -- showing the drawn stand-in with no explanation --
+        reads as a renderer that failed rather than one that has not finished
+        loading its resource pack yet.
+        """
+        now = time.monotonic()
+        if self._canvas_host_deadline is None:
+            self._canvas_host_deadline = now + CANVAS_HOST_TIMEOUT_SECONDS
+        if now > self._canvas_host_deadline:
+            self._set_viewport_reason(
+                "The 3D editor did not finish starting within "
+                f"{int(CANVAS_HOST_TIMEOUT_SECONDS)} seconds. The log records why; "
+                "nothing is being drawn from the world."
+            )
+            self._cancel_canvas_host_retry()
             return
-        studio.attach_project(page.world_name, page.path, self._world_platform(page))
+        self._set_viewport_reason(
+            "The 3D editor is still starting: it is loading the resource pack "
+            "and building its texture atlas. Nothing here is read from the "
+            "world yet."
+        )
+        # A fresh one-shot each time rather than a guard on the old one being
+        # idle: a `wx.CallLater` still reports itself as running while it is
+        # inside its own callback, so a guard would let the very first retry
+        # cancel the whole chain and the canvas would never be looked for
+        # again -- which looks exactly like a renderer that failed to start.
+        if self._canvas_host_timer is not None:
+            self._canvas_host_timer.Stop()
+        self._canvas_host_timer = wx.CallLater(
+            CANVAS_HOST_RETRY_MS, self.sync_studio_project
+        )
+
+    def _cancel_canvas_host_retry(self) -> None:
+        if self._canvas_host_timer is not None and self._canvas_host_timer.IsRunning():
+            self._canvas_host_timer.Stop()
+        self._canvas_host_timer = None
+        self._canvas_host_deadline = None
+
+    def release_hosted_canvas(
+        self, page: Optional[WorldPageUI] = None, *, closing: bool = False
+    ) -> None:
+        """Give a borrowed canvas back to the extension that owns it.
+
+        Called before a world page closes and whenever the viewport is about to
+        show a different one.  ``page`` narrows it to one world's canvas, so
+        closing one world never takes the renderer away from another, and
+        ``closing`` says the extension is about to destroy it rather than use
+        it again.
+        """
+        record = self._hosted_canvas
+        if record is None:
+            return
+        hosted_page, owner, canvas = record
+        if page is not None and page is not hosted_page:
+            return
+        self._hosted_canvas = None
+        studio = getattr(self, "_studio", None)
+        if studio is not None:
+            try:
+                studio.set_canvas(None)
+            except RuntimeError:  # pragma: no cover - the shell is being torn down
+                pass
+        try:
+            if not canvas or canvas.IsBeingDeleted():
+                return
+            if owner and not owner.IsBeingDeleted():
+                canvas.Reparent(owner)
+                # The panels were borrowed alongside the canvas and go back
+                # with it. Left on the viewport they would outlive the page
+                # that owns them, and the extension's next enable() would
+                # rebuild its layout around windows that are no longer its
+                # children.
+                self._host_editor_overlays(canvas, owner)
+                sizer = owner.GetSizer()
+                if sizer is not None and sizer.GetItem(canvas) is None:
+                    sizer.Add(canvas, 1, wx.EXPAND)
+                if not closing:
+                    # The viewport hides a canvas as it lets go of it, and the
+                    # extension lent it shown. Handing back a hidden canvas
+                    # makes the extension's next `enable()` fail: an OpenGL
+                    # context cannot be made current on a canvas that is not
+                    # shown, and the failure surfaces while closing an
+                    # unrelated world. Showing it is skipped for a canvas whose
+                    # page is closing, because showing queues a deferred resize
+                    # that would then run against a destroyed window.
+                    canvas.Show()
+                owner.Layout()
+        except RuntimeError:  # pragma: no cover - either window already gone
+            log.debug("The borrowed canvas could not be returned", exc_info=True)
+
+    def _set_viewport_reason(self, reason: str) -> None:
+        """Tell the viewport why it has no renderer, when it has none."""
+        studio = getattr(self, "_studio", None)
+        viewport = getattr(getattr(studio, "workspace", None), "viewport", None)
+        setter = getattr(viewport, "set_placeholder_reason", None)
+        if callable(setter):
+            try:
+                setter(reason)
+            except RuntimeError:  # pragma: no cover - the workspace is going away
+                pass
+
+    # -- the world every Studio surface reads from ---------------------------
+    def _publish_world_context(self, page: WorldPageUI) -> None:
+        """Make the open level the world every Studio surface reads from.
+
+        The snapshot walks the world folder and counts its chunks, so it is
+        taken once per world rather than on every tab change; attaching the
+        canvas afterwards only replaces the selection and the dimension, which
+        costs nothing.
+        """
+        try:
+            from amulet_map_editor.api.studio import context as world_context
+        except Exception:  # pragma: no cover - a build without the Studio
+            log.debug("The Studio world context is unavailable", exc_info=True)
+            return
+        canvas = self.hosted_canvas()
+        key = (page.path, id(getattr(page, "world", None)))
+        try:
+            if key != self._world_context_key:
+                world_context.set_level(
+                    page.world, path=page.path, name=page.world_name, canvas=canvas
+                )
+                self._world_context_key = key
+            elif canvas is not None:
+                world_context.set_canvas(canvas)
+        except Exception:
+            log.exception("Could not publish the open world to the Studio surfaces")
+
+    def _clear_world_context(self) -> None:
+        """Record that no world is open, for every surface that reads one."""
+        self._world_context_key = None
+        try:
+            from amulet_map_editor.api.studio import context as world_context
+
+            world_context.clear()
+        except Exception:  # pragma: no cover - a build without the Studio
+            log.debug("The Studio world context could not be cleared", exc_info=True)
 
     @staticmethod
     def _select_editor_program(page: WorldPageUI) -> None:
@@ -1002,6 +1380,8 @@ class AmuletUI(wx.Frame):
                 self._show_update_state(*pending_state)
             return
         self._discard_pending_update_after_accepted_close()
+        self.release_hosted_canvas()
+        self._cancel_canvas_host_retry()
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
         if self._scheduled_timer is not None and self._scheduled_timer.IsRunning():
@@ -1021,7 +1401,7 @@ class AmuletUI(wx.Frame):
 
     def _hide_update_banner(self, _event=None) -> None:
         self._update_banner.Hide()
-        self._shell.Layout()
+        self._position_notification_toasts()
 
     def _render_update_banner(self, state: SquirrelUpdateState) -> None:
         title, body = update_copy.update_copy(
@@ -1053,7 +1433,13 @@ class AmuletUI(wx.Frame):
         else:
             self._update_banner_action.SetToolTip("Retry the bounded update check.")
         self._update_banner.Show()
-        self._shell.Layout()
+        # Positioned, not laid out. As a sizer child under the Studio shell this
+        # card collapsed to twenty pixels square and was never seen, so the
+        # updater worked perfectly and reported into nothing. It now floats in
+        # the same corner stack as the notifications, above them, and persists
+        # until acted on -- an update is a standing offer, not a passing message.
+        self._position_notification_toasts()
+        self._update_banner.Raise()
 
     def _show_update_state(
         self, state: SquirrelUpdateState, generation: int | None = None
@@ -1217,6 +1603,11 @@ class AmuletLevelNotebook(flatnotebook.FlatNotebook):
     def _on_page_closing(self, evt: flatnotebook.EVT_FLATNOTEBOOK_PAGE_CLOSING):
         """Handle the page closing."""
         page: CLOSEABLE_PAGE_TYPE = self.GetPage(evt.GetSelection())
+        # The Studio viewport may be showing this page's renderer. Give it back
+        # before anything closes the world, so the canvas is destroyed with the
+        # extension that owns it rather than outliving it inside the viewport.
+        if self._owner_frame is not None:
+            self._owner_frame.release_hosted_canvas(page, closing=True)
         if page is not self._main_menu:
             preapproved = False
             if (

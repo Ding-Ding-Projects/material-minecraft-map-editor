@@ -28,7 +28,7 @@ from amulet_map_editor.api.studio import navigator as navigator_module
 from amulet_map_editor.api.studio import properties_pane as properties_module
 from amulet_map_editor.api.studio import status_bar as status_module
 from amulet_map_editor.api.studio import tokens
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.navigator import (
     DEFAULT_BOXES,
     DEFAULT_DIMENSIONS,
@@ -691,9 +691,9 @@ class WorkspaceView(wx.Panel):
         self.saved = bool(saved)
         self.status.set_status_text(
             (
-                studio_text("Ready", "準備好")
+                studio_label("Ready", "準備好")
                 if self.saved
-                else studio_text("Unsaved changes", "有嘢未儲存")
+                else studio_label("Unsaved changes", "有嘢未儲存")
             ),
             "ready" if self.saved else "busy",
         )
@@ -844,7 +844,7 @@ class WorkspaceView(wx.Panel):
         )
         self.refresh_state()
         self.notify(
-            studio_text("Revision restored", "還原咗個版本"),
+            studio_label("Revision restored", "還原咗個版本"),
             studio_text(
                 f"{source.commit} was restored as {revision.commit}. The revision "
                 "you restored from is still in the history.",
@@ -854,7 +854,14 @@ class WorkspaceView(wx.Panel):
         return revision
 
     def notify(self, title: str, body: str, severity: str = "info") -> None:
-        """Report a result without blocking whatever the user is doing."""
+        """Report a result without blocking whatever the user is doing.
+
+        ``title`` names the event and is built with
+        :func:`~amulet_map_editor.api.studio.copy.studio_label`; ``body`` is the
+        application speaking and keeps its tone.  A toast title is a heading in
+        a small card, so an aside appended to it clips before the sentence
+        underneath -- which is exactly where it would have been readable.
+        """
         try:
             from amulet_map_editor.api.wx import nonblocking
         except ImportError:
@@ -903,15 +910,18 @@ class WorkspaceView(wx.Panel):
         self.set_saved(False)
 
     def _on_tool(self, key: str) -> None:
+        # These land in the status bar's readout, which sizes itself to its text
+        # and lends it to the control's accessible name, so they are labels for
+        # a state rather than the application talking: no tone.
         messages = {
-            "frame": studio_text("Framed the selection", "已經對準咗個選取範圍"),
-            "top": studio_text("Switched the view", "換咗個視角"),
+            "frame": studio_label("Framed the selection", "已經對準咗個選取範圍"),
+            "top": studio_label("Switched the view", "換咗個視角"),
             "slice": (
-                studio_text("Layer slice on", "開咗層切片")
+                studio_label("Layer slice on", "開咗層切片")
                 if self.viewport.slice_visible
-                else studio_text("Layer slice off", "熄咗層切片")
+                else studio_label("Layer slice off", "熄咗層切片")
             ),
-            "reset": studio_text("Camera reset", "鏡頭返晒去原位"),
+            "reset": studio_label("Camera reset", "鏡頭返晒去原位"),
         }
         message = messages.get(key)
         if message:
@@ -926,7 +936,7 @@ class WorkspaceView(wx.Panel):
     def _on_speed(self, value: int) -> None:
         self.camera_speed = int(value)
         self.status.set_status_text(
-            studio_text(
+            studio_label(
                 f"Camera speed {value} blocks per second",
                 f"鏡頭速度每秒 {value} 格",
             )
@@ -1066,7 +1076,7 @@ class WorkspaceView(wx.Panel):
                 pane, tokens.scaled(self._default_width(pane)), persist=False
             )
         self.notify(
-            studio_text("Pane widths reset", "欄闊度已經還原"),
+            studio_label("Pane widths reset", "欄闊度已經還原"),
             studio_text(
                 "The navigator and properties panes are back at their shipped "
                 "widths.",

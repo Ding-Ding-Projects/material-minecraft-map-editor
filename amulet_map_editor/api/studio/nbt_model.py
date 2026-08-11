@@ -88,34 +88,39 @@ _INT64 = (-9223372036854775808, 9223372036854775807)
 #: The static facts about each type.  Ranges are the real storage widths, so a
 #: value that will not survive a round trip is reported before it is written
 #: rather than after it has silently wrapped.
+#:
+#: ``label`` and ``hint`` are the design's twelve type definitions word for
+#: word, because they are what the "Change tag type" grid draws on its chips and
+#: shows in their tooltips.  ``badge`` is the abbreviation the tree line and the
+#: form row put in front of a tag's name, again as the design writes it.
 TYPE_INFO: Dict[TagType, TagTypeInfo] = {
     TagType.BYTE: TagTypeInfo(
         TagType.BYTE,
-        "Byte",
-        "byt",
+        "byte",
+        "byte",
         1,
         "b",
         "integer",
         _INT8[0],
         _INT8[1],
         None,
-        "Signed 8-bit integer, -128 to 127. Minecraft stores booleans in one.",
+        "8-bit signed integer, often used as a boolean",
     ),
     TagType.SHORT: TagTypeInfo(
         TagType.SHORT,
-        "Short",
-        "sht",
+        "short",
+        "short",
         2,
         "s",
         "integer",
         _INT16[0],
         _INT16[1],
         None,
-        "Signed 16-bit integer, -32768 to 32767.",
+        "16-bit signed integer",
     ),
     TagType.INT: TagTypeInfo(
         TagType.INT,
-        "Int",
+        "int",
         "int",
         3,
         "",
@@ -123,47 +128,47 @@ TYPE_INFO: Dict[TagType, TagTypeInfo] = {
         _INT32[0],
         _INT32[1],
         None,
-        "Signed 32-bit integer, -2147483648 to 2147483647.",
+        "32-bit signed integer",
     ),
     TagType.LONG: TagTypeInfo(
         TagType.LONG,
-        "Long",
-        "lng",
+        "long",
+        "long",
         4,
         "L",
         "integer",
         _INT64[0],
         _INT64[1],
         None,
-        "Signed 64-bit integer. Seeds, world time, and timestamps live here.",
+        "64-bit signed integer",
     ),
     TagType.FLOAT: TagTypeInfo(
         TagType.FLOAT,
-        "Float",
-        "flt",
+        "float",
+        "float",
         5,
         "f",
         "float",
         None,
         None,
         None,
-        "32-bit floating point. Roughly seven significant digits.",
+        "32-bit floating point",
     ),
     TagType.DOUBLE: TagTypeInfo(
         TagType.DOUBLE,
-        "Double",
-        "dbl",
+        "double",
+        "double",
         6,
         "d",
         "float",
         None,
         None,
         None,
-        "64-bit floating point. Entity and player positions use it.",
+        "64-bit floating point",
     ),
     TagType.STRING: TagTypeInfo(
         TagType.STRING,
-        "String",
+        "string",
         "str",
         8,
         "",
@@ -171,69 +176,75 @@ TYPE_INFO: Dict[TagType, TagTypeInfo] = {
         None,
         None,
         None,
-        "UTF-8 text, at most 65535 bytes once encoded.",
+        "UTF-8 text",
     ),
     TagType.LIST: TagTypeInfo(
         TagType.LIST,
-        "List",
-        "lst",
+        "list",
+        "list",
         9,
         "",
         "list",
         None,
         None,
         None,
-        "An ordered run of unnamed tags. Every element must share one type.",
+        "Ordered list of one tag type",
     ),
     TagType.COMPOUND: TagTypeInfo(
         TagType.COMPOUND,
-        "Compound",
-        "cmp",
+        "compound",
+        "cmpd",
         10,
         "",
         "compound",
         None,
         None,
         None,
-        "Named child tags. Each name must be unique inside this compound.",
+        "Named tag map",
     ),
     TagType.BYTE_ARRAY: TagTypeInfo(
         TagType.BYTE_ARRAY,
-        "Byte Array",
-        "b[]",
+        "byte[]",
+        "barr",
         7,
         "",
         "array",
         _INT8[0],
         _INT8[1],
         TagType.BYTE,
-        "A packed run of signed bytes, each -128 to 127.",
+        "Byte array",
     ),
     TagType.INT_ARRAY: TagTypeInfo(
         TagType.INT_ARRAY,
-        "Int Array",
-        "i[]",
+        "int[]",
+        "iarr",
         11,
         "",
         "array",
         _INT32[0],
         _INT32[1],
         TagType.INT,
-        "A packed run of 32-bit integers. Entity identifiers use four.",
+        "Int array",
     ),
     TagType.LONG_ARRAY: TagTypeInfo(
         TagType.LONG_ARRAY,
-        "Long Array",
-        "l[]",
+        "long[]",
+        "larr",
         12,
         "",
         "array",
         _INT64[0],
         _INT64[1],
         TagType.LONG,
-        "A packed run of 64-bit integers. Height maps are stored this way.",
+        "Long array",
     ),
 }
+
+#: The twelve type chips the switcher draws, in order, exactly as the design
+#: lists them: the visible label and the one-line tooltip beside it.
+TYPE_DEFS: Tuple[Tuple[str, str], ...] = tuple(
+    (TYPE_INFO[tag_type].label, TYPE_INFO[tag_type].hint) for tag_type in TAG_TYPES
+)
 
 #: Types whose payload is a single number.
 NUMERIC_TYPES: Tuple[TagType, ...] = (
@@ -1157,47 +1168,46 @@ _AXES: Dict[int, Tuple[str, ...]] = {
     4: ("x", "y", "z", "w"),
 }
 
-#: Strings with a small, known set of legal values.
+#: The colour each axis caption is drawn in, as the design paints them: red
+#: east-west, green up-down, blue north-south.  An axis with no entry -- a yaw
+#: or a pitch -- takes the theme's primary colour, which is what the empty
+#: string means everywhere a colour is asked for here.
+AXIS_COLOURS: Dict[str, str] = {
+    "x": "#C0392B",
+    "y": "#1E8449",
+    "z": "#2471A3",
+}
+
+
+def axis_colour(axis: str) -> str:
+    """Return the colour an axis caption is drawn in, or "" for the theme's own."""
+    return AXIS_COLOURS.get(str(axis).casefold(), "")
+
+
+#: Strings with a small, known set of legal values.  Every list the design
+#: writes out is here verbatim, in the design's order, because the order is what
+#: the select offers and -- for the numeric ones below -- what each value means.
 ENUM_OPTIONS: Dict[str, Tuple[str, ...]] = {
+    "difficulty": ("peaceful", "easy", "normal", "hard"),
     "dimension": (
         "minecraft:overworld",
         "minecraft:the_nether",
         "minecraft:the_end",
     ),
     "facing": ("north", "east", "south", "west"),
+    "gametype": ("survival", "creative", "adventure", "spectator"),
     "generatorname": ("default", "flat", "largeBiomes", "amplified", "buffet"),
+    "loottable": (
+        "(none)",
+        "minecraft:chests/simple_dungeon",
+        "minecraft:chests/village/village_armorer",
+    ),
     "mode": ("save", "load", "corner", "data"),
     "mirror": ("NONE", "LEFT_RIGHT", "FRONT_BACK"),
+    "playergametype": ("survival", "creative", "adventure", "spectator"),
+    "profession": ("librarian", "farmer", "armorer", "cleric", "nitwit", "none"),
     "rotationmode": ("NONE", "CLOCKWISE_90", "CLOCKWISE_180", "COUNTERCLOCKWISE_90"),
-    "status": (
-        "minecraft:empty",
-        "minecraft:structure_starts",
-        "minecraft:biomes",
-        "minecraft:noise",
-        "minecraft:surface",
-        "minecraft:carvers",
-        "minecraft:features",
-        "minecraft:light",
-        "minecraft:spawn",
-        "minecraft:full",
-    ),
-    "profession": (
-        "minecraft:none",
-        "minecraft:armorer",
-        "minecraft:butcher",
-        "minecraft:cartographer",
-        "minecraft:cleric",
-        "minecraft:farmer",
-        "minecraft:fisherman",
-        "minecraft:fletcher",
-        "minecraft:leatherworker",
-        "minecraft:librarian",
-        "minecraft:mason",
-        "minecraft:nitwit",
-        "minecraft:shepherd",
-        "minecraft:toolsmith",
-        "minecraft:weaponsmith",
-    ),
+    "status": ("full", "features", "liquid_carvers", "structure_starts", "empty"),
     "type": (
         "minecraft:desert",
         "minecraft:jungle",
@@ -1209,90 +1219,184 @@ ENUM_OPTIONS: Dict[str, Tuple[str, ...]] = {
     ),
 }
 
+#: The enumerations whose tag holds an ordinal rather than the word.  The word
+#: is what the design's select shows; the number is what the file holds, and the
+#: two are the same list read from either end.
+NUMERIC_ENUMS: Dict[str, Tuple[str, ...]] = {
+    "difficulty": ENUM_OPTIONS["difficulty"],
+    "gametype": ENUM_OPTIONS["gametype"],
+    "playergametype": ENUM_OPTIONS["playergametype"],
+}
+
+
+def enum_label(name: str, value: int) -> str:
+    """Return the word an ordinal enumeration stands for, or the bare number."""
+    options = NUMERIC_ENUMS.get(str(name).casefold())
+    index = int(value)
+    if options is None or not 0 <= index < len(options):
+        return str(index)
+    return options[index]
+
+
+def enum_index(name: str, text: str) -> Optional[int]:
+    """Return the number a word stands for, or ``None`` when it stands for none."""
+    options = NUMERIC_ENUMS.get(str(name).casefold())
+    if options is None:
+        return None
+    wanted = str(text).strip().casefold()
+    for index, option in enumerate(options):
+        if option.casefold() == wanted:
+            return index
+    return None
+
+
 #: Semantic ranges that are tighter than the storage type allows.  A stepper or
 #: a slider offering the whole width of an int for a value the game only reads
 #: from 0 to 15 is technically correct and practically useless.
+#: Every range the design states outright -- Air 0 … 300 stepping by 20, Fire
+#: -1 … 800, DayTime 0 … 24000 stepping by 100, and the rest -- is that range
+#: here, step included, because the step is how far one press of a stepper or
+#: one notch of a slider actually moves the value.
 TAG_RANGES: Dict[str, Tuple[float, float, float]] = {
     "absorptionamount": (0.0, 20.0, 0.5),
-    "air": (0.0, 300.0, 1.0),
+    "air": (0.0, 300.0, 20.0),
     "burntime": (0.0, 1600.0, 1.0),
     "cooktime": (0.0, 200.0, 1.0),
     "cooktimetotal": (0.0, 200.0, 1.0),
     "count": (1.0, 64.0, 1.0),
+    "damage": (0.0, 1561.0, 1.0),
+    "daytime": (0.0, 24000.0, 100.0),
     "delay": (0.0, 800.0, 1.0),
     "difficulty": (0.0, 3.0, 1.0),
+    "fire": (-1.0, 800.0, 20.0),
     "flyspeed": (0.0, 1.0, 0.01),
     "foodexhaustionlevel": (0.0, 4.0, 0.1),
     "foodlevel": (0.0, 20.0, 1.0),
     "foodsaturationlevel": (0.0, 20.0, 0.5),
     "health": (0.0, 20.0, 0.5),
-    "level": (0.0, 5.0, 1.0),
+    "inhabitedtime": (0.0, 72000.0, 100.0),
+    "level": (1.0, 5.0, 1.0),
     "lvl": (0.0, 255.0, 1.0),
     "maxnearbyentities": (0.0, 64.0, 1.0),
     "maxspawndelay": (0.0, 800.0, 1.0),
     "minspawndelay": (0.0, 200.0, 1.0),
     "playergametype": (0.0, 3.0, 1.0),
+    "raintime": (0.0, 180000.0, 1000.0),
     "requiredplayerrange": (0.0, 64.0, 1.0),
     "selecteditemslot": (0.0, 8.0, 1.0),
-    "slot": (0.0, 26.0, 1.0),
+    "slot": (0.0, 40.0, 1.0),
     "spawncount": (1.0, 64.0, 1.0),
     "spawnrange": (1.0, 16.0, 1.0),
     "walkspeed": (0.0, 1.0, 0.01),
+    "xplevel": (0.0, 24791.0, 1.0),
     "xpp": (0.0, 1.0, 0.01),
     "y": (-64.0, 320.0, 1.0),
     "ypos": (-4.0, 20.0, 1.0),
 }
 
+#: The bounded whole numbers the design draws as a slider rather than a
+#: stepper.  There is no rule to derive this from: the design gives rainTime a
+#: stepper over 180,000 values and InhabitedTime a slider over 72,000, so which
+#: control a tag gets is a decision about the tag rather than about its width.
+#: Bounded real numbers are always sliders, so they are not listed here.
+SLIDER_NAMES: frozenset = frozenset(
+    {"damage", "daytime", "foodlevel", "health", "inhabitedtime"}
+)
+
 #: One line of plain explanation per well-known tag, shown under its name.
+#: Wherever the design writes a hint for a tag, that hint is this hint, word for
+#: word.  Six names -- ``id``, ``CustomName``, ``Pos``, ``Health``, ``UUID`` and
+#: ``SpawnPos`` -- carry a different sentence in each source the design shows
+#: them in ("Entity type identifier" against "Item identifier"), so what sits
+#: here is the sentence that is true wherever the tag turns up, and the exact
+#: per-source wording lives in :data:`SOURCE_FIELDS`.
 TAG_HINTS: Dict[str, str] = {
     "abilities": "What this player may do: flight, building, and invulnerability.",
-    "air": "Remaining breath, in ticks. 300 is a full lungful.",
-    "block_entities": "Every chest, sign, spawner, and other tag-bearing block here.",
-    "count": "How many items are in this stack.",
+    "air": "Remaining breath in ticks.",
+    "allowcommands": "Enables cheats in single player.",
+    "armoritems": "Feet, legs, chest, head — in that order.",
+    "block_entities": "Block entities stored in this chunk.",
+    "bordersize": "World border diameter in blocks.",
+    "brain": "Memory module compound. Opens as its own subtree.",
+    "color": "Leather and firework colour as a packed integer.",
+    "count": "Stack size. Vanilla clamps to the item's maximum.",
     "customname": "The display name shown in the world, as raw JSON text.",
-    "damage": "Durability already used. 0 is an undamaged tool.",
+    "damage": "Durability used. 0 is undamaged.",
     "dataversion": "The world format revision this data was written by.",
-    "daytime": "The in-game clock, in ticks since the world began.",
-    "difficulty": "0 peaceful, 1 easy, 2 normal, 3 hard.",
-    "dimension": "Which dimension this position is measured in.",
-    "foodlevel": "Hunger, from 0 to 20.",
+    "daytime": "Time of day in ticks. 0 is dawn, 18000 is midnight.",
+    "difficulty": "World difficulty.",
+    "dimension": "Dimension the player is in.",
+    "fire": "Burn ticks. -1 means not burning.",
+    "foodlevel": "Hunger, 0 to 20.",
+    "gametype": "Default game mode for new players.",
+    "glowing": "Draws the outline through blocks.",
+    "hardcore": "Death locks the world to spectator.",
     "health": "Current hit points. A player caps at 20.",
-    "enchantments": "Each enchantment on this item, by identifier and level.",
-    "enderitems": "The ender chest contents that follow this player everywhere.",
-    "gamerules": "The world's rules. Every value is stored as text, even numbers.",
+    "hideflags": "Bit field hiding tooltip sections.",
+    "enchantments": "Each entry pairs an id with a level.",
+    "enderitems": "Ender chest contents.",
+    "gamerules": "Every game rule as a named tag.",
     "heightmaps": "Packed surface heights, used for lighting and spawning.",
     "id": "The namespaced identifier of the block, entity, or item.",
-    "inhabitedtime": "Ticks a player has spent in this chunk. Feeds mob spawning.",
-    "inventory": "Every stack this holder is carrying, one compound per stack.",
-    "items": "The stacks inside this container, one compound per stack.",
+    "inhabitedtime": "Ticks players have spent in this chunk. Affects local difficulty.",
+    "inventory": "Hotbar first, then main inventory.",
+    "invulnerable": "Ignores all damage sources.",
+    "items": "Inventory contents. Click a slot to edit its stack.",
     "islighton": "Whether the stored light data is trusted rather than recomputed.",
     "keeppacked": "Kept packed means the block entity is not ticked yet.",
-    "lastupdate": "World time when the chunk was last saved.",
-    "levelname": "The world name shown in the world list.",
-    "lock": "A container with a lock only opens for a matching item name.",
-    "loottable": "The loot table rolled when the container is first opened.",
+    "lastupdate": "Game tick when the chunk was last saved.",
+    "level": "Trading level, 1 to 5.",
+    "levelname": "World name shown in the game's world list.",
+    "lock": "Item name required to open the container.",
+    "lore": "One JSON text component per line.",
+    "loottable": "Unrolled table. Editing Items clears this reference.",
     "lvl": "Enchantment level.",
     "motion": "Velocity in blocks per tick, one component per axis.",
-    "playergametype": "0 survival, 1 creative, 2 adventure, 3 spectator.",
+    "noai": "Freezes behaviour and pathfinding.",
+    "persistencerequired": "When on, the entity never despawns.",
+    "playergametype": "Game mode for this player.",
     "pos": "Position in the world, in blocks.",
-    "randomseed": "The world generation seed.",
-    "raintime": "Ticks until the weather next changes.",
+    "position": "Block coordinates of this block entity.",
+    "profession": "Profession identifier.",
+    "raining": "Current weather state.",
+    "randomseed": "Generation seed. Existing chunks keep their terrain.",
+    "raintime": "Ticks until the weather changes.",
+    "references": "Structure bounding-box references.",
     "rotation": "Yaw then pitch, in degrees.",
-    "sections": "The chunk in sixteen-block vertical slices, bottom first.",
+    "sections": "One compound per 16-block vertical section.",
     "selecteditemslot": "Which hot-bar slot is held, 0 to 8.",
-    "slot": "Which inventory slot this stack occupies.",
+    "silent": "Suppresses the entity's sounds.",
+    "slot": "Inventory slot index.",
     "spawncount": "How many mobs one successful spawner attempt makes.",
-    "status": "How far chunk generation has progressed.",
+    "status": "Generation stage of this chunk.",
     "time": "Total world age in ticks, unaffected by sleeping.",
+    "unbreakable": "Durability never decreases.",
     "uuid": "A 128-bit identity stored as four signed integers.",
+    "world_surface": "Packed height values, 256 entries.",
+    "worldgensettings": "Generator type and dimension settings.",
     "x": "Block position on the east-west axis.",
     "xplevel": "Experience level.",
+    "xpos": "Chunk coordinates.",
     "xpp": "Progress towards the next level, from 0 to 1.",
     "y": "Block position on the vertical axis.",
     "z": "Block position on the north-south axis.",
+    "zpos": "Chunk coordinates.",
 }
 
-#: The sixteen dye colours, used by the colour control's swatch row.
+#: The swatch row the design puts beside a colour tag: six named colours, in
+#: this order, each one a real hex value rather than a theme token.
+COLOUR_SWATCHES: Tuple[Tuple[str, str], ...] = (
+    ("Teal", "#82D5CC"),
+    ("Red", "#C0392B"),
+    ("Green", "#1E8449"),
+    ("Blue", "#2471A3"),
+    ("Gold", "#D4A017"),
+    ("Purple", "#6750A4"),
+)
+
+#: The sixteen dye colours.  The design's colour control offers the six above
+#: rather than these, but a picker that means to name a Minecraft colour still
+#: needs the sixteen the game itself has, so they stay.
 DYE_COLOURS: Tuple[Tuple[str, str], ...] = (
     ("White", "#F9FFFE"),
     ("Orange", "#F9801D"),
@@ -1338,6 +1442,21 @@ class ControlSpec:
     colour: str = ""
     placeholder: str = ""
     boolean: bool = False
+    #: One colour per entry in :attr:`parts`, in the same order.  An empty
+    #: string asks for the theme's primary colour rather than a fixed one.
+    axis_colours: Tuple[str, ...] = ()
+    #: The bounds caption a stepper draws beside its entry, as the design
+    #: writes it: "0 … 300", "-1 … 800", "1 … 5".
+    range_text: str = ""
+
+
+def range_caption(minimum: float, maximum: float) -> str:
+    """Return the "low … high" caption a stepper shows beside its entry."""
+
+    def figure(number: float) -> str:
+        return str(int(number)) if float(number).is_integer() else format_float(number)
+
+    return f"{figure(minimum)} … {figure(maximum)}"
 
 
 def tag_hint(tag: Tag) -> str:
@@ -1349,16 +1468,30 @@ def tag_hint(tag: Tag) -> str:
 
 
 def _slot_short(item_id: str) -> str:
-    """Abbreviate an item identifier to the two or three letters a slot shows."""
+    """Abbreviate an item identifier to the short word a slot cell shows.
+
+    The design labels its own cells by hand -- ``carved_pumpkin`` is captioned
+    "hat" -- so no rule reproduces them and the drawn samples carry their
+    captions as data.  What is left for a stack nobody has captioned is the
+    plainest thing that still reads: the last word of the identifier, cut to
+    the width one cell has.
+    """
     base = str(item_id).split(":")[-1]
     parts = [part for part in base.split("_") if part]
-    if len(parts) >= 2:
-        return "".join(part[0] for part in parts[:3]).upper()
-    return base[:3].upper() if base else "?"
+    if not parts:
+        return "?"
+    return parts[-1][:6].casefold()
 
 
 def _slot_dicts(tag: Tag) -> Tuple[Mapping[str, Any], ...]:
-    """Describe each compound element of an inventory list as one slot."""
+    """Describe each compound element of an inventory list as one slot.
+
+    Every element becomes one cell, in list order.  The design's own grids
+    leave gaps where a slot index is unused, which is a statement about those
+    particular chests rather than a rule -- a player inventory numbers its
+    helmet 103 -- so the drawn gaps are transcribed in :data:`SOURCE_FIELDS`
+    and an arbitrary list is packed rather than spread over a hundred cells.
+    """
     slots: List[Mapping[str, Any]] = []
     for index, child in enumerate(tag.children):
         item = child.child("id")
@@ -1367,11 +1500,12 @@ def _slot_dicts(tag: Tag) -> Tuple[Mapping[str, Any], ...]:
         item_id = str(item.value) if item is not None else ""
         number = int(count.value) if count is not None else 1
         position = int(slot_index.value) if slot_index is not None else index
+        stack = f" ×{number}" if number > 1 else ""
         slots.append(
             {
                 "short": _slot_short(item_id) if item_id else str(position),
-                "count": str(number) if number > 1 else "",
-                "title": (f"Slot {position} · {item_id or 'no identifier'} x{number}"),
+                "count": str(number),
+                "title": f"Slot {position} · {item_id or 'no identifier'}{stack}",
                 "block_id": item_id,
                 "index": index,
             }
@@ -1491,6 +1625,7 @@ def control_for(tag: Tag) -> ControlSpec:
             hint,
             value=" ".join(value for _axis, value in parts),
             parts=parts,
+            axis_colours=tuple(axis_colour(axis) for axis, _value in parts),
         )
 
     if tag.tag_type is TagType.LIST and tag.name.casefold() in INVENTORY_NAMES:
@@ -1537,7 +1672,7 @@ def control_for(tag: Tag) -> ControlSpec:
             value=colour_hex(int(tag.value)),
             number=float(tag.value),
             colour=colour_hex(int(tag.value)),
-            swatches=DYE_COLOURS,
+            swatches=COLOUR_SWATCHES,
         )
 
     bounds = _range_for(tag)
@@ -1554,6 +1689,7 @@ def control_for(tag: Tag) -> ControlSpec:
                 maximum=maximum,
                 step=step,
                 integral=False,
+                range_text=range_caption(minimum, maximum),
             )
         return ControlSpec(
             "text",
@@ -1583,8 +1719,12 @@ def control_for(tag: Tag) -> ControlSpec:
             minimum, maximum, step = bounds
         else:
             minimum, maximum, step = float(info.minimum), float(info.maximum), 1.0
+        # Which of the two bounded controls a whole number gets is a decision
+        # the design makes tag by tag rather than by width: rainTime steps
+        # through 180,000 values while InhabitedTime slides through 72,000.
+        kind = "slider" if tag.name.casefold() in SLIDER_NAMES else "stepper"
         return ControlSpec(
-            "stepper",
+            kind,
             label,
             hint,
             value=str(int(tag.value)),
@@ -1592,6 +1732,7 @@ def control_for(tag: Tag) -> ControlSpec:
             minimum=minimum,
             maximum=maximum,
             step=step,
+            range_text=range_caption(minimum, maximum),
         )
 
     text = str(tag.value)
@@ -2017,63 +2158,916 @@ class Revision:
 
 @dataclass(frozen=True)
 class SourceInfo:
-    """One of the six data sources the left rail lists."""
+    """One of the six data sources the left rail lists.
+
+    ``glyph``, ``label``, ``count`` and ``crumb`` are the design's four facts
+    about a source: the mark in front of it, its name, how many of that thing
+    are in scope, and the path that names the one being edited.  ``pill`` is the
+    caption beside the window title, which the design composes from the label
+    and the count, and ``summary`` is the same trail spelled out for a reader
+    who has the pointer on the rail rather than eyes on the breadcrumb.
+    """
 
     key: str
     label: str
     glyph: str
     pill: str
     summary: str
+    count: str = ""
+    crumb: str = ""
+
+    @property
+    def crumbs(self) -> Tuple[str, ...]:
+        """Return the breadcrumb trail split into the parts the header draws."""
+        return tuple(part for part in self.crumb.split(" › ") if part)
 
 
-#: The sources, in the order the design's rail draws them.
+def _source(key: str, label: str, glyph: str, count: str, crumb: str) -> SourceInfo:
+    """Build a source record from the five facts the design gives about it."""
+    return SourceInfo(
+        key,
+        label,
+        glyph,
+        f"{label} · {count} in scope",
+        crumb,
+        count,
+        crumb,
+    )
+
+
+#: The sources, in the order the design's rail draws them, with the design's
+#: own glyphs, labels, in-scope counts and breadcrumb trails.
 SOURCES: Tuple[SourceInfo, ...] = (
-    SourceInfo(
+    _source(
         "blockEntity",
         "Block entity",
         "▤",
-        "blockEntity · minecraft:chest",
-        "The chest at -2, 98, -49 and the stacks inside it.",
+        "26",
+        "chunk 4,-13 › block_entities[3] › chest",
     ),
-    SourceInfo(
-        "entity",
-        "Entity",
-        "☖",
-        "entity · minecraft:villager",
-        "A librarian villager, its position, and its trades.",
-    ),
-    SourceInfo(
+    _source("entity", "Entity", "☰", "12", "chunk 4,-13 › entities[1] › villager"),
+    _source(
         "itemStack",
         "Item stack",
-        "▣",
-        "itemStack · minecraft:diamond_sword",
-        "One enchanted stack, with its display data and damage.",
+        "◈",
+        "14",
+        "player › Inventory[0] › diamond_pickaxe",
     ),
-    SourceInfo(
-        "player",
-        "Player",
-        "☺",
-        "player · level.dat/Data/Player",
-        "The single-player record: position, abilities, and inventory.",
-    ),
-    SourceInfo(
-        "levelDat",
-        "level.dat",
-        "⛁",
-        "levelDat · Data",
-        "World settings, spawn, weather, game rules, and version.",
-    ),
-    SourceInfo(
-        "chunk",
-        "Chunk",
-        "▦",
-        "chunk · r.-1.-2.mca [-1, -4]",
-        "One chunk's sections, height maps, and block entities.",
-    ),
+    _source("player", "Player", "☺", "2", "playerdata › 6f1c…a904"),
+    _source("levelDat", "level.dat", "▣", "1", "level.dat › Data"),
+    _source("chunk", "Chunk", "▦", "812", "region r.0.-1 › chunk 4,-13"),
 )
+
+#: The design's own key for each source, for a caller holding one of those
+#: rather than the model's.  ``item`` and ``level`` are what the design writes;
+#: ``itemStack`` and ``levelDat`` are what this module has always called them,
+#: and both open the same document.
+SOURCE_ALIASES: Dict[str, str] = {
+    "item": "itemStack",
+    "level": "levelDat",
+}
 
 #: The source opened when a caller names none.
 DEFAULT_SOURCE = "blockEntity"
+
+#: The source the design opens on, and the one it falls back to when a key
+#: names none of the six.  Every surface that raises the editor -- the ribbon,
+#: the palette, a block or chunk inspector -- names its source outright, so this
+#: is what a caller who names nothing is asking to see.
+DESIGN_DEFAULT_SOURCE = "entity"
+
+
+# ---------------------------------------------------------------------------
+# what each source shows
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    """One row of the form, exactly as the design specifies that row.
+
+    A :class:`ControlSpec` is worked out from a live tag; a :class:`FieldSpec`
+    is the row the design draws, which is not always the same thing.  The
+    design flattens a path into one row -- ``VillagerData.profession``,
+    ``tag.display.color``, ``xPos / zPos`` -- and it chooses per source rather
+    than per name: a block entity's ``id`` is a text box because the placed
+    block decides it, an entity's ``id`` is a picker because it does not.  No
+    rule derives that from a tag, so it is written down instead.
+    """
+
+    #: The abbreviation drawn in front of the name, e.g. ``str`` or ``cmpd``.
+    badge: str
+    label: str
+    hint: str
+    #: One of :data:`CONTROL_KINDS`.
+    kind: str
+    value: str = ""
+    range_text: str = ""
+    minimum: float = 0.0
+    maximum: float = 0.0
+    step: float = 1.0
+    number: float = 0.0
+    integral: bool = True
+    options: Tuple[str, ...] = ()
+    parts: Tuple[Tuple[str, str], ...] = ()
+    axis_colours: Tuple[str, ...] = ()
+    chips: Tuple[str, ...] = ()
+    slots: Tuple[Mapping[str, Any], ...] = ()
+    swatches: Tuple[Tuple[str, str], ...] = ()
+    colour: str = ""
+    placeholder: str = ""
+    boolean: bool = False
+    #: The source an "Open" button moves to, when it moves to one.
+    opens_source: str = ""
+    #: The dialog an "Open" button raises, when it raises one.
+    opens_dialog: str = ""
+
+    @property
+    def caret(self) -> str:
+        """Return the mark the tree line draws: a branch opens, a leaf does not."""
+        return "▾" if self.kind in ("container", "slots", "chips") else "·"
+
+    def matches(self, query: str) -> bool:
+        """Return whether the tag search's plain-text query keeps this row.
+
+        Name, explanation, and type are all searched together, so typing
+        ``byte`` finds every byte and typing ``despawn`` finds the switch whose
+        explanation mentions it without the reader knowing its name.
+        """
+        needle = str(query).strip().casefold()
+        if not needle:
+            return True
+        return needle in (self.label + self.hint + self.badge).casefold()
+
+    def control(self) -> ControlSpec:
+        """Return this row as the control record the form builder consumes."""
+        return ControlSpec(
+            self.kind,
+            self.label,
+            self.hint,
+            value=self.value,
+            number=self.number,
+            minimum=self.minimum,
+            maximum=self.maximum,
+            step=self.step,
+            integral=self.integral,
+            options=self.options,
+            parts=self.parts,
+            chips=self.chips,
+            slots=self.slots,
+            swatches=self.swatches,
+            colour=self.colour,
+            placeholder=self.placeholder,
+            boolean=self.boolean,
+            axis_colours=self.axis_colours,
+            range_text=self.range_text,
+        )
+
+
+def _xyz(*values: str) -> Tuple[Tuple[Tuple[str, str], ...], Tuple[str, ...]]:
+    """Return the parts and colours of an x, y, z row."""
+    axes = ("x", "y", "z")[: len(values)]
+    parts = tuple(zip(axes, values))
+    return parts, tuple(axis_colour(axis) for axis in axes)
+
+
+#: The chest's block position, which is also the player's personal respawn.
+_POSITION_PARTS, _POSITION_COLOURS = _xyz("412", "71", "188")
+_ENTITY_POS_PARTS, _ENTITY_POS_COLOURS = _xyz("412.5", "71.0", "188.5")
+_WORLD_SPAWN_PARTS, _WORLD_SPAWN_COLOURS = _xyz("66", "118", "-43")
+_PLAYER_POS_PARTS, _PLAYER_POS_COLOURS = _xyz("66.40", "118.13", "-43.12")
+
+
+def _cell(
+    short: str,
+    count: str,
+    title: str,
+    *,
+    block_id: str = "",
+    selected: bool = False,
+    index: int = -1,
+) -> Mapping[str, Any]:
+    """Return one cell of an inventory grid, filled or empty."""
+    return {
+        "short": short,
+        "count": count,
+        "title": title,
+        "block_id": block_id,
+        "selected": selected,
+        "index": index,
+    }
+
+
+def _empty_cell(title: str) -> Mapping[str, Any]:
+    """Return an unoccupied cell, which is still a cell and still reachable."""
+    return _cell("", "", title)
+
+
+#: Every row of every source's form, in the design's order, with the design's
+#: own captions, explanations, values, bounds, options, chips, swatches and
+#: slot grids.  This is the whole of what the editor shows for each of its six
+#: data sources.
+SOURCE_FIELDS: Dict[str, Tuple[FieldSpec, ...]] = {
+    "blockEntity": (
+        FieldSpec(
+            "str",
+            "id",
+            "Block entity identifier. Read-only for the placed block.",
+            "text",
+            value="minecraft:chest",
+        ),
+        FieldSpec(
+            "int",
+            "Position",
+            "Block coordinates of this block entity.",
+            "vector",
+            parts=_POSITION_PARTS,
+            axis_colours=_POSITION_COLOURS,
+        ),
+        FieldSpec(
+            "str",
+            "CustomName",
+            "JSON text component shown in the container title.",
+            "longtext",
+            value='{"text":"Storage","color":"aqua"}',
+        ),
+        FieldSpec(
+            "list",
+            "Items",
+            "Inventory contents. Click a slot to edit its stack.",
+            "slots",
+            slots=(
+                _cell(
+                    "planks",
+                    "32",
+                    "Slot 0 · minecraft:oak_planks ×32",
+                    block_id="minecraft:oak_planks",
+                    selected=True,
+                    index=0,
+                ),
+                _cell(
+                    "torch",
+                    "8",
+                    "Slot 1 · minecraft:torch ×8",
+                    block_id="minecraft:torch",
+                    index=1,
+                ),
+                _cell(
+                    "iron",
+                    "12",
+                    "Slot 2 · minecraft:iron_ingot ×12",
+                    block_id="minecraft:iron_ingot",
+                    index=2,
+                ),
+                _empty_cell("Slot 3 · empty"),
+                _empty_cell("Slot 4 · empty"),
+                _cell(
+                    "coal",
+                    "64",
+                    "Slot 5 · minecraft:coal ×64",
+                    block_id="minecraft:coal",
+                    index=3,
+                ),
+                _empty_cell("Slot 6 · empty"),
+                _empty_cell("Slot 7 · empty"),
+                _empty_cell("Slot 8 · empty"),
+            ),
+        ),
+        FieldSpec(
+            "str",
+            "LootTable",
+            "Unrolled table. Editing Items clears this reference.",
+            "select",
+            value="(none)",
+            options=ENUM_OPTIONS["loottable"],
+        ),
+        FieldSpec(
+            "str",
+            "Lock",
+            "Item name required to open the container.",
+            "text",
+            value="",
+            placeholder="No lock",
+        ),
+    ),
+    "entity": (
+        FieldSpec(
+            "str",
+            "id",
+            "Entity type identifier.",
+            "select",
+            value="minecraft:villager",
+            options=(
+                "minecraft:villager",
+                "minecraft:zombie",
+                "minecraft:cow",
+                "minecraft:armor_stand",
+            ),
+        ),
+        FieldSpec(
+            "str",
+            "CustomName",
+            "Display name shown above the entity.",
+            "text",
+            value="Ana",
+        ),
+        FieldSpec(
+            "list",
+            "Pos",
+            "Exact double position inside the chunk.",
+            "vector",
+            parts=_ENTITY_POS_PARTS,
+            axis_colours=_ENTITY_POS_COLOURS,
+        ),
+        FieldSpec(
+            "list",
+            "Rotation",
+            "Yaw then pitch, in degrees.",
+            "vector",
+            parts=(("yaw", "142.0"), ("pitch", "0.0")),
+            axis_colours=("", ""),
+        ),
+        FieldSpec(
+            "float",
+            "Health",
+            "Current health. The slider clamps to the type's maximum.",
+            "slider",
+            value="20.0 / 20.0",
+            number=20.0,
+            minimum=0.0,
+            maximum=20.0,
+            step=0.5,
+            integral=False,
+        ),
+        FieldSpec(
+            "short",
+            "Air",
+            "Remaining breath in ticks.",
+            "stepper",
+            value="300",
+            range_text="0 … 300",
+            number=300.0,
+            minimum=0.0,
+            maximum=300.0,
+            step=20.0,
+        ),
+        FieldSpec(
+            "short",
+            "Fire",
+            "Burn ticks. -1 means not burning.",
+            "stepper",
+            value="-1",
+            range_text="-1 … 800",
+            number=-1.0,
+            minimum=-1.0,
+            maximum=800.0,
+            step=20.0,
+        ),
+        FieldSpec(
+            "byte",
+            "PersistenceRequired",
+            "When on, the entity never despawns.",
+            "toggle",
+            value="1b (true)",
+            number=1.0,
+            boolean=True,
+        ),
+        FieldSpec(
+            "byte",
+            "Invulnerable",
+            "Ignores all damage sources.",
+            "toggle",
+            value="0b (false)",
+        ),
+        FieldSpec(
+            "byte",
+            "NoAI",
+            "Freezes behaviour and pathfinding.",
+            "toggle",
+            value="0b (false)",
+        ),
+        FieldSpec(
+            "byte",
+            "Silent",
+            "Suppresses the entity's sounds.",
+            "toggle",
+            value="0b (false)",
+        ),
+        FieldSpec(
+            "byte",
+            "Glowing",
+            "Draws the outline through blocks.",
+            "toggle",
+            value="0b (false)",
+        ),
+        FieldSpec(
+            "int",
+            "VillagerData.level",
+            "Trading level, 1 to 5.",
+            "stepper",
+            value="3",
+            range_text="1 … 5",
+            number=3.0,
+            minimum=1.0,
+            maximum=5.0,
+            step=1.0,
+        ),
+        FieldSpec(
+            "str",
+            "VillagerData.profession",
+            "Profession identifier.",
+            "select",
+            value="librarian",
+            options=ENUM_OPTIONS["profession"],
+        ),
+        FieldSpec(
+            "cmpd",
+            "Brain",
+            "Memory module compound. Opens as its own subtree.",
+            "container",
+            value="1 child · memories",
+            opens_source="entity",
+        ),
+        FieldSpec(
+            "iarr",
+            "UUID",
+            "Four signed integers forming the entity UUID.",
+            "chips",
+            chips=("1868372892", "-1140296441", "-1354192113", "1029385712"),
+        ),
+        FieldSpec(
+            "list",
+            "Offers.Recipes",
+            "Trade list. Each entry has buy, buyB, and sell stacks.",
+            "container",
+            value="4 entries",
+        ),
+        FieldSpec(
+            "list",
+            "ArmorItems",
+            "Feet, legs, chest, head — in that order.",
+            "slots",
+            slots=(
+                _cell(
+                    "boots",
+                    "1",
+                    "Feet · minecraft:leather_boots",
+                    block_id="minecraft:leather_boots",
+                    index=0,
+                ),
+                _empty_cell("Legs · empty"),
+                _empty_cell("Chest · empty"),
+                _cell(
+                    "hat",
+                    "1",
+                    "Head · minecraft:carved_pumpkin",
+                    block_id="minecraft:carved_pumpkin",
+                    index=1,
+                ),
+            ),
+        ),
+    ),
+    "levelDat": (
+        FieldSpec(
+            "str",
+            "LevelName",
+            "World name shown in the game's world list.",
+            "text",
+            value="1.17 Height",
+        ),
+        FieldSpec(
+            "long",
+            "RandomSeed",
+            "Generation seed. Existing chunks keep their terrain.",
+            "text",
+            value="1471929",
+        ),
+        FieldSpec(
+            "int",
+            "SpawnPos",
+            "World spawn block position.",
+            "vector",
+            parts=_WORLD_SPAWN_PARTS,
+            axis_colours=_WORLD_SPAWN_COLOURS,
+        ),
+        FieldSpec(
+            "long",
+            "DayTime",
+            "Time of day in ticks. 0 is dawn, 18000 is midnight.",
+            "slider",
+            value="6000 ticks",
+            number=6000.0,
+            minimum=0.0,
+            maximum=24000.0,
+            step=100.0,
+        ),
+        FieldSpec(
+            "int",
+            "GameType",
+            "Default game mode for new players.",
+            "select",
+            value="survival",
+            options=ENUM_OPTIONS["gametype"],
+        ),
+        FieldSpec(
+            "byte",
+            "Difficulty",
+            "World difficulty.",
+            "select",
+            value="peaceful",
+            options=ENUM_OPTIONS["difficulty"],
+        ),
+        FieldSpec(
+            "byte",
+            "allowCommands",
+            "Enables cheats in single player.",
+            "toggle",
+            value="1b (true)",
+            number=1.0,
+            boolean=True,
+        ),
+        FieldSpec(
+            "byte",
+            "hardcore",
+            "Death locks the world to spectator.",
+            "toggle",
+            value="0b (false)",
+        ),
+        FieldSpec(
+            "byte",
+            "raining",
+            "Current weather state.",
+            "toggle",
+            value="0b (false)",
+        ),
+        FieldSpec(
+            "int",
+            "rainTime",
+            "Ticks until the weather changes.",
+            "stepper",
+            value="12000",
+            range_text="0 … 180000",
+            number=12000.0,
+            minimum=0.0,
+            maximum=180000.0,
+            step=1000.0,
+        ),
+        FieldSpec(
+            "cmpd",
+            "GameRules",
+            "Every game rule as a named tag.",
+            "container",
+            value="38 children",
+            opens_dialog="gamerules",
+        ),
+        FieldSpec(
+            "cmpd",
+            "WorldGenSettings",
+            "Generator type and dimension settings.",
+            "container",
+            value="3 children",
+        ),
+        FieldSpec(
+            "double",
+            "BorderSize",
+            "World border diameter in blocks.",
+            "text",
+            value="59999968",
+            integral=False,
+        ),
+    ),
+    "player": (
+        FieldSpec(
+            "iarr",
+            "UUID",
+            "Player UUID as four signed integers.",
+            "chips",
+            chips=("1868372892", "-1140296441", "-1354192113", "1029385712"),
+        ),
+        FieldSpec(
+            "list",
+            "Pos",
+            "Player position.",
+            "vector",
+            parts=_PLAYER_POS_PARTS,
+            axis_colours=_PLAYER_POS_COLOURS,
+        ),
+        FieldSpec(
+            "str",
+            "Dimension",
+            "Dimension the player is in.",
+            "select",
+            value="minecraft:overworld",
+            options=ENUM_OPTIONS["dimension"],
+        ),
+        FieldSpec(
+            "float",
+            "Health",
+            "Current health.",
+            "slider",
+            value="20.0 / 20.0",
+            number=20.0,
+            minimum=0.0,
+            maximum=20.0,
+            step=0.5,
+            integral=False,
+        ),
+        FieldSpec(
+            "int",
+            "foodLevel",
+            "Hunger, 0 to 20.",
+            "slider",
+            value="18 / 20",
+            number=18.0,
+            minimum=0.0,
+            maximum=20.0,
+            step=1.0,
+        ),
+        FieldSpec(
+            "int",
+            "XpLevel",
+            "Experience level.",
+            "stepper",
+            value="34",
+            range_text="0 … 24791",
+            number=34.0,
+            minimum=0.0,
+            maximum=24791.0,
+            step=1.0,
+        ),
+        FieldSpec(
+            "int",
+            "playerGameType",
+            "Game mode for this player.",
+            "select",
+            value="survival",
+            options=ENUM_OPTIONS["playergametype"],
+        ),
+        FieldSpec(
+            "list",
+            "Inventory",
+            "Hotbar first, then main inventory.",
+            "slots",
+            slots=(
+                _cell(
+                    "pick",
+                    "1",
+                    "Slot 0 · minecraft:diamond_pickaxe",
+                    block_id="minecraft:diamond_pickaxe",
+                    selected=True,
+                    index=0,
+                ),
+                _cell(
+                    "shovel",
+                    "1",
+                    "Slot 1 · minecraft:diamond_shovel",
+                    block_id="minecraft:diamond_shovel",
+                    index=1,
+                ),
+                _cell(
+                    "stone",
+                    "64",
+                    "Slot 2 · minecraft:stone ×64",
+                    block_id="minecraft:stone",
+                    index=2,
+                ),
+                _cell(
+                    "torch",
+                    "48",
+                    "Slot 3 · minecraft:torch ×48",
+                    block_id="minecraft:torch",
+                    index=3,
+                ),
+                _empty_cell("Slot 4 · empty"),
+                _cell(
+                    "bread",
+                    "16",
+                    "Slot 5 · minecraft:bread ×16",
+                    block_id="minecraft:bread",
+                    index=4,
+                ),
+                _empty_cell("Slot 6 · empty"),
+                _cell(
+                    "map",
+                    "1",
+                    "Slot 7 · minecraft:filled_map",
+                    block_id="minecraft:filled_map",
+                    index=5,
+                ),
+                _cell(
+                    "boat",
+                    "1",
+                    "Slot 8 · minecraft:oak_boat",
+                    block_id="minecraft:oak_boat",
+                    index=6,
+                ),
+            ),
+        ),
+        FieldSpec(
+            "list",
+            "EnderItems",
+            "Ender chest contents.",
+            "slots",
+            slots=(
+                _cell(
+                    "gold",
+                    "12",
+                    "Slot 0 · minecraft:gold_ingot ×12",
+                    block_id="minecraft:gold_ingot",
+                    index=0,
+                ),
+                _empty_cell("Slot 1 · empty"),
+                _empty_cell("Slot 2 · empty"),
+            ),
+        ),
+        FieldSpec(
+            "int",
+            "SpawnPos",
+            "Personal respawn position.",
+            "vector",
+            parts=_POSITION_PARTS,
+            axis_colours=_POSITION_COLOURS,
+        ),
+    ),
+    "itemStack": (
+        FieldSpec(
+            "str",
+            "id",
+            "Item identifier.",
+            "text",
+            value="minecraft:diamond_pickaxe",
+        ),
+        FieldSpec(
+            "byte",
+            "Count",
+            "Stack size. Vanilla clamps to the item's maximum.",
+            "stepper",
+            value="1",
+            range_text="1 … 64",
+            number=1.0,
+            minimum=1.0,
+            maximum=64.0,
+            step=1.0,
+        ),
+        FieldSpec(
+            "byte",
+            "Slot",
+            "Inventory slot index.",
+            "stepper",
+            value="0",
+            range_text="0 … 40",
+            number=0.0,
+            minimum=0.0,
+            maximum=40.0,
+            step=1.0,
+        ),
+        FieldSpec(
+            "int",
+            "tag.Damage",
+            "Durability used. 0 is undamaged.",
+            "slider",
+            value="240 / 1561",
+            number=240.0,
+            minimum=0.0,
+            maximum=1561.0,
+            step=1.0,
+        ),
+        FieldSpec(
+            "list",
+            "tag.Enchantments",
+            "Each entry pairs an id with a level.",
+            "chips",
+            chips=("efficiency V", "unbreaking III", "fortune III", "mending I"),
+        ),
+        FieldSpec(
+            "str",
+            "tag.display.Name",
+            "JSON text component for the item name.",
+            "longtext",
+            value='{"text":"Ana\'s Pick","italic":false,"color":"gold"}',
+        ),
+        FieldSpec(
+            "list",
+            "tag.display.Lore",
+            "One JSON text component per line.",
+            "chips",
+            chips=('"Forged at spawn"', '"Do not lend"'),
+        ),
+        FieldSpec(
+            "int",
+            "tag.display.color",
+            "Leather and firework colour as a packed integer.",
+            "color",
+            value="#82D5CC",
+            colour="#82D5CC",
+            number=float(0x82D5CC),
+            swatches=COLOUR_SWATCHES,
+        ),
+        FieldSpec(
+            "byte",
+            "tag.Unbreakable",
+            "Durability never decreases.",
+            "toggle",
+            value="0b (false)",
+        ),
+        FieldSpec(
+            "int",
+            "tag.HideFlags",
+            "Bit field hiding tooltip sections.",
+            "chips",
+            chips=("enchantments", "attributes", "unbreakable"),
+        ),
+    ),
+    "chunk": (
+        FieldSpec(
+            "int",
+            "xPos / zPos",
+            "Chunk coordinates.",
+            "vector",
+            parts=(("x", "4"), ("z", "-13")),
+            axis_colours=(axis_colour("x"), axis_colour("z")),
+        ),
+        FieldSpec(
+            "str",
+            "Status",
+            "Generation stage of this chunk.",
+            "select",
+            value="full",
+            options=ENUM_OPTIONS["status"],
+        ),
+        FieldSpec(
+            "long",
+            "LastUpdate",
+            "Game tick when the chunk was last saved.",
+            "text",
+            value="148291",
+        ),
+        FieldSpec(
+            "long",
+            "InhabitedTime",
+            "Ticks players have spent in this chunk. Affects local difficulty.",
+            "slider",
+            value="3600 ticks",
+            number=3600.0,
+            minimum=0.0,
+            maximum=72000.0,
+            step=100.0,
+        ),
+        FieldSpec(
+            "larr",
+            "Heightmaps.WORLD_SURFACE",
+            "Packed height values, 256 entries.",
+            "chips",
+            chips=("packed ×37", "min 62", "max 134"),
+        ),
+        FieldSpec(
+            "list",
+            "sections",
+            "One compound per 16-block vertical section.",
+            "container",
+            value="24 sections",
+        ),
+        FieldSpec(
+            "list",
+            "block_entities",
+            "Block entities stored in this chunk.",
+            "container",
+            value="26 entries",
+            opens_source="blockEntity",
+        ),
+        FieldSpec(
+            "cmpd",
+            "structures.References",
+            "Structure bounding-box references.",
+            "container",
+            value="3 children",
+            opens_dialog="structureLocator",
+        ),
+    ),
+}
+
+
+def fields_for(key: str = DEFAULT_SOURCE) -> Tuple[FieldSpec, ...]:
+    """Return every row the form draws for one source, in the design's order."""
+    return SOURCE_FIELDS.get(source(key).key, ())
+
+
+def matching_fields(
+    key: str = DEFAULT_SOURCE, query: str = ""
+) -> Tuple[FieldSpec, ...]:
+    """Return the rows a tag search keeps, or every row for an empty query."""
+    return tuple(field for field in fields_for(key) if field.matches(query))
+
+
+def tree_lines_for(key: str = DEFAULT_SOURCE) -> Tuple[Tuple[str, str, str], ...]:
+    """Return the left tree as ``(caret, badge, label)`` per line.
+
+    The tree lists what the form shows rather than a second, differently
+    ordered index of the same tags: a line and a row are the same thing seen
+    twice, so a reader scanning the tree and a reader scrolling the form are
+    never looking at two different documents.
+    """
+    return tuple((field.caret, field.badge, field.label) for field in fields_for(key))
 
 
 @dataclass
@@ -3018,9 +4012,14 @@ SAMPLE_BUILDERS: Dict[str, Callable[[], Tag]] = {
 
 
 def source(key: str) -> SourceInfo:
-    """Return the source record for a key, falling back to the default one."""
+    """Return the source record for a key, falling back to the default one.
+
+    A design key -- ``item``, ``level`` -- names the same source as the model's
+    own ``itemStack`` and ``levelDat``, so either opens the right document.
+    """
+    wanted = SOURCE_ALIASES.get(str(key), str(key))
     for item in SOURCES:
-        if item.key == key:
+        if item.key == wanted:
             return item
     return SOURCES[0]
 
@@ -3048,30 +4047,50 @@ def sample_tag_counts() -> Dict[str, int]:
     return {info.key: sample_document(info.key).tag_count() for info in SOURCES}
 
 
+def scope_counts() -> Dict[str, int]:
+    """Return how many of each thing are in scope, as the design's rail counts.
+
+    This is not the tag count above: the rail says there are 812 chunks and 26
+    block entities to choose between, while the tag count says how many tags
+    are inside the one being edited.  Both are useful and they are not the same
+    number, so they are not the same function either.
+    """
+    return {info.key: int(info.count) for info in SOURCES if info.count}
+
+
 __all__ = [
     "ARRAY_TYPES",
+    "AXIS_COLOURS",
     "BOOLEAN_NAMES",
     "COLOUR_NAMES",
+    "COLOUR_SWATCHES",
     "CONTAINER_TYPES",
     "CONTROL_KINDS",
     "ControlSpec",
     "DEFAULT_SOURCE",
+    "DESIGN_DEFAULT_SOURCE",
     "DYE_COLOURS",
     "ENUM_OPTIONS",
+    "FieldSpec",
     "HEX_LIMIT",
     "INVENTORY_NAMES",
     "LONGTEXT_NAMES",
+    "NUMERIC_ENUMS",
     "NUMERIC_TYPES",
     "NbtDocument",
     "Revision",
     "RetypeReport",
     "SAMPLE_BUILDERS",
+    "SLIDER_NAMES",
     "SOURCES",
+    "SOURCE_ALIASES",
+    "SOURCE_FIELDS",
     "SnbtError",
     "SourceInfo",
     "TAG_HINTS",
     "TAG_RANGES",
     "TAG_TYPES",
+    "TYPE_DEFS",
     "TYPE_INFO",
     "Tag",
     "TagType",
@@ -3079,25 +4098,33 @@ __all__ = [
     "TreeRow",
     "VECTOR_NAMES",
     "ValidationResult",
+    "axis_colour",
     "coerce_float",
     "coerce_integer",
     "colour_hex",
     "colour_value",
     "control_for",
+    "enum_index",
+    "enum_label",
+    "fields_for",
     "format_float",
     "format_key",
     "format_scalar",
     "hex_dump",
+    "matching_fields",
     "parse_snbt",
     "quote_string",
+    "range_caption",
     "retype_preview",
     "sample_document",
     "sample_documents",
     "sample_tag_counts",
+    "scope_counts",
     "source",
     "tag_hint",
     "to_binary",
     "to_snbt",
+    "tree_lines_for",
     "type_badge",
     "type_for_label",
     "type_label",

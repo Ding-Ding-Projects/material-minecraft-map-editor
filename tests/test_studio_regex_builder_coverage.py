@@ -88,8 +88,12 @@ def test_the_shared_bar_ships_the_builder_and_the_regex_opt_in_by_default():
     assert "builder: bool = True" in signature
     assert "self.builder_button" in signature
     assert 'name=f"Regex builder for {state.label}"' in signature
-    assert 'wx.CheckBox(self, label="Regex")' in signature
-    assert "self.feedback = wx.StaticText(self, label=state.feedback())" in signature
+    # The opt-in and the feedback line are Material controls now, not native
+    # ones: both answer ``render_to``, so a capture of any search bar shows
+    # them instead of leaving two blank rectangles where they were.
+    assert "self.regex_box = StudioCheckBox(" in signature
+    assert 'name=f"{state.label} search feedback"' in signature
+    assert "self.feedback = StudioText(" in signature
 
 
 def test_no_search_field_anywhere_in_the_studio_opts_out_of_the_builder():

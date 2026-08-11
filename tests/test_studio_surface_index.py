@@ -34,6 +34,14 @@ REQUIRED_SURFACES = {
         "importChunks",
         "exportStructure",
         "operationOptions",
+        # One key per stock operation.  They shared ``operationOptions``, which
+        # made five tiles into one: every one of them started the Operation tool
+        # and left its list on whatever sorted first.
+        "operationClone",
+        "operationFill",
+        "operationReplace",
+        "operationSetBiome",
+        "operationWaterlog",
     ),
     "MCEdit2 tools": (
         "brushTool",
@@ -119,6 +127,7 @@ REQUIRED_SURFACES = {
         "layerSlice",
     ),
     "Panels and views": (
+        "undoHistory",
         "inspector",
         "pendingImports",
         "playerPanel",

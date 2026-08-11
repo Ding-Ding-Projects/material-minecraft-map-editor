@@ -36,7 +36,13 @@ MANIFEST
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
+# PyInstaller emits *.manifest beside its build output, which is why this is
+# ignored. A hand-written manifest that SHIPS is a source file, though: the one
+# below declares per-monitor v2 DPI awareness, and losing it to this rule would
+# produce a packaged build that Windows bitmap-stretches on any scaled display
+# -- with nothing failing, because a missing manifest is not an error.
 *.manifest
+!installer/amulet.manifest
 
 # Installer logs
 pip-log.txt

@@ -21,7 +21,19 @@ those two facts decide what almost every command on the ribbon will do.
   builder.
 
 Right-clicking a row opens the navigator context menu — searchable, showing each
-row's keyboard shortcut, and carrying **Edit appearance…**.
+row's keyboard shortcut, and carrying **Edit appearance…**. Every row in it runs:
+
+- **Frame this dimension** moves the camera so the dimension's *generated*
+  extent is in view, which is the chunks the world actually has rather than its
+  nominal thirty-million-block bounds. In perspective the camera retreats along
+  a bearing 35 degrees above the horizon, far enough for the whole extent to fit
+  inside the narrower of the viewport's two field-of-view angles; in top-down it
+  stays overhead and widens the orthographic radius instead. Reading the extent
+  walks the region files, the same cost **Select all** pays.
+- **Duplicate selection box** copies the active box one box-width east of
+  itself, so the copy is visible and shares no block with its original. A
+  duplicate laid on top of its source would be a box nobody can see or pick.
+- **Delete selection box** drops the active box from the editor's own selection.
 
 The pane is resizable by its sash and its width persists.
 

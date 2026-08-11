@@ -35,7 +35,7 @@ import wx
 from amulet_map_editor.api import config, local_history, preferences
 from amulet_map_editor.api.studio import copy as studio_copy
 from amulet_map_editor.api.studio import tokens, widgets
-from amulet_map_editor.api.studio.copy import studio_text
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.studio.search import SearchState
 from amulet_map_editor.api.studio.title_bar import single_line
 
@@ -264,8 +264,19 @@ class PaletteResult:
         return " ".join(part for part in parts if part)
 
     def display_label(self) -> str:
-        """Return the label in the reader's language and tone, on one line."""
-        return single_line(studio_text(self.label, self.cantonese))
+        """Return the row's label in the reader's language, on one line.
+
+        A row names a command, a surface, or a setting, so it takes the language
+        mode and never the funny level.  Two things break when tone reaches it.
+        The row is a control, and a label that grows a clause at level five
+        elides to nothing useful in a 660-pixel card -- "Tell me what to do (the
+        code is dan..." names nothing.  Worse, :func:`reveal` finds the element
+        a row points at by matching this text against the accessible name the
+        owning surface set, and a styled label matches no surface at all, so
+        teleporting would quietly stop working at exactly the tone settings a
+        reader chose for fun.
+        """
+        return single_line(studio_label(self.label, self.cantonese))
 
     def accessible_name(self) -> str:
         """Return the screen-reader name for the row itself."""
@@ -1106,7 +1117,9 @@ def _reveal_or_report(window: wx.Window, result: PaletteResult) -> None:
 
     nonblocking.notify(
         window,
-        studio_text("Surface opened", "打開咗個介面"),
+        # The title names the event and is the notification's own label; only
+        # the body below is the application speaking, so only it takes tone.
+        studio_label("Surface opened", "打開咗個介面"),
         studio_text(
             f"Could not find “{result.label}” to highlight it.",
             f"搵唔到「{result.label}」嚟標示。",
@@ -1145,13 +1158,30 @@ class _Eyebrow(wx.Control):
         return tokens.font(self, widgets.point_size(self.SIZE_PX), _MEDIUM)
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
-        dc = wx.ClientDC(self)
+        """Return the width this eyebrow needs, measured the way it is drawn.
+
+        Letter-spaced text is measured and drawn one character at a time, so a
+        sub-pixel disagreement between the plain device context this used to
+        measure with and the ``wx.GCDC`` :meth:`_on_paint` draws with compounds
+        across every character.  Over eighteen of them it came to a whole
+        letter: the palette's own eyebrow read "TELL ME WHAT TO DC", with the
+        final O painted past the edge of the control.  Measure with the context
+        that draws and the last character has somewhere to go.
+        """
+        client = wx.ClientDC(self)
+        try:
+            dc: wx.DC = wx.GCDC(client)
+        except TypeError:  # pragma: no cover - platform without a graphics context
+            dc = client
         dc.SetFont(self._font())
         tracking = tokens.scaled(self.TRACKING)
-        return wx.Size(
+        size = wx.Size(
             widgets.tracked_width(dc, self.text, tracking) + tracking,
             dc.GetCharHeight() + tokens.scaled(2),
         )
+        if dc is not client:
+            del dc
+        return size
 
     def refresh_theme(self) -> None:
         """Repaint after the palette or interface scale changed."""
@@ -1629,7 +1659,7 @@ class CommandPalette(wx.Dialog):
             self,
             "×",
             variant="icon",
-            hint=single_line(studio_text("Close the palette", "閂咗個指令面板")),
+            hint=single_line(studio_label("Close the palette", "閂咗個指令面板")),
             on_click=self.close,
             name="Close the command palette",
         )
@@ -1645,8 +1675,9 @@ class CommandPalette(wx.Dialog):
             wx.Size(-1, max(tokens.scaled(self.FIELD_HEIGHT), tokens.control_height()))
         )
 
-        self.count_label = wx.StaticText(self, label="")
-        self.count_label.SetName("Command palette result count")
+        self.count_label = widgets.StudioText(
+            self, "", size_px=12, name="Command palette result count"
+        )
 
         self.results_panel = wx.ScrolledWindow(
             self, style=wx.VSCROLL | wx.TAB_TRAVERSAL
@@ -1685,9 +1716,9 @@ class CommandPalette(wx.Dialog):
     def _layout_button_label(self) -> str:
         """Return the label naming what pressing the size control will do."""
         return single_line(
-            studio_text("Full window", "全視窗")
+            studio_label("Full window", "全視窗")
             if self.layout_mode == "card"
-            else studio_text("Card", "卡片")
+            else studio_label("Card", "卡片")
         )
 
     def result_limit(self) -> int:
@@ -1911,7 +1942,7 @@ class CommandPalette(wx.Dialog):
 
         nonblocking.notify(
             self,
-            studio_text("That value was not accepted", "呢個值收唔到"),
+            studio_label("That value was not accepted", "呢個值收唔到"),
             message or studio_text("The setting was left unchanged.", "個設定冇改到。"),
             severity="warning",
             details=f"Element key: {result.key}",
@@ -2015,8 +2046,8 @@ class CommandPalette(wx.Dialog):
         palette = tokens.palette()
         self.SetBackgroundColour(palette.surface)
         self.results_panel.SetBackgroundColour(palette.surface)
-        self.count_label.SetFont(tokens.font(self, widgets.point_size(12)))
-        self.count_label.SetForegroundColour(palette.on_surface_variant)
+        # The result count resolves its own ink and font from the palette and
+        # the live interface scale, so nothing is pushed into it here.
 
     def refresh_theme(self) -> None:
         """Re-read the tokens and repaint the palette and every row on it."""

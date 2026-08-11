@@ -34,9 +34,17 @@ class SimpleOperationPanel(wx.Panel, DefaultOperationUI):
         self.Layout()
 
     def _run_operation(self, _):
+        """Run this panel's operation and hand the outcome back to the caller.
+
+        Bound to the Run button, where the return value is ignored; also called
+        directly by the Studio shell's Run operation command, which reads it.
+        Returning ``None`` means the panel refused before running -- see
+        :meth:`_pre_operation` -- which is a different fact from an operation
+        that ran and stopped, and the shell tells the two apart.
+        """
         if not self._pre_operation():
-            return
-        self.canvas.run_operation(
+            return None
+        return self.canvas.run_operation(
             lambda: self._operation(
                 self.world, self.canvas.dimension, self.canvas.selection.selection_group
             )

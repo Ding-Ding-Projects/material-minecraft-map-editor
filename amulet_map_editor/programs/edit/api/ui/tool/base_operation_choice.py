@@ -1,5 +1,6 @@
 import wx
-from typing import TYPE_CHECKING, Optional, Iterable
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Optional, Iterable, Tuple
 import traceback
 import logging
 
@@ -10,7 +11,7 @@ from amulet_map_editor.api import process
 
 from amulet_map_editor.api import image
 from amulet_map_editor.api.wx.ui.simple import SimpleChoiceAny
-from amulet_map_editor.api.wx.nonblocking import notify_exception
+from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
 
 from amulet_map_editor.programs.edit.api.operations import OperationUIType
 from amulet_map_editor.programs.edit.api.operations.manager import UIOperationManager
@@ -96,6 +97,104 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
         Note if in the process of changing this may be different to self._active_operation.
         """
         return self._operation_choice.GetCurrentObject()
+
+    @property
+    def active_operation_name(self) -> str:
+        """The name of the operation the chooser is showing, or ``""``.
+
+        The name rather than the identifier, because the identifier is a module
+        path: it is what the code keys on and it is not what the user picked
+        from the list.
+        """
+        return str(self._operation_choice.GetStringSelection() or "")
+
+    @property
+    def operation_names(self) -> Tuple[str, ...]:
+        """Every operation the chooser is currently offering, in its own order.
+
+        Read from the chooser rather than from the loader behind it, because
+        this is what a caller reporting on a reload needs to say: an operation
+        that loaded but never reached the list is one the user cannot pick.
+        """
+        return tuple(str(name) for name in self._operation_choice.GetStrings())
+
+    @staticmethod
+    def _match_key(value: str) -> str:
+        """Return the form two operation names are compared in.
+
+        ``Set Biome`` is the plugin's own spelling and ``Set biome`` is the one
+        on the tile that asks for it.  Comparing them exactly would make the
+        request silently miss, so case and surrounding space are dropped before
+        the comparison rather than either spelling being declared the right one.
+        """
+        return " ".join(str(value or "").split()).casefold()
+
+    def operation_id_for(self, wanted: str) -> Optional[str]:
+        """Return the identifier of the operation named ``wanted``, or ``None``.
+
+        Both the identifier and the visible name are accepted: a caller inside
+        this package already holds the identifier, and a caller outside it knows
+        only the name the user sees.
+        """
+        text = str(wanted or "").strip()
+        if not text:
+            return None
+        if text in self._operation_choice.values:
+            return text
+        target = self._match_key(text)
+        for name, identifier in self._operation_choice.items:
+            if self._match_key(name) == target:
+                return identifier
+        return None
+
+    def set_state(self, state):
+        """Select the operation this tool was asked to start on.
+
+        The tool manager hands this whatever posted the tool change, which is
+        how one tool bounces to another with more than a bare start.  A tile
+        that names an operation therefore arrives on that operation instead of
+        on whichever one the list happened to sort first -- which for this
+        chooser is alphabetical, so the first entry was never a decision
+        anybody made.
+
+        ``state`` may be the operation's name, its identifier, or a mapping
+        carrying either under ``operation``.  Anything else is left alone: the
+        tool has already started, and a state it does not understand is not a
+        reason to unselect what the user was working on.
+        """
+        wanted = ""
+        if isinstance(state, str):
+            wanted = state
+        elif isinstance(state, Mapping):
+            value = state.get("operation")
+            if isinstance(value, str):
+                wanted = value
+        if not wanted.strip():
+            return
+
+        identifier = self.operation_id_for(wanted)
+        if identifier is None:
+            log.warning(
+                "No operation named %r is installed in the %r group",
+                wanted,
+                self.OperationGroupName,
+            )
+            notify(
+                self.canvas,
+                f"{wanted} is not installed",
+                f"No operation named “{wanted}” was found in this build, so the "
+                f"{self.name} tool is showing "
+                f"{self.active_operation_name or 'nothing'} instead.",
+                severity="warning",
+            )
+            return
+
+        identifiers = self._operation_choice.values
+        self._operation_choice.SetSelection(identifiers.index(identifier))
+        if identifier != self._last_active_operation_id:
+            self._setup_operation()
+            self.canvas.reset_bound_events()
+        self._resize()
 
     def _on_operation_change(self, evt):
         """Run when the operation selection changes."""

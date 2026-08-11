@@ -1,8 +1,524 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "0621c781e0c8f197a55b0fc1be5c57785907e01e",
+  "source_revision": "2b50973453b9234c9359ec08aa63cf4da2ada551",
   "entries": [
+    {
+      "version": "0.10.0-dev.603",
+      "released_on": "2026-08-11",
+      "commit_sha": "276c71536dbd250de2feb9a9918a5c3c3a50573f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Say the paste anchor in Cantonese too, and on the panel that has no picker",
+          "commit_sha": "276c71536dbd250de2feb9a9918a5c3c3a50573f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.600",
+      "released_on": "2026-08-11",
+      "commit_sha": "ea3761713597b7c5ae51d86238dec97b84b9825b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Put back the selection-handles article my bundle blob stood on",
+          "commit_sha": "ea3761713597b7c5ae51d86238dec97b84b9825b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.598",
+      "released_on": "2026-08-11",
+      "commit_sha": "1912dd373e17f65927c579065e6733e1add9ab0b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Ask where the Run control is, not whether it says it is shown",
+          "commit_sha": "1912dd373e17f65927c579065e6733e1add9ab0b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.597",
+      "released_on": "2026-08-11",
+      "commit_sha": "2519c08133d978dd6637115519d9cd18af21fc5b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Rebuild the offline docs bundle against the article that landed beside it",
+          "commit_sha": "2519c08133d978dd6637115519d9cd18af21fc5b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.595",
+      "released_on": "2026-08-11",
+      "commit_sha": "73f7c7f363f55422884081f08a0b0bb3a6477c09",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep the hand after an orbit, and guard the calls nobody was watching",
+          "commit_sha": "73f7c7f363f55422884081f08a0b0bb3a6477c09"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.592",
+      "released_on": "2026-08-11",
+      "commit_sha": "24d29bc66502f07f4a831959b029c2ee04bfa292",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Give each stock operation tile its own operation",
+          "commit_sha": "24d29bc66502f07f4a831959b029c2ee04bfa292"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.590",
+      "released_on": "2026-08-11",
+      "commit_sha": "b6b638b8a942c9808a9edf52295f305e53b8963c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Say which point a pasted coordinate names, and show the box it fills",
+          "commit_sha": "b6b638b8a942c9808a9edf52295f305e53b8963c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.588",
+      "released_on": "2026-08-11",
+      "commit_sha": "9d0f41ad6b9eebefcc7b8d8464677f634d39d307",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Say when a paste wrote nothing instead of quietly hiding the evidence",
+          "commit_sha": "9d0f41ad6b9eebefcc7b8d8464677f634d39d307"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.585",
+      "released_on": "2026-08-11",
+      "commit_sha": "cca56b0b0ab93402cf60bd16dbf8cf6e0690a024",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Leave the paste tool before asking it to paste again",
+          "commit_sha": "cca56b0b0ab93402cf60bd16dbf8cf6e0690a024"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.584",
+      "released_on": "2026-08-11",
+      "commit_sha": "a1331df76ee0cd0fd6d518cb73fa38f517cc6627",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Tell the arrow keys above the fold, and drive the route the fix was for",
+          "commit_sha": "a1331df76ee0cd0fd6d518cb73fa38f517cc6627"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.582",
+      "released_on": "2026-08-11",
+      "commit_sha": "9cf1cf0229c2712637dc695afeca51731c35b4de",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw the last 31 native labels, and widen the guard that missed them",
+          "commit_sha": "9cf1cf0229c2712637dc695afeca51731c35b4de"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.580",
+      "released_on": "2026-08-11",
+      "commit_sha": "b5d3f09312dae9ccb1162e35ef1861f0eb0ef415",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Give the card descriptions back the tone the label rule took off them",
+          "commit_sha": "b5d3f09312dae9ccb1162e35ef1861f0eb0ef415"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.578",
+      "released_on": "2026-08-11",
+      "commit_sha": "23d021d12fc21bf1e73a1989c3a48e8f2779b7b4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Nudge the pending object with the arrow keys, and say the keys exist",
+          "commit_sha": "23d021d12fc21bf1e73a1989c3a48e8f2779b7b4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.575",
+      "released_on": "2026-08-11",
+      "commit_sha": "39366184cffb8cd621022a545485086677709383",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Move the editor's tool panels with its canvas, so cloning is reachable",
+          "commit_sha": "39366184cffb8cd621022a545485086677709383"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.573",
+      "released_on": "2026-08-11",
+      "commit_sha": "dcd92f1d24d9782c8ac1f49c40355a3f1457a8ee",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw the shell's labels and checkboxes instead of asking Windows to",
+          "commit_sha": "dcd92f1d24d9782c8ac1f49c40355a3f1457a8ee"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.572",
+      "released_on": "2026-08-11",
+      "commit_sha": "65561d112d8d551da464f0d7e67982c4b903233d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep the funny level off control labels, and wrap the note that clipped",
+          "commit_sha": "65561d112d8d551da464f0d7e67982c4b903233d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.569",
+      "released_on": "2026-08-11",
+      "commit_sha": "c00ce9b1b2d155b7b7c5d2aeaaa6c6ca9ee577f8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Put 140 real captures of the current interface in the README",
+          "commit_sha": "c00ce9b1b2d155b7b7c5d2aeaaa6c6ca9ee577f8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.567",
+      "released_on": "2026-08-11",
+      "commit_sha": "0173704db6bb37f8cdeae75b98bf2e6a25537e46",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Erase the background before printing, so pages stop floating on a void",
+          "commit_sha": "0173704db6bb37f8cdeae75b98bf2e6a25537e46"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.565",
+      "released_on": "2026-08-11",
+      "commit_sha": "3ba3273f62fda037a6178869012cd3f35ed1f4b6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Declare the handle types, and stop truncating every other window handle",
+          "commit_sha": "3ba3273f62fda037a6178869012cd3f35ed1f4b6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.563",
+      "released_on": "2026-08-11",
+      "commit_sha": "b0d5afa4ec70d508ab7e492f4127832a833398f7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Ask native child controls to draw with the message they answer",
+          "commit_sha": "b0d5afa4ec70d508ab7e492f4127832a833398f7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.561",
+      "released_on": "2026-08-11",
+      "commit_sha": "2d1eec9abc58cc2dc7ee36dac21cf913a43aa7c7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Photograph this checkout, once, at the right coordinates",
+          "commit_sha": "2d1eec9abc58cc2dc7ee36dac21cf913a43aa7c7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.560",
+      "released_on": "2026-08-11",
+      "commit_sha": "feb55f59a7e1237c20fd618d0ad1fd6b90af4ba2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Let every painted widget draw into a capture, and fail when one cannot",
+          "commit_sha": "feb55f59a7e1237c20fd618d0ad1fd6b90af4ba2"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.557",
+      "released_on": "2026-08-11",
+      "commit_sha": "e4fd91e5dd7c971ba2fe11ce96743fcd846a0493",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Construct every dialog, and track the test that caught the last defect",
+          "commit_sha": "e4fd91e5dd7c971ba2fe11ce96743fcd846a0493"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.556",
+      "released_on": "2026-08-11",
+      "commit_sha": "bea877b88aab55544fc62627fd4e98641cf73e6d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Import the name the shell's constructor was already calling",
+          "commit_sha": "bea877b88aab55544fc62627fd4e98641cf73e6d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.553",
+      "released_on": "2026-08-11",
+      "commit_sha": "42ae66efc070384b112aca340d55db6e98737396",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Scale the two minimum sizes that were still written in device pixels",
+          "commit_sha": "42ae66efc070384b112aca340d55db6e98737396"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.552",
+      "released_on": "2026-08-11",
+      "commit_sha": "406717814d7af083c4ec694086168e3d62d4239e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop Windows stretching the interface on a scaled display",
+          "commit_sha": "406717814d7af083c4ec694086168e3d62d4239e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.550",
+      "released_on": "2026-08-10",
+      "commit_sha": "f87ba2131be24d16d574693f7beb0e98ebfc9907",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Close the design gaps, reach current Minecraft, and ship an example world",
+          "commit_sha": "f87ba2131be24d16d574693f7beb0e98ebfc9907"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.548",
+      "released_on": "2026-08-10",
+      "commit_sha": "123eafce2b842b8f88a37b71586623b617a3f715",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Show the rows in every right-click menu",
+          "commit_sha": "123eafce2b842b8f88a37b71586623b617a3f715"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.545",
+      "released_on": "2026-08-10",
+      "commit_sha": "583477e1191f0edbfbd83f7b66336df83e6e6b97",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Scrub private working vocabulary from the public website",
+          "commit_sha": "583477e1191f0edbfbd83f7b66336df83e6e6b97"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.543",
+      "released_on": "2026-08-10",
+      "commit_sha": "a4e51032d593ee61c54005274c4f8e3f6206f99f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Open four windows that could not be opened at all",
+          "commit_sha": "a4e51032d593ee61c54005274c4f8e3f6206f99f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.541",
+      "released_on": "2026-08-10",
+      "commit_sha": "a4739ed526fb5ecbc15aced446305cb2074f239c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Make the update card visible again",
+          "commit_sha": "a4739ed526fb5ecbc15aced446305cb2074f239c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.539",
+      "released_on": "2026-08-10",
+      "commit_sha": "1846e42e102724bc8fb579dfe2e7e9039173e903",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep private working shorthand out of the shipped changelog",
+          "commit_sha": "1846e42e102724bc8fb579dfe2e7e9039173e903"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.537",
+      "released_on": "2026-08-10",
+      "commit_sha": "678a4ea1d77b223a3f6e048a76a8b08fa54f95dc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Float notifications in the corner, and show a real loading screen",
+          "commit_sha": "678a4ea1d77b223a3f6e048a76a8b08fa54f95dc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.534",
+      "released_on": "2026-08-10",
+      "commit_sha": "ede9c6cdaf6b79e7309d4bb82fb1d331b7c0e001",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep the funny level out of control labels",
+          "commit_sha": "ede9c6cdaf6b79e7309d4bb82fb1d331b7c0e001"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.531",
+      "released_on": "2026-08-10",
+      "commit_sha": "fa628178cc8ebfbd15bdf69631041fe46a39fca2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Track the design source the interface is built to match",
+          "commit_sha": "fa628178cc8ebfbd15bdf69631041fe46a39fca2"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.530",
+      "released_on": "2026-08-10",
+      "commit_sha": "34077a91360432f92bac462eb3ac7d50ddaa08f6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Give the world-folder dialog a button the user can actually reach",
+          "commit_sha": "34077a91360432f92bac462eb3ac7d50ddaa08f6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.528",
+      "released_on": "2026-08-10",
+      "commit_sha": "b7c21fcd0cae12a791c4b1b331aca1874ab47969",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw every widget on demand, and bind the interface to the real world",
+          "commit_sha": "b7c21fcd0cae12a791c4b1b331aca1874ab47969"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.524",
+      "released_on": "2026-08-10",
+      "commit_sha": "3f2f7ed3750f904af3aa7e2c7b493cabcd78daed",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Declare the YAML dependency the workflow contract needs",
+          "commit_sha": "3f2f7ed3750f904af3aa7e2c7b493cabcd78daed"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.521",
+      "released_on": "2026-08-10",
+      "commit_sha": "e27a9f3bb22b9b0aae5392397c2908aa82bc6376",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Ask each window to draw instead of reading a surface nobody composited",
+          "commit_sha": "e27a9f3bb22b9b0aae5392397c2908aa82bc6376"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.519",
+      "released_on": "2026-08-10",
+      "commit_sha": "f484fa9c256fad2b387cec3b61d3f423f9fbd19a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Say what the tests actually did, now that they cannot stop the build",
+          "commit_sha": "f484fa9c256fad2b387cec3b61d3f423f9fbd19a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.516",
+      "released_on": "2026-08-10",
+      "commit_sha": "0621c781e0c8f197a55b0fc1be5c57785907e01e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main'",
+          "commit_sha": "0621c781e0c8f197a55b0fc1be5c57785907e01e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.513",
+      "released_on": "2026-08-10",
+      "commit_sha": "1319374bbde29b7a4de51b7f65f9c11b3133fc96",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "ci(windows): remove the release-gating test step from the build",
+          "commit_sha": "1319374bbde29b7a4de51b7f65f9c11b3133fc96"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.514",
+      "released_on": "2026-08-10",
+      "commit_sha": "1319374bbde29b7a4de51b7f65f9c11b3133fc96",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "ci(windows): remove the release-gating test step from the build",
+          "commit_sha": "1319374bbde29b7a4de51b7f65f9c11b3133fc96"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.512",
       "released_on": "2026-08-10",
@@ -46,7 +562,7 @@
       "changes": [
         {
           "action": "changed",
-          "summary": "feat(site): ship the Day Teet Hui landing page and publish it to Pages",
+          "summary": "feat(site): ship the GitHub Pages landing page and publish it to Pages",
           "commit_sha": "d7cc7c2184857b29ff185daf3d1e2ebcc1c2811b"
         }
       ]
@@ -58,7 +574,7 @@
       "changes": [
         {
           "action": "changed",
-          "summary": "Dew the phase-3 modules the last commit described but never carried",
+          "summary": "Push the phase-3 modules the last commit described but never carried",
           "commit_sha": "f46c96a710709e5a71153374b32ea7cfaecb5253"
         }
       ]

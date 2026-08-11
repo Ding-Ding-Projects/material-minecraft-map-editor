@@ -57,8 +57,33 @@ class NudgeButton(wx.Button):
         self.Bind(EVT_INPUT_PRESS, self._on_down)
         self.Bind(EVT_INPUT_RELEASE, self._on_up)
         self.Bind(EVT_INPUT_HELD, self._on_held)
+        self.Bind(wx.EVT_SET_FOCUS, self._on_focus)
+        self.Bind(wx.EVT_KILL_FOCUS, self._on_blur)
         self._listen = False
+        self._focused = False
         self._timeout = 10
+
+    @property
+    def listening(self) -> bool:
+        """Whether the movement keys currently nudge through this button.
+
+        Two ways in.  Holding the box-click action on the button is the
+        original one, and it needs a mouse: the default binding for that action
+        is the left mouse button, so the "hold this and press W" route is not
+        reachable from a keyboard at all.  Having keyboard focus is the second,
+        and it is what makes every nudge this button offers -- all three axes,
+        both directions -- doable without a pointer.  Tab to the button, press
+        the movement keys.
+        """
+        return self._listen or self._focused
+
+    def _on_focus(self, evt):
+        self._focused = True
+        evt.Skip()
+
+    def _on_blur(self, evt):
+        self._focused = False
+        evt.Skip()
 
     @property
     def camera(self) -> Camera:
@@ -81,7 +106,7 @@ class NudgeButton(wx.Button):
             self._listen = False
 
     def _on_held(self, evt: InputHeldEvent):
-        if self._listen:
+        if self.listening:
             if self._timeout == 0 or self._timeout == 10:
                 x = y = z = 0
                 if ACT_MOVE_LEFT in evt.action_ids:

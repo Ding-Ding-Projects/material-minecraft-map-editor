@@ -31,6 +31,10 @@ jobs:
       test_summary: ${{ steps.report-tests.outputs.summary }}
       build_channel: ${{ steps.resolve-version.outputs.build_channel }}
       source_tag: ${{ steps.resolve-version.outputs.source_tag }}
+      example_world_verdict: ${{ steps.example-world.outputs.verdict }}
+      example_world_summary: ${{ steps.example-world.outputs.summary }}
+      example_world_seed: ${{ steps.example-world.outputs.seed }}
+      example_world_size: ${{ steps.example-world.outputs.size }}
     strategy:
       fail-fast: false
       matrix:
@@ -58,7 +62,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install twine pyinstaller~=6.18 build
+        pip install twine pyinstaller~=6.18 build pyyaml
 
     - name: Build Wheels
       shell: pwsh
@@ -87,7 +91,7 @@ jobs:
       shell: bash
       run: |
         set +e
-        python -m pip install --quiet pytest pytest-timeout
+        python -m pip install --quiet pytest pytest-timeout pyyaml
         python -m pytest tests -q --timeout=600 > test-report.txt 2>&1
         status=$?
         tail -40 test-report.txt
@@ -306,6 +310,69 @@ jobs:
         }
         Write-Host "Unsigned Squirrel.Windows artifacts verified: $releaseDir"
 
+    # The example world is a bonus asset, not a deliverable. `continue-on-error`
+    # keeps a generator failure from withholding an installer, exactly like the
+    # test-report step above. It runs after the installer contract is verified
+    # so nothing it writes can disturb that check, and the measured result is
+    # carried into the release notes rather than the line being dropped.
+    - name: Generate the example world
+      id: example-world
+      continue-on-error: true
+      shell: bash
+      env:
+        EXAMPLE_WORLD_SEED: '20260810'
+        # 500 x 500 measured at 20s wall clock locally, so the shipped default
+        # is what CI builds; the generator's own default is 500 too.
+        EXAMPLE_WORLD_SIZE: '500'
+      run: |
+        set +e
+        mkdir -p example-world
+        python scripts/generate_example_world.py \
+          --seed "$EXAMPLE_WORLD_SEED" \
+          --size "$EXAMPLE_WORLD_SIZE" \
+          --commit "$GITHUB_SHA" \
+          --out example-world/example-world.zip \
+          --summary-json example-world/example-world.json \
+          > example-world/example-world.log 2>&1
+        status=$?
+        tail -25 example-world/example-world.log
+        echo "seed=$EXAMPLE_WORLD_SEED" >> "$GITHUB_OUTPUT"
+        echo "size=$EXAMPLE_WORLD_SIZE" >> "$GITHUB_OUTPUT"
+        # The world only reaches the release through the Squirrel payload, so
+        # the copy is part of the verdict: reporting `generated` after a failed
+        # copy would promise the notes an asset nobody attached.
+        release_dir="installer/dist/squirrel/Amulet-$BUILD_VERSION-Windows-${{ matrix.cfg.architecture }}"
+        if [ "$status" -ne 0 ] || [ ! -s example-world/example-world.zip ]; then
+          reason="the generator exited $status"
+        elif [ ! -d "$release_dir" ]; then
+          reason="the Squirrel release directory $release_dir does not exist"
+        elif ! cp example-world/example-world.zip "$release_dir/example-world.zip"; then
+          reason="the world could not be copied into $release_dir"
+        else
+          reason=""
+        fi
+        if [ -z "$reason" ]; then
+          summary="$(python -c "import json,sys; d=json.load(open(sys.argv[1])); print(f\"{d['chunk_count']} chunks, {d['block_count']} non-air blocks, {d['zip_bytes']} bytes\")" example-world/example-world.json)"
+          echo "verdict=generated" >> "$GITHUB_OUTPUT"
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
+          echo "Example world generated: $summary"
+        else
+          echo "verdict=FAILED" >> "$GITHUB_OUTPUT"
+          echo "summary=$reason" >> "$GITHUB_OUTPUT"
+          echo "Example world FAILED: $reason. The installer is unaffected."
+        fi
+        exit 0
+
+    - name: Upload the example world
+      uses: actions/upload-artifact@v6
+      if: ${{ always() }}
+      continue-on-error: true
+      with:
+        name: example-world-${{ matrix.cfg.architecture }}
+        path: example-world
+        if-no-files-found: warn
+        retention-days: 7
+
     - name: Publish to PyPi
       if: github.event_name == 'release'
       env:
@@ -362,6 +429,10 @@ jobs:
           RUN_SHA: ${{ github.sha }}
           TEST_VERDICT: ${{ needs.deploy.outputs.test_verdict }}
           TEST_SUMMARY: ${{ needs.deploy.outputs.test_summary }}
+          EXAMPLE_WORLD_VERDICT: ${{ needs.deploy.outputs.example_world_verdict }}
+          EXAMPLE_WORLD_SUMMARY: ${{ needs.deploy.outputs.example_world_summary }}
+          EXAMPLE_WORLD_SEED: ${{ needs.deploy.outputs.example_world_seed }}
+          EXAMPLE_WORLD_SIZE: ${{ needs.deploy.outputs.example_world_size }}
         run: |
           set -euo pipefail
           setup_path="$(find release-assets -type f -name 'Setup.exe' -print -quit)"
@@ -410,6 +481,21 @@ jobs:
                 printf '%s\n' "> [!WARNING]"
                 printf '%s\n' "> This build shipped without a passing test suite. Tests do not gate the installer; the verdict above is the measured result, not an expectation."
               fi
+              # An absent example world is stated, never omitted: a missing
+              # line reads as an oversight, and the world never gates a build.
+              # "Failed" and "never reported" are different facts, so they get
+              # different sentences rather than one that guesses.
+              case "${EXAMPLE_WORLD_VERDICT:-}" in
+                generated)
+                  printf '%s\n' "Example world: \`example-world.zip\` -- seed ${EXAMPLE_WORLD_SEED:-unknown}, ${EXAMPLE_WORLD_SIZE:-unknown} x ${EXAMPLE_WORLD_SIZE:-unknown} blocks, Java Edition 1.12.2 (${EXAMPLE_WORLD_SUMMARY:-no summary was produced})."
+                  ;;
+                FAILED)
+                  printf '%s\n' "Example world: generation FAILED for seed ${EXAMPLE_WORLD_SEED:-unknown} at ${EXAMPLE_WORLD_SIZE:-unknown} x ${EXAMPLE_WORLD_SIZE:-unknown} blocks (${EXAMPLE_WORLD_SUMMARY:-no summary was produced}). No \`example-world.zip\` is attached to this release; the installer is unaffected."
+                  ;;
+                *)
+                  printf '%s\n' "Example world: the generation step reported no verdict, so no \`example-world.zip\` is attached to this release. The installer is unaffected."
+                  ;;
+              esac
               printf '%s\n' "Dim-sum code name: $DIM_SUM_CODE_NAME"
               printf '%s\n' "Dim-sum public photo: $DIM_SUM_PHOTO_URL"
             } > "$notes_file"

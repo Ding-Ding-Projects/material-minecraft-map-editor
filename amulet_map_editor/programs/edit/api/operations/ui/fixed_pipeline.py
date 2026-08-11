@@ -204,7 +204,8 @@ class FixedFunctionUI(wx.Panel, DefaultOperationUI):
         return options
 
     def _run_operation(self, evt):
-        self.canvas.run_operation(
+        """Run the operation and return its outcome; see ``SimpleOperationPanel``."""
+        return self.canvas.run_operation(
             lambda: self._operation(
                 self.world,
                 self.canvas.dimension,

@@ -21,6 +21,28 @@ format that would silently drop a field is not offered for that datum:
 | Prose and articles | Markdown, plain text, HTML |
 | Structures | `.construction`, `.mcstructure`, `.schematic`, `.schem` |
 
+**Structure exports and the Format dropdown.** Structures ▸ Export offers those
+four formats beside the Export button, and the choice decides which exporter
+runs. The pairing is a written-out table in
+`amulet_map_editor/api/studio/ribbon_defs.py` — `STRUCTURE_FORMATS` — rather than
+a rule, because it is not derivable: `schem` runs **Export Sponge Schematic**
+while `schematic` runs **Export Schematic (legacy)**, so a suffix or containment
+match would send Sponge's `.schem` to the legacy exporter and do it silently.
+Every format in that table names an exporter, and the dropdown's options are
+built from the table, so the list cannot offer a format nothing can write.
+
+Choosing a format raises `setExportFormat`, which names the exporter it has
+chosen and — when the Export tool is already on screen — switches that tool over
+to it, so the ribbon and the tool's own chooser cannot disagree. Pressing Export
+carries the chosen exporter into the tool as the operation to select, and the
+toast names the format that was chosen. If the tool ends up on a different
+exporter, the message says both what was asked for and what is showing rather
+than reporting a success.
+
+This shipped broken and is worth stating plainly: the dropdown stored a value
+nobody read, so all four formats exported a `.construction` and the toast
+reported "Export Construction" back at whoever had chosen otherwise.
+
 Every export states its encoding — UTF-8 unless there is a reason — its line
 endings, and the schema or version it follows, so the file is readable by
 something other than the application that wrote it. Where a round trip is
@@ -73,11 +95,24 @@ a searchable dropdown like every other dropdown in the shell.
 
 ```powershell
 py -3 -m pytest tests/test_export_actions.py tests/test_external_editor.py tests/test_notifications.py -q
+py -3 -m pytest tests/test_export_format_routing.py -q
+py -3 -m pytest tests/test_export_format_runtime.py -q
 ```
 
-Those cover the shared export action, the Visual Studio Code bridge including
-the unavailable and launch-failed paths, and the notification history's own
-export.
+The first covers the shared export action, the Visual Studio Code bridge
+including the unavailable and launch-failed paths, and the notification
+history's own export.
+
+The second checks the format table against the export plugins' own declared
+names — parsed out of the plugin files rather than copied — that every offered
+format names a distinct exporter, and that the shell carries the chosen exporter
+into the tool and reports it truthfully. It needs no display.
+
+The third opens a real world, chooses each format in the ribbon, presses Export
+from a cold tool, and reads the exporter back off the chooser the user is looking
+at: four assertions naming four different exporters. It skips itself where no
+editor can start, which reads like passing in a summary line, so set
+`MMME_REQUIRE_EDITOR_RUNTIME=1` on a host that is meant to run it.
 
 Suggested articles: [bulk actions](../bulk-actions/README.md),
 [external editor](../external-editor/README.md),

@@ -1,17 +1,318 @@
-"""Native Material 3 manager for the app's persisted tab workspace."""
+"""Native Material 3 manager for the app's persisted tab workspace.
+
+Four independent searches live here, one per page of the manager's own tab
+strip: this window's tab strip, one individual group at a time, the groups
+themselves by their visible names, and a master search over every open tab in
+every window, strip, and group the profile knows about.  Each owns a separate
+:class:`~amulet_map_editor.api.studio.search.SearchState`, so a pattern typed
+into one never appears in another and a regex left switched on in one never
+quietly applies to the next.
+
+Every field is the shared
+:class:`~amulet_map_editor.api.studio.widgets.SearchBar`, which is what makes
+the regex opt-in, the ``.*`` builder button, the honest feedback line, the
+anchored builder popover, and its
+:class:`~amulet_map_editor.api.wx.ui.regex_dialog.RegexBuilderDialog` fallback
+for a display too small to hold that popover behave here exactly as they do on
+every other search surface in the application.
+
+Revealing a match never spends the user's layout.  A tab inside a collapsed
+group is shown by expanding this dialog's own view of it; the group's stored
+collapsed preference is never written back, because a search that quietly
+expanded a group would destroy a layout choice as a side effect of looking
+something up.
+"""
 
 from __future__ import annotations
 
-import re
+from typing import Callable, List, Optional, Sequence, Tuple
+
 import wx
 
 from amulet_map_editor.api import local_history
-from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
-from amulet_map_editor.api.regex_builder import RegexBuilder
+from amulet_map_editor.api.studio.search import SearchState
+from amulet_map_editor.api.studio.widgets import (
+    SearchBar,
+    SearchableChoice,
+    StudioButton,
+)
+from amulet_map_editor.api.tab_groups import (
+    BulkClosePreview,
+    TabDock,
+    TabSearchResult,
+    TabWorkspace,
+)
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
-from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 from amulet_map_editor.api.wx.ui.simple import MaterialTextEntryDialog
+
+#: Columns every result list shows, so a match always names where it lives.
+_RESULT_COLUMNS: Tuple[Tuple[str, int], ...] = (
+    ("Label", 250),
+    ("Window or workspace", 170),
+    ("Strip", 100),
+    ("Group", 200),
+    ("Pinned", 80),
+)
+
+#: How many titles a close confirmation lists before it summarises the rest.
+_PREVIEW_ROWS = 12
+
+
+def _named(control: wx.Window, *, name: str, hint: str = "") -> wx.Window:
+    """Give an embedded control its own screen-reader name and tooltip."""
+
+    control.SetName(name)
+    if hint:
+        control.SetToolTip(hint)
+    return control
+
+
+def _studio(widget: wx.Window) -> wx.Window:
+    """Let a Studio widget keep its own painting during the Material pass.
+
+    Studio widgets are owner-drawn from the design tokens and re-theme
+    themselves on a theme change, so the native styling traversal has nothing
+    to add and would only overwrite colours the widget is about to redraw.
+    """
+
+    widget._material3_opt_out = True
+    return widget
+
+
+class _TabSearchPage(wx.Panel):
+    """One of the four searches: its own field, its own state, its own results.
+
+    Nothing here is shared with a sibling page.  The search state, the query,
+    the regex opt-in, the flags, the builder, and the result list all belong to
+    this page alone, which is the whole point of there being four of them.
+    """
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        label: str,
+        placeholder: str,
+        summary: str,
+        run: Callable[[SearchState], Sequence[TabSearchResult]],
+        on_activate: Callable[[TabSearchResult], None],
+        noun: str = "result",
+        sample: str = "Debug 1.14",
+    ) -> None:
+        super().__init__(parent, style=wx.TAB_TRAVERSAL)
+        self.label = str(label)
+        self.noun = str(noun)
+        self._run = run
+        self._on_activate = on_activate
+        #: Set by the host so one handler owns the selection, rather than two
+        #: bindings on one list racing each other for the same event.
+        self.on_selection: Optional[Callable[[], None]] = None
+        self.results: Tuple[TabSearchResult, ...] = ()
+        #: Groups this page is showing expanded for the current reveal only.
+        self.revealed_groups: set = set()
+        self.state = SearchState(label=self.label, sample=sample)
+        self.search = _studio(
+            SearchBar(self, placeholder, self.state, on_change=self._query_changed)
+        )
+        self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        self.list.SetName(f"{self.label} results")
+        for index, (column, _width) in enumerate(_RESULT_COLUMNS):
+            self.list.InsertColumn(index, column)
+        self.detail = wx.StaticText(self, label="Nothing selected.")
+        self.detail.SetName(f"{self.label} selected result")
+        self.feedback = wx.StaticText(self, label=str(summary))
+        self.feedback.SetName(f"{self.label} status")
+
+        root = wx.BoxSizer(wx.VERTICAL)
+        self._build_scope(root)
+        root.Add(self.search, 0, wx.EXPAND | wx.ALL, 12)
+        root.Add(self.list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
+        root.Add(self.detail, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 12)
+        root.Add(self.feedback, 0, wx.EXPAND | wx.ALL, 12)
+        self.SetSizer(root)
+
+        self.list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._activated)
+        self.list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._selection_changed)
+        self.list.Bind(wx.EVT_LIST_ITEM_DESELECTED, self._selection_changed)
+
+    # -- subclass hook --------------------------------------------------------
+    def _build_scope(self, sizer: wx.Sizer) -> None:
+        """Add any scope control this page needs above its search field."""
+
+    # -- results --------------------------------------------------------------
+    @staticmethod
+    def _identity(result: TabSearchResult) -> Tuple[str, str, str]:
+        """Return what makes a match the same match after the list is rebuilt.
+
+        A tab is identified by its id alone, never by the group it is in:
+        moving a tab between groups is exactly the edit after which the user
+        most wants to still be looking at the row they just moved.
+        """
+
+        if result.tab_id is not None:
+            return (result.surface_id, "tab", result.tab_id)
+        return (result.surface_id, "group", result.group_id or "")
+
+    def refresh(self) -> None:
+        """Re-run this page's own search and repaint only its own list.
+
+        The highlighted match is restored by identity afterwards.  Pinning or
+        regrouping a tab rebuilds the list, and a user who lost their place on
+        every such edit would have to find the row again to make the next one.
+        """
+
+        previous = self.selected_result()
+        wanted = self._identity(previous) if previous else None
+        self.list.DeleteAllItems()
+        try:
+            results = tuple(self._run(self.state))
+            error = ""
+        except ValueError as exc:
+            results = ()
+            error = str(exc)
+        self.results = results
+        restore = -1
+        for index, result in enumerate(results):
+            row = self.list.InsertItem(self.list.GetItemCount(), result.title)
+            self.list.SetItem(row, 1, result.surface_id or "unrecorded window")
+            self.list.SetItem(row, 2, f"{result.dock.value} strip")
+            self.list.SetItem(row, 3, self._group_cell(result))
+            self.list.SetItem(row, 4, "Pinned" if result.pinned else "")
+            self.list.SetItemData(row, index)
+            if wanted is not None and self._identity(result) == wanted:
+                restore = row
+        for column, (_label, width) in enumerate(_RESULT_COLUMNS):
+            self.list.SetColumnWidth(column, width)
+        self.feedback.SetLabel(
+            error or self.state.describe_matches(len(results), self.noun)
+        )
+        if restore >= 0:
+            self.list.Select(restore)
+            self.list.Focus(restore)
+        self._selection_changed()
+
+    def _group_cell(self, result: TabSearchResult) -> str:
+        """Return the group column, saying plainly what stays collapsed."""
+
+        if result.tab_id is None:
+            return "collapsed" if result.group_collapsed else "expanded"
+        if not result.group_name:
+            return "No group"
+        if not result.group_collapsed:
+            return result.group_name
+        if result.group_id in self.revealed_groups:
+            return f"{result.group_name} (collapsed, shown for this reveal)"
+        return f"{result.group_name} (collapsed)"
+
+    def selected_result(self) -> Optional[TabSearchResult]:
+        """Return the highlighted match, or ``None`` when nothing is chosen."""
+
+        row = self.list.GetFirstSelected()
+        if row < 0:
+            return None
+        index = self.list.GetItemData(row)
+        if 0 <= index < len(self.results):
+            return self.results[index]
+        return None
+
+    def reveal(self, group_id: Optional[str]) -> None:
+        """Show a collapsed group's contents here without persisting anything."""
+
+        if group_id:
+            self.revealed_groups.add(group_id)
+
+    # -- events ---------------------------------------------------------------
+    def _query_changed(self, _state: SearchState) -> None:
+        self.refresh()
+
+    def _selection_changed(self, _event: Optional[wx.Event] = None) -> None:
+        result = self.selected_result()
+        self.detail.SetLabel(result.location() if result else "Nothing selected.")
+        self.detail.SetName(f"{self.label} selected result: {self.detail.GetLabel()}")
+        self.Layout()
+        if callable(self.on_selection):
+            self.on_selection()
+
+    def _activated(self, _event: wx.Event) -> None:
+        result = self.selected_result()
+        if result is not None:
+            self._on_activate(result)
+
+
+class _GroupScopedSearchPage(_TabSearchPage):
+    """The per-group search, run inside one group or inside each in turn."""
+
+    EVERY_GROUP = "Every group, searched one by one"
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        *,
+        workspace: TabWorkspace,
+        on_activate: Callable[[TabSearchResult], None],
+    ) -> None:
+        self._workspace = workspace
+        self._scope_options: List[Tuple[str, Optional[str]]] = [
+            (self.EVERY_GROUP, None)
+        ]
+        super().__init__(
+            parent,
+            label="Tab group contents search",
+            placeholder="Search this group",
+            summary=(
+                "Searches inside a group. An ungrouped tab is never a result "
+                "here, however well its label matches."
+            ),
+            run=self._search,
+            on_activate=on_activate,
+            noun="tab",
+        )
+        self.sync_groups()
+
+    def _build_scope(self, sizer: wx.Sizer) -> None:
+        self.scope = _studio(
+            SearchableChoice(
+                self,
+                "Group to search",
+                [self.EVERY_GROUP],
+                self.EVERY_GROUP,
+                on_change=lambda _value: self.refresh(),
+            )
+        )
+        sizer.Add(self.scope, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 12)
+
+    def sync_groups(self) -> None:
+        """Rebuild the scope list from the groups that actually exist."""
+
+        options: List[Tuple[str, Optional[str]]] = [(self.EVERY_GROUP, None)]
+        seen: dict = {}
+        for group in self._workspace.state.groups:
+            count = seen.get(group.name, 0) + 1
+            seen[group.name] = count
+            label = group.name if count == 1 else f"{group.name} ({count})"
+            options.append((label, group.group_id))
+        self._scope_options = options
+        chosen = self.scope.value
+        self.scope.set_options([label for label, _group_id in options])
+        if chosen in {label for label, _group_id in options}:
+            self.scope.set_value(chosen)
+
+    def _selected_group(self) -> Optional[str]:
+        for label, group_id in self._scope_options:
+            if label == self.scope.value:
+                return group_id
+        return None
+
+    def _search(self, state: SearchState) -> Sequence[TabSearchResult]:
+        group_id = self._selected_group()
+        if group_id is None:
+            return self._workspace.search_every_group(
+                state.query, regex=bool(state.regex), flags=state.flags
+            )
+        return self._workspace.search_group(
+            group_id, state.query, regex=bool(state.regex), flags=state.flags
+        )
 
 
 class TabManagerDialog(wx.Dialog):
@@ -20,239 +321,377 @@ class TabManagerDialog(wx.Dialog):
     def __init__(self, parent: wx.Window, notebook):
         super().__init__(
             parent,
-            title="Tabs and groups",
-            size=wx.Size(860, 600),
+            title="Tabs, groups, and safe closing",
+            size=wx.Size(960, 720),
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._notebook = notebook
         self._workspace = getattr(
             notebook, "_tab_workspace", TabWorkspace("main-window")
         )
-        self._regex_flags = 0
-        self._close_regex_flags = 0
         self._sync_notebook()
 
         root = wx.BoxSizer(wx.VERTICAL)
-        heading = wx.StaticText(self, label="Tabs and groups")
+        eyebrow = wx.StaticText(self, label="Workspace navigation")
+        eyebrow.SetName("Tab manager eyebrow")
+        heading = wx.StaticText(self, label="Tabs, groups, and safe closing")
         heading.SetName("Tab manager heading")
-        root.Add(heading, 0, wx.ALL | wx.EXPAND, 16)
+        intro = wx.StaticText(
+            self,
+            label=(
+                "Four independent searches cover this strip, one group at a "
+                "time, the group names, and every tab in every window. Bulk "
+                "closing previews the exact visible-label match set before it "
+                "is authorised."
+            ),
+        )
+        intro.SetName("Tab manager introduction")
+        root.Add(eyebrow, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
+        root.Add(heading, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
+        root.Add(intro, 0, wx.ALL | wx.EXPAND, 16)
 
-        search_row = wx.BoxSizer(wx.HORIZONTAL)
-        self.search = wx.TextCtrl(self, name="Tab manager search")
-        self.search.SetHint("Search tabs and groups")
-        self.regex = wx.CheckBox(self, label="Regex")
-        self.regex_button = wx.Button(
-            self, label="Regex…", name="Tab manager regex builder"
+        self.pages = wx.Notebook(self)
+        self.pages.SetName("Tab manager searches")
+        self.strip_page = _TabSearchPage(
+            self.pages,
+            label="Tab manager search",
+            placeholder="Search this strip",
+            summary="Searches this window's own tab strip, and nothing beyond it.",
+            run=lambda state: self._workspace.search_strip(
+                state.query, regex=bool(state.regex), flags=state.flags
+            ),
+            on_activate=self._activate_result,
+            noun="tab",
         )
-        self.regex_button.SetName("Tab manager regex builder")
-        search_row.Add(self.search, 1, wx.EXPAND | wx.RIGHT, 8)
-        search_row.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        search_row.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL)
-        root.Add(search_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
+        self.group_page = _GroupScopedSearchPage(
+            self.pages, workspace=self._workspace, on_activate=self._activate_result
+        )
+        self.group_name_page = _TabSearchPage(
+            self.pages,
+            label="Tab group name search",
+            placeholder="Search tab groups",
+            summary="Searches the groups themselves by their visible names.",
+            run=lambda state: self._workspace.search_group_names(
+                state.query, regex=bool(state.regex), flags=state.flags
+            ),
+            on_activate=self._activate_result,
+            noun="group",
+            sample="Survival worlds",
+        )
+        self.master_page = _TabSearchPage(
+            self.pages,
+            label="Master tab search",
+            placeholder="Search every tab",
+            summary=(
+                "Searches every open tab across every window, workspace, "
+                "strip, and group this profile has recorded."
+            ),
+            run=lambda state: self._workspace.search_master(
+                state.query, regex=bool(state.regex), flags=state.flags
+            ),
+            on_activate=self._activate_result,
+            noun="tab",
+        )
+        self.pages.AddPage(self.strip_page, "This strip")
+        self.pages.AddPage(self.group_page, "Inside a group")
+        self.pages.AddPage(self.group_name_page, "Group names")
+        self.pages.AddPage(self.master_page, "Every tab")
+        root.Add(self.pages, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
 
-        bulk = wx.BoxSizer(wx.HORIZONTAL)
-        self.close_query = wx.TextCtrl(self, name="Bulk close tab query")
-        self.close_query.SetHint("Bulk-close query")
-        self.close_regex = wx.CheckBox(self, label="Regex")
-        self.close_regex_button = wx.Button(
-            self, label="Regex…", name="Bulk close regex builder"
+        # The strip search is this dialog's primary field, so it carries the
+        # names the shell and its documentation refer to it by.
+        _named(
+            self.strip_page.search.field,
+            name="Tab manager search",
+            hint="Search the tabs of this window's own strip.",
         )
-        self.include_pinned = wx.CheckBox(self, label="Include pinned")
-        self.close_contains = wx.Button(self, label="Close tabs containing text")
-        self.close_not_contains = wx.Button(
-            self, label="Close tabs not containing text"
-        )
-        bulk.Add(self.close_query, 1, wx.EXPAND | wx.RIGHT, 8)
-        bulk.Add(self.close_regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        bulk.Add(self.close_regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        bulk.Add(self.include_pinned, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
-        bulk.Add(self.close_contains, 0, wx.RIGHT, 8)
-        bulk.Add(self.close_not_contains, 0)
-        root.Add(bulk, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
+        if self.strip_page.search.builder_button is not None:
+            _named(
+                self.strip_page.search.builder_button,
+                name="Tab manager regex builder",
+                hint="Build a pattern for the strip search.",
+            )
 
         options = wx.BoxSizer(wx.HORIZONTAL)
-        options.Add(
-            wx.StaticText(self, label="Tab strip edge"),
-            0,
-            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
-            8,
-        )
-        self.dock = wx.Choice(self, choices=[item.value.title() for item in TabDock])
-        self.dock.SetName("Tab strip edge")
-        self.dock.SetSelection(
-            [item for item in TabDock].index(self._workspace.state.dock)
+        self.dock = _studio(
+            SearchableChoice(
+                self,
+                "Tab strip edge",
+                [item.value.title() for item in TabDock],
+                self._workspace.state.dock.value.title(),
+                on_change=lambda _value: self._dock_changed(),
+            )
         )
         self.pin = wx.CheckBox(self, label="Pinned")
-        self.group = wx.Choice(
-            self,
-            choices=["No group"] + [item.name for item in self._workspace.state.groups],
+        self.pin.SetName("Pin the selected tab")
+        self._group_options: List[Tuple[str, Optional[str]]] = [("No group", None)]
+        self.group = _studio(
+            SearchableChoice(
+                self,
+                "Tab group",
+                ["No group"],
+                "No group",
+                on_change=lambda _value: self._group_changed(),
+            )
         )
-        self.group.SetName("Tab group")
+        self.new_group = StudioButton(
+            self,
+            "New group",
+            variant="outlined",
+            on_click=self._new_group,
+            hint="Create a group for the selected tab.",
+        )
         options.Add(self.dock, 0, wx.RIGHT, 16)
         options.Add(self.pin, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 16)
-        options.Add(
-            wx.StaticText(self, label="Group"),
-            0,
-            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
-            8,
-        )
         options.Add(self.group, 1, wx.RIGHT, 8)
-        self.new_group = wx.Button(self, label="New group")
-        options.Add(self.new_group, 0)
-        root.Add(options, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 16)
+        options.Add(self.new_group, 0, wx.ALIGN_CENTER_VERTICAL)
+        root.Add(options, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
 
-        self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.list.SetName("Tabs and groups list")
-        for index, label in enumerate(("Tab", "Group", "Pinned", "Active")):
-            self.list.InsertColumn(index, label)
-        root.Add(self.list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
+        bulk_heading = wx.StaticText(self, label="Bulk close")
+        bulk_heading.SetName("Bulk close heading")
+        root.Add(bulk_heading, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
+        self.close_state = SearchState(
+            label="Bulk close tab query", sample="Debug 1.14"
+        )
+        self.close_search = _studio(
+            SearchBar(
+                self,
+                "Visible label text",
+                self.close_state,
+                on_change=lambda _state: self._update_close_preview(),
+            )
+        )
+        _named(
+            self.close_search.field,
+            name="Bulk close tab query",
+            hint="Matched against the visible tab label only, never page contents.",
+        )
+        if self.close_search.builder_button is not None:
+            _named(
+                self.close_search.builder_button,
+                name="Bulk close regex builder",
+                hint="Build a pattern for both bulk closes.",
+            )
+        root.Add(self.close_search, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
+
+        bulk = wx.BoxSizer(wx.HORIZONTAL)
+        self.include_pinned = wx.CheckBox(self, label="Include pinned")
+        self.include_pinned.SetName("Include pinned tabs in a bulk close")
+        self.include_pinned.Bind(
+            wx.EVT_CHECKBOX, lambda _event: self._update_close_preview()
+        )
+        self.close_contains = StudioButton(
+            self,
+            "Close tabs containing text",
+            variant="danger",
+            on_click=lambda: self._bulk_close(False),
+            hint="Close every tab whose visible label matches the query.",
+        )
+        self.close_not_contains = StudioButton(
+            self,
+            "Close tabs not containing text",
+            variant="danger",
+            on_click=lambda: self._bulk_close(True),
+            hint="Close every tab whose visible label does not match the query.",
+        )
+        bulk.Add(self.include_pinned, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 16)
+        bulk.Add(self.close_contains, 0, wx.RIGHT, 8)
+        bulk.Add(self.close_not_contains, 0)
+        root.Add(bulk, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
+
+        self.close_preview_text = wx.StaticText(self, label="")
+        self.close_preview_text.SetName("Bulk close preview")
+        root.Add(self.close_preview_text, 0, wx.ALL | wx.EXPAND, 16)
 
         self.feedback = wx.StaticText(self, label="")
         self.feedback.SetName("Tab manager status")
-        root.Add(self.feedback, 0, wx.ALL | wx.EXPAND, 16)
+        root.Add(self.feedback, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
+
         actions = wx.BoxSizer(wx.HORIZONTAL)
-        self.activate = wx.Button(self, label="Activate selected")
-        close = wx.Button(self, id=wx.ID_CLOSE, label="Close")
+        self.activate = StudioButton(
+            self,
+            "Activate selected",
+            variant="tonal",
+            on_click=self._activate_selected,
+            hint="Go to the selected match without changing any collapsed group.",
+        )
+        close = StudioButton(
+            self,
+            "Close",
+            variant="outlined",
+            on_click=lambda: self._dismiss(wx.ID_CLOSE),
+        )
         actions.Add(self.activate, 0, wx.RIGHT, 8)
         actions.Add(close, 0)
-        root.Add(actions, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.ALIGN_RIGHT, 16)
+        root.Add(actions, 0, wx.ALL | wx.ALIGN_RIGHT, 16)
         self.SetSizer(root)
 
-        self.search.Bind(wx.EVT_TEXT, self._refresh)
-        self.regex.Bind(wx.EVT_CHECKBOX, self._refresh)
-        self.regex_button.Bind(wx.EVT_BUTTON, self._open_regex_builder)
-        self.close_regex_button.Bind(wx.EVT_BUTTON, self._open_close_regex_builder)
-        self.close_contains.Bind(wx.EVT_BUTTON, lambda event: self._bulk_close(False))
-        self.close_not_contains.Bind(
-            wx.EVT_BUTTON, lambda event: self._bulk_close(True)
-        )
-        self.list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._selection_changed)
-        self.dock.Bind(wx.EVT_CHOICE, self._dock_changed)
-        self.pin.Bind(wx.EVT_CHECKBOX, self._pin_changed)
-        self.group.Bind(wx.EVT_CHOICE, self._group_changed)
-        self.new_group.Bind(wx.EVT_BUTTON, self._new_group)
-        self.activate.Bind(wx.EVT_BUTTON, self._activate_selected)
-        close.Bind(wx.EVT_BUTTON, lambda _event: self.EndModal(wx.ID_CLOSE))
+        self.pages.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self._page_changed)
+        self.pin.Bind(wx.EVT_CHECKBOX, lambda _event: self._pin_changed())
+        for page in self._search_pages():
+            page.on_selection = self._page_selection_changed
         apply_material3(self)
         self._refresh()
+
+    # -- pages ----------------------------------------------------------------
+    def _search_pages(self) -> Tuple[_TabSearchPage, ...]:
+        return (
+            self.strip_page,
+            self.group_page,
+            self.group_name_page,
+            self.master_page,
+        )
+
+    def _active_page(self) -> _TabSearchPage:
+        index = self.pages.GetSelection()
+        pages = self._search_pages()
+        return pages[index] if 0 <= index < len(pages) else self.strip_page
+
+    def _selected_result(self) -> Optional[TabSearchResult]:
+        return self._active_page().selected_result()
+
+    # -- notebook projection ---------------------------------------------------
+    def _page_id(self, index: int) -> str:
+        page = self._notebook.GetPage(index)
+        return getattr(page, "path", None) or (
+            "main-menu" if index == 0 else f"page-{index}"
+        )
 
     def _sync_notebook(self) -> None:
         existing = {item.tab_id for item in self._workspace.state.tabs}
         for index in range(self._notebook.GetPageCount()):
-            page = self._notebook.GetPage(index)
-            tab_id = getattr(page, "path", None) or (
-                "main-menu" if index == 0 else f"page-{index}"
-            )
+            tab_id = self._page_id(index)
             if tab_id not in existing:
                 self._workspace.add_tab(
                     self._notebook.GetPageText(index), tab_id=tab_id
                 )
         self._workspace.state = self._workspace.state.normalised()
 
-    def _matches(self, title: str) -> bool:
-        query = self.search.GetValue()[:256]
-        if not query:
-            return True
-        if self.regex.GetValue():
-            import re
+    # -- refresh ---------------------------------------------------------------
+    def _refresh(self) -> None:
+        self.group_page.sync_groups()
+        self._sync_group_options()
+        for page in self._search_pages():
+            page.refresh()
+        self._page_selection_changed()
+        self._update_close_preview()
 
-            try:
-                return re.search(query, title, self._regex_flags) is not None
-            except re.error:
-                return False
-        return query.casefold() in title.casefold()
+    def _sync_group_options(self) -> None:
+        options: List[Tuple[str, Optional[str]]] = [("No group", None)]
+        seen: dict = {}
+        for group in self._workspace.state.groups:
+            count = seen.get(group.name, 0) + 1
+            seen[group.name] = count
+            label = group.name if count == 1 else f"{group.name} ({count})"
+            options.append((label, group.group_id))
+        self._group_options = options
+        self.group.set_options([label for label, _group_id in options])
 
-    def _refresh(self, _event=None) -> None:
-        self.list.DeleteAllItems()
-        state = self._workspace.state
-        groups = {item.group_id: item.name for item in state.groups}
-        visible = [item for item in state.tabs if self._matches(item.title)]
-        for item in visible:
-            row = self.list.InsertItem(self.list.GetItemCount(), item.title)
-            self.list.SetItem(row, 1, groups.get(item.group_id, "No group"))
-            self.list.SetItem(row, 2, "Yes" if item.pinned else "No")
-            self.list.SetItem(
-                row, 3, "Yes" if item.tab_id == state.active_tab_id else "No"
-            )
-            self.list.SetItemData(row, state.tabs.index(item))
-        for column, width in enumerate((300, 220, 100, 100)):
-            self.list.SetColumnWidth(column, width)
-        self.feedback.SetLabel(
-            f"{len(visible)} of {len(state.tabs)} tabs shown; strip edge is {state.dock.value}."
+    def _group_label_for(self, group_id: Optional[str]) -> str:
+        for label, candidate in self._group_options:
+            if candidate == group_id:
+                return label
+        return "No group"
+
+    def _selected_group_id(self) -> Optional[str]:
+        for label, group_id in self._group_options:
+            if label == self.group.value:
+                return group_id
+        return None
+
+    def _status(self, message: str) -> None:
+        self.feedback.SetLabel(message)
+        self.feedback.SetName(f"Tab manager status: {message}")
+        self.Layout()
+
+    def _dismiss(self, code: int) -> None:
+        """Close the dialog however it was opened.
+
+        ``EndModal`` asserts on a dialog that was never shown modally, so the
+        one route out has to ask which it is rather than assume the frame's
+        current call site is the only one there will ever be.
+        """
+
+        if self.IsModal():
+            self.EndModal(code)
+        else:
+            self.Close()
+
+    # -- selection -------------------------------------------------------------
+    def _page_changed(self, event: wx.Event) -> None:
+        self._page_selection_changed()
+        event.Skip()
+
+    def _page_selection_changed(self) -> None:
+        result = self._selected_result()
+        local = bool(
+            result is not None
+            and result.tab_id is not None
+            and (result.surface_id or self._workspace.surface_id)
+            == self._workspace.surface_id
         )
-        self._selection_changed()
+        self.activate.Enable(result is not None)
+        self.pin.Enable(local)
+        self.group.Enable(local)
+        self.new_group.Enable(local)
+        self.pin.SetValue(bool(result.pinned) if local and result else False)
+        self.group.set_value(
+            self._group_label_for(result.group_id) if local and result else "No group"
+        )
+        if result is None:
+            self._status("Select a match to pin, group, or activate it.")
+        elif result.tab_id is None:
+            self._status(f"“{result.title}” is a group, not a tab: {result.location()}")
+        elif not local:
+            self._status(
+                f"That tab is open in “{result.surface_id}”, not this window; "
+                "pinning and grouping act on this window's own strip."
+            )
+        else:
+            self._status(result.location())
 
-    def _selected_tab(self):
-        row = self.list.GetFirstSelected()
-        if row < 0:
-            return None
-        index = self.list.GetItemData(row)
-        return self._workspace.state.tabs[index]
-
-    def _selection_changed(self, _event=None) -> None:
-        item = self._selected_tab()
-        self.activate.Enable(item is not None)
-        self.pin.SetValue(item.pinned if item else False)
-        self.group.SetSelection(0)
-        if item and item.group_id:
-            for index, group in enumerate(self._workspace.state.groups, 1):
-                if group.group_id == item.group_id:
-                    self.group.SetSelection(index)
-                    break
-
-    def _dock_changed(self, _event) -> None:
-        self._workspace.set_dock(list(TabDock)[self.dock.GetSelection()])
+    # -- organisation ----------------------------------------------------------
+    def _dock_changed(self) -> None:
+        try:
+            dock = TabDock(self.dock.value.lower())
+        except ValueError:
+            self._status(f"Unknown tab strip edge: {self.dock.value}")
+            return
+        self._workspace.set_dock(dock)
         if hasattr(self._notebook, "apply_tab_workspace"):
             self._notebook.apply_tab_workspace()
         self._record_workspace_change("tab strip edge changed")
         self._refresh()
+        self._status(f"Tab strip edge is now {dock.value}.")
 
-    def _pin_changed(self, _event) -> None:
-        item = self._selected_tab()
-        if item:
-            self._workspace.set_pinned(item.tab_id, self.pin.GetValue())
-            self._record_workspace_change("tab pin changed")
-            self._refresh()
-
-    def _group_changed(self, _event) -> None:
-        item = self._selected_tab()
-        if not item:
+    def _pin_changed(self) -> None:
+        result = self._selected_result()
+        if result is None or result.tab_id is None:
             return
-        selection = self.group.GetSelection()
-        group_id = (
-            None
-            if selection <= 0
-            else self._workspace.state.groups[selection - 1].group_id
-        )
-        self._workspace.move_tab(item.tab_id, group_id)
+        self._workspace.set_pinned(result.tab_id, self.pin.GetValue())
+        self._record_workspace_change("tab pin changed")
+        self._refresh()
+
+    def _group_changed(self) -> None:
+        result = self._selected_result()
+        if result is None or result.tab_id is None:
+            return
+        group_id = self._selected_group_id()
+        if group_id == result.group_id:
+            return
+        self._workspace.move_tab(result.tab_id, group_id)
         self._record_workspace_change("tab group changed")
         self._refresh()
 
-    def _new_group(self, _event) -> None:
+    def _new_group(self) -> None:
         dialog = MaterialTextEntryDialog(self, "Group name")
         try:
             if dialog.ShowModal() == wx.ID_OK and dialog.GetValue().strip():
                 self._workspace.add_group(dialog.GetValue().strip())
                 self._record_workspace_change("tab group created")
-                self.group.Append(dialog.GetValue().strip())
                 self._refresh()
         finally:
             dialog.Destroy()
-
-    def _activate_selected(self, _event) -> None:
-        item = self._selected_tab()
-        if not item:
-            return
-        self._workspace.activate_tab(item.tab_id)
-        for index in range(self._notebook.GetPageCount()):
-            page = self._notebook.GetPage(index)
-            tab_id = getattr(page, "path", None) or (
-                "main-menu" if index == 0 else f"page-{index}"
-            )
-            if tab_id == item.tab_id:
-                self._notebook.SetSelection(index)
-                self.EndModal(wx.ID_OK)
-                return
 
     def _record_workspace_change(self, _description: str) -> None:
         """Record organisation changes without making history a hard dependency."""
@@ -263,103 +702,158 @@ class TabManagerDialog(wx.Dialog):
             record_type="settings",
         )
 
-    def _open_regex_builder(self, _event) -> None:
-        with RegexBuilderDialog(
-            self,
-            pattern=self.search.GetValue(),
-            regex_enabled=self.regex.GetValue(),
-            flags=self._regex_flags,
-            sample="World map",
-        ) as dialog:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            self.search.ChangeValue(dialog.pattern)
-            self.regex.SetValue(dialog.regex_enabled)
-            self._regex_flags = dialog.flags
-        self._refresh()
+    # -- activation ------------------------------------------------------------
+    def _activate_selected(self) -> None:
+        result = self._selected_result()
+        if result is None:
+            self._status("Select a match first.")
+            return
+        self._activate_result(result)
 
-    def _open_close_regex_builder(self, _event) -> None:
-        with RegexBuilderDialog(
-            self,
-            pattern=self.close_query.GetValue(),
-            regex_enabled=self.close_regex.GetValue(),
-            flags=self._close_regex_flags,
-            sample="World tab title",
-        ) as dialog:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            self.close_query.ChangeValue(dialog.pattern)
-            self.close_regex.SetValue(dialog.regex_enabled)
-            self._close_regex_flags = dialog.flags
+    def _refused(self, message: str) -> None:
+        """Report why a match could not be opened and hand focus back.
 
-    def _bulk_close(self, inverse: bool) -> None:
-        query = self.close_query.GetValue()[:256].strip()
-        if not query:
-            self.feedback.SetLabel("Bulk close needs a non-empty query")
+        A keyboard user who pressed Enter on a row must land back on that row,
+        not on whatever the tab order happens to reach next; otherwise the one
+        route that failed is also the one that loses their place.
+        """
+
+        self._status(message)
+        self._active_page().list.SetFocus()
+
+    def _activate_result(self, result: TabSearchResult) -> None:
+        """Go to a match, leaving every stored collapsed preference alone."""
+
+        if result.tab_id is None:
+            self._active_page().reveal(result.group_id)
+            self._active_page().refresh()
+            self._refused(
+                f"“{result.title}” is a group. Use the group pages to reach its tabs."
+            )
             return
         try:
-            matcher = RegexBuilder(
-                query,
-                regex_enabled=self.close_regex.GetValue(),
-                flags=self._close_regex_flags,
+            reveal = self._workspace.reveal_tab(
+                result.tab_id, surface_id=result.surface_id or None
             )
-            candidates = []
-            excluded_pinned = 0
-            for tab in self._workspace.state.tabs:
-                matched = bool(matcher.search([tab.title]))
-                if inverse:
-                    matched = not matched
-                if not matched:
-                    continue
-                if tab.pinned and not self.include_pinned.GetValue():
-                    excluded_pinned += 1
-                    continue
-                candidates.append(tab)
-        except (re.error, ValueError, TypeError, OverflowError) as exc:
-            self.feedback.SetLabel(f"Invalid bulk-close query: {exc}")
+        except ValueError as exc:
+            self._refused(str(exc))
             return
-        if not candidates:
-            self.feedback.SetLabel(
-                f"No tabs match; {excluded_pinned} pinned tab(s) protected"
+        if reveal.group_collapsed:
+            for page in self._search_pages():
+                page.reveal(reveal.group_id)
+                page.refresh()
+        if not reveal.activated:
+            self._refused(reveal.reason)
+            return
+        for index in range(self._notebook.GetPageCount()):
+            if self._page_id(index) != reveal.tab_id:
+                continue
+            self._notebook.SetSelection(index)
+            self._status(
+                f"Went to “{reveal.title}”."
+                + (f" {reveal.reason}" if reveal.reason else "")
             )
+            self._dismiss(wx.ID_OK)
             return
-        mode = "containing" if not inverse else "not containing"
-        message = (
-            f"Close {len(candidates)} tab(s) {mode} {query!r}?\n"
-            f"Pinned tabs excluded: {excluded_pinned}. Unsaved-work protection still applies."
+        self._refused(
+            f"“{reveal.title}” is recorded in this workspace but has no open "
+            "page right now; it stays selected for the next time it opens."
+            + (f" {reveal.reason}" if reveal.reason else "")
         )
+
+    # -- bulk closing ----------------------------------------------------------
+    def _preview_for(self, invert: bool) -> BulkClosePreview:
+        """Return the exact set one direction of the bulk close would take."""
+
+        return self._workspace.close_preview(
+            self.close_state.query,
+            regex=bool(self.close_state.regex),
+            flags=self.close_state.flags,
+            invert=invert,
+            include_pinned=self.include_pinned.GetValue(),
+        )
+
+    def _update_close_preview(self) -> None:
+        """Show both directions of the same predicate before either is run."""
+
+        containing = self._preview_for(False)
+        if containing.error:
+            self.close_preview_text.SetLabel(containing.error)
+            self.close_preview_text.SetName(f"Bulk close preview: {containing.error}")
+            self.Layout()
+            return
+        inverse = self._preview_for(True)
+        message = (
+            f"Containing: {containing.describe()} "
+            f"Not containing: {inverse.describe()} "
+            "Matching reads the visible label only, on this window's strip."
+        )
+        self.close_preview_text.SetLabel(message)
+        self.close_preview_text.SetName(f"Bulk close preview: {message}")
+        self.Layout()
+
+    def _confirmation_text(self, preview: BulkClosePreview) -> str:
+        titles = [tab.title for tab in preview.matched[:_PREVIEW_ROWS]]
+        remainder = len(preview.matched) - len(titles)
+        listing = "\n".join(f"  • {title}" for title in titles)
+        if remainder > 0:
+            listing += f"\n  • …and {remainder} more"
+        protected = (
+            f"{len(preview.protected_pinned)} pinned tab(s) excluded."
+            if preview.protected_pinned
+            else "No pinned tab was excluded."
+        )
+        return (
+            f"Close {len(preview.matched)} tab(s) matching {preview.mode} "
+            f"“{preview.query}”?\n\n{listing}\n\n"
+            f"{protected} Unsaved-work protection still applies."
+        )
+
+    def _bulk_close(self, inverse: bool) -> None:
+        preview = self._preview_for(inverse)
+        self._update_close_preview()
+        if not preview.is_runnable():
+            self._status(preview.describe())
+            return
         if (
             show_material_confirmation(
-                self, message, wx.YES | wx.NO | wx.CANCEL, "Close tabs"
+                self,
+                self._confirmation_text(preview),
+                wx.YES | wx.NO | wx.CANCEL,
+                "Close tabs",
             )
             != wx.ID_YES
         ):
+            self._status("Bulk close cancelled; nothing was closed.")
             return
         closed = 0
-        skipped = 0
-        for tab in candidates:
+        protected = 0
+        missing = 0
+        main_menu = getattr(self._notebook, "_main_menu", None)
+        for tab in preview.matched:
             for index in range(self._notebook.GetPageCount()):
-                page = self._notebook.GetPage(index)
-                page_id = getattr(page, "path", None) or (
-                    "main-menu" if index == 0 else f"page-{index}"
-                )
-                if page_id != tab.tab_id:
+                if self._page_id(index) != tab.tab_id:
                     continue
-                if page is self._notebook._main_menu:
-                    skipped += 1
+                page = self._notebook.GetPage(index)
+                path = getattr(page, "path", None)
+                if page is main_menu or not path:
+                    protected += 1
+                    break
+                before = self._notebook.GetPageCount()
+                self._notebook.close_level(path)
+                if self._notebook.GetPageCount() < before:
+                    closed += 1
                 else:
-                    before = self._notebook.GetPageCount()
-                    self._notebook.close_level(page.path)
-                    if self._notebook.GetPageCount() < before:
-                        closed += 1
-                    else:
-                        skipped += 1
+                    protected += 1
                 break
+            else:
+                missing += 1
         self._sync_notebook()
         self._record_workspace_change("bulk tabs closed")
         self._refresh()
-        self.feedback.SetLabel(
-            f"Closed {closed} tab(s); {skipped} skipped by close protection or unavailable pages"
+        self._status(
+            f"Closed {closed} tab(s). {protected} kept open by close or "
+            f"unsaved-work protection; {missing} had no open page to close."
         )
 
 

@@ -103,7 +103,13 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         )
         self._sizer.Add(self._mode_description, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
 
-        self._mode_description.SetLabel(
+        # ChangeValue rather than SetLabel: a wx.TextCtrl asserts on SetLabel
+        # ("Use SetValue() or ChangeValue() instead") and that assertion took
+        # the whole panel down with it, so this operation built no Run button
+        # and could not be run at all.  ChangeValue rather than SetValue because
+        # this is the description telling the user what the mode does, not the
+        # user typing, and it should not raise a text event.
+        self._mode_description.ChangeValue(
             MODES[self._mode.GetString(self._mode.GetSelection())]
         )
         self._mode_description.Fit()
@@ -132,7 +138,7 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         return (1,)
 
     def _on_mode_change(self, evt):
-        self._mode_description.SetLabel(
+        self._mode_description.ChangeValue(
             MODES[self._mode.GetString(self._mode.GetSelection())]
         )
         self._mode_description.Fit()
@@ -171,7 +177,8 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         )
 
     def _run_operation(self, _):
-        self.canvas.run_operation(lambda: self._waterlog())
+        """Waterlog and return the outcome; see ``SimpleOperationPanel``."""
+        return self.canvas.run_operation(lambda: self._waterlog())
 
     def _waterlog(self):
         mode = self._mode.GetString(self._mode.GetSelection())

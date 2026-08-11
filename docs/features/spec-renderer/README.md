@@ -51,6 +51,34 @@ markup and no new window class.
 A surface the renderer genuinely cannot express gets a hand-built window and a
 route in the same index. Two exist: the NBT editor and the Memory Console.
 
+### A surface whose content is live is rebuilt, not written down
+
+A spec family may also expose a `REBUILDERS` mapping of surface key to a
+no-argument builder. `specs.get()` calls it instead of serving the import-time
+snapshot, so the window shows the state it is opened in rather than the state
+the package was imported in. A rebuilder that fails falls back to the snapshot
+and logs it — a slightly stale window beats a window that will not open.
+
+**Key Select is the one that needs it.** Its rows are the 3D editor's own action
+list, in the editor's own order, each resolved against the key group the editor
+is actually listening to through
+`amulet_map_editor/api/studio/keys.py`. That module is the single place any
+surface reads those bindings — the viewport's right-click menu reads it too — so
+a printed key and a working key cannot be two different things.
+
+They had been. The rows were transcribed from the design, and the design and
+the editor did not agree: measured against the shipped key group, this window
+offered `MMB` for Rotate Camera (really `RMB`), `Ctrl+Scroll` for both selection
+distance rows (really `R` and `F`), `Esc` for Deselect Active Box (really
+`Ctrl+D`), `RMB` for Inspect Block (really `Alt`) and `P` for Toggle Projection
+(really `Tab`) — six wrong keys in the window a user opens to learn the keys,
+and the shipped defaults on top of that for anyone who had rebound one.
+
+An action the active group binds nothing to reads `not bound`. A configuration
+that cannot be read at all produces a section that says so, rather than an empty
+grid or the shipped defaults — which are exactly the keys somebody who rebound
+them no longer presses.
+
 ## Configuration
 
 Section kinds are a closed set; `sec()` refuses an unknown one at construction
@@ -92,6 +120,22 @@ section; that every section kind is one the renderer draws and every kind is
 actually used by something; that no section is empty of what its kind promises;
 that every range, select, and progress value is internally consistent; and that
 every footer action resolves to a real surface or a real command.
+
+```powershell
+py -3 -m pytest tests/test_help_surfaces_print_live_keys.py -q
+```
+
+That file guards the keys a surface prints against the keys that work. Its
+first test compares Key Select's rows with the live lookup, which on its own
+would pass on any two things that agree — including two blanks — so two more
+sit behind it: one proving the lookup answers with a real key for every row,
+and one that changes the user's key group underneath the surface and asserts
+the printed keys move with it. A written-down string cannot pass that last one.
+It also asserts that no menu row restates an accelerator the shared table
+already binds, that the command registry's table and the context menus' table
+say the same thing, and that pressing the chord the title bar advertises really
+does open the command palette. Every one of them was watched failing against a
+deliberate break before it was kept.
 
 Suggested articles: [project shell](../project-shell/README.md),
 [ribbon](../ribbon/README.md),

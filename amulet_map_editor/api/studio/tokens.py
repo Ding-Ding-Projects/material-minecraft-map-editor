@@ -382,13 +382,66 @@ def control_height() -> int:
     """
     prefs = _presentation()
     base = DENSITY_HEIGHTS.get(density(), DENSITY_HEIGHTS["comfortable"])
-    return max(1, round(base * prefs.ui_scale))
+    return max(1, round(base * prefs.ui_scale * _dpi_factor))
+
+
+#: The display scale the interface is currently drawing for, as a multiple of
+#: the 96 DPI baseline every pixel constant in this module is written against.
+#: Cached because :func:`scaled` is called thousands of times per repaint and
+#: asking the toolkit each time would put a system call inside a paint loop.
+_dpi_factor: float = 1.0
+
+
+def dpi_factor() -> float:
+    """Return the display scale the pixel constants are being drawn at."""
+    return _dpi_factor
+
+
+def refresh_dpi(window: "Optional[wx.Window]" = None) -> float:
+    """Re-read the display scale and return it.
+
+    Call this when a top-level window is created and again whenever the toolkit
+    reports a DPI change -- a window dragged from a laptop panel to an external
+    monitor crosses a scale boundary without any resize the application would
+    otherwise notice.
+    """
+    global _dpi_factor
+    factor = 1.0
+    try:
+        if window is not None:
+            factor = float(window.GetDPIScaleFactor())
+        else:
+            # No window yet: ask the screen. This path runs once at startup,
+            # so the cost of a ScreenDC does not matter here.
+            factor = wx.ScreenDC().GetPPI().height / 96.0
+    except (AttributeError, RuntimeError, ZeroDivisionError):
+        log.debug("Could not read the display scale", exc_info=True)
+        return _dpi_factor
+    # A nonsensical reading is worse than the previous one: a zero would
+    # collapse every size in the interface to a single pixel.
+    if not 0.25 <= factor <= 8.0:
+        return _dpi_factor
+    _dpi_factor = factor
+    return _dpi_factor
 
 
 def scaled(value: int) -> int:
-    """Scale a spacing or size token by the persisted interface scale."""
+    """Scale a spacing or size token to the display, then by the user's choice.
+
+    Two multipliers, and they answer different questions.  The display scale
+    turns a constant written for a 96 DPI screen into the right *physical* size
+    on whatever panel this is -- without it, declaring DPI awareness would
+    simply swap an interface that was too big for one that is too small.  The
+    persisted interface scale is then the user's own adjustment on top, for
+    whom the correct physical size is still not the comfortable one.
+
+    Font point sizes deliberately do NOT get the display multiplier: a point is
+    a physical unit, and the toolkit already converts it using the real device
+    DPI once the process is DPI-aware.  Applying it in both places is the
+    doubled scaling this whole change exists to remove.
+    """
     prefs = _presentation()
-    return max(1, round(float(value) * prefs.ui_scale))
+    return max(1, round(float(value) * prefs.ui_scale * _dpi_factor))
 
 
 @dataclass(frozen=True)

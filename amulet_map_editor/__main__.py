@@ -306,6 +306,13 @@ def _app_main() -> int:
 
         log.debug("Finished importing")
 
+        # Before the first window exists, and before wx reads the display.
+        # Windows fixes a process's DPI awareness the first time it is asked
+        # for, so this cannot be moved later or repaired afterwards.
+        from amulet_map_editor.api import dpi as _dpi
+
+        log.debug("DPI awareness: %s", _dpi.declare_awareness())
+
         app = AmuletApp(0)
         app.MainLoop()
     except Exception as e:

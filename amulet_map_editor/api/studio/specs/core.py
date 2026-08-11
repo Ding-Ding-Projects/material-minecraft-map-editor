@@ -11,8 +11,9 @@ single place rather than scattered across two dozen dialogs.
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Callable, Dict, List
 
+from amulet_map_editor.api.studio import keys as studio_keys
 from amulet_map_editor.api.studio.spec import (
     Action,
     Check,
@@ -21,6 +22,7 @@ from amulet_map_editor.api.studio.spec import (
     KeyBinding,
     RangeDef,
     Row,
+    Section,
     Select,
     Spec,
     SwatchDef,
@@ -47,6 +49,83 @@ _DOCS_ARTICLE = (
 _APPEARANCE_TARGET = (
     "element: ribbon/home/clipboard/paste\n" "role:    primary-container"
 )
+
+
+def _controls_spec(read_keys: bool = True) -> Spec:
+    """Build the Key Select surface from the key group the editor listens to.
+
+    **Every key on this surface is read, never written down.**  It had been
+    transcribed from the design instead, and the design and the editor did not
+    agree: measured against the shipped key group, this window offered ``MMB``
+    for "Rotate Camera" (really ``RMB``), ``Ctrl+Scroll`` for both selection
+    distance rows (really ``R`` and ``F``), ``Esc`` for "Deselect Active Box"
+    (really ``Ctrl+D``), ``RMB`` for "Inspect Block" (really ``Alt``) and ``P``
+    for "Toggle Projection" (really ``Tab``).  Six wrong keys in the one window
+    a user opens *to learn the keys* -- and a user who had rebound any of them
+    was being taught the shipped default on top of that.
+
+    The rows are the editor's own action list in the editor's own order, so an
+    action the editor gains appears here without anybody editing this file, and
+    the active group is named rather than assumed: the keys below belong to one
+    group, and saying which one is what makes them checkable.
+
+    A configuration that cannot be read keeps its bindings section and says in
+    it that the keys are unknown.  Dropping the section would read as a window
+    that failed to load, and filling it from the shipped defaults would print
+    exactly the keys a user who rebound them no longer presses.
+    """
+    groups = studio_keys.read_key_groups() if read_keys else studio_keys.KeyGroups()
+    bindings = (studio_keys.editor_bindings() if read_keys else ()) or (
+        KeyBinding(*studio_keys.UNREADABLE),
+    )
+
+    selects = []
+    if groups.ids:
+        selects.append(Select("Active group", tuple(groups.ids), groups.active))
+    selects.append(Select("Action set", ("3D editor", "Selection", "Camera")))
+
+    sections: List[Section] = [
+        sec("Key group", "selects", selects=selects),
+        sec("Bindings", "keys", keys=list(bindings)),
+    ]
+    if groups.active:
+        note = (
+            f"Read from the 3D editor's active key group “{groups.active}”. "
+            "Every key above is the key that group is bound to right now, not "
+            "a shipped default."
+        )
+    else:
+        note = (
+            "The 3D editor's key configuration could not be read, so no key is "
+            "listed above. Nothing is shown rather than the shipped defaults, "
+            "which are exactly the keys somebody who rebound them no longer "
+            "presses."
+        )
+    sections.append(sec("", "note", hint=note))
+
+    return Spec(
+        key="controls",
+        eyebrow="Key configuration",
+        title="Key Select",
+        width=720,
+        confirm="Save group",
+        intro=(
+            "Press the key you want assigned to an action. The active key group is "
+            "not editable; editing offers to create a new group."
+        ),
+        sections=tuple(sections),
+        actions=(
+            Action("New group", "tonal"),
+            Action("Reset group", "outlined"),
+        ),
+    )
+
+
+#: Surfaces in this family that are rebuilt on every open rather than served
+#: from the import-time snapshot below.  The Key Select window reads the user's
+#: live key group, and a key group changed during a session must not leave the
+#: window teaching the keys it was opened with the first time.
+REBUILDERS: Dict[str, Callable[[], Spec]] = {"controls": _controls_spec}
 
 
 SPECS: Dict[str, Spec] = {
@@ -124,59 +203,16 @@ SPECS: Dict[str, Spec] = {
             Action("Open repository in VS Code", "outlined"),
         ),
     ),
-    "controls": Spec(
-        key="controls",
-        eyebrow="Key configuration",
-        title="Key Select",
-        width=720,
-        confirm="Save group",
-        intro=(
-            "Press the key you want assigned to an action. The active key group is "
-            "not editable; editing offers to create a new group."
-        ),
-        sections=(
-            sec(
-                "Key group",
-                "selects",
-                selects=[
-                    Select(
-                        "Active group",
-                        ("Amulet default", "Numpad camera", "Left-handed"),
-                    ),
-                    Select("Action set", ("3D editor", "Selection", "Camera")),
-                ],
-            ),
-            sec(
-                "Bindings",
-                "keys",
-                keys=[
-                    KeyBinding("Move Up", "Space"),
-                    KeyBinding("Move Down", "Shift"),
-                    KeyBinding("Move Forwards", "W"),
-                    KeyBinding("Move Backwards", "S"),
-                    KeyBinding("Move Left", "A"),
-                    KeyBinding("Move Right", "D"),
-                    KeyBinding("Select Box", "LMB"),
-                    KeyBinding("Add Box", "Ctrl+LMB"),
-                    KeyBinding("Rotate Camera", "MMB"),
-                    KeyBinding("Increase Speed (3D)", "Scroll ↑"),
-                    KeyBinding("Decrease Speed (3D)", "Scroll ↓"),
-                    KeyBinding("Zoom In (2D)", "Scroll ↑"),
-                    KeyBinding("Zoom Out (2D)", "Scroll ↓"),
-                    KeyBinding("Increase Selection Distance", "Ctrl+Scroll ↑"),
-                    KeyBinding("Decrease Selection Distance", "Ctrl+Scroll ↓"),
-                    KeyBinding("Deselect All Boxes", "Ctrl+Shift+D"),
-                    KeyBinding("Deselect Active Box", "Esc"),
-                    KeyBinding("Inspect Block", "RMB"),
-                    KeyBinding("Toggle Projection", "P"),
-                ],
-            ),
-        ),
-        actions=(
-            Action("New group", "tonal"),
-            Action("Reset group", "outlined"),
-        ),
-    ),
+    # Built WITHOUT reading the key table. The rebuilder below reads it on
+    # every open, so this snapshot is only ever the fallback -- and reading at
+    # import time cost the "registries are readable without a display"
+    # contract: importing the registry on a host with no wx made the reader
+    # warn to stderr about a key configuration nobody had asked for yet.
+    #
+    # The fallback stays honest rather than becoming a stub: it keeps its
+    # bindings section and says in it that the keys are unknown, which is
+    # exactly what should be shown if the rebuilder ever fails too.
+    "controls": _controls_spec(read_keys=False),
     "goto": Spec(
         key="goto",
         eyebrow="Camera",
