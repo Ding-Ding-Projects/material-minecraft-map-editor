@@ -60,9 +60,7 @@ def capture_window(
     back effectively blank, because a blank capture is worse than none: it looks
     like evidence.
     """
-    window.Refresh()
-    window.Update()
-    wx.Yield()
+    settle(window)
 
     size = window.GetClientSize()
     if size.width < 1 or size.height < 1:
@@ -100,3 +98,122 @@ def capture_top_level(
     """Capture the frame that owns ``window``, including its chrome."""
     top: Optional[wx.Window] = window.GetTopLevelParent()
     return capture_window(top or window, path, require_content=require_content)
+
+
+def settle(window: wx.Window, *, passes: int = 6) -> None:
+    """Lay out and repaint ``window`` until its tree has stopped moving.
+
+    A capture taken one event-loop turn after a view is shown photographs a
+    half-built tree: children exist and report their sizes, but nothing has
+    painted yet, so the picture comes back as the container's background alone.
+    That is not a rendering defect and it looks exactly like one -- it cost this
+    project an afternoon of chasing a ribbon that was drawing perfectly.
+
+    Several layout-and-paint passes are cheap and remove the whole class.
+    """
+    for _ in range(max(1, passes)):
+        window.Layout()
+        window.Refresh()
+        window.Update()
+        wx.Yield()
+        wx.SafeYield()
+
+
+def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> int:
+    """Blit one window's own surface into ``target`` at ``origin``.
+
+    Returns the number of pixels copied, or 0 when the window has no surface
+    that can be read this way -- an OpenGL canvas being the case that matters,
+    since its pixels live in the GL framebuffer rather than in a device context.
+    """
+    size = window.GetClientSize()
+    if size.width < 1 or size.height < 1:
+        return 0
+    try:
+        source = wx.ClientDC(window)
+        target.Blit(origin.x, origin.y, size.width, size.height, source, 0, 0)
+    except Exception:
+        log.debug("Could not blit %s", window.GetName(), exc_info=True)
+        return 0
+    return size.width * size.height
+
+
+def capture_composite(
+    window: wx.Window,
+    path: str | Path,
+    *,
+    require_content: bool = True,
+) -> dict:
+    """Capture a container by compositing it and every visible descendant.
+
+    A client-device-context blit of a *container* returns only what the
+    container itself painted: on Windows its child windows are separate surfaces
+    and do not appear.  That is why a capture of the ribbon can come back with
+    a hundred distinct colours from its own background gradient while every
+    button on it is missing, and why a colour count is not a usable gate --
+    antialiasing on two stray native controls clears any floor worth setting.
+
+    This walks the tree and blits each visible window into one bitmap at its own
+    position, so the picture is assembled from the same surfaces the user sees
+    rather than requested from the operating system.  It returns a report naming
+    how many descendants contributed, so a caller can assert on structure rather
+    than on colour: a ribbon that composites two children is broken no matter
+    how colourful it is.
+    """
+    settle(window)
+
+    size = window.GetClientSize()
+    if size.width < 1 or size.height < 1:
+        raise RuntimeError(f"{window.GetName() or window!r} has no client area")
+
+    bitmap = wx.Bitmap(size)
+    memory = wx.MemoryDC(bitmap)
+    root_origin = window.ClientToScreen(wx.Point(0, 0))
+    contributed = 0
+    skipped: list[str] = []
+
+    try:
+        _paint_into(window, memory, wx.Point(0, 0))
+        pending = [window]
+        while pending:
+            parent = pending.pop(0)
+            for child in parent.GetChildren():
+                if not child.IsShown():
+                    continue
+                child_origin = child.ClientToScreen(wx.Point(0, 0))
+                offset = wx.Point(
+                    child_origin.x - root_origin.x, child_origin.y - root_origin.y
+                )
+                if _paint_into(child, memory, offset):
+                    contributed += 1
+                else:
+                    skipped.append(child.GetName() or type(child).__name__)
+                pending.append(child)
+    finally:
+        memory.SelectObject(wx.NullBitmap)
+
+    image = bitmap.ConvertToImage()
+    colours = _distinct_colours(image)
+    if require_content and contributed < 1:
+        raise RuntimeError(
+            f"{window.GetName() or window!r} composited no descendants; the "
+            "capture shows only the container's own background"
+        )
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not image.SaveFile(str(target), wx.BITMAP_TYPE_PNG):
+        raise RuntimeError(f"Could not write the capture to {target}")
+    report = {
+        "path": str(target),
+        "colours": colours,
+        "descendants": contributed,
+        "skipped": skipped,
+        "size": (size.width, size.height),
+        # A colour count says something drew; it cannot say the interface drew.
+        # Antialiasing on two stray native controls clears any floor worth
+        # setting, so the count is evidence to record, never a gate to pass.
+        "gate": "a person must look at a sample of every run",
+    }
+    log.info("composited %s: %s", window.GetName(), report)
+    return report
