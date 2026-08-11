@@ -1916,8 +1916,10 @@ class NbtStudioDialog(wx.Dialog):
             "✕",
             variant="icon",
             on_click=self.close,
+            # The accessible name names the button; the hint is its tooltip,
+            # which is the application explaining and keeps its tone.
             name=_label("Close this window", "關閉此視窗"),
-            hint=_label("Close this window", "關閉此視窗"),
+            hint=_text("Close this window", "關閉此視窗"),
             height=30,
             min_width=34,
         )

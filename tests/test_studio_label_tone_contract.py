@@ -22,6 +22,17 @@ The stock asides are *derived from* :func:`amulet_map_editor.api.tts_narrator.
 style_text` rather than copied here, by styling a sentinel at every level in
 both languages and keeping what was appended.  A sixth aside added tomorrow is
 therefore covered the moment it exists, and this file needs no edit.
+
+And the contract runs the other way too, which is the half that was missing.
+Forbidding tone on a name catches a message built with the wrong function only
+if somebody happens to look; nothing about a silent, deadpan sentence *fails*.
+It shipped that way as well: the five template cards on Home and the four
+source rows on Open had their description sentences quietly moved onto the
+label function, so the paragraph above the cards moved with the funny level and
+every sentence below it went flat.  Nine strings, all of them full sentences,
+and the whole suite stayed green -- because a guard that only forbids can only
+ever notice the thing that was done, never the thing that stopped being done.
+:data:`TONED_MESSAGE_SURFACES` is the hand-written other half.
 """
 
 from __future__ import annotations
@@ -35,6 +46,7 @@ wx = pytest.importorskip("wx", reason="wxPython is not installed in this environ
 
 from amulet_map_editor.api import preferences, tts_narrator  # noqa: E402
 from amulet_map_editor.api.studio import copy as studio_copy  # noqa: E402
+from amulet_map_editor.api.studio import backstage  # noqa: E402
 from amulet_map_editor.api.studio import palette_dialog, title_bar  # noqa: E402
 
 #: The corner the host frame lives at, so running this on a visible desktop
@@ -290,3 +302,145 @@ def test_every_palette_row_label_is_built_without_tone(profile, host, mode):
         ["palette row labels carrying a narrator aside:"]
         + ["  " + line for line in offenders[:12]]
     )
+
+
+# ----------------------------------------------------------------------
+# The other half: messages that must still be styled.
+# ----------------------------------------------------------------------
+
+
+def _template_cards(parent: wx.Window) -> List[Tuple[str, wx.Window]]:
+    """Build every Home template card for real."""
+    return [
+        (f"template:{template.title}", backstage._TemplateCard(parent, template))
+        for template in backstage.TEMPLATES
+    ]
+
+
+def _source_rows(parent: wx.Window) -> List[Tuple[str, wx.Window]]:
+    """Build every Open source row for real."""
+    return [
+        (f"source:{source.title}", backstage._SourceRow(parent, source))
+        for source in backstage.OPEN_SOURCES
+    ]
+
+
+#: Surfaces whose painted prose MUST move with the funny level, written out by
+#: hand rather than discovered.
+#:
+#: Hand-written is the whole point.  A rule that says "whatever prose is here
+#: must be toned" is satisfied by a surface with no prose left on it, so it goes
+#: on passing while the sentences it was guarding disappear one at a time.  This
+#: list names the surface, so removing the last toned string from one of them
+#: fails here and has to be argued for rather than merely happening.
+#:
+#: Each entry is (name, builder, attribute holding the painted message).  The
+#: attribute is the card's ``hint`` in both cases: the sentence painted under
+#: the title, and the same string handed to ``SetToolTip``.
+TONED_MESSAGE_SURFACES: Tuple = (
+    ("Home template cards", _template_cards, "hint"),
+    ("Open source rows", _source_rows, "hint"),
+)
+
+
+@pytest.mark.parametrize("mode", LANGUAGE_MODES)
+@pytest.mark.parametrize(
+    "surface",
+    TONED_MESSAGE_SURFACES,
+    ids=[entry[0] for entry in TONED_MESSAGE_SURFACES],
+)
+def test_a_card_description_still_reads_in_the_readers_voice(
+    profile, host, mode, surface
+):
+    """Every card's description sentence carries the level-five aside.
+
+    These are messages by every test the project applies: full sentences, ending
+    in sentence punctuation, the application explaining rather than naming.  They
+    are painted under the title and handed to ``SetToolTip``, and both of those
+    are the application talking.
+    """
+    name, builder, attribute = surface
+    _at_maximum_playfulness(mode)
+    built = builder(host)
+    try:
+        assert built, f"{name} built nothing, so this assertion proves nothing"
+        flat: List[str] = []
+        for where, control in built:
+            text = str(getattr(control, attribute, "") or "")
+            assert text, f"{where}.{attribute} is empty"
+            if not any(aside in text for aside in ASIDES):
+                flat.append(f"{where}.{attribute} = {text!r}")
+        assert not flat, "\n".join(
+            [
+                f"{name}: {len(flat)} of {len(built)} description(s) went deadpan "
+                f"at funny level five in {mode} -- a message built with the label "
+                f"function, which strips the tone the sliders exist to apply:"
+            ]
+            + ["  " + line for line in flat]
+        )
+    finally:
+        for _where, control in built:
+            control.Destroy()
+        wx.Yield()
+
+
+@pytest.mark.parametrize(
+    "surface",
+    TONED_MESSAGE_SURFACES,
+    ids=[entry[0] for entry in TONED_MESSAGE_SURFACES],
+)
+def test_those_descriptions_are_prose_the_tone_can_actually_reach(surface):
+    """Guarding the guard: tone leaves a short unpunctuated string alone.
+
+    If every description were three words long the assertion above would be
+    unfalsifiable -- ``studio_text`` would return them unchanged and a reader
+    would conclude the tone was broken.  Each one is checked here to be prose
+    the styling would really have touched.
+    """
+    name, builder, _attribute = surface
+    sources = (
+        backstage.TEMPLATES if builder is _template_cards else backstage.OPEN_SOURCES
+    )
+    verbatim = [
+        source.hint for source in sources if studio_copy.is_verbatim(source.hint)
+    ]
+    assert not verbatim, (
+        f"{name}: {len(verbatim)} description(s) are short enough that the funny "
+        f"level would leave them alone either way, so the test above cannot fail "
+        f"on them: {verbatim}"
+    )
+
+
+@pytest.mark.parametrize("mode", LANGUAGE_MODES)
+@pytest.mark.parametrize(
+    "surface",
+    TONED_MESSAGE_SURFACES,
+    ids=[entry[0] for entry in TONED_MESSAGE_SURFACES],
+)
+def test_the_title_above_each_description_stays_a_name(profile, host, mode, surface):
+    """The two halves of the contract, on one control, at the same moment.
+
+    A card is where the distinction is easiest to see and easiest to get wrong:
+    the title names the card and takes no tone, the sentence two lines below it
+    is the application talking and does.  ``Pick from a detected Minecraft
+    install`` is the title that shipped with an aside appended at title weight,
+    which is what started all of this.
+    """
+    name, builder, _attribute = surface
+    _at_maximum_playfulness(mode)
+    built = builder(host)
+    try:
+        offenders = _offenders(
+            [
+                (f"{where}.title", str(getattr(control, "title", "") or ""))
+                for where, control in built
+            ]
+        )
+        assert not offenders, "\n".join(
+            [f"{name}: card titles carrying a narrator aside:"]
+            + ["  " + line for line in offenders]
+        )
+    finally:
+        for _where, control in built:
+            control.Destroy()
+        wx.Yield()

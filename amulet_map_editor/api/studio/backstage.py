@@ -855,8 +855,12 @@ class _TemplateCard(_HoverControl):
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.template = template
         self.on_choose = on_click
+        # The title names the card and the hint is the sentence underneath it
+        # explaining what the card does -- a name and a message sitting two
+        # lines apart, which is why they take different functions.  All five
+        # hints are full sentences and all five are also this card's tooltip.
         self.title = studio_label(template.title, template.cantonese_title)
-        self.hint = studio_label(template.hint, template.cantonese_hint)
+        self.hint = studio_text(template.hint, template.cantonese_hint)
         name = f"{template.title} — {template.hint}"
         if template.unavailable:
             # On the card, in the tooltip, and in the accessible name: a card
@@ -1451,8 +1455,10 @@ class _SourceRow(_HoverControl):
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.source = source
         self.on_choose = on_click
+        # Same split as ``_TemplateCard``: the row's title names it, the hint
+        # below is the application explaining it and keeps its tone.
         self.title = studio_label(source.title, source.cantonese_title)
-        self.hint = studio_label(source.hint, source.cantonese_hint)
+        self.hint = studio_text(source.hint, source.cantonese_hint)
         self._width = 0
         self._setup(f"{source.title} — {source.hint}")
         self.SetToolTip(self.hint)
