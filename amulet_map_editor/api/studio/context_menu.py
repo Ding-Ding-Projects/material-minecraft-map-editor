@@ -55,6 +55,7 @@ from typing import (
 
 import wx
 
+from amulet_map_editor.api.studio import keys as studio_keys
 from amulet_map_editor.api.studio import tokens, widgets
 from amulet_map_editor.api.studio.search import SearchState
 
@@ -243,72 +244,17 @@ def accelerator_table_entries(
     return entries
 
 
-#: How the 3D editor's serialised key names read in a menu.
-_KEY_NAMES: Mapping[str, str] = MappingProxyType(
-    {
-        "MOUSE_LEFT": "LMB",
-        "MOUSE_MIDDLE": "MMB",
-        "MOUSE_RIGHT": "RMB",
-        "MOUSE_AUX_1": "Mouse 4",
-        "MOUSE_AUX_2": "Mouse 5",
-        "MOUSE_WHEEL_SCROLL_UP": "Scroll up",
-        "MOUSE_WHEEL_SCROLL_DOWN": "Scroll down",
-        "CTRL": "Ctrl",
-        "SHIFT": "Shift",
-        "ALT": "Alt",
-        "SPACE": "Space",
-        "TAB": "Tab",
-        "ESCAPE": "Esc",
-    }
-)
+#: How the 3D editor's serialised key names read in a menu.  The table and the
+#: lookups below live in :mod:`amulet_map_editor.api.studio.keys`, which is the
+#: one place any surface reads the live key group: the menu and the Key Select
+#: window both print those bindings, and two copies of this arithmetic is
+#: exactly how they would come to disagree about what a user has bound.
+_KEY_NAMES: Mapping[str, str] = studio_keys.KEY_NAMES
 
-
-def _active_keybinds() -> Mapping[str, Tuple[Sequence[str], str]]:
-    """Return the 3D editor's live key group, or an empty mapping.
-
-    The viewport's bindings are user-configurable, so they are read rather than
-    assumed.  Every failure route returns nothing, which makes the affected
-    readout show no accelerator instead of the shipped default the user may
-    well have replaced.
-    """
-    try:
-        from amulet_map_editor.api import config
-        from amulet_map_editor.programs.edit.api.key_config import (
-            DefaultKeybindGroupId,
-            PresetKeybinds,
-        )
-    except Exception:  # pragma: no cover - optional editor package
-        return {}
-    try:
-        edit_config = config.get("amulet_edit", {}) or {}
-        group_id = edit_config.get("keybind_group", DefaultKeybindGroupId)
-        user_groups = edit_config.get("user_keybinds", {}) or {}
-        group = user_groups.get(group_id) or PresetKeybinds.get(group_id)
-        if not group:
-            group = PresetKeybinds.get(DefaultKeybindGroupId, {})
-        return group or {}
-    except Exception:  # pragma: no cover - a hand-edited profile
-        log.exception("Could not read the active 3D editor key group")
-        return {}
-
-
-def viewport_accelerator(action: str) -> str:
-    """Return the live binding for a 3D editor action such as ``ACT_MOVE_UP``.
-
-    An unknown or unreadable action returns an empty string rather than the
-    shipped default, because the shipped default is exactly what a user who
-    rebound the action no longer presses.
-    """
-    binding = _active_keybinds().get(str(action))
-    if not binding:
-        return ""
-    try:
-        modifiers, key = binding
-    except (TypeError, ValueError):
-        return ""
-    parts = [_KEY_NAMES.get(str(part), str(part)) for part in tuple(modifiers)]
-    parts.append(_KEY_NAMES.get(str(key), str(key)))
-    return "+".join(part for part in parts if part)
+#: Re-exported so callers that already ask this module keep working; the reading
+#: itself belongs to :mod:`amulet_map_editor.api.studio.keys`.
+_active_keybinds = studio_keys.active_keybinds
+viewport_accelerator = studio_keys.viewport_accelerator
 
 
 # ----------------------------------------------------------------------------
@@ -475,7 +421,10 @@ def _ribbon_menu() -> Tuple[MenuItem, ...]:
         _item("Customize tool settings…", accel="", surface="toolSettings"),
         _item("Key configuration…", accel="", surface="controls"),
         _item("Options…", accel="", surface="prefs"),
-        _item("Command palette", accel="Ctrl+Shift+F", surface="palette"),
+        # The design states ``Ctrl+Shift+F`` here and the table binds the same
+        # key, so the row resolves it rather than restating it: a written-down
+        # copy of a binding is a copy that can stop matching the binding.
+        _item("Command palette", surface="palette"),
         _APPEARANCE,
     )
 

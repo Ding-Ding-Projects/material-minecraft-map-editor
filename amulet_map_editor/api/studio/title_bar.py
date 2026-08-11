@@ -64,8 +64,39 @@ BADGE_SIZE = 14
 CLOSE_HOVER_FILL = "#B3261E"
 CLOSE_HOVER_INK = "#FFFFFF"
 
+
+def _palette_chord() -> Tuple[int, int]:
+    """Return the palette chord as ``(modifier flags, key code)``.
+
+    Parsed from the shell's own accelerator table, so the chord the character
+    hook listens for, the chord the pill advertises, and the row every menu
+    draws are one binding rather than four copies of one.  A table this
+    platform cannot express falls back to the documented chord and says so,
+    because a title bar that cannot open the palette at all is worse than one
+    bound to a stale key.
+    """
+    fallback = (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F"))
+    try:
+        from amulet_map_editor.api.studio.context_menu import (
+            accelerator,
+            parse_accelerator,
+        )
+
+        parsed = parse_accelerator(accelerator(surface="palette"))
+    except Exception:  # pragma: no cover - the table is a plain mapping
+        log.exception("Could not read the command palette's accelerator")
+        return fallback
+    if parsed is None:
+        log.warning(
+            "The command palette accelerator cannot be expressed on this "
+            "platform; falling back to Ctrl+Shift+F"
+        )
+        return fallback
+    return parsed
+
+
 #: The keyboard chord that opens the command palette, as an accelerator pair.
-PALETTE_ACCELERATOR: Tuple[int, int] = (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord("F"))
+PALETTE_ACCELERATOR: Tuple[int, int] = _palette_chord()
 
 #: wxPython 4.1 added a medium weight; older builds fall back to normal rather
 #: than raising while the bar is being constructed.
@@ -84,6 +115,27 @@ def single_line(text: str) -> str:
     """
     parts = [part.strip() for part in str(text).split("\n") if part.strip()]
     return " · ".join(parts)
+
+
+def palette_accelerator() -> str:
+    """Return the key that really opens the command palette, or ``""``.
+
+    The pill beside the title exists to teach that key, so it resolves it from
+    the shared accelerator table -- the same table
+    :func:`install_palette_shortcut` installs the binding from -- rather than
+    carrying its own copy of the text.  Two copies of one binding is how a
+    shortcut comes to be advertised in a shell that no longer answers to it.
+
+    An unreadable table answers with an empty string, and the pill then shows
+    its label alone: no shortcut is a smaller lie than a wrong one.
+    """
+    try:
+        from amulet_map_editor.api.studio.context_menu import accelerator
+
+        return accelerator(surface="palette")
+    except Exception:  # pragma: no cover - the table is a plain mapping
+        log.exception("Could not read the command palette's accelerator")
+        return ""
 
 
 def unread_notification_count() -> int:
@@ -678,10 +730,13 @@ class StudioTitleBar(wx.Panel):
 
         row.AddStretchSpacer(1)
 
+        # The pill's whole job is to teach the shortcut, so it reads the one
+        # table the shell actually installs rather than restating the key: a
+        # written-down copy of a binding is a copy that can stop matching it.
         self.palette_button = _ShortcutPill(
             self,
             studio_label("Tell me what to do", "話我知你想做乜"),
-            "Ctrl+Shift+F",
+            palette_accelerator(),
             hint=single_line(
                 studio_label(
                     "Search every command, setting, and pane.",
@@ -1092,25 +1147,50 @@ class StudioTitleBar(wx.Panel):
         event.Skip()
 
 
+def _same_key(pressed: int, wanted: int) -> bool:
+    """Return whether a pressed key code is the one the chord names.
+
+    ``wx`` reports a letter as its uppercase code from a character hook, but
+    not on every platform and not for every layout, so the two are compared
+    case-insensitively rather than assuming.  A code that is not a character at
+    all -- a function key, ``Tab`` -- compares exactly.
+    """
+    if pressed == wanted:
+        return True
+    try:
+        return chr(pressed).upper() == chr(wanted).upper()
+    except (ValueError, OverflowError):
+        return False
+
+
 def install_palette_shortcut(
     window: wx.Window, opener: Optional[Callable[[], Any]] = None
 ) -> Callable[[], None]:
-    """Make Ctrl+Shift+F open the command palette anywhere inside ``window``.
+    """Make the palette chord open the command palette anywhere in ``window``.
 
     The chord is bound as a character hook on the top-level window rather than
     through an accelerator table on purpose: an accelerator is swallowed by a
     focused text control, and "anywhere in the application" has to include the
     moment the user is typing in a field.  The returned callable removes the
     binding again.
+
+    Which chord it is comes from :data:`PALETTE_ACCELERATOR`, and therefore from
+    the shell's accelerator table, so the key this hook answers to is the key
+    the pill beside the title advertises -- by construction, rather than by two
+    hand-written conditions happening to agree.
     """
     target = window.GetTopLevelParent() or window
+    flags, wanted = PALETTE_ACCELERATOR
+    wants_ctrl = bool(flags & wx.ACCEL_CTRL)
+    wants_shift = bool(flags & wx.ACCEL_SHIFT)
+    wants_alt = bool(flags & wx.ACCEL_ALT)
 
     def _on_char_hook(event: wx.KeyEvent) -> None:
         if (
-            event.ControlDown()
-            and event.ShiftDown()
-            and not event.AltDown()
-            and event.GetKeyCode() in (ord("F"), ord("f"))
+            event.ControlDown() == wants_ctrl
+            and event.ShiftDown() == wants_shift
+            and event.AltDown() == wants_alt
+            and _same_key(event.GetKeyCode(), wanted)
         ):
             if opener is not None:
                 widgets.invoke(opener)
@@ -1132,6 +1212,7 @@ __all__ = [
     "PALETTE_ACCELERATOR",
     "StudioTitleBar",
     "install_palette_shortcut",
+    "palette_accelerator",
     "single_line",
     "unread_notification_count",
 ]

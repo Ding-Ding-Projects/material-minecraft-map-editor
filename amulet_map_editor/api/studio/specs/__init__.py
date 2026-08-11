@@ -8,13 +8,22 @@ import time.  A family that fails to import is logged with its traceback and
 skipped, never swallowed silently, and so is a key that two families both claim
 -- a duplicate means one surface is quietly shadowing another, which is a
 defect in the data rather than something to resolve by luck of import order.
+
+**A surface whose content is live is rebuilt on every lookup.**  A family may
+expose a ``REBUILDERS`` mapping of surface key to a no-argument builder, and
+:func:`get` calls it instead of serving the import-time snapshot.  That is what
+keeps the Key Select window showing the key group the editor is listening to
+*now* rather than the one it was listening to when this package was imported.
+A rebuilder that fails falls back to the snapshot and says so in the log: a
+surface that opens with slightly stale content beats a surface that refuses to
+open at all.
 """
 
 from __future__ import annotations
 
 import importlib
 import logging
-from typing import Dict, Tuple
+from typing import Callable, Dict, Tuple
 
 from amulet_map_editor.api.studio.spec import Spec
 
@@ -31,10 +40,15 @@ SPEC_MODULES: Tuple[str, ...] = (
 )
 
 
-def _load() -> Tuple[Dict[str, Spec], Tuple[str, ...]]:
+#: A no-argument builder returning one surface description.
+Rebuilder = Callable[[], Spec]
+
+
+def _load() -> Tuple[Dict[str, Spec], Tuple[str, ...], Dict[str, Rebuilder]]:
     """Import every family and merge it, returning the map and what failed."""
     merged: Dict[str, Spec] = {}
     origin: Dict[str, str] = {}
+    rebuilders: Dict[str, Rebuilder] = {}
     failed = []
     for name in SPEC_MODULES:
         try:
@@ -60,15 +74,45 @@ def _load() -> Tuple[Dict[str, Spec], Tuple[str, ...]]:
                 continue
             merged[key] = spec
             origin[key] = name
-    return merged, tuple(failed)
+        for key, builder in (getattr(module, "REBUILDERS", None) or {}).items():
+            if not callable(builder):
+                log.error(
+                    "Studio spec family %r declared a rebuilder for %r that is "
+                    "not callable; the import-time description will be served",
+                    name,
+                    key,
+                )
+                continue
+            rebuilders.setdefault(str(key), builder)
+    return merged, tuple(failed), rebuilders
 
 
-SPECS, UNAVAILABLE_MODULES = _load()
+SPECS, UNAVAILABLE_MODULES, REBUILDERS = _load()
 
 
 def get(key: str) -> Spec | None:
-    """Return the surface description for ``key``, or ``None`` when unknown."""
-    return SPECS.get(str(key))
+    """Return the surface description for ``key``, or ``None`` when unknown.
+
+    A key with a registered rebuilder is built fresh, so a surface whose
+    content is read from live state -- the user's key group, say -- is current
+    every time it is opened rather than frozen at import.  A rebuilder that
+    fails or answers with something that is not a :class:`Spec` falls back to
+    the import-time description, because a slightly stale window beats none.
+    """
+    name = str(key)
+    builder = REBUILDERS.get(name)
+    if builder is not None:
+        try:
+            rebuilt = builder()
+        except Exception:
+            log.exception("The rebuilder for Studio surface %r failed", name)
+        else:
+            if isinstance(rebuilt, Spec):
+                return rebuilt
+            log.error(
+                "The rebuilder for Studio surface %r returned %r", name, type(rebuilt)
+            )
+    return SPECS.get(name)
 
 
 def keys() -> Tuple[str, ...]:
@@ -76,4 +120,12 @@ def keys() -> Tuple[str, ...]:
     return tuple(sorted(SPECS))
 
 
-__all__ = ["SPECS", "SPEC_MODULES", "UNAVAILABLE_MODULES", "get", "keys"]
+__all__ = [
+    "REBUILDERS",
+    "SPECS",
+    "SPEC_MODULES",
+    "UNAVAILABLE_MODULES",
+    "Rebuilder",
+    "get",
+    "keys",
+]
