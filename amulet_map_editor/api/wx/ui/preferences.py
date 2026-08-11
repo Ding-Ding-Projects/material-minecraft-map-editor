@@ -27,6 +27,7 @@ Colour, spacing and typography are sourced from one persisted
 from __future__ import annotations
 
 import logging
+import os
 
 from datetime import date
 from dataclasses import asdict
@@ -48,6 +49,7 @@ from amulet_map_editor.api import (
     preferences,
     scheduled_sources,
     school_mode,
+    text_overlay,
 )
 from amulet_map_editor.api import config, lang
 from amulet_map_editor.api import scheduled_settings as schedules
@@ -92,6 +94,37 @@ def _stored_preferences() -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
+#: :mod:`text_overlay` persists the validated *contents* of an overlay so
+#: they survive a restart, but deliberately not the path they were loaded
+#: from -- that path is not part of the bounded schema it caches.  This
+#: separate, UI-owned identifier remembers it purely so Reload keeps working
+#: without asking the user to browse again, and so the field is not blank the
+#: next time this dialog opens.
+_OVERLAY_SOURCE_PATH_ID = "text_overlay_source_path"
+
+
+def _overlay_source_path() -> str:
+    """Return the path the active overlay was most recently loaded from."""
+    raw = config.get(_OVERLAY_SOURCE_PATH_ID, "")
+    return raw if isinstance(raw, str) else ""
+
+
+def _set_overlay_source_path(path: str) -> None:
+    config.put(_OVERLAY_SOURCE_PATH_ID, path)
+
+
+def _overlay_cache_path() -> str:
+    """Return where the validated overlay is cached, mirroring :mod:`config`.
+
+    This re-derives the same directory :mod:`config` resolves ``CONFIG_DIR``
+    into rather than reaching into its private path helper, so a test that
+    points ``CONFIG_DIR`` at a temporary profile still sees this line agree
+    with where :mod:`config` actually wrote the file.
+    """
+    root = os.path.abspath(os.path.join(os.environ.get("CONFIG_DIR") or "."))
+    return os.path.join(root, text_overlay.OVERLAY_CACHE_ID + ".config")
+
+
 def _chrome_copy(key: str, mode: str) -> str:
     """Compose command/changelog chrome from the persisted language resources."""
 
@@ -123,6 +156,9 @@ class PreferencesDialog(wx.Dialog):
         )
         self._prefs = preferences.load()
         self._school = school_mode.load()
+        # ``_build_overlay_row`` sets this from the real cache; declared here
+        # only so the attribute exists before that tab is built.
+        self._overlay: Optional[text_overlay.TextOverlay] = None
         self._appearance_load_error: Optional[str] = None
         try:
             self._appearance_presets = list(appearance_presets.load_presets())
@@ -323,13 +359,173 @@ class PreferencesDialog(wx.Dialog):
             name="Show emojis in dialogs and message boxes",
         )
         emoji_row.set_control(self.dialog_emojis, 0)
-        column.Add(emoji_row, 0, wx.EXPAND)
+        column.Add(emoji_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
+        self._build_overlay_row(page, column)
 
         outer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(column, 1, wx.EXPAND | wx.ALL, 20)
         page.SetSizer(outer)
         self._language_page = page
         self._tabs.AddPage(page, "Language", True)
+
+    def _build_overlay_row(self, page: wx.Window, column: wx.Sizer) -> None:
+        """Build the display-text overlay's path field, actions, and status.
+
+        This is a generic, content-agnostic mechanism: the application knows
+        nothing about what any particular uploaded file says, only that it is
+        a bounded JSON object mapping display text to a replacement. Load,
+        Reload, and Remove all take effect immediately -- they never wait for
+        Save preferences -- so the state line below is always live.
+        """
+        overlay_row = self._row(
+            page,
+            "Display-text overlay",
+            "Loads a JSON file you choose from your own machine and swaps "
+            "matching interface strings for the replacements it contains. "
+            "Nothing about what a particular file says is known here, only "
+            "its shape and size -- the count below is the only summary of "
+            "its contents this dialog ever shows.",
+        )
+        self.overlay_path = forms.MaterialTextField(
+            overlay_row.body,
+            "Overlay file",
+            _overlay_source_path(),
+            placeholder="Optional: path to a display-text overlay JSON file",
+            name="Display-text overlay file",
+        )
+        self.overlay_browse = studio.StudioButton(
+            overlay_row.body,
+            "Browse…",
+            variant="outlined",
+            name="Browse for overlay file",
+        )
+        self.overlay_load = studio.StudioButton(
+            overlay_row.body, "Load", variant="tonal", name="Load overlay"
+        )
+        self.overlay_reload = studio.StudioButton(
+            overlay_row.body, "Reload", variant="outlined", name="Reload overlay"
+        )
+        self.overlay_remove = studio.StudioButton(
+            overlay_row.body, "Remove", variant="danger", name="Remove overlay"
+        )
+        overlay_row.set_control(self.overlay_path)
+        overlay_row.add_extra(self.overlay_browse)
+        overlay_row.add_extra(self.overlay_load)
+        overlay_row.add_extra(self.overlay_reload)
+        overlay_row.add_extra(self.overlay_remove)
+        self.overlay_status = studio.StudioText(
+            overlay_row,
+            "",
+            size_px=12,
+            wrap_width=520,
+            name="Display-text overlay status",
+        )
+        overlay_row.GetSizer().Add(self.overlay_status, 0, wx.EXPAND | wx.TOP, 4)
+        self._overlay_row = overlay_row
+        self.overlay_browse.Bind(wx.EVT_BUTTON, self._browse_overlay_path)
+        self.overlay_load.Bind(wx.EVT_BUTTON, self._load_overlay)
+        self.overlay_reload.Bind(wx.EVT_BUTTON, self._reload_overlay)
+        self.overlay_remove.Bind(wx.EVT_BUTTON, self._remove_overlay)
+        # A cache entry left over from an earlier run is read the same way the
+        # running application would read it, so the dialog opens honestly
+        # describing what is actually active rather than "nothing yet".
+        self._overlay = text_overlay.load_cached_overlay()
+        self._refresh_overlay_state()
+        column.Add(overlay_row, 0, wx.EXPAND)
+
+    def _refresh_overlay_state(self, error: str = "") -> None:
+        """Reflect the overlay's real, current state -- live, never on restart.
+
+        ``error`` is shown when the most recent action was refused; the
+        overlay it describes otherwise is always whatever is genuinely
+        active, which on a refusal is whatever was active before it.
+        """
+        overlay = self._overlay
+        source = _overlay_source_path()
+        if error:
+            message = error
+        elif overlay is None:
+            message = "No overlay is loaded. The interface renders its shipped wording."
+        else:
+            count = len(overlay.replacements)
+            plural = "" if count == 1 else "s"
+            message = (
+                f"Overlay loaded from {source} ({count} replacement{plural})."
+                if source
+                else f"Overlay active ({count} replacement{plural})."
+            )
+        self.overlay_status.SetLabel(message)
+        self.overlay_status.SetForegroundColour(
+            wx.Colour(180, 40, 40)
+            if error
+            else (
+                wx.Colour(40, 120, 70)
+                if overlay is not None
+                else wx.Colour(110, 110, 110)
+            )
+        )
+        self.overlay_status.Wrap(520)
+        self._overlay_row.set_provenance(
+            f"Cached at {_overlay_cache_path()}."
+            if overlay is not None
+            else "Nothing cached yet; the interface renders its shipped wording."
+        )
+        self.overlay_reload.Enable(bool(self.overlay_path.GetValue().strip()))
+        self.overlay_remove.Enable(overlay is not None)
+        self.Layout()
+
+    def _browse_overlay_path(self, _event: wx.Event) -> None:
+        """Stage a chosen path; Load below runs the exact same validation on it."""
+        value = choose_path(
+            self,
+            "Choose a display-text overlay file",
+            wildcard="JSON files (*.json)|*.json|All files (*.*)|*.*",
+        )
+        if not value:
+            return
+        self.overlay_path.SetValue(value)
+        self._refresh_overlay_state()
+
+    def _load_overlay(self, _event: wx.Event) -> None:
+        """Load and activate the overlay now -- this never waits for OK."""
+        path = self.overlay_path.GetValue().strip()
+        if not path:
+            self._refresh_overlay_state("Choose a file to load.")
+            return
+        try:
+            overlay = text_overlay.load_overlay_file(path)
+        except text_overlay.OverlayError as exc:
+            # On refusal ``self._overlay`` (and the cache behind it) are left
+            # exactly as they were: a bad reload must never clobber a good
+            # overlay that was already active.
+            self._refresh_overlay_state(str(exc))
+            return
+        self._overlay = overlay
+        _set_overlay_source_path(path)
+        self._refresh_overlay_state()
+
+    def _reload_overlay(self, _event: wx.Event) -> None:
+        """Re-read the overlay from the path shown in the field above.
+
+        Editing the file externally and reloading is meant to be one click:
+        this runs the exact same load Load does, against whatever path is
+        currently staged there.
+        """
+        if not self.overlay_path.GetValue().strip():
+            self._refresh_overlay_state(
+                "No overlay has been loaded yet, so there is nothing to reload."
+            )
+            return
+        self._load_overlay(_event)
+
+    def _remove_overlay(self, _event: wx.Event) -> None:
+        """Clear the overlay now; the interface returns to shipped wording."""
+        text_overlay.clear_cached_overlay()
+        self._overlay = None
+        _set_overlay_source_path("")
+        self.overlay_path.ChangeValue("")
+        self._refresh_overlay_state()
 
     def _build_appearance_tab(self) -> None:
         """Build the identity, School mode, theme, colour, font, and preset rows.
@@ -1898,6 +2094,7 @@ class PreferencesDialog(wx.Dialog):
             ("Language", "English funny level"),
             ("Language", "Cantonese funny level"),
             ("Language", "Dialog emojis"),
+            ("Language", "Display-text overlay"),
             ("Appearance", "App display name"),
             ("Appearance", "School mode"),
             ("Appearance", "Unlock credential"),
