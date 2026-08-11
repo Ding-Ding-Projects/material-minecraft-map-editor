@@ -157,7 +157,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -e . pytest pytest-timeout
+        pip install -e . pytest pytest-timeout pyyaml
 
     - name: Generate the changelog the tests read
       run: |

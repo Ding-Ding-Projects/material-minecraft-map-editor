@@ -58,7 +58,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install twine pyinstaller~=6.18 build
+        pip install twine pyinstaller~=6.18 build pyyaml
 
     - name: Build Wheels
       shell: pwsh
@@ -87,7 +87,7 @@ jobs:
       shell: bash
       run: |
         set +e
-        python -m pip install --quiet pytest pytest-timeout
+        python -m pip install --quiet pytest pytest-timeout pyyaml
         python -m pytest tests -q --timeout=600 > test-report.txt 2>&1
         status=$?
         tail -40 test-report.txt
