@@ -2824,9 +2824,14 @@ class PathField(wx.Panel, _Themed):
     value chosen from the picker is never trusted more than one somebody typed,
     and the reason a path is refused is stated in words rather than as a red
     outline.
+
+    ``"save_file"`` is the odd mode out: everywhere else a path is only useful
+    once something already exists there, but a save target is useful precisely
+    because nothing does yet, so it is the one mode that does not fail
+    validation on a path that is merely unwritten so far.
     """
 
-    MODES = ("folder", "file", "both")
+    MODES = ("folder", "file", "both", "save_file")
 
     #: Set by the first validation, which every constructor runs; declared here
     #: so a theme refresh arriving before it cannot read a missing attribute.
@@ -2846,6 +2851,7 @@ class PathField(wx.Panel, _Themed):
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.label = str(label)
         self.mode = mode
+        self._save = mode == "save_file"
         self.on_change = on_change
         self._install(self.label or "Path", listen=False)
         self.field = OutlinedField(
@@ -2875,14 +2881,20 @@ class PathField(wx.Panel, _Themed):
                 wx.ALIGN_BOTTOM | wx.LEFT,
                 tokens.scaled(tokens.SPACE_SM),
             )
-        if mode in ("file", "both"):
+        if mode in ("file", "both", "save_file"):
+            file_label = "Save to…" if self._save else "Browse files…"
+            file_hint = (
+                f"Choose where to save {self.label}"
+                if self._save
+                else f"Choose a file for {self.label}"
+            )
             self.file_button = StudioButton(
                 self,
-                "Browse files…",
+                file_label,
                 variant="outlined",
                 on_click=self._browse_file,
-                name=f"Browse files for {self.label}",
-                hint=f"Choose a file for {self.label}",
+                name=f"{file_label} for {self.label}",
+                hint=file_hint,
             )
             row.Add(
                 self.file_button,
@@ -2942,6 +2954,14 @@ class PathField(wx.Panel, _Themed):
             self._valid = False
             message = "Nothing exists at that path yet."
             colour = palette.error
+        elif self.mode == "save_file":
+            self._valid = True
+            message = (
+                "This will overwrite the existing file."
+                if os.path.isfile(text)
+                else "Ready to save here."
+            )
+            colour = palette.on_surface_variant
         else:
             self._valid = True
             kind = "Folder" if os.path.isdir(text) else "File"
@@ -2973,10 +2993,19 @@ class PathField(wx.Panel, _Themed):
                 self.set_value(dialog.GetPath())
 
     def _browse_file(self) -> None:
+        if self._save:
+            style = wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT
+        else:
+            style = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
         with wx.FileDialog(
             self,
-            f"Choose a file for {self.label}",
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+            (
+                f"Choose where to save {self.label}"
+                if self._save
+                else f"Choose a file for {self.label}"
+            ),
+            defaultFile=os.path.basename(self.value()) if self._save else "",
+            style=style,
         ) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
                 self.set_value(dialog.GetPath())

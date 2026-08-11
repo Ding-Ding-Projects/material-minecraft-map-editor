@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 from amulet.api.selection import SelectionGroup
 from amulet.api.data_types import Dimension, OperationReturnType
 
+from amulet_map_editor.api.studio import tokens
+from amulet_map_editor.api.studio.widgets import StudioButton
 from amulet_map_editor.programs.edit.api.operations import DefaultOperationUI
 
 if TYPE_CHECKING:
@@ -22,14 +24,25 @@ class SimpleOperationPanel(wx.Panel, DefaultOperationUI):
         wx.Panel.__init__(self, parent)
         DefaultOperationUI.__init__(self, parent, canvas, world, options_path)
 
+        # Match the host's own surface rather than the system button face a
+        # bare wx.Panel defaults to, so a subclass's Material controls do not
+        # sit inside a stray grey rectangle inside an already-Material host.
+        backdrop = parent.GetBackgroundColour()
+        if backdrop.IsOk():
+            self.SetBackgroundColour(backdrop)
         self._sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self._sizer)
 
     def _add_run_button(self, label="Run Operation"):
-        self._run_button = wx.Button(self, label=label)
+        self._run_button = StudioButton(
+            self, label, variant="filled", name=label or "Run Operation"
+        )
         self._run_button.Bind(wx.EVT_BUTTON, self._run_operation)
         self._sizer.Add(
-            self._run_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 5
+            self._run_button,
+            0,
+            wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND,
+            tokens.scaled(5),
         )
         self.Layout()
 
