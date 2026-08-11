@@ -23,6 +23,7 @@ from amulet_map_editor.api.studio import context_menu, ribbon_defs, tokens, widg
 from amulet_map_editor.api.studio.ribbon_defs import (
     RIBBON_TABS,
     RibbonButton,
+    RibbonField,
     RibbonGroup,
     RibbonSelect,
     RibbonTab,
@@ -807,6 +808,16 @@ class _GroupPanel(wx.Panel, widgets._Themed):
                     on_change=lambda text, label=definition.label: owner.set_field(
                         group.title, label, text
                     ),
+                    # The keystroke callback above only remembers; this one is
+                    # what raises the field's command, once the value is
+                    # finished.  Given unconditionally, so every field grid in
+                    # this ribbon behaves the same way and Enter reaches the box
+                    # rather than the surrounding window.  A definition naming
+                    # no command is refused by ``ribbon_defs.validate()``, so
+                    # this raising nothing is a guard rather than a route.
+                    on_commit=lambda text, item=definition: owner.commit_field(
+                        group.title, item, text
+                    ),
                 )
                 # The design's width is a floor, not a cap.  A field whose
                 # floating label is longer than 132 pixels -- which "Offset Z"
@@ -877,14 +888,66 @@ class _GroupPanel(wx.Panel, widgets._Themed):
         )
         footer.AddStretchSpacer()
 
+        # A group's own line for what its controls have to say: why a value was
+        # refused, or why its boxes are empty.  It sits under the controls
+        # rather than in a notification because it is about the box directly
+        # above it, and a toast in the corner leaves the reader to work out
+        # which of six fields it means.  Hidden while it has nothing to say, so
+        # a group costs no height until something goes wrong.
+        self.feedback = widgets.StudioText(
+            self,
+            "",
+            size_px=11,
+            name=f"{group.title} field feedback",
+        )
+        self.feedback.Hide()
+
         body = wx.BoxSizer(wx.VERTICAL)
         body.Add(self.controls, 1, wx.EXPAND)
+        body.Add(self.feedback, 0, wx.EXPAND | wx.TOP, tokens.scaled(2))
         body.Add(footer, 0, wx.EXPAND | wx.TOP, tokens.scaled(self.TITLE_GAP))
         root = wx.BoxSizer(wx.HORIZONTAL)
         root.Add(
             body, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, tokens.scaled(self.SIDE_PADDING)
         )
         self.SetSizer(root)
+
+    # -- the group's own message ---------------------------------------------
+    def feedback_text(self) -> str:
+        """Return what the group's feedback line currently says."""
+        return self.feedback.GetLabel()
+
+    def set_feedback(self, message: str, *, severity: str = "error") -> None:
+        """Show ``message`` under the controls, or clear it when empty.
+
+        ``severity`` picks the ink only.  An error takes the palette's error
+        red; anything else stays in the ordinary variant ink, because a line
+        that merely says which box of three is showing is not a fault and must
+        not be painted like one.
+        """
+        message = str(message or "")
+        if message == self.feedback_text() and bool(message) == self.feedback.IsShown():
+            return
+        # Wrapped to the controls it is about rather than laid out on one line.
+        # These sentences run to a hundred characters, and an unwrapped line
+        # that long makes the group wider than its own field grid -- so a
+        # refused value would shove every group to its right sideways and start
+        # the ribbon scrolling, which is a strange thing for a typo to do.
+        width = max(self.controls.GetMinSize().width, tokens.scaled(self.FIELD_WIDTH))
+        self.feedback.Wrap(width)
+        self.feedback.SetLabel(message)
+        if severity == "error":
+            self.feedback.SetForegroundColour(self.palette().error)
+        else:
+            # Handed back to the palette rather than pinned to a colour, so a
+            # theme change repaints it like every other ordinary line.
+            self.feedback.set_role("on_surface_variant")
+        self.feedback.Show(bool(message))
+        self.Layout()
+        owner = getattr(self, "owner", None)
+        relayout = getattr(owner, "refresh_layout", None)
+        if callable(relayout):
+            relayout()
 
     def apply_search(self, state: SearchState) -> int:
         """Show only the tiles matching ``state``; return how many survive."""
@@ -1238,12 +1301,46 @@ class RibbonBar(wx.Panel, widgets._Themed):
 
     # -- values --------------------------------------------------------------
     def set_field(self, group_title: str, label: str, text: str) -> None:
-        """Record a value typed into one of the ribbon's field grids."""
+        """Record a value typed into one of the ribbon's field grids.
+
+        Called on every keystroke, so it only remembers.  Acting on a value is
+        :meth:`commit_field`'s job, once the user has finished typing it.
+        """
         self.field_values[(str(group_title), str(label))] = str(text)
+
+    def commit_field(
+        self, group_title: str, definition: RibbonField, text: str
+    ) -> None:
+        """Record a finished field value and raise its command, if it has one.
+
+        The dropdown beside it works the same way -- see :meth:`set_select` --
+        and for the same reason: a control that stores a value nobody reads is a
+        control that operates and decides nothing.
+        """
+        self.set_field(group_title, definition.label, text)
+        if definition.command:
+            widgets.invoke(self.on_command, definition.command)
 
     def field_value(self, group_title: str, label: str) -> str:
         """Return the current value of one ribbon field."""
         return self.field_values.get((str(group_title), str(label)), "")
+
+    def group_panel(self, title: str) -> Optional["_GroupPanel"]:
+        """Return the built group panel titled ``title``, or ``None``.
+
+        Only the active tab's groups exist, so this answers ``None`` for a group
+        on a tab nobody is looking at -- which is a real state a caller has to
+        handle rather than an error.
+        """
+        wanted = str(title)
+        for panel in self._groups:
+            if panel.group.title == wanted:
+                return panel
+        return None
+
+    def refresh_layout(self) -> None:
+        """Re-fit the bar after a group's own content changed height."""
+        self._relayout()
 
     def select_label(self, select: RibbonSelect) -> str:
         """Return the visible label a dropdown should show right now."""

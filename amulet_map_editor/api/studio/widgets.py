@@ -2567,6 +2567,15 @@ class OutlinedField(wx.Panel, _Themed):
     ``on_change`` receives the new text on every keystroke.  The label is
     painted over the outline rather than placed above it, which is what makes
     the field read as one control instead of two stacked ones.
+
+    ``on_commit`` receives it once the value is *finished* -- Enter pressed, or
+    the field left -- and only when it differs from what was last committed or
+    set.  A field whose value drives something real needs both: a per-keystroke
+    callback cannot be the one that acts, because a user typing ``-250`` has
+    passed through ``-`` and ``-2`` on the way, and acting on those means
+    reporting two problems and one wrong answer before they have finished the
+    word.  Giving the callback also puts ``wx.TE_PROCESS_ENTER`` on the text
+    control, so Enter reaches the field rather than the surrounding dialog.
     """
 
     LABEL_TOP = 6
@@ -2588,15 +2597,25 @@ class OutlinedField(wx.Panel, _Themed):
         placeholder: str = "",
         mono: bool = True,
         on_change: Optional[Callable[[str], None]] = None,
+        on_commit: Optional[Callable[[str], None]] = None,
     ) -> None:
         super().__init__(parent, style=wx.TAB_TRAVERSAL)
         self.label = str(label)
         self.on_change = on_change
+        self.on_commit = on_commit
         self._mono = bool(mono)
         self._focused = False
+        #: The last value this field has handed to ``on_commit``, or been given
+        #: by :meth:`set_value`.  A commit that matches it is not raised again,
+        #: so tabbing through a row of untouched fields runs nothing.
+        self._committed = str(value)
         self._install(self.label or "Field", listen=False)
         self.text = wx.TextCtrl(
-            self, value=str(value), style=wx.BORDER_NONE, name=self.label or "Field"
+            self,
+            value=str(value),
+            style=wx.BORDER_NONE
+            | (wx.TE_PROCESS_ENTER if on_commit is not None else 0),
+            name=self.label or "Field",
         )
         self.text.SetName(self.label or "Field")
         if placeholder:
@@ -2606,6 +2625,8 @@ class OutlinedField(wx.Panel, _Themed):
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.Bind(wx.EVT_SIZE, self._on_size)
         self.text.Bind(wx.EVT_TEXT, self._on_text)
+        if on_commit is not None:
+            self.text.Bind(wx.EVT_TEXT_ENTER, self._on_enter)
         self.text.Bind(wx.EVT_SET_FOCUS, self._on_focus_change)
         self.text.Bind(wx.EVT_KILL_FOCUS, self._on_focus_change)
         self.SetInitialSize(self.DoGetBestSize())
@@ -2629,12 +2650,32 @@ class OutlinedField(wx.Panel, _Themed):
         return self.text.GetValue()
 
     def set_value(self, text: str, *, notify: bool = False) -> None:
-        """Replace the text; silent by default."""
+        """Replace the text; silent by default.
+
+        The new text becomes what a later commit is compared against, so a
+        field refilled from somewhere else does not then raise ``on_commit``
+        the next time it is merely tabbed through.
+        """
+        self._committed = str(text)
         if notify:
             self.text.SetValue(str(text))
         else:
             self.text.ChangeValue(str(text))
         self.Refresh()
+
+    def commit(self) -> None:
+        """Hand the current text to ``on_commit``, if it has changed."""
+        if self.on_commit is None:
+            return
+        current = self.text.GetValue()
+        if current == self._committed:
+            return
+        # Recorded before the callback runs, not after: the handler may write
+        # back into this field, and a commit that recorded afterwards would
+        # overwrite what the handler had just put there with what the user
+        # typed, so the next commit would compare against the wrong text.
+        self._committed = current
+        invoke(self.on_commit, current)
 
     def SetFocus(self) -> None:  # noqa: N802 - wx API spelling
         self.text.SetFocus()
@@ -2671,8 +2712,17 @@ class OutlinedField(wx.Panel, _Themed):
         invoke(self.on_change, self.text.GetValue())
         event.Skip()
 
+    def _on_enter(self, event: wx.CommandEvent) -> None:
+        self.commit()
+        event.Skip()
+
     def _on_focus_change(self, event: wx.FocusEvent) -> None:
         self._focused = event.GetEventType() == wx.EVT_SET_FOCUS.typeId
+        if not self._focused:
+            # Leaving commits too, so a value typed and then tabbed away from is
+            # not silently discarded -- which, in a field that drives something
+            # real, looks exactly like the field being ignored.
+            self.commit()
         self.Refresh()
         event.Skip()
 

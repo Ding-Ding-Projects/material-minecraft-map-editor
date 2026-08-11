@@ -17,9 +17,22 @@ project forbids, so :func:`validate` refuses one.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from amulet_map_editor.api.studio.search import SearchState
+from amulet_map_editor.api.studio.selection_fields import (
+    SELECTION_COMMAND,
+    SELECTION_FIELDS,
+    SELECTION_FIELD_LABELS,
+    SELECTION_GROUP,
+    SELECTION_LIMIT,
+    SELECTION_TAB,
+    SelectionField,
+    parse_selection_box,
+    selection_box_values,
+    selection_field,
+    selection_field_problems,
+)
 
 __all__ = [
     "COMMAND_KEYS",
@@ -31,11 +44,22 @@ __all__ = [
     "RibbonOption",
     "RibbonSelect",
     "RibbonTab",
+    "SELECTION_COMMAND",
+    "SELECTION_FIELDS",
+    "SELECTION_FIELD_LABELS",
+    "SELECTION_GROUP",
+    "SELECTION_LIMIT",
+    "SELECTION_TAB",
+    "SelectionField",
     "StructureFormat",
     "TAB_KEYS",
     "all_buttons",
     "buttons",
+    "parse_selection_box",
     "search",
+    "selection_box_values",
+    "selection_field",
+    "selection_field_problems",
     "structure_format",
     "structure_format_label",
     "structure_format_operation",
@@ -84,10 +108,18 @@ class RibbonButton:
 
 @dataclass(frozen=True)
 class RibbonField:
-    """One labelled value in a ribbon group's field grid."""
+    """One labelled value in a ribbon group's field grid.
+
+    ``command`` is the shell action a committed edit raises -- Enter pressed in
+    the box, or the box left -- exactly as :attr:`RibbonSelect.command` is for a
+    dropdown.  A field without one stores what was typed and does nothing else,
+    which is what every box in this ribbon did until the Coordinates grid was
+    wired to the editor's selection.
+    """
 
     label: str
     value: str = ""
+    command: str = ""
 
 
 @dataclass(frozen=True)
@@ -289,6 +321,42 @@ def structure_format_label(value: str) -> str:
 def structure_format_values() -> Tuple[str, ...]:
     """Return every stored format value, in the order the dropdown lists them."""
     return tuple(item.value for item in STRUCTURE_FORMATS)
+
+
+# ----------------------------------------------------------------------------
+# the selection's six coordinate boxes
+# ----------------------------------------------------------------------------
+#
+# The table, the parser and their faults live in
+# :mod:`amulet_map_editor.api.studio.selection_fields`, because deciding what a
+# typed coordinate means is behaviour and this module is data.  They are
+# re-exported here so a reader looking for the ribbon's content finds them
+# where the rest of it is.
+
+
+def _selection_field_problems() -> List[str]:
+    """Return every fault in the coordinate table and in the boxes drawn."""
+    group = next(
+        (
+            item
+            for item in tab(SELECTION_TAB).groups  # type: ignore[union-attr]
+            if item.title == SELECTION_GROUP
+        ),
+        None,
+    )
+    if group is None:
+        return [f"The {SELECTION_TAB} tab has no {SELECTION_GROUP} group"]
+    problems = selection_field_problems(
+        (entry.label, entry.value) for entry in group.fields
+    )
+    for entry in group.fields:
+        if entry.command != SELECTION_COMMAND:
+            problems.append(
+                f"Coordinate box {entry.label!r} raises {entry.command or 'nothing'} "
+                f"rather than {SELECTION_COMMAND!r}, so typing in it moves no "
+                "selection"
+            )
+    return problems
 
 
 # ----------------------------------------------------------------------------
@@ -538,13 +606,18 @@ _SELECTION = RibbonTab(
         ),
         RibbonGroup(
             "Coordinates",
-            fields=(
-                RibbonField("x1", "-2"),
-                RibbonField("x2", "13"),
-                RibbonField("y1", "98"),
-                RibbonField("y2", "99"),
-                RibbonField("z1", "-49"),
-                RibbonField("z2", "-32"),
+            # Built from the binding table rather than listed a second time, and
+            # carrying no value: the six numbers a reader sees here are facts
+            # about the open world, and a literal written into a definition is a
+            # fact about nothing.  These shipped with the design's mock numbers
+            # in them -- x1=-2, y1=98 and the rest -- and nothing ever replaced
+            # them with the world's own, so with a real world open the ribbon
+            # described a selection box that did not exist and went on
+            # describing it while the real one was dragged, added to and
+            # cleared.
+            fields=tuple(
+                RibbonField(item.label, command=SELECTION_COMMAND)
+                for item in SELECTION_FIELDS
             ),
             launcher="goto",
         ),
@@ -1829,6 +1902,15 @@ COMMAND_KEYS: Tuple[str, ...] = tuple(
             for select in group.selects
             if select.command
         }
+        # A field grid raises commands too, and left out of this set the shell
+        # registry check would never look for the handler behind a typed box.
+        | {
+            entry.command
+            for item in RIBBON_TABS
+            for group in item.groups
+            for entry in group.fields
+            if entry.command
+        }
     )
 )
 
@@ -1893,7 +1975,20 @@ def validate() -> Tuple[str, ...]:
             for entry in group.fields:
                 if not entry.label:
                     problems.append(f"A field in group {where} has no label")
+                if not entry.command:
+                    # The same rule the dropdown above gets, and for the same
+                    # reason.  Every box in this ribbon's field grids raised
+                    # nothing: what was typed went into a dictionary whose only
+                    # reader re-seeded the widget it came from, so the six
+                    # Coordinates boxes could be filled in with anything at all
+                    # and the world never heard about it.
+                    problems.append(
+                        f"Field {where}/{entry.label} raises no command, so "
+                        "typing in it changes nothing and its value is read by "
+                        "nobody"
+                    )
     problems.extend(_structure_format_problems())
+    problems.extend(_selection_field_problems())
     return tuple(problems)
 
 

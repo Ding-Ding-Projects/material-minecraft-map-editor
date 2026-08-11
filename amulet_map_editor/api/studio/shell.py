@@ -85,6 +85,24 @@ _MAX_DESCENDANTS = 600
 #: what stops that costing anything measurable while the user drags.
 _ENABLEMENT_INTERVAL = 0.15
 
+#: What Selection > Coordinates says when there is no selection to describe.
+#: The six boxes shipped holding the design's mock numbers, which meant a world
+#: with nothing selected still showed a box, and a reader had no way to tell
+#: that from a box that really existed.  They are emptied instead, and this
+#: sentence says why and what to press.
+_NO_SELECTION_MESSAGE = (
+    "Nothing is selected, so there are no coordinates to show. Press Add box "
+    "to start a selection and these will fill in."
+)
+
+#: And what it says when there is no world at all.  A separate sentence rather
+#: than the one above, because Add box is greyed out too when nothing is open,
+#: so pointing at it would send the reader to press a dead control.
+_NO_WORLD_MESSAGE = (
+    "No world is open, so there is no selection to show. Open a world and "
+    "these will fill in from it."
+)
+
 
 @dataclass(frozen=True)
 class _EditorAction:
@@ -483,6 +501,11 @@ class StudioShell(wx.Panel):
         #: changed nothing costs one tuple comparison rather than a tree walk.
         self._enablement_signature: Optional[Tuple[Any, ...]] = None
         self._enablement_checked = 0.0
+        #: The Coordinates group these six values were last written into, and
+        #: the selection box they were written from.  Kept so the idle pass can
+        #: tell "the world moved" from "the user is in the middle of typing".
+        self._selection_panel: Any = None
+        self._selection_seeded: Any = None
         self._remove_palette_shortcut: Optional[Callable[[], None]] = (
             install_palette_shortcut(self, self.open_palette)
         )
@@ -784,6 +807,7 @@ class StudioShell(wx.Panel):
             "removeBox": self._cmd_remove_box,
             "duplicateBox": self._cmd_duplicate_box,
             "deselectAllBoxes": self._cmd_deselect_all_boxes,
+            "setSelectionBounds": self._cmd_set_selection_bounds,
             "rotate": self._cmd_transform,
             "flip": self._cmd_transform,
             "projection": self._cmd_projection,
@@ -1192,6 +1216,92 @@ class StudioShell(wx.Panel):
                 f"{copy_low[0]}, {copy_low[1]}, {copy_low[2]} — {shift} "
                 f"{'block' if shift == 1 else 'blocks'} east, so the two do not "
                 f"overlap. The selection now holds {len(corners)} boxes."
+            ),
+            severity="success",
+        )
+
+    # -- the six coordinate boxes -------------------------------------------
+    def _cmd_set_selection_bounds(self, _key: str) -> None:
+        """Move the active selection box to what the six boxes now say.
+
+        Raised when one of Selection > Coordinates is committed -- Enter, or the
+        field left -- and reached from the palette too, where it applies
+        whatever those boxes are currently showing.
+
+        The write goes through :meth:`_set_selection_corners`, the one path Add
+        box, Remove and Duplicate already use, rather than a second route into
+        the editor's selection: two ways to move a selection is two places for
+        the next change to have to be made, and one of them will be missed.
+
+        A value that cannot be used is refused and said out loud beside the box
+        that carries it.  Nothing is guessed at, rounded, or clamped: a
+        coordinate the user did not type is a box they did not draw, and the
+        cheapest way to lose somebody's work is to silently select something
+        near what they asked for and then let them run Delete on it.
+        """
+        panel = self._selection_field_panel()
+        if panel is None:
+            # Reachable from the palette while another tab is showing, so this
+            # is a real state rather than an impossible one.
+            self.notify(
+                studio_label("The coordinate boxes are not open", "座標格未開"),
+                studio_text(
+                    "Open the Selection tab of the ribbon to type the active "
+                    "box's coordinates."
+                ),
+                severity="warning",
+            )
+            return
+        canvas = self._canvas()
+        corners = list(self._selection_corners())
+        if not corners:
+            self._set_selection_feedback(
+                panel,
+                _NO_SELECTION_MESSAGE if canvas is not None else _NO_WORLD_MESSAGE,
+                severity="note",
+            )
+            return
+        box, problem = ribbon_defs.parse_selection_box(
+            {label: field.value() for label, field in panel.fields.items()}
+        )
+        if box is None:
+            self._set_selection_feedback(panel, problem)
+            return
+        was = corners[-1]
+        if tuple(tuple(int(v) for v in point) for point in was) == box:
+            # Nothing to do, and nothing to say: a field left without being
+            # changed, or changed back to what it already held.
+            self._set_selection_feedback(panel, "")
+            return
+        corners[-1] = box
+        if not self._set_selection_corners(canvas, corners):
+            return
+        self._record(
+            "selection-set-bounds",
+            {
+                "path": self.project_path,
+                "dimension": self._dimension_name(),
+                "minimum": list(box[0]),
+                "maximum": list(box[1]),
+                "boxes": len(corners),
+            },
+        )
+        self._sync_world_state()
+        # Written back explicitly rather than left to the idle pass, which skips
+        # a field the user is still standing in -- and after Enter they are.  An
+        # axis typed in reverse comes back ordered here, which is what makes the
+        # ordering visible rather than silent.
+        self._fill_selection_fields(panel, box)
+        self._set_selection_feedback(
+            panel, self._selection_note(len(corners)), severity="note"
+        )
+        size = tuple(high - low for low, high in zip(box[0], box[1]))
+        self.notify(
+            studio_label("Selection box moved", "選取框搬咗"),
+            studio_text(
+                f"The active box now runs from {box[0][0]}, {box[0][1]}, "
+                f"{box[0][2]} to {box[1][0]}, {box[1][1]}, {box[1][2]} — "
+                f"{size[0]} by {size[1]} by {size[2]} blocks."
             ),
             severity="success",
         )
@@ -2497,6 +2607,134 @@ class StudioShell(wx.Panel):
             return False
         return True
 
+    # ------------------------------------------------------------------
+    # Selection > Coordinates: six boxes that must say what the world holds
+    # ------------------------------------------------------------------
+    def _selection_field_panel(self) -> Any:
+        """Return the built Coordinates group, or ``None`` when it is not open.
+
+        The ribbon builds only the showing tab's groups, so these six widgets
+        exist exactly while the Selection tab is open.  ``None`` is an ordinary
+        answer rather than a fault.
+        """
+        try:
+            ribbon = self.workspace.ribbon
+        except (AttributeError, RuntimeError):  # pragma: no cover - mid-teardown
+            return None
+        finder = getattr(ribbon, "group_panel", None)
+        panel = finder(ribbon_defs.SELECTION_GROUP) if callable(finder) else None
+        if panel is None or not getattr(panel, "fields", None):
+            return None
+        if any(
+            label not in panel.fields for label in ribbon_defs.SELECTION_FIELD_LABELS
+        ):
+            return None
+        return panel
+
+    @staticmethod
+    def _set_selection_feedback(
+        panel: Any, message: str, *, severity: str = "error"
+    ) -> None:
+        """Put one sentence under the six boxes, or take it away.
+
+        ``severity`` decides the ink only.  A refusal is painted in the error
+        role; the standing note saying which of several boxes is being shown,
+        and the line saying nothing is selected, are states rather than faults
+        and are painted like ordinary text.
+        """
+        setter = getattr(panel, "set_feedback", None)
+        if not callable(setter):
+            return
+        try:
+            setter(message, severity=severity)
+        except RuntimeError:  # pragma: no cover - the group went away mid-pass
+            return
+
+    @staticmethod
+    def _selection_note(count: int) -> str:
+        """Return the standing note for a selection of ``count`` boxes.
+
+        Silence for one box: there is nothing to disambiguate and a permanent
+        line under a working control is noise.  With more than one, which box
+        these six numbers describe is a real question, and the answer has to be
+        the box every other Selection command acts on -- the last -- or the
+        numbers and the buttons beside them would be talking about different
+        boxes.
+        """
+        return (
+            ""
+            if count <= 1
+            else f"Showing box {count} of {count} — the active one, which Remove "
+            "and Duplicate act on too."
+        )
+
+    def _fill_selection_fields(self, panel: Any, box: Any) -> None:
+        """Write one selection box into the six widgets, unconditionally."""
+        values = ribbon_defs.selection_box_values(box)
+        for label, field in panel.fields.items():
+            if label not in values:
+                continue
+            try:
+                if field.value() != values[label]:
+                    field.set_value(values[label])
+                field.Enable(box is not None)
+            except RuntimeError:  # pragma: no cover - destroyed mid-pass
+                continue
+
+    def _sync_selection_fields(self) -> None:
+        """Make the six boxes show the selection the editor is really holding.
+
+        Run from the idle enablement pass, so a box dragged in the viewport, an
+        undo, or a command run from anywhere at all moves these numbers without
+        the thing that moved the selection having to know they exist.
+
+        The fields are rewritten **only when the selection has actually
+        changed**.  That single condition does three jobs at once: it leaves a
+        half-typed value alone instead of wiping it 150 milliseconds after the
+        first keystroke; it leaves a refused value on screen to be corrected,
+        beside the sentence explaining it; and it clears that sentence the
+        moment the world moves underneath, because a complaint about text the
+        user can no longer see is its own small lie.
+        """
+        panel = self._selection_field_panel()
+        if panel is None:
+            # The tab moved away and took the six widgets with it.  Forgetting
+            # the panel is what makes the next rebuilt grid a fresh one that has
+            # to be filled, rather than one that matches a remembered box and is
+            # therefore left showing whatever it was rebuilt with.
+            self._selection_panel = None
+            return
+        corners = self._selection_corners()
+        box = corners[-1] if corners else None
+        if panel is self._selection_panel and box == self._selection_seeded:
+            return
+        self._selection_panel = panel
+        self._selection_seeded = box
+        self._fill_selection_fields(panel, box)
+        # Two different empty states, said differently.  "Press Add box" is
+        # useless advice with no world open, because Add box is greyed out too;
+        # somebody following it would press a dead control and learn nothing.
+        empty = (
+            _NO_SELECTION_MESSAGE if self._canvas() is not None else _NO_WORLD_MESSAGE
+        )
+        for label, field in panel.fields.items():
+            try:
+                field.SetToolTip(
+                    empty
+                    if box is None
+                    else (
+                        f"{label} of the active selection box. Type a new value "
+                        "and press Enter to move it."
+                    )
+                )
+            except RuntimeError:  # pragma: no cover - destroyed mid-pass
+                continue
+        self._set_selection_feedback(
+            panel,
+            empty if box is None else self._selection_note(len(corners)),
+            severity="note",
+        )
+
     @staticmethod
     def _camera_block(canvas: Any) -> Optional[Tuple[int, int, int]]:
         """Return the block the camera is inside, or ``None`` when unreadable."""
@@ -2658,6 +2896,15 @@ class StudioShell(wx.Panel):
             redo,
             changed,
             getattr(ribbon, "active_tab", ""),
+            # The corners themselves, not merely whether there are any.  Every
+            # other entry here is about what a command *may* do, and dragging a
+            # box in the viewport changes none of them -- so with the state
+            # alone this pass returned early and the six coordinate boxes never
+            # moved while the selection they describe was being dragged.  They
+            # are plain integer tuples: the editor's own setter coerces them on
+            # the way in, so comparing two of them is a comparison and not a
+            # numpy array's opinion about one.
+            self._selection_corners(),
         )
         if not force and signature == self._enablement_signature:
             return
@@ -2668,6 +2915,7 @@ class StudioShell(wx.Panel):
             for select in getattr(group, "selects", {}).values():
                 self._apply_select_enablement(group, select, state)
         self._sync_dimension_choice(ribbon)
+        self._sync_selection_fields()
         self._sync_revision(level, undo, changed)
 
     def _sync_revision(self, level: Any, undo: int, changed: bool) -> None:

@@ -299,5 +299,43 @@ def test_every_ribbon_dropdown_raises_a_registered_command():
     assert not problems, problems
 
 
+def test_every_ribbon_field_raises_a_registered_command():
+    """Every typed box names a command, and that command exists.
+
+    The same rule the dropdowns get one test above, because a text box that
+    raises nothing has exactly the dropdown's defect.  All six of Selection >
+    Coordinates were that: what was typed went into a dictionary whose only
+    reader re-seeded the widget it had come from, so the boxes could be filled
+    in with anything and the world never heard about it -- while displaying six
+    numbers from the design mock as though they described the open selection.
+
+    The empty case is checked first, not skipped, for the reason the dropdown
+    test records: a rule about a thing done wrongly is always satisfied by the
+    thing not being done at all.
+    """
+    fields = [
+        (f"{tab.key}/{group.title}/{entry.label}", entry)
+        for tab in ribbon_defs.RIBBON_TABS
+        for group in tab.groups
+        for entry in group.fields
+    ]
+    assert fields, (
+        "the ribbon defines no field grids at all, so every assertion below "
+        "passes on an empty list"
+    )
+    problems = []
+    for where, entry in fields:
+        if not entry.command:
+            problems.append(f"{where}: raises no command, so typing in it runs nothing")
+        elif commands.command(commands.resolve(entry.command)) is None:
+            problems.append(f"{where}: command {entry.command!r} is unregistered")
+        if entry.value:
+            problems.append(
+                f"{where}: ships the literal value {entry.value!r}, which is "
+                "shown as though it described the open world"
+            )
+    assert not problems, problems
+
+
 def test_the_drawn_accelerator_and_the_registered_one_cannot_drift():
     assert commands.mismatched_accelerators() == ()

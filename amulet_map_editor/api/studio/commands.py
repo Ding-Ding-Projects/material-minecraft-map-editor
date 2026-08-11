@@ -164,6 +164,11 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     ("moveBox", "Move the active selection box", "Selection"),
     ("movePoint1", "Move selection point 1", "Selection"),
     ("movePoint2", "Move selection point 2", "Selection"),
+    (
+        "setSelectionBounds",
+        "Move the active selection box to the typed coordinates",
+        "Selection",
+    ),
     # -- Chunks --------------------------------------------------------------
     ("createChunks", "Create the empty chunks in the selection", "Chunks"),
     ("deleteChunks", "Delete the selected chunks", "Chunks"),
@@ -310,6 +315,10 @@ REQUIREMENTS: Mapping[str, Tuple[str, ...]] = MappingProxyType(
         "moveBox": ("editor", "selection"),
         "movePoint1": ("editor", "selection"),
         "movePoint2": ("editor", "selection"),
+        # There has to be a box before its corners can be typed: the six boxes
+        # in Selection > Coordinates describe the active selection box, and with
+        # nothing selected there is no box for them to describe.
+        "setSelectionBounds": ("editor", "selection"),
         # -- Chunks ----------------------------------------------------------
         "createChunks": ("editor", "selection"),
         "deleteChunks": ("editor", "selection"),
