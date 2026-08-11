@@ -277,6 +277,24 @@ def _print_client(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> b
         return False
 
 
+def _inherits_default_render_to(window: wx.Window) -> bool:
+    """Return whether ``window`` never overrode the backdrop-only default."""
+    try:
+        from amulet_map_editor.api.studio.widgets import _Themed
+    except ImportError:
+        return False
+    base = getattr(_Themed, "render_to", None)
+    own = getattr(type(window), "render_to", None)
+    return base is not None and own is base
+
+
+def _has_paint_handler(window: wx.Window) -> bool:
+    """Return whether ``window`` has drawing code of its own to call."""
+    from amulet_map_editor.api.studio.widgets import _PAINT_HANDLER_NAMES
+
+    return any(callable(getattr(window, name, None)) for name in _PAINT_HANDLER_NAMES)
+
+
 def _render_to(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> bool:
     """Ask ``window`` to draw its own appearance into ``target`` at ``origin``.
 
@@ -296,6 +314,19 @@ def _render_to(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> bool
     """
     render = getattr(window, "render_to", None)
     if not callable(render):
+        return False
+
+    # A widget that PAINTS but never overrode render_to inherits the base one,
+    # which draws the backdrop and nothing else. That is the honest appearance
+    # of a container -- and a lie about a row that draws text and an icon in
+    # its own _on_paint. The capture then reports route "render", zero skips,
+    # zero blits, and writes a blank rectangle: a false negative that passes
+    # every gate in this file, which is worse than a failure because it looks
+    # like evidence.
+    #
+    # So when the inherited default is all a painting widget has, take the
+    # route that drives its actual paint handler instead.
+    if _inherits_default_render_to(window) and _has_paint_handler(window):
         return False
     size = window.GetClientSize()
     if size.width < 1 or size.height < 1:

@@ -1,0 +1,2408 @@
+{
+  "schemaVersion": 1,
+  "commit": "2b50973453b9234c9359ec08aa63cf4da2ada551",
+  "captured": "20260811",
+  "wxPython": "4.3.1 msw (phoenix) wxWidgets 3.3.3",
+  "method": "in-process client-DC blit (capture_surface.capture_window)",
+  "note": "PrintWindow cannot see this interface: it is owner-drawn end to end and returns empty boxes. Colour counts are recorded so a capture near the floor can be retaken rather than shipped.",
+  "captures": [
+    {
+      "filename": "backstage-home-2b509734-20260811.png",
+      "surface": "backstage.home",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 285,
+      "descendants": 92,
+      "routes": {
+        "render": 88,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "Amulet Studio backstage, home tab, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "backstage-open-2b509734-20260811.png",
+      "surface": "backstage.open",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 147,
+      "descendants": 29,
+      "routes": {
+        "render": 23,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "Amulet Studio backstage, open tab, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "backstage-info-2b509734-20260811.png",
+      "surface": "backstage.info",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 133,
+      "descendants": 27,
+      "routes": {
+        "render": 21,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "Amulet Studio backstage, info tab, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "backstage-convert-2b509734-20260811.png",
+      "surface": "backstage.convert",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 144,
+      "descendants": 25,
+      "routes": {
+        "render": 21,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "Amulet Studio backstage, convert tab, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "backstage-features-2b509734-20260811.png",
+      "surface": "backstage.features",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 168,
+      "descendants": 161,
+      "routes": {
+        "render": 156,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "Amulet Studio backstage, features tab, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "backstage-account-2b509734-20260811.png",
+      "surface": "backstage.account",
+      "group": "Backstage",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x921",
+      "colours": 119,
+      "descendants": 23,
+      "routes": {
+        "render": 19,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "Amulet Studio backstage, account tab, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "workspace-ribbon-2b509734-20260811.png",
+      "surface": "workspace.ribbon",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 103,
+      "descendants": 56,
+      "routes": {
+        "render": 55,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio workspace ribbon, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "workspace-navigator-2b509734-20260811.png",
+      "surface": "workspace.navigator",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "176x687",
+      "colours": 47,
+      "descendants": 16,
+      "routes": {
+        "render": 12,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio workspace navigator, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "workspace-viewport-2b509734-20260811.png",
+      "surface": "workspace.viewport",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1156x653",
+      "colours": 307,
+      "descendants": 15,
+      "routes": {
+        "render": 15,
+        "print": 0,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio workspace viewport, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "workspace-properties-2b509734-20260811.png",
+      "surface": "workspace.properties",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "240x687",
+      "colours": 70,
+      "descendants": 15,
+      "routes": {
+        "render": 13,
+        "print": 2,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio workspace properties, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "workspace-status-2b509734-20260811.png",
+      "surface": "workspace.status",
+      "group": "Workspace",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1156x34",
+      "colours": 31,
+      "descendants": 13,
+      "routes": {
+        "render": 12,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio workspace status, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-home-2b509734-20260811.png",
+      "surface": "ribbon.home",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 103,
+      "descendants": 56,
+      "routes": {
+        "render": 55,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the home tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-tools-2b509734-20260811.png",
+      "surface": "ribbon.tools",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 96,
+      "descendants": 44,
+      "routes": {
+        "render": 43,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the tools tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-selection-2b509734-20260811.png",
+      "surface": "ribbon.selection",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x302",
+      "colours": 83,
+      "descendants": 52,
+      "routes": {
+        "render": 45,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the selection tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-operations-2b509734-20260811.png",
+      "surface": "ribbon.operations",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 84,
+      "descendants": 42,
+      "routes": {
+        "render": 41,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the operations tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-structures-2b509734-20260811.png",
+      "surface": "ribbon.structures",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 87,
+      "descendants": 35,
+      "routes": {
+        "render": 34,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the structures tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-chunks-2b509734-20260811.png",
+      "surface": "ribbon.chunks",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x215",
+      "colours": 78,
+      "descendants": 38,
+      "routes": {
+        "render": 35,
+        "print": 3,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the chunks tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-terrain-2b509734-20260811.png",
+      "surface": "ribbon.terrain",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x244",
+      "colours": 95,
+      "descendants": 57,
+      "routes": {
+        "render": 52,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the terrain tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-build-2b509734-20260811.png",
+      "surface": "ribbon.build",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 100,
+      "descendants": 52,
+      "routes": {
+        "render": 51,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the build tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-entities-2b509734-20260811.png",
+      "surface": "ribbon.entities",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 90,
+      "descendants": 42,
+      "routes": {
+        "render": 41,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the entities tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-data-2b509734-20260811.png",
+      "surface": "ribbon.data",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 93,
+      "descendants": 43,
+      "routes": {
+        "render": 42,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the data tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-analyze-2b509734-20260811.png",
+      "surface": "ribbon.analyze",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 83,
+      "descendants": 42,
+      "routes": {
+        "render": 41,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the analyze tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-redstone-2b509734-20260811.png",
+      "surface": "ribbon.redstone",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 94,
+      "descendants": 45,
+      "routes": {
+        "render": 44,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the redstone tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-worldgen-2b509734-20260811.png",
+      "surface": "ribbon.worldgen",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 91,
+      "descendants": 43,
+      "routes": {
+        "render": 42,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the worldgen tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-view-2b509734-20260811.png",
+      "surface": "ribbon.view",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 99,
+      "descendants": 50,
+      "routes": {
+        "render": 49,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the view tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-panels-2b509734-20260811.png",
+      "surface": "ribbon.panels",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 94,
+      "descendants": 46,
+      "routes": {
+        "render": 45,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the panels tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-extend-2b509734-20260811.png",
+      "surface": "ribbon.extend",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x200",
+      "colours": 94,
+      "descendants": 44,
+      "routes": {
+        "render": 43,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the extend tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "ribbon-automate-2b509734-20260811.png",
+      "surface": "ribbon.automate",
+      "group": "Ribbon tabs",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "1584x215",
+      "colours": 102,
+      "descendants": 47,
+      "routes": {
+        "render": 46,
+        "print": 1,
+        "blit": 0
+      },
+      "alt": "The Amulet Studio ribbon with the automate tab selected and its panel open, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "about-2b509734-20260811.png",
+      "surface": "about",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 62,
+      "descendants": 24,
+      "routes": {
+        "render": 19,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The About surface (Currently opened world), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "analyzetool-2b509734-20260811.png",
+      "surface": "analyzeTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 62,
+      "descendants": 33,
+      "routes": {
+        "render": 26,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Analyze surface (Analysis), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "batchqueue-2b509734-20260811.png",
+      "surface": "batchQueue",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 74,
+      "descendants": 32,
+      "routes": {
+        "render": 25,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Batch queue surface (Automation), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "biomemap-2b509734-20260811.png",
+      "surface": "biomeMap",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 88,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Biome map surface (Analysis), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "biomeselect-2b509734-20260811.png",
+      "surface": "biomeSelect",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 65,
+      "descendants": 27,
+      "routes": {
+        "render": 21,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "The Select biome surface (Biome picker), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "blockaudit-2b509734-20260811.png",
+      "surface": "blockAudit",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 77,
+      "descendants": 20,
+      "routes": {
+        "render": 16,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Block state audit surface (Blocks), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "blockhistogram-2b509734-20260811.png",
+      "surface": "blockHistogram",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 89,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Block histogram surface (Analysis), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "blockselect-2b509734-20260811.png",
+      "surface": "blockSelect",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 57,
+      "descendants": 54,
+      "routes": {
+        "render": 40,
+        "print": 14,
+        "blit": 0
+      },
+      "alt": "The Select block surface (Block picker), showing its window search and 5 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "brushsettings-2b509734-20260811.png",
+      "surface": "brushSettings",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 60,
+      "descendants": 71,
+      "routes": {
+        "render": 54,
+        "print": 17,
+        "blit": 0
+      },
+      "alt": "The Brush surface (Tools), showing its window search and 5 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "brushtool-2b509734-20260811.png",
+      "surface": "brushTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 73,
+      "descendants": 50,
+      "routes": {
+        "render": 35,
+        "print": 15,
+        "blit": 0
+      },
+      "alt": "The Shape brush surface (Build), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "cavemap-2b509734-20260811.png",
+      "surface": "caveMap",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 89,
+      "descendants": 37,
+      "routes": {
+        "render": 26,
+        "print": 11,
+        "blit": 0
+      },
+      "alt": "The Cave coverage surface (Worldgen), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "chunkinspector-2b509734-20260811.png",
+      "surface": "chunkInspector",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 74,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Chunk inspector surface (Analysis), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "clonetool-2b509734-20260811.png",
+      "surface": "cloneTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "680x280",
+      "colours": 40,
+      "descendants": 45,
+      "routes": {
+        "render": 30,
+        "print": 15,
+        "blit": 0
+      },
+      "alt": "The Clone surface (Tools), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "commandfinder-2b509734-20260811.png",
+      "surface": "commandFinder",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 80,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Command blocks surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "configureblocks-2b509734-20260811.png",
+      "surface": "configureBlocks",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x318",
+      "colours": 105,
+      "descendants": 54,
+      "routes": {
+        "render": 40,
+        "print": 14,
+        "blit": 0
+      },
+      "alt": "The Configure blocks surface (Pickers), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "confirm-2b509734-20260811.png",
+      "surface": "confirm",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "520x280",
+      "colours": 66,
+      "descendants": 27,
+      "routes": {
+        "render": 21,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "The Delete unselected chunks surface (Safety gate), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "controls-2b509734-20260811.png",
+      "surface": "controls",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 62,
+      "descendants": 44,
+      "routes": {
+        "render": 37,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Key Select surface (Key configuration), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "convertprogress-2b509734-20260811.png",
+      "surface": "convertProgress",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 71,
+      "descendants": 25,
+      "routes": {
+        "render": 19,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "The Converting world surface (World conversion), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "cutawayview-2b509734-20260811.png",
+      "surface": "cutawayView",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 66,
+      "descendants": 32,
+      "routes": {
+        "render": 24,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Cutaway surface (View), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "dimsum-2b509734-20260811.png",
+      "surface": "dimsum",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "520x280",
+      "colours": 72,
+      "descendants": 24,
+      "routes": {
+        "render": 19,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The Har gow · 蝦餃 surface (Startup surprise), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "docs-2b509734-20260811.png",
+      "surface": "docs",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "820x280",
+      "colours": 62,
+      "descendants": 33,
+      "routes": {
+        "render": 27,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "The Documentation surface (Offline bundle), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "editchunktool-2b509734-20260811.png",
+      "surface": "editChunkTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 45,
+      "descendants": 48,
+      "routes": {
+        "render": 34,
+        "print": 14,
+        "blit": 0
+      },
+      "alt": "The Edit chunk surface (Tools), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "elementappearance-2b509734-20260811.png",
+      "surface": "elementAppearance",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 65,
+      "descendants": 57,
+      "routes": {
+        "render": 42,
+        "print": 15,
+        "blit": 0
+      },
+      "alt": "The Edit appearance surface (Per-element appearance), showing its window search and 5 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "entitybrowser-2b509734-20260811.png",
+      "surface": "entityBrowser",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "800x280",
+      "colours": 94,
+      "descendants": 21,
+      "routes": {
+        "render": 17,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Entity browser surface (Entities), showing its window search and 6 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "entityedit-2b509734-20260811.png",
+      "surface": "entityEdit",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x318",
+      "colours": 90,
+      "descendants": 55,
+      "routes": {
+        "render": 35,
+        "print": 20,
+        "blit": 0
+      },
+      "alt": "The Edit entity surface (Entities), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "erosion-2b509734-20260811.png",
+      "surface": "erosion",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 49,
+      "descendants": 40,
+      "routes": {
+        "render": 28,
+        "print": 12,
+        "blit": 0
+      },
+      "alt": "The Erosion surface (Sculpt), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "errorreport-2b509734-20260811.png",
+      "surface": "errorReport",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "680x318",
+      "colours": 87,
+      "descendants": 30,
+      "routes": {
+        "render": 23,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Unexpected error surface (Diagnostics), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "exportstructure-2b509734-20260811.png",
+      "surface": "exportStructure",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 55,
+      "descendants": 35,
+      "routes": {
+        "render": 23,
+        "print": 12,
+        "blit": 0
+      },
+      "alt": "The Export selection surface (Structure files), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "externaleditor-2b509734-20260811.png",
+      "surface": "externalEditor",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x318",
+      "colours": 121,
+      "descendants": 29,
+      "routes": {
+        "render": 21,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The External editor surface (Safe bridge), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "findreplaceblocks-2b509734-20260811.png",
+      "surface": "findReplaceBlocks",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 81,
+      "descendants": 48,
+      "routes": {
+        "render": 38,
+        "print": 10,
+        "blit": 0
+      },
+      "alt": "The Blocks surface (Find and replace), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "findreplacecommands-2b509734-20260811.png",
+      "surface": "findReplaceCommands",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 56,
+      "descendants": 51,
+      "routes": {
+        "render": 35,
+        "print": 16,
+        "blit": 0
+      },
+      "alt": "The Commands surface (Find and replace), showing its window search and 5 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "findreplacenbt-2b509734-20260811.png",
+      "surface": "findReplaceNbt",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 58,
+      "descendants": 44,
+      "routes": {
+        "render": 30,
+        "print": 14,
+        "blit": 0
+      },
+      "alt": "The NBT surface (Find and replace), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "flatten-2b509734-20260811.png",
+      "surface": "flatten",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 47,
+      "descendants": 27,
+      "routes": {
+        "render": 18,
+        "print": 9,
+        "blit": 0
+      },
+      "alt": "The Flatten to height surface (Sculpt), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "floodfill-2b509734-20260811.png",
+      "surface": "floodFill",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 51,
+      "descendants": 46,
+      "routes": {
+        "render": 33,
+        "print": 13,
+        "blit": 0
+      },
+      "alt": "The Flood fill surface (Tools), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "forceloaded-2b509734-20260811.png",
+      "surface": "forceLoaded",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 75,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Force-loaded chunks surface (Boundaries), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "fourupview-2b509734-20260811.png",
+      "surface": "fourUpView",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 72,
+      "descendants": 34,
+      "routes": {
+        "render": 25,
+        "print": 9,
+        "blit": 0
+      },
+      "alt": "The Four-up split surface (View), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "gamerules-2b509734-20260811.png",
+      "surface": "gamerules",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 63,
+      "descendants": 18,
+      "routes": {
+        "render": 14,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Game rules surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "generatetool-2b509734-20260811.png",
+      "surface": "generateTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 59,
+      "descendants": 53,
+      "routes": {
+        "render": 37,
+        "print": 16,
+        "blit": 0
+      },
+      "alt": "The Generate surface (Tools), showing its window search and 5 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "goto-2b509734-20260811.png",
+      "surface": "goto",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "460x280",
+      "colours": 48,
+      "descendants": 26,
+      "routes": {
+        "render": 18,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Teleport surface (Camera), showing its window search and 1 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "heightlimits-2b509734-20260811.png",
+      "surface": "heightLimits",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 79,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Height limits surface (Boundaries), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "history-2b509734-20260811.png",
+      "surface": "history",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x366",
+      "colours": 109,
+      "descendants": 64,
+      "routes": {
+        "render": 57,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Project history surface (Local Git repository), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "importchunks-2b509734-20260811.png",
+      "surface": "importChunks",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 61,
+      "descendants": 27,
+      "routes": {
+        "render": 19,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Import chunks surface (Chunk tool), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "importmap-2b509734-20260811.png",
+      "surface": "importMap",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 62,
+      "descendants": 39,
+      "routes": {
+        "render": 25,
+        "print": 14,
+        "blit": 0
+      },
+      "alt": "The Import map image surface (Import), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "inspector-2b509734-20260811.png",
+      "surface": "inspector",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 71,
+      "descendants": 42,
+      "routes": {
+        "render": 34,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Inspector surface (Panels), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "inventoryeditor-2b509734-20260811.png",
+      "surface": "inventoryEditor",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 78,
+      "descendants": 55,
+      "routes": {
+        "render": 40,
+        "print": 15,
+        "blit": 0
+      },
+      "alt": "The Inventory editor surface (Panels), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "itemtypelist-2b509734-20260811.png",
+      "surface": "itemTypeList",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 63,
+      "descendants": 42,
+      "routes": {
+        "render": 34,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Item types surface (Pickers), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "languageselect-2b509734-20260811.png",
+      "surface": "languageSelect",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "520x280",
+      "colours": 59,
+      "descendants": 26,
+      "routes": {
+        "render": 22,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Language Select surface (Localization), showing its window search and 1 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "layerslice-2b509734-20260811.png",
+      "surface": "layerSlice",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 38,
+      "descendants": 39,
+      "routes": {
+        "render": 27,
+        "print": 12,
+        "blit": 0
+      },
+      "alt": "The Layer slice surface (Measure), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "leveldat-2b509734-20260811.png",
+      "surface": "levelDat",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 65,
+      "descendants": 20,
+      "routes": {
+        "render": 16,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The level.dat surface (Data), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "librarypanel-2b509734-20260811.png",
+      "surface": "libraryPanel",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 103,
+      "descendants": 52,
+      "routes": {
+        "render": 42,
+        "print": 10,
+        "blit": 0
+      },
+      "alt": "The Library surface (Panels), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "licenses-2b509734-20260811.png",
+      "surface": "licenses",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 84,
+      "descendants": 24,
+      "routes": {
+        "render": 19,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The Third Party Licenses surface (Legal), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "lightoverlay-2b509734-20260811.png",
+      "surface": "lightOverlay",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 56,
+      "descendants": 33,
+      "routes": {
+        "render": 24,
+        "print": 9,
+        "blit": 0
+      },
+      "alt": "The Light levels surface (Mechanics), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "loading-2b509734-20260811.png",
+      "surface": "loading",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 62,
+      "descendants": 28,
+      "routes": {
+        "render": 21,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Please wait while the renderer loads surface (Renderer), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "logview-2b509734-20260811.png",
+      "surface": "logView",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 53,
+      "descendants": 31,
+      "routes": {
+        "render": 24,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Log surface (Diagnostics), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "lootaudit-2b509734-20260811.png",
+      "surface": "lootAudit",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 86,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Loot audit surface (Containers), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "macrorecorder-2b509734-20260811.png",
+      "surface": "macroRecorder",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 95,
+      "descendants": 29,
+      "routes": {
+        "render": 23,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "The Macro recorder surface (Automation), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "mapitems-2b509734-20260811.png",
+      "surface": "mapItems",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 64,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Map items surface (Data), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "measure-2b509734-20260811.png",
+      "surface": "measure",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 57,
+      "descendants": 18,
+      "routes": {
+        "render": 14,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Measure surface (Measure), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "minecraftinstalls-2b509734-20260811.png",
+      "surface": "minecraftInstalls",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 69,
+      "descendants": 32,
+      "routes": {
+        "render": 24,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Minecraft installs surface (Resources), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "movetool-2b509734-20260811.png",
+      "surface": "moveTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 51,
+      "descendants": 38,
+      "routes": {
+        "render": 25,
+        "print": 13,
+        "blit": 0
+      },
+      "alt": "The Move surface (Tools), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "narrator-2b509734-20260811.png",
+      "surface": "narrator",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 62,
+      "descendants": 39,
+      "routes": {
+        "render": 28,
+        "print": 11,
+        "blit": 0
+      },
+      "alt": "The Narrator and voice surface (Optional speech), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "nbtlegacy-2b509734-20260811.png",
+      "surface": "nbtLegacy",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 78,
+      "descendants": 42,
+      "routes": {
+        "render": 32,
+        "print": 10,
+        "blit": 0
+      },
+      "alt": "The NBT editor surface (Raw data), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "nbtsearch-2b509734-20260811.png",
+      "surface": "nbtSearch",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 58,
+      "descendants": 51,
+      "routes": {
+        "render": 35,
+        "print": 16,
+        "blit": 0
+      },
+      "alt": "The NBT search and replace surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "noisegen-2b509734-20260811.png",
+      "surface": "noiseGen",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 51,
+      "descendants": 42,
+      "routes": {
+        "render": 29,
+        "print": 13,
+        "blit": 0
+      },
+      "alt": "The Noise fill surface (Generate), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "operationoptions-2b509734-20260811.png",
+      "surface": "operationOptions",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 62,
+      "descendants": 37,
+      "routes": {
+        "render": 28,
+        "print": 9,
+        "blit": 0
+      },
+      "alt": "The Replace surface (Stock operation), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "oreaudit-2b509734-20260811.png",
+      "surface": "oreAudit",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 71,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Ore distribution surface (Worldgen), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "patternmask-2b509734-20260811.png",
+      "surface": "patternMask",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 94,
+      "descendants": 47,
+      "routes": {
+        "render": 35,
+        "print": 12,
+        "blit": 0
+      },
+      "alt": "The Pattern and mask surface (Build), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "pendingimports-2b509734-20260811.png",
+      "surface": "pendingImports",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x318",
+      "colours": 109,
+      "descendants": 45,
+      "routes": {
+        "render": 31,
+        "print": 14,
+        "blit": 0
+      },
+      "alt": "The Pending imports surface (Panels), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "playerdata-2b509734-20260811.png",
+      "surface": "playerData",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x280",
+      "colours": 86,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Player data surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "playerpanel-2b509734-20260811.png",
+      "surface": "playerPanel",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x318",
+      "colours": 101,
+      "descendants": 47,
+      "routes": {
+        "render": 35,
+        "print": 12,
+        "blit": 0
+      },
+      "alt": "The Players surface (Panels), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "pluginsdialog-2b509734-20260811.png",
+      "surface": "pluginsDialog",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x318",
+      "colours": 82,
+      "descendants": 37,
+      "routes": {
+        "render": 29,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Plugins surface (Extensibility), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "portalbuilder-2b509734-20260811.png",
+      "surface": "portalBuilder",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "820x414",
+      "colours": 87,
+      "descendants": 77,
+      "routes": {
+        "render": 52,
+        "print": 25,
+        "blit": 0
+      },
+      "alt": "The Nether portal travel builder surface (Travel), showing its window search and 7 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "portallinker-2b509734-20260811.png",
+      "surface": "portalLinker",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 73,
+      "descendants": 36,
+      "routes": {
+        "render": 25,
+        "print": 11,
+        "blit": 0
+      },
+      "alt": "The Portal linkage surface (Redstone), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "presets-2b509734-20260811.png",
+      "surface": "presets",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "720x462",
+      "colours": 142,
+      "descendants": 38,
+      "routes": {
+        "render": 30,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Appearance presets surface (Versioned interchange), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "profiler-2b509734-20260811.png",
+      "surface": "profiler",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x318",
+      "colours": 95,
+      "descendants": 32,
+      "routes": {
+        "render": 25,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Profiler surface (Diagnostics), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "pythonconsole-2b509734-20260811.png",
+      "surface": "pythonConsole",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 63,
+      "descendants": 24,
+      "routes": {
+        "render": 20,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Python console surface (Diagnostics), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "railnetwork-2b509734-20260811.png",
+      "surface": "railNetwork",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 73,
+      "descendants": 40,
+      "routes": {
+        "render": 30,
+        "print": 10,
+        "blit": 0
+      },
+      "alt": "The Rail network surface (Redstone), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "railtunnel-2b509734-20260811.png",
+      "surface": "railTunnel",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "840x414",
+      "colours": 80,
+      "descendants": 163,
+      "routes": {
+        "render": 114,
+        "print": 49,
+        "blit": 0
+      },
+      "alt": "The Rail tunnel builder surface (Travel), showing its window search and 17 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "redstonetrace-2b509734-20260811.png",
+      "surface": "redstoneTrace",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 75,
+      "descendants": 44,
+      "routes": {
+        "render": 32,
+        "print": 12,
+        "blit": 0
+      },
+      "alt": "The Circuit trace surface (Redstone), showing its window search and 5 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "regenerate-2b509734-20260811.png",
+      "surface": "regenerate",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 62,
+      "descendants": 30,
+      "routes": {
+        "render": 24,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "The Regenerate chunks surface (Generate), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "relight-2b509734-20260811.png",
+      "surface": "relight",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 46,
+      "descendants": 24,
+      "routes": {
+        "render": 18,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "The Relight surface (Integrity), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "removeentities-2b509734-20260811.png",
+      "surface": "removeEntities",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 50,
+      "descendants": 31,
+      "routes": {
+        "render": 22,
+        "print": 9,
+        "blit": 0
+      },
+      "alt": "The Remove entities surface (Entities), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "renderlayers-2b509734-20260811.png",
+      "surface": "renderLayers",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 57,
+      "descendants": 62,
+      "routes": {
+        "render": 44,
+        "print": 18,
+        "blit": 0
+      },
+      "alt": "The Render layers surface (View), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "schematiclibrary-2b509734-20260811.png",
+      "surface": "schematicLibrary",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 91,
+      "descendants": 40,
+      "routes": {
+        "render": 32,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Structure library surface (Build), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "schoolunlock-2b509734-20260811.png",
+      "surface": "schoolUnlock",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "520x280",
+      "colours": 53,
+      "descendants": 26,
+      "routes": {
+        "render": 19,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The School mode surface (Presentation lock), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "scoreboard-2b509734-20260811.png",
+      "surface": "scoreboard",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 74,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Scoreboard surface (Data), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "scriptconsole-2b509734-20260811.png",
+      "surface": "scriptConsole",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 95,
+      "descendants": 27,
+      "routes": {
+        "render": 22,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The Operation console surface (Automation), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "sealevel-2b509734-20260811.png",
+      "surface": "seaLevel",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 49,
+      "descendants": 28,
+      "routes": {
+        "render": 18,
+        "print": 10,
+        "blit": 0
+      },
+      "alt": "The Sea level surface (Generate), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "seedtools-2b509734-20260811.png",
+      "surface": "seedTools",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 70,
+      "descendants": 21,
+      "routes": {
+        "render": 17,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Seed tools surface (Worldgen), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "selectblocktool-2b509734-20260811.png",
+      "surface": "selectBlockTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "680x280",
+      "colours": 63,
+      "descendants": 38,
+      "routes": {
+        "render": 32,
+        "print": 6,
+        "blit": 0
+      },
+      "alt": "The Select block surface (Tools), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "selectentitytool-2b509734-20260811.png",
+      "surface": "selectEntityTool",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 91,
+      "descendants": 25,
+      "routes": {
+        "render": 20,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The Select entity surface (Tools), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "signsearch-2b509734-20260811.png",
+      "surface": "signSearch",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 72,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Sign text surface (Data), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "slimechunks-2b509734-20260811.png",
+      "surface": "slimeChunks",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 78,
+      "descendants": 18,
+      "routes": {
+        "render": 14,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Slime chunks surface (Worldgen), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "smooth-2b509734-20260811.png",
+      "surface": "smooth",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 42,
+      "descendants": 34,
+      "routes": {
+        "render": 25,
+        "print": 9,
+        "blit": 0
+      },
+      "alt": "The Smooth terrain surface (Sculpt), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "spawnanalysis-2b509734-20260811.png",
+      "surface": "spawnAnalysis",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x280",
+      "colours": 100,
+      "descendants": 52,
+      "routes": {
+        "render": 40,
+        "print": 12,
+        "blit": 0
+      },
+      "alt": "The Mob spawn analysis surface (Mechanics), showing its window search and 5 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "spawnpoints-2b509734-20260811.png",
+      "surface": "spawnPoints",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 49,
+      "descendants": 34,
+      "routes": {
+        "render": 23,
+        "print": 11,
+        "blit": 0
+      },
+      "alt": "The Spawn points and beds surface (Redstone), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "stackarray-2b509734-20260811.png",
+      "surface": "stackArray",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 51,
+      "descendants": 39,
+      "routes": {
+        "render": 25,
+        "print": 14,
+        "blit": 0
+      },
+      "alt": "The Stack and array surface (Build), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "structurelocator-2b509734-20260811.png",
+      "surface": "structureLocator",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 81,
+      "descendants": 20,
+      "routes": {
+        "render": 16,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The Locate structures surface (Worldgen), showing its window search and 6 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "surfacepaint-2b509734-20260811.png",
+      "surface": "surfacePaint",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 95,
+      "descendants": 32,
+      "routes": {
+        "render": 24,
+        "print": 8,
+        "blit": 0
+      },
+      "alt": "The Repaint surface surface (Surface), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "tabmanager-2b509734-20260811.png",
+      "surface": "tabManager",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "820x280",
+      "colours": 69,
+      "descendants": 59,
+      "routes": {
+        "render": 42,
+        "print": 17,
+        "blit": 0
+      },
+      "alt": "The Tabs, groups, and safe closing surface (Workspace navigation), showing its window search and 7 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "terrainbrush-2b509734-20260811.png",
+      "surface": "terrainBrush",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "640x280",
+      "colours": 47,
+      "descendants": 52,
+      "routes": {
+        "render": 38,
+        "print": 14,
+        "blit": 0
+      },
+      "alt": "The Terrain brush surface (Sculpt), showing its window search and 4 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "tickload-2b509734-20260811.png",
+      "surface": "tickLoad",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "740x280",
+      "colours": 66,
+      "descendants": 35,
+      "routes": {
+        "render": 26,
+        "print": 9,
+        "blit": 0
+      },
+      "alt": "The Tick load surface (Mechanics), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "toolsettings-2b509734-20260811.png",
+      "surface": "toolSettings",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "680x280",
+      "colours": 64,
+      "descendants": 42,
+      "routes": {
+        "render": 30,
+        "print": 12,
+        "blit": 0
+      },
+      "alt": "The Tool settings surface (Tools), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "undohistory-2b509734-20260811.png",
+      "surface": "undoHistory",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 56,
+      "descendants": 54,
+      "routes": {
+        "render": 49,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The Undo history surface (History), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "update-2b509734-20260811.png",
+      "surface": "update",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x318",
+      "colours": 99,
+      "descendants": 26,
+      "routes": {
+        "render": 21,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The Update status surface (Windows delivery), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "validaterepair-2b509734-20260811.png",
+      "surface": "validateRepair",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "760x318",
+      "colours": 106,
+      "descendants": 32,
+      "routes": {
+        "render": 25,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Validate and repair surface (Integrity), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "versionselect-2b509734-20260811.png",
+      "surface": "versionSelect",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "560x280",
+      "colours": 42,
+      "descendants": 25,
+      "routes": {
+        "render": 18,
+        "print": 7,
+        "blit": 0
+      },
+      "alt": "The Select version surface (Platform), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "viewcontrols-2b509734-20260811.png",
+      "surface": "viewControls",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 51,
+      "descendants": 56,
+      "routes": {
+        "render": 40,
+        "print": 16,
+        "blit": 0
+      },
+      "alt": "The View settings surface (View), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "waypoints-2b509734-20260811.png",
+      "surface": "waypoints",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "620x280",
+      "colours": 70,
+      "descendants": 36,
+      "routes": {
+        "render": 26,
+        "print": 10,
+        "blit": 0
+      },
+      "alt": "The Waypoints surface (Navigation), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "workplane-2b509734-20260811.png",
+      "surface": "workPlane",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "600x280",
+      "colours": 47,
+      "descendants": 35,
+      "routes": {
+        "render": 25,
+        "print": 10,
+        "blit": 0
+      },
+      "alt": "The Work plane surface (View), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "worldborder-2b509734-20260811.png",
+      "surface": "worldBorder",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "660x280",
+      "colours": 81,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The World border surface (Boundaries), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "worlddiff-2b509734-20260811.png",
+      "surface": "worldDiff",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "780x280",
+      "colours": 84,
+      "descendants": 27,
+      "routes": {
+        "render": 22,
+        "print": 5,
+        "blit": 0
+      },
+      "alt": "The Compare worlds surface (Integrity), showing its window search and 2 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    },
+    {
+      "filename": "worldinfo-2b509734-20260811.png",
+      "surface": "worldInfo",
+      "group": "Surfaces",
+      "theme": "light",
+      "density": "comfortable",
+      "viewport": "700x280",
+      "colours": 73,
+      "descendants": 19,
+      "routes": {
+        "render": 15,
+        "print": 4,
+        "blit": 0
+      },
+      "alt": "The World info surface (Panels), showing its window search and 3 sections, in the light theme.",
+      "verified": "2b50973453b9234c9359ec08aa63cf4da2ada551"
+    }
+  ],
+  "failures": []
+}

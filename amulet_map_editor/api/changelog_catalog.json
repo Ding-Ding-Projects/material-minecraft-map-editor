@@ -1,8 +1,128 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "a1331df76ee0cd0fd6d518cb73fa38f517cc6627",
+  "source_revision": "2b50973453b9234c9359ec08aa63cf4da2ada551",
   "entries": [
+    {
+      "version": "0.10.0-dev.603",
+      "released_on": "2026-08-11",
+      "commit_sha": "276c71536dbd250de2feb9a9918a5c3c3a50573f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Say the paste anchor in Cantonese too, and on the panel that has no picker",
+          "commit_sha": "276c71536dbd250de2feb9a9918a5c3c3a50573f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.600",
+      "released_on": "2026-08-11",
+      "commit_sha": "ea3761713597b7c5ae51d86238dec97b84b9825b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Put back the selection-handles article my bundle blob stood on",
+          "commit_sha": "ea3761713597b7c5ae51d86238dec97b84b9825b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.598",
+      "released_on": "2026-08-11",
+      "commit_sha": "1912dd373e17f65927c579065e6733e1add9ab0b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Ask where the Run control is, not whether it says it is shown",
+          "commit_sha": "1912dd373e17f65927c579065e6733e1add9ab0b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.597",
+      "released_on": "2026-08-11",
+      "commit_sha": "2519c08133d978dd6637115519d9cd18af21fc5b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Rebuild the offline docs bundle against the article that landed beside it",
+          "commit_sha": "2519c08133d978dd6637115519d9cd18af21fc5b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.595",
+      "released_on": "2026-08-11",
+      "commit_sha": "73f7c7f363f55422884081f08a0b0bb3a6477c09",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep the hand after an orbit, and guard the calls nobody was watching",
+          "commit_sha": "73f7c7f363f55422884081f08a0b0bb3a6477c09"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.592",
+      "released_on": "2026-08-11",
+      "commit_sha": "24d29bc66502f07f4a831959b029c2ee04bfa292",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Give each stock operation tile its own operation",
+          "commit_sha": "24d29bc66502f07f4a831959b029c2ee04bfa292"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.590",
+      "released_on": "2026-08-11",
+      "commit_sha": "b6b638b8a942c9808a9edf52295f305e53b8963c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Say which point a pasted coordinate names, and show the box it fills",
+          "commit_sha": "b6b638b8a942c9808a9edf52295f305e53b8963c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.588",
+      "released_on": "2026-08-11",
+      "commit_sha": "9d0f41ad6b9eebefcc7b8d8464677f634d39d307",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Say when a paste wrote nothing instead of quietly hiding the evidence",
+          "commit_sha": "9d0f41ad6b9eebefcc7b8d8464677f634d39d307"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.585",
+      "released_on": "2026-08-11",
+      "commit_sha": "cca56b0b0ab93402cf60bd16dbf8cf6e0690a024",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Leave the paste tool before asking it to paste again",
+          "commit_sha": "cca56b0b0ab93402cf60bd16dbf8cf6e0690a024"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.584",
+      "released_on": "2026-08-11",
+      "commit_sha": "a1331df76ee0cd0fd6d518cb73fa38f517cc6627",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Tell the arrow keys above the fold, and drive the route the fix was for",
+          "commit_sha": "a1331df76ee0cd0fd6d518cb73fa38f517cc6627"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.582",
       "released_on": "2026-08-11",
