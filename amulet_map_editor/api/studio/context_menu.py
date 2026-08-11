@@ -3,18 +3,39 @@
 A platform ``wx.Menu`` cannot be searched, cannot show a regular-expression
 builder, and cannot be styled to match the rest of the shell, so Studio draws
 its own: a 300px popover with an uppercase title, a search field carrying the
-regex opt-in and the shared ``.*`` builder, an honest feedback line, and a
-scrolling item list whose keyboard accelerators are right-aligned in a
-monospaced face.
+regex opt-in and the shared ``.*`` builder, an honest feedback line reading
+``"11 of 19 commands · Filtering by plain text."``, and a scrolling item list
+whose keyboard accelerators are right-aligned in a monospaced face.
 
-**Accelerators come from one table.**  :data:`ACCELERATORS` is the single
-source for the shell-installed bindings: the menu reads it to draw the text,
-and :func:`accelerator_table_entries` turns the same rows into the
-``wx.AcceleratorTable`` the shell installs.  Because the drawing and the
-binding are generated from one mapping they cannot drift.  Bindings that belong
-to the user-configurable 3D editor key groups are read live from that
-configuration by :func:`viewport_accelerator`, and an item whose binding cannot
-be established shows no accelerator at all rather than a plausible guess.
+**The three menus the design draws are transcribed from it.**  ``viewport``,
+``navigator``, and ``ribbon`` carry the design's own titles, its own row labels
+in its own order, and its own accelerator text.  Where the design states an
+accelerator it is written here exactly as the design states it, and where the
+design states none the row shows none: a shortcut invented to fill a gap is a
+key the user is trained to press for nothing.  The remaining menus below cover
+surfaces the design's prototype never wired a right-click to -- the properties
+pane, the selection-box list, the status bar, tabs, tab groups, and a recent
+project -- and every element in this shell has a context menu, so they stay.
+
+**A row is never dropped for being unwired.**  A destination this build has not
+registered leaves the row exactly where the design put it, disabled, carrying a
+tooltip that names what is unmet: a menu that quietly loses a command teaches
+the reader the product does not have it.
+
+**Accelerators the shell installs come from one table.**  :data:`ACCELERATORS`
+is the single source for those bindings: the retained menus read it to draw
+their text, and :func:`accelerator_table_entries` turns the same rows into the
+``wx.AcceleratorTable`` the shell installs, so the drawn key and the bound key
+cannot drift.  :func:`viewport_accelerator` reads the user-configurable 3D
+editor key groups live for the surfaces that report them.
+
+**Selects are decorated the way the design decorates them.**  The design builds
+every dropdown through one function, and :func:`decorate_select` is that
+function: the stored choice or the first option, the shared query applied with
+the regex opt-in the user chose, a swatch derived from the option's leading
+identifier, and the chosen row drawn in the primary container.  Opening a list
+clears its query and keeps its regex mode -- :func:`restore_search` and
+:func:`remember_regex_mode` -- which is what the design's ``open`` does.
 """
 
 from __future__ import annotations
@@ -22,7 +43,15 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import wx
 
@@ -37,18 +66,51 @@ __all__ = [
     "GroupChoice",
     "MenuItem",
     "SearchableContextMenu",
+    "SelectOption",
     "accelerator",
     "accelerator_table_entries",
+    "decorate_select",
     "menu",
+    "menu_feedback",
     "open_context_menu",
     "open_group_picker",
+    "option_swatch",
+    "remember_regex_mode",
+    "restore_search",
+    "select_feedback",
+    "select_value",
     "tab_groups",
+    "unavailable_clause",
+    "unavailable_hint",
     "viewport_accelerator",
 ]
 
 #: Local menu actions that neither open a surface nor run a shell command.
 ACTION_APPEARANCE = "editAppearance"
 ACTION_MOVE_INTO_GROUP = "moveIntoGroup"
+
+#: The design's four one-way layout rows.  The shell registers *toggles* for
+#: the ribbon and the properties pane, and a row labelled "Collapse the ribbon"
+#: that expands an already-collapsed ribbon is a lie, so the menu carries these
+#: out itself against the live window: one setter, one direction, each time.
+ACTION_COLLAPSE_RIBBON = "collapseRibbon"
+ACTION_EXPAND_RIBBON = "expandRibbon"
+ACTION_SHOW_PANE = "showPane"
+ACTION_HIDE_PANE = "hidePane"
+
+#: ``action`` -> ``(method the host window exposes, the value to pass)``.
+_LAYOUT_ACTIONS: Mapping[str, Tuple[str, bool]] = MappingProxyType(
+    {
+        ACTION_COLLAPSE_RIBBON: ("set_collapsed", True),
+        ACTION_EXPAND_RIBBON: ("set_collapsed", False),
+        ACTION_SHOW_PANE: ("show_properties", True),
+        ACTION_HIDE_PANE: ("show_properties", False),
+    }
+)
+
+#: How far up the window tree a layout action looks for its host before giving
+#: up.  Bounded so a detached or cyclic parent chain cannot spin.
+_MAX_ANCESTORS = 32
 
 
 # ----------------------------------------------------------------------------
@@ -94,6 +156,7 @@ _MODIFIERS: Mapping[str, int] = MappingProxyType(
 _NAMED_KEYS: Mapping[str, int] = MappingProxyType(
     {
         "DELETE": wx.WXK_DELETE,
+        "DEL": wx.WXK_DELETE,
         "INSERT": wx.WXK_INSERT,
         "ENTER": wx.WXK_RETURN,
         "RETURN": wx.WXK_RETURN,
@@ -135,7 +198,9 @@ def parse_accelerator(text: str) -> Optional[Tuple[int, int]]:
 
     ``None`` means the string names a key this platform cannot express as an
     accelerator, so the caller installs nothing rather than binding the wrong
-    key.
+    key.  The design's pointer bindings -- ``RMB``, ``Ctrl+LMB`` -- land here
+    too: a mouse gesture is drawn beside its row and is never installed as a
+    keyboard accelerator.
     """
     parts = [part.strip() for part in str(text).split("+") if part.strip()]
     if not parts:
@@ -203,7 +268,7 @@ def _active_keybinds() -> Mapping[str, Tuple[Sequence[str], str]]:
 
     The viewport's bindings are user-configurable, so they are read rather than
     assumed.  Every failure route returns nothing, which makes the affected
-    menu rows show no accelerator instead of the shipped default the user may
+    readout show no accelerator instead of the shipped default the user may
     well have replaced.
     """
     try:
@@ -257,8 +322,9 @@ class MenuItem:
 
     A row names exactly one destination: a ``surface`` to open, a ``command``
     for the shell to run, or a local ``action`` the menu performs itself.
-    ``accel`` is filled from the shared table unless the caller states one,
-    which is how the drawn key and the installed key stay the same key.
+    ``accel`` is what the row draws on its right; for the design's own menus it
+    is the design's own text, and for the rest it is filled from the shared
+    table unless the caller states one.
     """
 
     label: str
@@ -283,7 +349,12 @@ def _item(
     accel: Optional[str] = None,
     hint: str = "",
 ) -> MenuItem:
-    """Build a row, resolving its accelerator from the shared table."""
+    """Build a row, resolving its accelerator from the shared table.
+
+    Passing ``accel`` states the binding outright, which is how every row the
+    design specifies is written: the design's text wins over the table, and an
+    empty string means the design draws no accelerator on that row.
+    """
     resolved = (
         accel if accel is not None else accelerator(command=command, surface=surface)
     )
@@ -300,6 +371,7 @@ def _item(
 #: The row every menu ends with, wired to the app's element appearance editor.
 _APPEARANCE = _item(
     "Edit appearance…",
+    accel="",
     action=ACTION_APPEARANCE,
     hint="Change the colours and typography of this element",
 )
@@ -314,62 +386,71 @@ _MOVE_INTO_GROUP = _item(
 )
 
 
-def _ribbon_menu() -> Tuple[MenuItem, ...]:
+# -- the three menus the design draws ----------------------------------------
+
+
+def _viewport_menu() -> Tuple[MenuItem, ...]:
+    """The design's ``ctxMenus.viewport``: nineteen rows, in its order."""
     return (
-        _item(
-            "Collapse or expand the ribbon",
-            command="toggleRibbon",
-            hint="Hide the command panel and keep the tab strip",
-        ),
-        _item("Show or hide the properties pane", command="togglePane"),
-        _item("Command palette…", surface="palette"),
-        _item("Options…", surface="prefs"),
-        _item("Key configuration…", surface="controls"),
-        _item("Regex builder…", surface="regex"),
-        _item("Documentation…", surface="docs"),
-        _item("Tabs and groups…", surface="tabManager"),
+        _item("Inspect block", accel="RMB", surface="nbt"),
+        _item("Teleport camera here", accel="", surface="goto"),
+        _item("Add selection box here", accel="Ctrl+LMB", command="addBox"),
+        _item("Deselect active box", accel="Esc", command="deselectBox"),
+        _item("Deselect all boxes", accel="Ctrl+Shift+D", command="deselectAllBoxes"),
+        _item("Toggle projection", accel="P", command="projection"),
+        _item("Measure from here", accel="", surface="measure"),
+        _item("Layer slice at this height", accel="", surface="layerSlice"),
+        _item("Light levels here", accel="", surface="lightOverlay"),
+        _item("Trace redstone circuit", accel="", surface="redstoneTrace"),
+        _item("Entity browser", accel="", surface="entityBrowser"),
+        _item("Chunk inspector", accel="", surface="chunkInspector"),
+        _item("Add waypoint here", accel="", surface="waypoints"),
+        _item("Set world spawn here", accel="", surface="spawnPoints"),
+        _item("Build portal pair from here", accel="", surface="portalBuilder"),
+        _item("Start rail tunnel here", accel="", surface="railTunnel"),
+        _item("Render layers…", accel="", surface="renderLayers"),
+        _item("View settings…", accel="", surface="viewControls"),
         _APPEARANCE,
     )
 
 
 def _navigator_menu() -> Tuple[MenuItem, ...]:
+    """The design's ``ctxMenus.navigator``: ten rows, in its order."""
     return (
-        _item("Teleport the camera…", surface="goto"),
-        _item("World information…", surface="worldInfo"),
-        _item("Chunk inspector…", surface="chunkInspector"),
-        _item("Render layers…", surface="renderLayers"),
-        _item("Height limits…", surface="heightLimits"),
-        _item("Force-loaded chunks…", surface="forceLoaded"),
-        _item("Biome map…", surface="biomeMap"),
+        _item("Frame this dimension", accel="", command="frameDimension"),
+        _item("Add selection box", accel="", command="addBox"),
+        _item("Duplicate selection box", accel="", command="duplicateBox"),
+        _item("Delete selection box", accel="Del", command="removeBox"),
+        _item("Chunk inspector", accel="", surface="chunkInspector"),
+        _item("Biome map", accel="", surface="biomeMap"),
+        _item("Structure library", accel="", surface="schematicLibrary"),
+        _item("Pending imports", accel="", surface="pendingImports"),
+        _item("World info", accel="", surface="worldInfo"),
         _APPEARANCE,
     )
 
 
-def _viewport_menu() -> Tuple[MenuItem, ...]:
+def _ribbon_menu() -> Tuple[MenuItem, ...]:
+    """The design's ``ctxMenus.ribbon``: nine rows, in its order."""
     return (
-        _item(
-            "Inspect block…",
-            surface="nbt",
-            accel=viewport_accelerator("ACT_INSPECT_BLOCK"),
-        ),
-        _item("Copy the selection", command="copy"),
-        _item("Cut the selection", command="cut"),
-        _item("Paste here", command="paste"),
-        _item("Delete the selected blocks", command="delete"),
-        _item("Select all", command="selectAll"),
-        _item("Add a selection box", command="addBox"),
-        _item(
-            "Toggle projection",
-            command="projection",
-            accel=viewport_accelerator("ACT_CHANGE_PROJECTION"),
-        ),
-        _item("Camera speed…", command="cameraSpeed"),
-        _item("Teleport the camera…", surface="goto"),
-        _item("View settings…", surface="viewControls"),
-        _item("Render layers…", surface="renderLayers"),
-        _item("Measure…", surface="measure"),
+        _item("Collapse the ribbon", accel="", action=ACTION_COLLAPSE_RIBBON),
+        _item("Expand the ribbon", accel="", action=ACTION_EXPAND_RIBBON),
+        _item("Show the properties pane", accel="", action=ACTION_SHOW_PANE),
+        _item("Hide the properties pane", accel="", action=ACTION_HIDE_PANE),
+        _item("Customize tool settings…", accel="", surface="toolSettings"),
+        _item("Key configuration…", accel="", surface="controls"),
+        _item("Options…", accel="", surface="prefs"),
+        _item("Command palette", accel="Ctrl+Shift+F", surface="palette"),
         _APPEARANCE,
     )
+
+
+# -- surfaces the design's prototype never wired a right-click to -------------
+#
+# Every element in this shell carries a context menu, and these surfaces exist
+# whether or not the prototype demonstrated a menu on them.  Their rows are
+# this project's, not the design's, and their accelerators come from the shared
+# table rather than from a design line.
 
 
 def _tab_menu() -> Tuple[MenuItem, ...]:
@@ -379,15 +460,17 @@ def _tab_menu() -> Tuple[MenuItem, ...]:
         _item(
             "Rename this tab…",
             surface="tabManager",
+            accel="",
             hint="Rename through the tab manager",
         ),
         _item(
             "Pin or unpin this tab",
             surface="tabManager",
+            accel="",
             hint="Pinned tabs stay visible when ordinary tabs overflow",
         ),
-        _item("Close tabs containing text…", surface="tabManager"),
-        _item("Close tabs not containing text…", surface="tabManager"),
+        _item("Close tabs containing text…", surface="tabManager", accel=""),
+        _item("Close tabs not containing text…", surface="tabManager", accel=""),
         _APPEARANCE,
     )
 
@@ -395,18 +478,18 @@ def _tab_menu() -> Tuple[MenuItem, ...]:
 def _tab_group_menu() -> Tuple[MenuItem, ...]:
     return (
         _MOVE_INTO_GROUP,
-        _item("Rename this group…", surface="tabManager"),
-        _item("Collapse or expand this group", surface="tabManager"),
+        _item("Rename this group…", surface="tabManager", accel=""),
+        _item("Collapse or expand this group", surface="tabManager", accel=""),
         _item("Tabs and groups…", surface="tabManager"),
-        _item("Close tabs containing text…", surface="tabManager"),
-        _item("Close tabs not containing text…", surface="tabManager"),
+        _item("Close tabs containing text…", surface="tabManager", accel=""),
+        _item("Close tabs not containing text…", surface="tabManager", accel=""),
         _APPEARANCE,
     )
 
 
 def _pane_menu() -> Tuple[MenuItem, ...]:
     return (
-        _item("Hide the properties pane", command="togglePane"),
+        _item("Hide the properties pane", action=ACTION_HIDE_PANE),
         _item("Inspector…", surface="inspector"),
         _item("World information…", surface="worldInfo"),
         _item("Project history…", surface="history"),
@@ -456,11 +539,12 @@ def _status_bar_menu() -> Tuple[MenuItem, ...]:
 
 
 #: Every searchable context menu, keyed by the surface that raises it.  The
-#: value is the menu's uppercase title and its rows.
+#: value is the menu's uppercase title and its rows.  The first three are the
+#: design's, title and rows alike; the rest cover surfaces it never wired one to.
 CTX_MENUS: Dict[str, Tuple[str, Tuple[MenuItem, ...]]] = {
-    "ribbon": ("Ribbon", _ribbon_menu()),
-    "navigator": ("Navigator", _navigator_menu()),
     "viewport": ("Viewport", _viewport_menu()),
+    "navigator": ("Navigator", _navigator_menu()),
+    "ribbon": ("Ribbon", _ribbon_menu()),
     "tab": ("Tab", _tab_menu()),
     "tabGroup": ("Tab group", _tab_group_menu()),
     "pane": ("Properties pane", _pane_menu()),
@@ -475,14 +559,207 @@ def menu(key: str) -> Optional[Tuple[str, Tuple[MenuItem, ...]]]:
     return CTX_MENUS.get(str(key))
 
 
-def refresh_viewport_accelerators() -> None:
-    """Re-read the 3D editor key group into the viewport menu.
+# ----------------------------------------------------------------------------
+# whether a row can actually be run
+# ----------------------------------------------------------------------------
 
-    The viewport's bindings can change while the application is running -- the
-    key configuration dialog writes them -- so the rows are rebuilt rather than
-    left showing whatever was true when this module was first imported.
+
+def _registered_surface(key: str) -> bool:
+    """Return whether this build has a window registered under ``key``.
+
+    An index that cannot be read answers ``True``: greying out every row of
+    every menu because a registry import failed would turn one fault into the
+    appearance of a broken application.
     """
-    CTX_MENUS["viewport"] = ("Viewport", _viewport_menu())
+    try:
+        from amulet_map_editor.api.studio import surfaces
+    except Exception:  # pragma: no cover - registry import boundary
+        log.debug("The surface index is unavailable", exc_info=True)
+        return True
+    try:
+        return surfaces.surface(key) is not None
+    except Exception:  # pragma: no cover - registry boundary
+        log.debug("Could not look up the surface %r", key, exc_info=True)
+        return True
+
+
+def _registered_command(key: str) -> bool:
+    """Return whether this build has a command registered under ``key``."""
+    try:
+        from amulet_map_editor.api.studio import commands
+    except Exception:  # pragma: no cover - registry import boundary
+        log.debug("The command registry is unavailable", exc_info=True)
+        return True
+    try:
+        return commands.command(key) is not None
+    except Exception:  # pragma: no cover - registry boundary
+        log.debug("Could not look up the command %r", key, exc_info=True)
+        return True
+
+
+def unavailable_clause(item: MenuItem) -> str:
+    """Return what is unmet for ``item``, or an empty string when nothing is.
+
+    One clause, written once: the tooltip wraps it in a sentence naming the row
+    and the accessible name appends it after the word "unavailable", so a
+    pointer user and a screen-reader user are told the same thing.
+    """
+    if item.command and not _registered_command(item.command):
+        return f"this build has no command connected to “{item.command}” yet"
+    if item.surface and not _registered_surface(item.surface):
+        return f"this build has no window registered under “{item.surface}” yet"
+    if item.action in _LAYOUT_ACTIONS:
+        return "nothing in this window can carry it out right now"
+    return ""
+
+
+def unavailable_hint(item: MenuItem) -> str:
+    """Return the sentence a row shows while it cannot be run.
+
+    The row stays where the design put it, so the tooltip has to answer the one
+    question a greyed-out row raises: what is missing.  It names the row and the
+    thing this build has not registered, rather than saying "unavailable" and
+    leaving the reader to decide whether the application is broken.
+    """
+    clause = unavailable_clause(item)
+    return f"{item.label} is unavailable: {clause}." if clause else ""
+
+
+def _layout_host(start: Optional[wx.Window], method: str) -> Optional[wx.Window]:
+    """Return the nearest ancestor of ``start`` exposing ``method``.
+
+    The ribbon owns ``set_collapsed`` and the workspace owns
+    ``show_properties``, and a menu raised on either is a descendant of both, so
+    walking upwards finds the right window without this module having to know
+    which class it is.
+    """
+    window = start
+    for _step in range(_MAX_ANCESTORS):
+        if window is None:
+            return None
+        if callable(getattr(window, method, None)):
+            return window
+        try:
+            window = window.GetParent()
+        except RuntimeError:  # pragma: no cover - destroyed mid-walk
+            return None
+    return None
+
+
+# ----------------------------------------------------------------------------
+# how a select is decorated
+# ----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SelectOption:
+    """One row of a decorated select, exactly as the design assembles it."""
+
+    label: str
+    swatch: str = ""
+    selected: bool = False
+
+    @property
+    def has_swatch(self) -> bool:
+        """Return whether this row draws a colour swatch before its label."""
+        return bool(self.swatch)
+
+
+def option_swatch(option: object) -> str:
+    """Return the swatch colour for one option, or an empty string.
+
+    The design takes the option's leading word and looks it up in the block
+    colour table, so ``"minecraft:stone [facing=north]"`` swatches as stone and
+    ``"Nearest"`` swatches as nothing at all.
+    """
+    head = str(option).split(" ")[0]
+    try:
+        from amulet_map_editor.api.studio import blocks
+    except Exception:  # pragma: no cover - colour table boundary
+        log.debug("The block colour table is unavailable", exc_info=True)
+        return ""
+    return str(blocks.BLOCK_COLOURS.get(head, "") or "")
+
+
+def select_value(options: Sequence[str], chosen: str = "") -> str:
+    """Return the value a select shows: the stored choice, or its first option.
+
+    A select never shows nothing while it has options, which is the design's
+    rule and the reason a freshly built list reads as configured rather than as
+    waiting for the user to notice it is empty.
+    """
+    text = str(chosen or "")
+    if text:
+        return text
+    return str(options[0]) if options else ""
+
+
+def select_feedback(state: SearchState) -> str:
+    """Return the line the design shows beneath a select's search field.
+
+    A select reports its search mode and nothing else -- the count sits in the
+    list itself, which is right there.  A menu says how many of its rows
+    survived, because a filtered menu can be short enough to look complete.
+    """
+    return state.feedback()
+
+
+def menu_feedback(state: SearchState, shown: int, total: int, noun: str) -> str:
+    """Return the design's counted feedback line, ``"3 of 19 commands · …"``."""
+    plural = noun if total == 1 else f"{noun}s"
+    return f"{shown} of {total} {plural} · {state.feedback()}"
+
+
+def decorate_select(
+    options: Sequence[str],
+    chosen: str = "",
+    state: Optional[SearchState] = None,
+    *,
+    swatches: Optional[Mapping[str, str]] = None,
+) -> Tuple[SelectOption, ...]:
+    """Decorate a select's options the way the design's own builder does.
+
+    The rows that survive ``state`` keep the list's order, each carries the
+    swatch its leading identifier resolves to unless ``swatches`` states one,
+    and the chosen row is marked so it can be drawn in the primary container.
+    ``state`` being ``None`` or empty decorates every option, which is what an
+    unopened list shows.
+    """
+    values = [str(option) for option in options]
+    value = select_value(values, chosen)
+    surviving = state.filter(values) if state is not None else list(values)
+    table = dict(swatches or {})
+    return tuple(
+        SelectOption(
+            label=option,
+            swatch=str(table.get(option, "") or "") or option_swatch(option),
+            selected=option == value,
+        )
+        for option in surviving
+    )
+
+
+#: The regex opt-in each searchable list was last left in, keyed by the list.
+#: The design keeps the mode in application state and clears only the query when
+#: a list opens, so a user who turned regex on does not have to turn it on again
+#: every single time they right-click.
+_REGEX_MODES: Dict[str, bool] = {}
+
+
+def remember_regex_mode(key: str, state: SearchState) -> None:
+    """Record the regex opt-in ``state`` is now in, for the next open."""
+    _REGEX_MODES[str(key)] = bool(state.regex)
+
+
+def restore_search(key: str, state: SearchState) -> None:
+    """Prepare a list's search the way the design's ``open`` does.
+
+    The query is cleared, because a stale filter makes a freshly opened list
+    look as though half of it has gone; the regex opt-in is restored, because
+    that one is a preference rather than a leftover.
+    """
+    state.reset()
+    state.regex = bool(_REGEX_MODES.get(str(key), state.regex))
 
 
 # ----------------------------------------------------------------------------
@@ -579,7 +856,9 @@ class _MenuRow(wx.Control, widgets._Interactive):
 
     The accelerator is drawn in the monospaced face so a column of them lines
     up, and it is folded into the control's accessible name so a screen-reader
-    user hears the shortcut the sighted user reads.
+    user hears the shortcut the sighted user reads.  A row whose destination
+    this build has not registered is drawn disabled and says what is unmet in
+    both its tooltip and its accessible name.
     """
 
     HEIGHT = 32
@@ -591,30 +870,41 @@ class _MenuRow(wx.Control, widgets._Interactive):
         item: MenuItem,
         *,
         on_activate: Optional[Callable[[MenuItem], None]] = None,
+        unavailable: str = "",
     ) -> None:
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.item = item
         self.on_activate = on_activate
+        self.unavailable = str(unavailable)
         name = item.label
         if item.accel:
             name = f"{name}, {item.accel}"
+        if self.unavailable:
+            # A disabled window does not reliably raise a tooltip, so the reason
+            # rides in the accessible name too rather than only in the tooltip.
+            name = f"{name}, unavailable: {unavailable_clause(item)}"
         self._install(name, listen=False)
         self._bind_interaction()
-        if item.hint:
-            self.SetToolTip(item.hint)
+        tooltip = self.unavailable or item.hint
+        if tooltip:
+            self.SetToolTip(tooltip)
+        if self.unavailable:
+            self.Enable(False)
         self.SetInitialSize(self.DoGetBestSize())
 
     def AcceptsFocus(self) -> bool:  # noqa: N802 - wx API spelling
-        return True
+        return self.IsEnabled()
 
     def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
-        return True
+        return self.IsEnabled()
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         return wx.Size(tokens.scaled(200), tokens.scaled(self.HEIGHT))
 
     def activate(self) -> None:
-        """Run this row's destination."""
+        """Run this row's destination, unless it has none to run."""
+        if not self.IsEnabled():
+            return
         widgets.invoke(self.on_activate, self.item)
 
     def _on_paint(self, _event: wx.PaintEvent) -> None:
@@ -623,7 +913,10 @@ class _MenuRow(wx.Control, widgets._Interactive):
         width, height = self.GetClientSize()
         rect = wx.Rect(0, 0, width, height)
         radius = tokens.scaled(7)
-        if self._pressed:
+        enabled = self.IsEnabled()
+        if not enabled:
+            fill = None
+        elif self._pressed:
             fill = tokens.blend(palette.surface_container_high, palette.on_surface, 0.1)
         elif self._hovered or self.HasFocus():
             fill = palette.surface_container_high
@@ -631,11 +924,16 @@ class _MenuRow(wx.Control, widgets._Interactive):
             fill = None
         if fill is not None:
             tokens.draw_round_rect(gcdc, rect, radius, fill)
+        label_ink = palette.on_surface
+        accel_ink = palette.on_surface_variant
+        if not enabled:
+            label_ink = tokens.blend(palette.on_surface, palette.surface, 0.55)
+            accel_ink = tokens.blend(palette.on_surface_variant, palette.surface, 0.55)
         inner = tokens.scaled(self.PADDING)
         accel_width = 0
         if self.item.accel:
             gcdc.SetFont(tokens.mono_font(self, widgets.point_size(10)))
-            gcdc.SetTextForeground(palette.on_surface_variant)
+            gcdc.SetTextForeground(accel_ink)
             accel_width = gcdc.GetTextExtent(self.item.accel)[0]
             accel_height = gcdc.GetCharHeight()
             gcdc.DrawText(
@@ -645,7 +943,7 @@ class _MenuRow(wx.Control, widgets._Interactive):
             )
             accel_width += tokens.scaled(12)
         gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
-        gcdc.SetTextForeground(palette.on_surface)
+        gcdc.SetTextForeground(label_ink)
         available = max(0, width - inner * 2 - accel_width)
         label = widgets.elide(gcdc, self.item.label, available)
         gcdc.DrawText(label, inner, (height - gcdc.GetCharHeight()) // 2)
@@ -660,7 +958,9 @@ class SearchableContextMenu(wx.PopupTransientWindow):
     Every menu carries its own :class:`~amulet_map_editor.api.studio.widgets.SearchBar`
     with the regex opt-in and the ``.*`` builder, so a long menu can be
     narrowed the same way every other list in the product is, and an invalid
-    pattern is reported instead of silently emptying the menu.
+    pattern is reported instead of silently emptying the menu.  Beneath the
+    field sits the design's counted feedback line, so a menu narrowed to two
+    rows still says how many it started with.
     """
 
     WIDTH = 300
@@ -690,6 +990,7 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         #: The control the menu was raised over: what "Edit appearance…" edits.
         self.target = target if target is not None else parent
         self.state = SearchState(label=f"{self.title} menu")
+        restore_search(f"menu:{self.key}", self.state)
         self._rows: List[_MenuRow] = []
         self._highlight = 0
 
@@ -738,6 +1039,22 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         """Return the rows matching the current query."""
         return tuple(self.state.filter(self.items, key=lambda row: row.haystack))
 
+    def can_run(self, item: MenuItem) -> str:
+        """Return why ``item`` cannot be run, or an empty string when it can.
+
+        A layout row is answered against the live window rather than a registry,
+        because what carries it out is the ribbon or the workspace this menu was
+        raised inside.
+        """
+        if item.action in _LAYOUT_ACTIONS:
+            method = _LAYOUT_ACTIONS[item.action][0]
+            if _layout_host(self.target, method) is None and (
+                _layout_host(self.GetParent(), method) is None
+            ):
+                return unavailable_hint(item)
+            return ""
+        return unavailable_hint(item)
+
     def _rebuild(self) -> None:
         """Draw the rows that survive the query, plus an honest empty state."""
         for row in self._rows:
@@ -746,7 +1063,12 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         self._rows = []
         visible = self.visible_items()
         for item in visible:
-            row = _MenuRow(self.list, item, on_activate=self._activate)
+            row = _MenuRow(
+                self.list,
+                item,
+                on_activate=self._activate,
+                unavailable=self.can_run(item),
+            )
             self.list_sizer.Insert(
                 len(self._rows), row, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(2)
             )
@@ -757,11 +1079,26 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         else:
             self.empty.SetLabel(self.state.describe_matches(0, "menu item"))
             self.empty.Show()
+        self._refresh_feedback(len(visible))
         self._highlight = 0
         self.list.FitInside()
         self.layout()
 
+    def _refresh_feedback(self, shown: int) -> None:
+        """Show the design's counted line under the search field."""
+        feedback = getattr(self.search, "feedback", None)
+        if feedback is None:  # pragma: no cover - the bar always builds one
+            return
+        try:
+            feedback.SetLabel(
+                menu_feedback(self.state, shown, len(self.items), "command")
+            )
+            self.search.Layout()
+        except RuntimeError:  # pragma: no cover - destroyed mid-update
+            return
+
     def _on_search(self, _state: SearchState) -> None:
+        remember_regex_mode(f"menu:{self.key}", self.state)
         self._rebuild()
 
     # -- geometry ------------------------------------------------------------
@@ -775,23 +1112,45 @@ class SearchableContextMenu(wx.PopupTransientWindow):
             return wx.Rect(0, 0, 1280, 800)
 
     def layout(self) -> None:
-        """Size the popover to its content, bounded by the display."""
+        """Size the popover to its content, bounded by the display.
+
+        The row height comes from the item sizer's own minimum, never from
+        ``GetBestSize()`` on the scrolling list.  A ``wx.ScrolledWindow``
+        reports its *viewport* as its best size, so measuring it produced a
+        16-pixel list against several hundred pixels of items and every menu in
+        the application opened showing none of its rows.  This is the same trap
+        ``AnchoredPopup.layout`` documents and solves; the two must stay in
+        agreement, because a menu is a popover with rows.
+        """
         area = self.work_area()
         self.header.Fit()
-        self.list.FitInside()
-        self.Fit()
+        header_height = self.header.GetBestSize().height
+
+        # What the items actually need, independent of the viewport showing them.
+        sizer = self.list.GetSizer()
+        items_height = (
+            sizer.GetMinSize().height
+            if sizer is not None
+            else self.list.GetBestSize().height
+        )
+        self.list.SetVirtualSize(wx.Size(-1, items_height))
+
         width = tokens.scaled(self.WIDTH)
         width = min(width, max(tokens.scaled(200), area.width - tokens.scaled(16)))
-        content = self.GetBestSize().height
+
+        chrome = tokens.scaled(self.MARGIN + self.PADDING) * 2 + tokens.scaled(
+            self.PADDING
+        )
+        wanted = header_height + items_height + chrome
         limit = min(
             area.height - tokens.scaled(24),
-            self.header.GetBestSize().height
-            + tokens.scaled(self.LIST_HEIGHT)
-            + tokens.scaled(self.MARGIN + self.PADDING) * 2
-            + tokens.scaled(self.PADDING),
+            header_height + tokens.scaled(self.LIST_HEIGHT) + chrome,
         )
-        self.SetSize(wx.Size(width, min(content, limit)))
+        # Clamping is what makes a long menu scroll rather than lose its tail:
+        # the virtual size above stays at the full item height either way.
+        self.SetSize(wx.Size(width, max(tokens.scaled(64), min(wanted, limit))))
         self.Layout()
+        self.list.FitInside()
 
     def popup_at(self, position: wx.Point) -> None:
         """Show the menu at a screen point, clamped inside the display."""
@@ -817,9 +1176,13 @@ class SearchableContextMenu(wx.PopupTransientWindow):
     def _activate(self, item: MenuItem) -> None:
         """Run a row and dismiss the menu, in that order for a live target."""
         target = self.target
+        parent = self.GetParent()
         self.Dismiss()
         if item.action == ACTION_APPEARANCE:
             self._open_appearance(target)
+            return
+        if item.action in _LAYOUT_ACTIONS:
+            self._run_layout_action(item, target, parent)
             return
         if item.action:
             # Includes ACTION_MOVE_INTO_GROUP: the owner knows which tab was
@@ -832,6 +1195,21 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         if item.command:
             widgets.invoke(self.on_command, item.command)
 
+    def _run_layout_action(
+        self, item: MenuItem, target: Optional[wx.Window], parent: Optional[wx.Window]
+    ) -> None:
+        """Collapse, expand, show, or hide, in the one direction the row names."""
+        method, value = _LAYOUT_ACTIONS[item.action]
+        host = _layout_host(target, method) or _layout_host(parent, method)
+        if host is None:
+            log.warning("Nothing in this window can %s for %r", method, item.label)
+            return
+        try:
+            getattr(host, method)(value)
+            host.Layout()
+        except Exception:  # pragma: no cover - host boundary
+            log.exception("The menu row %r could not change the layout", item.label)
+
     def _open_appearance(self, target: Optional[wx.Window]) -> None:
         """Open the app's element appearance editor for the raised control."""
         if target is None:
@@ -843,11 +1221,16 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         except Exception:  # pragma: no cover - dialog boundary
             log.exception("Could not open the element appearance editor")
 
+    def _focusable(self) -> List[_MenuRow]:
+        """Return the rows the keyboard can actually land on."""
+        return [row for row in self._rows if row.IsEnabled()]
+
     def _move_highlight(self, delta: int) -> None:
-        if not self._rows:
+        rows = self._focusable()
+        if not rows:
             return
-        self._highlight = max(0, min(len(self._rows) - 1, self._highlight + delta))
-        row = self._rows[self._highlight]
+        self._highlight = max(0, min(len(rows) - 1, self._highlight + delta))
+        row = rows[self._highlight]
         row.SetFocus()
         try:
             self.list.ScrollChildIntoView(row)
@@ -856,28 +1239,29 @@ class SearchableContextMenu(wx.PopupTransientWindow):
 
     def _on_char_hook(self, event: wx.KeyEvent) -> None:
         code = event.GetKeyCode()
+        rows = self._focusable()
         if code == wx.WXK_ESCAPE:
             self.Dismiss()
             return
         if code == wx.WXK_DOWN:
             focus = wx.Window.FindFocus()
-            if focus in self._rows:
-                self._highlight = self._rows.index(focus)
+            if focus in rows:
+                self._highlight = rows.index(focus)
                 self._move_highlight(1)
-            elif self._rows:
+            elif rows:
                 self._highlight = 0
-                self._rows[0].SetFocus()
+                rows[0].SetFocus()
             return
         if code == wx.WXK_UP:
             focus = wx.Window.FindFocus()
-            if focus in self._rows:
-                self._highlight = self._rows.index(focus)
+            if focus in rows:
+                self._highlight = rows.index(focus)
                 self._move_highlight(-1)
             return
-        if code == wx.WXK_RETURN and self._rows:
+        if code == wx.WXK_RETURN and rows:
             focus = wx.Window.FindFocus()
-            if focus not in self._rows:
-                self._rows[0].activate()
+            if focus not in rows:
+                rows[0].activate()
                 return
         event.Skip()
 
@@ -915,6 +1299,7 @@ class SearchableContextMenu(wx.PopupTransientWindow):
             refresh = getattr(child, "refresh_theme", None)
             if callable(refresh):
                 refresh()
+        self._refresh_feedback(len(self._rows))
         self.Refresh()
 
     def _on_paint(self, _event: wx.PaintEvent) -> None:
@@ -950,8 +1335,6 @@ def open_context_menu(
     if menu(key) is None:
         log.warning("No context menu named %r", key)
         return None
-    if key == "viewport":
-        refresh_viewport_accelerators()
     popup = SearchableContextMenu(
         parent,
         key,
@@ -970,7 +1353,11 @@ def open_context_menu(
 
 
 class _GroupRow(wx.Control, widgets._Interactive):
-    """One tab group in the picker: colour, name, and honest member count."""
+    """One tab group in the picker: colour, name, and honest member count.
+
+    The row the tab is already in is drawn in the primary container, which is
+    the selection state the design gives every decorated select.
+    """
 
     HEIGHT = 40
     SWATCH = 14
@@ -981,12 +1368,17 @@ class _GroupRow(wx.Control, widgets._Interactive):
         parent: wx.Window,
         group: GroupChoice,
         *,
+        selected: bool = False,
         on_choose: Optional[Callable[[GroupChoice], None]] = None,
     ) -> None:
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.group = group
+        self.selected = bool(selected)
         self.on_choose = on_choose
-        self._install(f"{group.name}, {group.detail}", listen=False)
+        name = f"{group.name}, {group.detail}"
+        if self.selected:
+            name = f"{name}, current group"
+        self._install(name, listen=False)
         self._bind_interaction()
         self.SetInitialSize(self.DoGetBestSize())
 
@@ -1009,7 +1401,13 @@ class _GroupRow(wx.Control, widgets._Interactive):
         width, height = self.GetClientSize()
         rect = wx.Rect(0, 0, width, height)
         radius = tokens.scaled(tokens.RADIUS_SM)
-        if self._pressed or self._hovered or self.HasFocus():
+        label_ink = palette.on_surface
+        detail_ink = palette.on_surface_variant
+        if self.selected:
+            tokens.draw_round_rect(gcdc, rect, radius, palette.primary_container)
+            label_ink = palette.on_primary_container
+            detail_ink = palette.on_primary_container
+        elif self._pressed or self._hovered or self.HasFocus():
             tokens.draw_round_rect(gcdc, rect, radius, palette.surface_container_high)
         inner = tokens.scaled(self.PADDING)
         swatch = tokens.scaled(self.SWATCH)
@@ -1022,19 +1420,17 @@ class _GroupRow(wx.Control, widgets._Interactive):
             palette.outline_variant,
         )
         text_left = inner + swatch + tokens.scaled(10)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
-        gcdc.SetTextForeground(palette.on_surface)
         detail_font = tokens.mono_font(self, widgets.point_size(11))
         gcdc.SetFont(detail_font)
         detail_width = gcdc.GetTextExtent(self.group.detail)[0]
-        gcdc.SetTextForeground(palette.on_surface_variant)
+        gcdc.SetTextForeground(detail_ink)
         gcdc.DrawText(
             self.group.detail,
             max(text_left, width - inner - detail_width),
             (height - gcdc.GetCharHeight()) // 2,
         )
         gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
-        gcdc.SetTextForeground(palette.on_surface)
+        gcdc.SetTextForeground(label_ink)
         available = max(0, width - text_left - inner - detail_width - tokens.scaled(10))
         gcdc.DrawText(
             widgets.elide(gcdc, self.group.name, available),
@@ -1054,6 +1450,11 @@ class _GroupPicker(widgets.AnchoredPopup):
     member count, a path to create a new one, an honest empty state when there
     are none, and the same search field with the regex builder that every other
     list in the product carries.
+
+    It is a searchable select, so it is decorated like one: the query is cleared
+    on every open, the regex opt-in the user chose is kept, the feedback line
+    reports the search mode, and the group the tab is already in is drawn as the
+    selected row.
     """
 
     def __init__(
@@ -1062,14 +1463,17 @@ class _GroupPicker(widgets.AnchoredPopup):
         anchor: wx.Window,
         groups: Sequence[GroupChoice],
         *,
+        current: str = "",
         on_choose: Optional[Callable[[Optional[GroupChoice]], None]] = None,
         on_create: Optional[Callable[[], None]] = None,
     ) -> None:
         super().__init__(parent, anchor, width=300, max_height=360)
         self.groups = tuple(groups)
+        self.current = str(current or "")
         self.on_choose = on_choose
         self.on_create = on_create
         self.state = SearchState(label="Tab groups")
+        restore_search("select:tabGroups", self.state)
         self._rows: List[_GroupRow] = []
         palette = tokens.palette()
 
@@ -1078,7 +1482,7 @@ class _GroupPicker(widgets.AnchoredPopup):
             self.header,
             "Search tab groups",
             self.state,
-            on_change=lambda _state: self._rebuild(),
+            on_change=self._on_search,
             compact=True,
         )
         header_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -1120,6 +1524,21 @@ class _GroupPicker(widgets.AnchoredPopup):
             )
         )
 
+    def decorated(self) -> Tuple[SelectOption, ...]:
+        """Return the picker's rows as the design decorates a select's options.
+
+        The picker draws its own rows, because a group carries a colour and a
+        member count a plain option does not; this reports the same decoration
+        the shared builder would produce, so the selection state and the
+        surviving order can be checked without a display.
+        """
+        names = [group.name for group in self.groups]
+        chosen = next(
+            (group.name for group in self.groups if group.group_id == self.current), ""
+        )
+        swatches = {group.name: group.colour for group in self.groups}
+        return decorate_select(names, chosen, self.state, swatches=swatches)
+
     def _rebuild(self) -> None:
         for row in self._rows:
             self.content_sizer.Detach(row)
@@ -1127,7 +1546,12 @@ class _GroupPicker(widgets.AnchoredPopup):
         self._rows = []
         visible = self.visible_groups()
         for index, group in enumerate(visible):
-            row = _GroupRow(self.content, group, on_choose=self._choose)
+            row = _GroupRow(
+                self.content,
+                group,
+                selected=bool(self.current) and group.group_id == self.current,
+                on_choose=self._choose,
+            )
             self.content_sizer.Insert(
                 index, row, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(2)
             )
@@ -1143,8 +1567,24 @@ class _GroupPicker(widgets.AnchoredPopup):
         else:
             self.empty.SetLabel("")
             self.empty.Hide()
+        self._refresh_feedback()
         self.content.FitInside()
         self.layout()
+
+    def _refresh_feedback(self) -> None:
+        """Show the line the design puts under a select's search field."""
+        feedback = getattr(self.search, "feedback", None)
+        if feedback is None:  # pragma: no cover - the bar always builds one
+            return
+        try:
+            feedback.SetLabel(select_feedback(self.state))
+            self.search.Layout()
+        except RuntimeError:  # pragma: no cover - destroyed mid-update
+            return
+
+    def _on_search(self, _state: SearchState) -> None:
+        remember_regex_mode("select:tabGroups", self.state)
+        self._rebuild()
 
     def _choose(self, group: Optional[GroupChoice]) -> None:
         self.Dismiss()
@@ -1161,6 +1601,7 @@ def open_group_picker(
     *,
     groups: Optional[Sequence[GroupChoice]] = None,
     surface_id: str = "main-window",
+    current: str = "",
     on_choose: Optional[Callable[[Optional[GroupChoice]], None]] = None,
     on_create: Optional[Callable[[], None]] = None,
 ) -> _GroupPicker:
@@ -1168,11 +1609,17 @@ def open_group_picker(
 
     ``groups`` defaults to the persisted groups of ``surface_id``, so a caller
     that has no list of its own still shows the real workspace rather than a
-    placeholder.
+    placeholder.  ``current`` is the group the tab is already in, drawn as the
+    selected row so the picker says where the tab is before it is moved.
     """
     choices = tuple(groups) if groups is not None else tab_groups(surface_id)
     picker = _GroupPicker(
-        parent, anchor, choices, on_choose=on_choose, on_create=on_create
+        parent,
+        anchor,
+        choices,
+        current=current,
+        on_choose=on_choose,
+        on_create=on_create,
     )
     picker.on_dismiss = lambda: wx.CallAfter(picker.Destroy)
     picker.popup()
