@@ -319,6 +319,9 @@ program_3d_edit.file_ui.undo_tooltip=Undo
 program_3d_edit.file_ui.redo_tooltip=Redo
 program_3d_edit.file_ui.save_tooltip=Save changes
 program_3d_edit.file_ui.close_tooltip=Close world
+program_3d_edit.file_ui.toolbar_name=World toolbar
+program_3d_edit.file_ui.version_name=World version
+program_3d_edit.file_ui.dim_label=Dimension
 
 # Preferences schedule editor
 preferences.schedule.tab=Schedule

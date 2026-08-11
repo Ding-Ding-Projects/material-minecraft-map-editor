@@ -822,6 +822,35 @@ def draw_elevation(
         )
 
 
+def elevation_tint(
+    backdrop: wx.Colour, level: int, dark: Optional[bool] = None
+) -> wx.Colour:
+    """Return the colour :func:`draw_elevation` leaves *under* its own surface.
+
+    The shadow is drawn as six translucent rounded rectangles grown outwards
+    from the lifted rectangle, so every one of them also covers the rectangle's
+    interior: an opaque surface painted on top hides that, and a translucent
+    one -- a scrim -- does not.  Two surfaces at the same elevation therefore
+    only match if both account for it, which is why this is a function rather
+    than a number somebody copies.
+
+    ``backdrop`` is what is behind the shadow.  The answer is what a control
+    sitting on that surface must clear itself to.
+    """
+    level = min(3, int(level))
+    if level <= 0:
+        return wx.Colour(backdrop)
+    theme_is_dark = is_dark() if dark is None else bool(dark)
+    _offset, _spread, peak = (_ELEVATION_DARK if theme_is_dark else _ELEVATION_LIGHT)[
+        level
+    ]
+    alpha = max(1, round(peak / _ELEVATION_STEPS * 255)) / 255.0
+    # Six layers of the same translucent ink, each over the last.
+    coverage = 1.0 - (1.0 - alpha) ** _ELEVATION_STEPS
+    base = (0, 0, 0) if theme_is_dark else (14, 21, 20)
+    return blend(backdrop, wx.Colour(base[0], base[1], base[2], 255), coverage)
+
+
 def register_theme_listener(listener: Callable[[], None]) -> Callable[[], None]:
     """Register a repaint callback and return its own unregister callable.
 
