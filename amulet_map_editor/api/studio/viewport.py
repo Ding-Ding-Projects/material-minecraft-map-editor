@@ -840,6 +840,14 @@ class ViewportHost(wx.Panel):
         self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         self.Bind(wx.EVT_SIZE, self._on_size)
         self.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+        # Right-drag rotates the camera and right-click inspects a block: both
+        # belong to the editor, and a context menu that opens on button-down
+        # takes the gesture away mid-motion.  Tracking the press lets the menu
+        # open only when the button comes back up without having travelled.
+        self.Bind(wx.EVT_RIGHT_DOWN, self._on_right_down)
+        self.Bind(wx.EVT_RIGHT_UP, self._on_right_up)
+        self._right_press: Optional[wx.Point] = None
+        self._right_dragged = False
         self.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy)
 
     def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
@@ -871,6 +879,10 @@ class ViewportHost(wx.Panel):
                     log.exception("Could not reparent the renderer canvas")
             window.Show()
             window.Lower()
+            # A canvas that has never been laid out arrives at zero by zero and
+            # would draw the world into no pixels at all, so it is given the
+            # host's size here rather than waiting for the next resize.
+            self._position_canvas()
             self._raise_overlays()
             self._start_live_readout()
         else:
@@ -1553,7 +1565,48 @@ class ViewportHost(wx.Panel):
                 )
 
     # -- painting ------------------------------------------------------------
+    #: How far the pointer may travel between press and release and still count
+    #: as a click rather than a drag.  Smaller than a deliberate camera nudge,
+    #: larger than the wobble of a hand releasing a button.
+    RIGHT_DRAG_SLOP = 4
+
+    def _on_right_down(self, event: wx.MouseEvent) -> None:
+        """Remember where a right press started, then let the editor have it."""
+        self._right_press = event.GetPosition()
+        self._right_dragged = False
+        event.Skip()
+
+    def _on_right_up(self, event: wx.MouseEvent) -> None:
+        """Decide whether that press was a click or the end of a drag."""
+        start = self._right_press
+        if start is not None:
+            moved = event.GetPosition() - start
+            self._right_dragged = (
+                abs(moved.x) > self.RIGHT_DRAG_SLOP
+                or abs(moved.y) > self.RIGHT_DRAG_SLOP
+            )
+        self._right_press = None
+        event.Skip()
+
     def _on_context_menu(self, event: wx.ContextMenuEvent) -> None:
+        """Open the viewport menu, unless the gesture was a camera drag.
+
+        A renderer canvas uses right-drag to rotate the camera.  Opening a menu
+        on that gesture does not merely add a menu, it cancels the drag, so the
+        camera stops moving the instant the user tries to look around.
+        """
+        if self._right_dragged:
+            self._right_dragged = False
+            return
+        if self.has_canvas():
+            # While the real renderer owns this surface the editor's own
+            # right-click bindings take precedence: inspecting a block is the
+            # documented gesture and the menu must not consume it.  The menu
+            # stays reachable from the ribbon, the command palette, and
+            # Shift+right-click below.
+            if not wx.GetKeyState(wx.WXK_SHIFT):
+                event.Skip()
+                return
         position = event.GetPosition()
         if position == wx.DefaultPosition:
             size = self.GetSize()
