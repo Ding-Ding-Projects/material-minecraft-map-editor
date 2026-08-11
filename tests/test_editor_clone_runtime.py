@@ -241,6 +241,12 @@ class Session:
         #: The bridge's ``Outcome``, which reads as a boolean and also carries
         #: the reason a refusal gives, so a red assertion below says why.
         self.confirmed: Any = None
+        #: The world's undo depth either side of that confirm, read through the
+        #: bridge's own reader against the canvas the bridge itself resolves.
+        #: This is the only wiring proof in the repository: see
+        #: :func:`test_the_bridge_can_really_read_this_world_s_undo_depth`.
+        self.undo_before: Any = None
+        self.undo_after: Any = None
         self.marker_before: List[Tuple[int, int, int]] = []
         self.marker_after: List[Tuple[int, int, int]] = []
         self.overlays: List[Dict[str, Any]] = []
@@ -339,8 +345,14 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         _pump(0.3)
         record.pending_after = editor_tools.pending_object()
 
+        # Read through the bridge's own reader, against the canvas the bridge
+        # itself resolves, so what is recorded is the exact attribute path
+        # ``confirm_pending`` walks rather than one this fixture chose.
+        record.undo_before = editor_tools._undo_depth(editor_tools.canvas())
         record.confirmed = editor_tools.confirm_pending()
         _pump(1.5)
+        record.undo_after = editor_tools._undo_depth(editor_tools.canvas())
+
 
         level = context.current().level
         if level is not None:
@@ -799,6 +811,48 @@ def test_confirming_a_clone_writes_the_blocks_into_the_world(
         f"a confirmed clone should have written {expected} marker blocks into "
         f"{minimum}..{maximum} and wrote {len(landed)}. Every marker block in "
         f"the chunk afterwards: {sorted(session.marker_after)}"
+    )
+
+
+def test_the_bridge_can_really_read_this_world_s_undo_depth(
+    session: Session,
+) -> None:
+    """The wiring, asserted rather than assumed.
+
+    ``confirm_pending`` decides whether a paste landed by reading
+    ``canvas.world.history_manager.undo_count``.  Every other test of that
+    decision runs against a stand-in world written to have those attributes, so
+    all of them prove the arithmetic and none of them prove that a *real*
+    canvas and a *real* amulet level answer to those names.
+
+    The test above cannot stand in for this one, and it is worth saying exactly
+    why, because it looks as though it should.  A broken attribute path does
+    not make ``confirm_pending`` return a refusal -- it makes ``_undo_depth``
+    return ``None`` at both ends, which routes into the deliberate "an
+    unanswerable question is not a negative answer" branch and reports
+    ``ok=True``.  The blocks still land, because the confirm still ran.  So
+    ``session.confirmed`` stays truthy, the block count stays right, and the
+    whole module passes while the check that is supposed to catch a silently
+    failed paste has been switched off.  Verified by mutating the attribute
+    name and watching this module stay green.
+
+    Hence the depth itself: a number at both ends, and a number that moved.
+    """
+    assert isinstance(session.undo_before, int), (
+        "the bridge could not read the undo depth of a real open world before "
+        "the paste, so its check for a paste that wrote nothing is inert here "
+        "and every confirm is reported as successful without being checked. "
+        f"It read {session.undo_before!r}"
+    )
+    assert isinstance(session.undo_after, int), (
+        "the bridge could not read the undo depth after the paste: "
+        f"{session.undo_after!r}"
+    )
+    assert session.undo_after > session.undo_before, (
+        "a paste that really wrote blocks into a real world left the undo "
+        f"depth at {session.undo_after} from {session.undo_before}, so the "
+        "evidence the refusal path is built on does not move when a write "
+        "happens -- which would make every failed paste unreportable"
     )
 
 

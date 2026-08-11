@@ -22,10 +22,21 @@ is never reached -- because staging a paste that genuinely raises inside a real
 world means breaking the paste tool on purpose.  It therefore proves the
 branches and the words.  It proves nothing about the wiring -- whether a real
 canvas exposes ``world`` or a real history exposes ``undo_count`` -- and it must
-not be read as if it did.  That half is proven by ``test_editor_clone_runtime``,
-which opens a real world and asserts the same call succeeds while gold really
-lands in it: if the attribute path here were wrong, that module's ``confirmed``
-assertion would go red against a paste that worked.
+not be read as if it did.  That half is proven by
+``test_editor_clone_runtime.test_the_bridge_can_really_read_this_world_s_undo_depth``,
+which reads the depth out of a real open world either side of a real paste and
+asserts it is a number and that it moved.
+
+This paragraph used to name that module's *``confirmed``* assertion instead, and
+that was wrong in a way worth leaving written down, because it is the shape of
+mistake this whole area keeps making.  A broken attribute path does not produce
+a refusal: ``_undo_depth`` returns ``None``, which routes into the deliberate
+"an unanswerable question is not a negative answer" branch and reports
+``ok=True`` -- and the blocks still land, because the confirm still ran.  So
+renaming ``history_manager`` to something that does not exist leaves the entire
+real-world module green while the check that catches a silently failed paste is
+switched off.  A guard that cannot fail was being cited as the proof that
+another guard works.
 
 One honest gap: ``cancel_pending``'s *successful* path posts a wx tool-change
 event, so only its refusal and its already-empty paths are covered here.

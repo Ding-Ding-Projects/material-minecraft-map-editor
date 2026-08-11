@@ -312,6 +312,56 @@ def test_a_later_success_clears_the_earlier_failure(
     )
 
 
+def test_lifting_another_object_leaves_the_old_refusal_behind(
+    pane: Any, canvas: _Canvas
+) -> None:
+    """The same lie as the defect above, pointing the other way.
+
+    Pressing Clone again goes ``editor_tools.activate`` ->
+    ``_show_in_host`` -> ``show_tool_activation``, and ``clear_tool`` is not
+    anywhere on that path -- it is reached only from a cancel and from the tool
+    going away.  So the sentence about a paste that wrote nothing used to
+    survive into the *next* activation and be rendered beside an object nobody
+    had tried to write yet.  Over-reporting failure rather than success, which
+    is the safe direction, and still the interface stating something untrue
+    about a paste.
+
+    Driven through ``show_tool_activation`` rather than by clearing the
+    attribute, because the attribute is not what a user presses.
+    """
+    pane._confirm_pending()
+    wx.Yield()
+    assert (
+        _note_saying(pane, "no blocks were written") is not None
+    ), "precondition: the failure this test is about is on screen"
+
+    pane.show_tool_activation(
+        editor_tools.Activation(
+            key="cloneTool",
+            label="Clone",
+            ok=True,
+            tool="Paste",
+            kind="pending",
+            message="The selection was copied and the paste tool is holding it.",
+        )
+    )
+    pane.Layout()
+    wx.Yield()
+
+    assert _note_saying(pane, "no blocks were written") is None, (
+        "the refusal from the previous object is still on screen beside the "
+        "one just lifted, so the pane is reporting a failed paste of something "
+        "nobody has tried to paste"
+    )
+    assert not pane._pending_failure, (
+        "the note is not being rendered but the pane is still holding it, so it "
+        "returns the moment anything rebuilds"
+    )
+    # The panel itself must survive: this is a clear, not a clear_tool.
+    assert pane.activation is not None and pane.tab == pane_module.TOOL_TAB[0]
+    assert "following" in pane._tool_rows, "the pending object's rows went with it"
+
+
 def test_the_failed_pending_panel_composites_without_holes(
     pane: Any, tmp_path: Path
 ) -> None:

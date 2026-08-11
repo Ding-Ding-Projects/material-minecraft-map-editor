@@ -1037,7 +1037,30 @@ def stop_following(target: Any = None) -> bool:
 def set_pending_location(
     location: Sequence[float], target: Any = None, *, drop: bool = True
 ) -> bool:
-    """Move the pending object to a block position."""
+    """Move the pending object to a block position.
+
+    **Why this one does not read the position back**, when :func:`stop_following`
+    two functions above deliberately does.  The tool's own coordinate boxes are
+    spin controls bounded to the world's limits, so a position outside them is
+    answered with the nearest position inside them.  That is a real move and the
+    right one; a read-back that compared the value would call it a failure, and
+    two of the three callers answer a failure by deciding the tool has gone.
+    The pane's ``_nudge`` (through :func:`nudge_pending`) and its
+    ``_pending_to_camera`` both reach ``_report_tool_gone``, which takes the
+    pending panel away -- so nudging into the world's edge would make the panel
+    vanish while the copy stayed held and drawn: the exact defect
+    :func:`confirm_pending` was fixed for, arriving through the position boxes
+    instead.  The third caller, ``_on_location_typed``, ignores the return
+    entirely and re-reads the tool, which is why a typed coordinate already
+    shows the clamped value rather than the one that was typed.
+
+    The flag is a different question and is answered by the caller reading the
+    object back: ``pending_object().following`` is what the pane renders, so an
+    object that went on following the pointer says so on screen rather than
+    being asserted here.  ``tests/test_pending_move_reporting.py`` pins both
+    halves, so a later read-back cannot be added without a red test explaining
+    what it costs.
+    """
     active = _resolve(target)
     tool = _paste_tool(active)
     if tool is None:

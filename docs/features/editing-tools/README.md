@@ -68,6 +68,25 @@ that edits something else. The tool says the same thing on its own account: an
 operation it cannot find is named in a non-blocking notification alongside the
 one still selected.
 
+A confirmed placement that wrote nothing says so where it happened. The editor's
+own progress path catches the exception, so a paste that raised and a paste that
+wrote four hundred blocks come back identical to the caller; the bridge
+therefore reads the world's undo depth either side of the confirm, and a depth
+that did not move is reported as a refusal rather than as a placement. The
+refusal names the operation, says the world is unchanged, says the copy is still
+being held, and gives both ways out — through a non-blocking notification and in
+the pending panel, which stays on screen precisely because the copy is still
+held. Taking the panel away is what a *successful* placement looks like, so
+doing it after a failure would make the two indistinguishable. The refusal is
+dropped as soon as another object is lifted, so it can never be read as a report
+about the new one.
+
+A pending position past the world's limits is clamped to the nearest position
+inside them and reported as the move it is, with the boxes showing the value the
+tool actually took. Calling a clamp a failure would take the pending panel away
+from a copy that is still held and still drawn, which is the same defect in the
+other direction.
+
 Every applied operation is one commit in the project repository, so it can be
 restored — and restoring writes a new revision rather than rewinding.
 
@@ -89,6 +108,8 @@ window scrolls rather than clipping at a high display scale.
 ```powershell
 py -3 -m pytest tests/test_studio_spec_registry.py tests/test_studio_surface_index.py -q
 py -3 -m pytest tests/test_editor_operations_runtime.py -q
+py -3 -m pytest tests/test_editor_confirm_outcome.py tests/test_pending_failure_ui_contract.py tests/test_pending_move_reporting.py -q
+py -3 -m pytest tests/test_editor_clone_runtime.py -q
 ```
 
 The first pair prove every surface in this group exists, is reachable, is
@@ -102,6 +123,18 @@ the operation back off the tool's own list. Five assertions naming five
 different operations, each with the count of visible **Run Operation** controls
 that operation exposes, so a build where the tiles collapse back onto one key
 leaves exactly one of them green.
+
+The third group covers what a placement reports: the branches and the wording
+against a stand-in world whose paste raises, the pane keeping its panel and
+rendering the sentence, and the position bridge's clamping policy — including
+two tests that go red if anyone makes a clamped move report failure.
+
+The fourth opens a real world and reads the undo depth through the bridge's own
+reader either side of a real paste. That is the only check that proves a real
+canvas and a real level answer to the attribute path the refusal is built on: a
+wrong path makes the reader answer nothing at both ends, which is treated as
+"the question could not be asked" and reported as success, so every other test
+in this area stays green while the check is switched off.
 
 Suggested articles: [where a pasted copy lands](../paste-anchor/README.md),
 [MCEdit2 tool set](../mcedit2-tools/README.md),

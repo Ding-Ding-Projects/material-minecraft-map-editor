@@ -1507,8 +1507,18 @@ class PropertiesPane(wx.Panel):
         A refusal opens the tab too.  It is the only place that says why, and
         sending the user back to a tab about something else after pressing a
         tool would leave the press looking like it did nothing at all.
+
+        Any refusal left over from the previous activation is dropped here.  It
+        described a paste of the object that *was* being held, and pressing a
+        tool again lifts a new one -- so keeping it would print "no blocks were
+        written" beside an object nobody has tried to write yet.  That is the
+        same defect this pane was fixed for, pointing the other way: the
+        interface stating something untrue about a paste.  ``clear_tool`` is not
+        on this path (it is reached only from a cancel and from the tool going
+        away), so this is the only place the reset can happen.
         """
         self.activation = activation
+        self._pending_failure = ""
         pill = self.tab_buttons.get(TOOL_TAB[0])
         if pill is not None:
             pill.Show()
