@@ -1,8 +1,176 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "bea877b88aab55544fc62627fd4e98641cf73e6d",
+  "source_revision": "a1331df76ee0cd0fd6d518cb73fa38f517cc6627",
   "entries": [
+    {
+      "version": "0.10.0-dev.582",
+      "released_on": "2026-08-11",
+      "commit_sha": "9cf1cf0229c2712637dc695afeca51731c35b4de",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw the last 31 native labels, and widen the guard that missed them",
+          "commit_sha": "9cf1cf0229c2712637dc695afeca51731c35b4de"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.580",
+      "released_on": "2026-08-11",
+      "commit_sha": "b5d3f09312dae9ccb1162e35ef1861f0eb0ef415",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Give the card descriptions back the tone the label rule took off them",
+          "commit_sha": "b5d3f09312dae9ccb1162e35ef1861f0eb0ef415"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.578",
+      "released_on": "2026-08-11",
+      "commit_sha": "23d021d12fc21bf1e73a1989c3a48e8f2779b7b4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Nudge the pending object with the arrow keys, and say the keys exist",
+          "commit_sha": "23d021d12fc21bf1e73a1989c3a48e8f2779b7b4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.575",
+      "released_on": "2026-08-11",
+      "commit_sha": "39366184cffb8cd621022a545485086677709383",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Move the editor's tool panels with its canvas, so cloning is reachable",
+          "commit_sha": "39366184cffb8cd621022a545485086677709383"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.573",
+      "released_on": "2026-08-11",
+      "commit_sha": "dcd92f1d24d9782c8ac1f49c40355a3f1457a8ee",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw the shell's labels and checkboxes instead of asking Windows to",
+          "commit_sha": "dcd92f1d24d9782c8ac1f49c40355a3f1457a8ee"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.572",
+      "released_on": "2026-08-11",
+      "commit_sha": "65561d112d8d551da464f0d7e67982c4b903233d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Keep the funny level off control labels, and wrap the note that clipped",
+          "commit_sha": "65561d112d8d551da464f0d7e67982c4b903233d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.569",
+      "released_on": "2026-08-11",
+      "commit_sha": "c00ce9b1b2d155b7b7c5d2aeaaa6c6ca9ee577f8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Put 140 real captures of the current interface in the README",
+          "commit_sha": "c00ce9b1b2d155b7b7c5d2aeaaa6c6ca9ee577f8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.567",
+      "released_on": "2026-08-11",
+      "commit_sha": "0173704db6bb37f8cdeae75b98bf2e6a25537e46",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Erase the background before printing, so pages stop floating on a void",
+          "commit_sha": "0173704db6bb37f8cdeae75b98bf2e6a25537e46"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.565",
+      "released_on": "2026-08-11",
+      "commit_sha": "3ba3273f62fda037a6178869012cd3f35ed1f4b6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Declare the handle types, and stop truncating every other window handle",
+          "commit_sha": "3ba3273f62fda037a6178869012cd3f35ed1f4b6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.563",
+      "released_on": "2026-08-11",
+      "commit_sha": "b0d5afa4ec70d508ab7e492f4127832a833398f7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Ask native child controls to draw with the message they answer",
+          "commit_sha": "b0d5afa4ec70d508ab7e492f4127832a833398f7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.561",
+      "released_on": "2026-08-11",
+      "commit_sha": "2d1eec9abc58cc2dc7ee36dac21cf913a43aa7c7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Photograph this checkout, once, at the right coordinates",
+          "commit_sha": "2d1eec9abc58cc2dc7ee36dac21cf913a43aa7c7"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.560",
+      "released_on": "2026-08-11",
+      "commit_sha": "feb55f59a7e1237c20fd618d0ad1fd6b90af4ba2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Let every painted widget draw into a capture, and fail when one cannot",
+          "commit_sha": "feb55f59a7e1237c20fd618d0ad1fd6b90af4ba2"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.557",
+      "released_on": "2026-08-11",
+      "commit_sha": "e4fd91e5dd7c971ba2fe11ce96743fcd846a0493",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Construct every dialog, and track the test that caught the last defect",
+          "commit_sha": "e4fd91e5dd7c971ba2fe11ce96743fcd846a0493"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.556",
+      "released_on": "2026-08-11",
+      "commit_sha": "bea877b88aab55544fc62627fd4e98641cf73e6d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Import the name the shell's constructor was already calling",
+          "commit_sha": "bea877b88aab55544fc62627fd4e98641cf73e6d"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.553",
       "released_on": "2026-08-11",

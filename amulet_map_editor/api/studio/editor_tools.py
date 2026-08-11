@@ -997,6 +997,11 @@ def _show_pending(entry: ToolBridge, active: Any, parent: Any) -> Activation:
         )
         _report(parent, "No pending object", message, severity="info")
         return _failed(entry, message)
+    # The same trap as lifting a selection: asking for the paste tool while it
+    # is the active one is how its own button confirms, so it is left first
+    # even though it is holding nothing.
+    if active_tool_name(active) == "Paste":
+        _post_tool_change(active, "Select")
     try:
         active.paste_from_cache()
     except Exception:
