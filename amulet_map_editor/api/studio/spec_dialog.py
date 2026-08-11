@@ -231,13 +231,26 @@ class _Eyebrow(_Painted):
         return tokens.font(self, widgets.point_size(11), wx.FONTWEIGHT_BOLD)
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        """Measure with the device context this control actually paints with.
+
+        ``_on_paint`` draws through a :class:`wx.GCDC`, which lays glyphs out on
+        fractional advances and comes out wider than the plain ``wx.ClientDC``
+        this used to measure with: "KEY CONFIGURATION" measured 129 pixels and
+        drew 134, so the eyebrow was given 131 and every surface in the
+        application drew the last letter of its category with the right-hand
+        stroke sliced off.  Two pixels of padding hid it on the short ones.
+        """
         dc = wx.ClientDC(self)
-        dc.SetFont(self._font())
-        return wx.Size(
-            widgets.tracked_width(dc, self.text.upper(), tokens.scaled(self.TRACKING))
-            + 2,
-            dc.GetCharHeight() + tokens.scaled(4),
+        font = self._font()
+        dc.SetFont(font)
+        height = dc.GetCharHeight() + tokens.scaled(4)
+        gauge = wx.GCDC(dc)
+        gauge.SetFont(font)
+        width = widgets.tracked_width(
+            gauge, self.text.upper(), tokens.scaled(self.TRACKING)
         )
+        del gauge
+        return wx.Size(width + 2, height)
 
     def _on_paint(self, _event: wx.PaintEvent) -> None:
         palette = tokens.palette()
@@ -924,6 +937,28 @@ class SpecDialog(wx.Dialog):
             return
         wx.CallAfter(self.rebind)
 
+    def reload(self, spec: Spec) -> None:
+        """Adopt a freshly built description of this surface and redraw.
+
+        A surface with a rebuilder is built again every time it is *opened* --
+        but opening an already-open window raises the one that is there and
+        throws the new description away, so the Key Select window went on
+        teaching the key group it was opened with until it was closed.  This is
+        how the raised window catches up.
+        """
+        if not isinstance(spec, Spec):
+            return
+        try:
+            unchanged = spec == self.source_spec
+        except Exception:  # noqa: BLE001 - an odd description still redraws
+            unchanged = False
+        if unchanged:
+            # Redrawing a window that has not changed would throw away whatever
+            # the reader had typed into its searches to no purpose.
+            return
+        self.source_spec = spec
+        self.rebind()
+
     def rebind(self) -> None:
         """Bind the shipped description to the open world and redraw the body."""
         try:
@@ -955,10 +990,41 @@ class SpecDialog(wx.Dialog):
         outer.AddSpacer(vertical)
         return outer
 
+    def _body_content_height(self) -> int:
+        """Return the height the body's content wants, not the viewport it got.
+
+        The body is a :class:`wx.ScrolledWindow`, and a scrolling window's best
+        size is the size of the *hole*, not of what is inside it -- it answered
+        16 pixels for a body holding 790.  Asking the dialog for its own best
+        size therefore adds a header, a footer and almost nothing between them,
+        which is why every surface used to open at the 280-pixel floor below no
+        matter how much it had to show: the Key Select window opened with a
+        113-pixel viewport over nineteen key rows, one of which fitted.
+
+        The body's sizer knows the real figure, because it is the sizer that
+        laid the content out.  The virtual size is read as well and the larger
+        of the two kept: ``rebuild`` sets it through ``FitInside``, so the two
+        normally agree, and a route that leaves one of them at zero should not
+        silently take the window back down to the floor.
+        """
+        wanted = 0
+        for measure in (
+            lambda: self.body_sizer.GetMinSize().height,
+            lambda: self.body.GetVirtualSize().height,
+        ):
+            try:
+                wanted = max(wanted, int(measure()))
+            except Exception:  # noqa: BLE001 - a window mid-teardown answers oddly
+                log.debug("Could not measure the body of surface %r", self.spec.key)
+        return max(wanted, 0)
+
     def _preferred_size(self) -> wx.Size:
         width = tokens.scaled(max(360, int(self.spec.width)))
+        chrome = self.header.GetBestSize().height + self.footer.GetBestSize().height
+        content = self._body_content_height()
         best = self.GetBestSize().height or tokens.scaled(480)
-        height = min(tokens.scaled(MAX_DIALOG_HEIGHT), max(tokens.scaled(280), best))
+        wanted = max(best, chrome + content if content else 0)
+        height = min(tokens.scaled(MAX_DIALOG_HEIGHT), max(tokens.scaled(280), wanted))
         try:
             index = wx.Display.GetFromWindow(self)
             area = wx.Display(index if index != wx.NOT_FOUND else 0).GetClientArea()
@@ -1189,12 +1255,64 @@ class SpecDialog(wx.Dialog):
                     select.label,
                     select.options,
                     select.current(),
+                    on_change=(
+                        None
+                        if select.on_change is None
+                        else (
+                            lambda value, item=select: self._select_changed(item, value)
+                        )
+                    ),
                 ),
                 1,
                 wx.EXPAND,
             )
         panel.SetSizer(grid)
         return [(panel, True)]
+
+    def _select_changed(self, select: spec_api.Select, value: str) -> None:
+        """Hand a chosen option to the surface that owns it, then redraw.
+
+        The description says what changing the dropdown *means*; this window
+        knows how to show the result.  Re-sourcing through the registry is what
+        makes the redraw show anything: a surface with a rebuilder answers with
+        a freshly built description -- the Key Select window rebuilds its
+        nineteen key rows against the group just chosen -- while a surface
+        without one redraws the description it already had, which is correct
+        for a select whose effect is elsewhere.
+
+        **The redraw is deferred, and has to be.**  This arrives from inside
+        the dropdown's own click handler, and rebuilding the body destroys
+        every control in it -- including the dropdown, which then returns into
+        ``close_popup`` and calls ``SetFocus`` on a window C++ has already
+        deleted.  That is not a theoretical race: it raised
+        ``RuntimeError: wrapped C/C++ object of type SearchableChoice has been
+        deleted`` on the first run of this code.  Handing the rebuild back to
+        the event loop lets the dropdown finish closing itself first.
+        """
+        try:
+            widgets.invoke(select.on_change, value)
+        except Exception:  # noqa: BLE001 - a failed choice must not kill the window
+            log.exception(
+                "Choosing %r in the %r dropdown of surface %r failed",
+                value,
+                select.label,
+                self.spec.key,
+            )
+            return
+        wx.CallAfter(self._reread)
+
+    def _reread(self) -> None:
+        """Build this surface again and redraw it, unless it has gone away."""
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        rebuilt = spec_registry.get(self.spec.key)
+        if isinstance(rebuilt, Spec):
+            self.source_spec = rebuilt
+            self.spec = self._bind(rebuilt)
+        self.rebuild()
 
     def _render_list(
         self, host: wx.Window, _index: int, section: Section
@@ -2059,6 +2177,12 @@ def open_spec(parent: wx.Window, key: str) -> Optional[SpecDialog]:
     keeps one window per key rather than stacking duplicates every time a
     ribbon button is pressed.  An unknown key is logged and reported as
     ``None`` rather than opening an empty window that looks like a defect.
+
+    Reuse is the case that needs the extra line.  The helper raises the window
+    that is already there and returns it, which discards the description just
+    built -- so a surface read from live state stayed frozen at whatever it
+    said the first time it was opened, for as long as it stayed open.  The
+    reused window is handed the new description and redraws when it differs.
     """
     spec = spec_registry.get(key)
     if spec is None:
@@ -2066,9 +2190,12 @@ def open_spec(parent: wx.Window, key: str) -> Optional[SpecDialog]:
         return None
     from amulet_map_editor.api.wx.modeless import show_modeless_dialog
 
-    return show_modeless_dialog(
+    dialog = show_modeless_dialog(
         parent, f"studio.spec.{key}", lambda owner: SpecDialog(owner, spec)
     )
+    if isinstance(dialog, SpecDialog):
+        dialog.reload(spec)
+    return dialog
 
 
 __all__ = [

@@ -1,6 +1,6 @@
 import wx
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Optional, Iterable, Tuple
+from typing import TYPE_CHECKING, Optional, Iterable, List, Tuple
 import traceback
 import logging
 
@@ -10,17 +10,90 @@ import subprocess
 from amulet_map_editor.api import process
 
 from amulet_map_editor.api import image
-from amulet_map_editor.api.wx.ui.simple import SimpleChoiceAny
+from amulet_map_editor.api.studio import tokens
+from amulet_map_editor.api.studio.widgets import Card
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
+from amulet_map_editor.api.wx.ui.material_forms import MaterialChoice
 
 from amulet_map_editor.programs.edit.api.operations import OperationUIType
 from amulet_map_editor.programs.edit.api.operations.manager import UIOperationManager
+from amulet_map_editor.programs.edit.api.ui.material_tool_panel import (
+    IconButton,
+    ToolPanel,
+)
 from .base_tool_ui import BaseToolUI
 
 if TYPE_CHECKING:
     from amulet_map_editor.programs.edit.api.canvas import EditCanvas
 
 log = logging.getLogger(__name__)
+
+
+class _OperationChoice(MaterialChoice):
+    """The operation dropdown, keeping the identifier/name mapping the
+    ``wx.Choice``-based ``SimpleChoiceAny`` this replaces was built around.
+
+    ``MaterialChoice`` already answers the ``wx.Choice`` vocabulary this file
+    is written against -- ``GetSelection``, ``SetSelection``,
+    ``GetStringSelection`` -- by index into the list of displayed *names*.
+    What this file actually keys everything on is the operation's
+    *identifier*, a module path that a display name is never guaranteed to be
+    unique against on its own, so a second parallel list keeps the two in
+    step exactly as ``SimpleChoiceAny``'s own ``_keys``/``_values`` did.
+    """
+
+    #: Narrower than the shell's default combo, matching the paste tool's own
+    #: dropdown: this sits in a compact strip above the operation panel, not
+    #: a settings form, and the widest of the stock operations' names still
+    #: needs to be readable rather than only the ceiling being generous.
+    WIDTH = 190
+
+    def __init__(self, parent: wx.Window) -> None:
+        super().__init__(parent, (), label="Operation", name="Operation")
+        self._identifiers: List[str] = []
+
+    @property
+    def values(self) -> Tuple[str, ...]:
+        """The identifier behind each displayed name, in list order."""
+        return tuple(self._identifiers)
+
+    @property
+    def items(self) -> Tuple[Tuple[str, str], ...]:
+        """Each displayed name paired with the identifier behind it."""
+        return tuple(zip(self.GetStrings(), self._identifiers))
+
+    def SetItems(  # noqa: N802 - wx API spelling
+        self, items: Mapping[str, str], default: Optional[str] = None
+    ) -> None:
+        """Replace the option list from an ``{identifier: name}`` mapping.
+
+        Sorted by the displayed name, as ``SimpleChoiceAny`` was by default --
+        so the list a person picks from reads alphabetically rather than in
+        whatever order plugins happened to load in.
+        """
+        if not items:
+            return
+        pairs = sorted(
+            (
+                (str(name).strip(), str(identifier))
+                for identifier, name in items.items()
+            ),
+            key=lambda pair: pair[0],
+        )
+        names = [name for name, _identifier in pairs]
+        self._identifiers = [identifier for _name, identifier in pairs]
+        self.Set(names)
+        if default is not None and default in self._identifiers:
+            self.SetSelection(self._identifiers.index(default))
+        elif names:
+            self.SetSelection(0)
+
+    def GetCurrentObject(self) -> Optional[str]:
+        """Return the identifier behind the selected name, or ``None``."""
+        index = self.GetSelection()
+        if 0 <= index < len(self._identifiers):
+            return self._identifiers[index]
+        return None
 
 
 class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
@@ -36,28 +109,26 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
         self._active_operation: Optional[OperationUIType] = None
         self._last_active_operation_id: Optional[str] = None
 
-        self._settings_panel = wx.Panel(canvas.GetParent())
-        self._settings_panel.SetBackgroundColour(
-            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
-        )
+        self._settings_panel = Card(canvas.GetParent(), role="surface_container_high")
         self._settings_panel.Hide()
         self._settings_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._settings_panel.SetSizer(self._settings_sizer)
 
-        self._operation_panel = wx.Panel(canvas.GetParent())
-        self._operation_panel.SetBackgroundColour(
-            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
-        )
+        self._operation_panel = ToolPanel(canvas.GetParent(), "Operation options")
         self._operation_panel.Hide()
-        self._operation_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._operation_panel.SetSizer(self._operation_sizer)
+        self._operation_sizer = self._operation_panel.sizer
 
         assert isinstance(
             self.OperationGroupName, str
         ), "OperationGroupName has not been set or is not a string."
         # The operation selection
-        self._operation_choice = SimpleChoiceAny(self._settings_panel)
-        self._settings_sizer.Add(self._operation_choice)
+        self._operation_choice = _OperationChoice(self._settings_panel)
+        self._settings_sizer.Add(
+            self._operation_choice,
+            0,
+            wx.ALL | wx.ALIGN_CENTER_VERTICAL,
+            tokens.scaled(6),
+        )
         self._operations = UIOperationManager(self.OperationGroupName)
         self._operation_choice.SetItems(
             {op.identifier: op.name for op in self._operations.operations}
@@ -65,20 +136,34 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
         self._operation_choice.Bind(wx.EVT_CHOICE, self._on_operation_change)
 
         # The reload button
-        self._reload_operation = wx.BitmapButton(
-            self._settings_panel, bitmap=image.REFRESH_ICON.bitmap(16, 16)
+        self._reload_operation = IconButton(
+            self._settings_panel,
+            image.REFRESH_ICON.bitmap(),
+            hint="Reload Operations",
+            name="Reload operations",
         )
-        self._reload_operation.SetToolTip("Reload Operations")
-        self._settings_sizer.Add(self._reload_operation)
+        self._settings_sizer.Add(
+            self._reload_operation,
+            0,
+            wx.ALL | wx.ALIGN_CENTER_VERTICAL,
+            tokens.scaled(4),
+        )
         self._reload_operation.Bind(wx.EVT_BUTTON, self._on_reload_operations)
 
         # The open folder button
         if self.ShowOpenFolder:
-            self._open_folder = wx.BitmapButton(
-                self._settings_panel, bitmap=image.TABLERICONS.folder.bitmap(16, 16)
+            self._open_folder = IconButton(
+                self._settings_panel,
+                image.TABLERICONS.folder.bitmap(),
+                hint="Open Plugin Folder",
+                name="Open plugin folder",
             )
-            self._open_folder.SetToolTip("Open Plugin Folder")
-            self._settings_sizer.Add(self._open_folder)
+            self._settings_sizer.Add(
+                self._open_folder,
+                0,
+                wx.ALL | wx.ALIGN_CENTER_VERTICAL,
+                tokens.scaled(4),
+            )
             self._open_folder.Bind(wx.EVT_BUTTON, self._on_open_folder)
 
         self._resize()

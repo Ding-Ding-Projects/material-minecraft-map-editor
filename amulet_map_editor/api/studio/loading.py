@@ -39,6 +39,97 @@ DONE = "done"
 FAILED = "failed"
 
 
+def draw_determinate_bar(
+    dc: wx.DC, rect: wx.Rect, fraction: float, palette: tokens.StudioPalette
+) -> None:
+    """Draw a track with ``fraction`` of it filled.
+
+    A fraction of zero draws the empty track and stops.  That is the appearance
+    of "nothing has happened yet", and it is deliberately *not* the appearance
+    of :func:`draw_indeterminate_band` -- see that function.
+    """
+    radius = rect.height // 2
+    tokens.draw_round_rect(dc, rect, radius, palette.surface_container_high, None)
+    if fraction <= 0:
+        return
+    filled = wx.Rect(
+        rect.x, rect.y, max(rect.height, int(rect.width * fraction)), rect.height
+    )
+    tokens.draw_round_rect(dc, filled, radius, palette.primary, None)
+
+
+def draw_indeterminate_band(
+    dc: wx.DC,
+    rect: wx.Rect,
+    pulse: float,
+    palette: tokens.StudioPalette,
+    *,
+    still: bool = False,
+) -> None:
+    """Draw work that cannot report a fraction, and must not look like zero.
+
+    "Cannot say" is not "nothing yet", so this never draws a bar filled from
+    the left: a reader who sees one reads a percentage off it, and here there
+    is no percentage to read.  Instead a short band travels the track.
+
+    ``still`` is the reduced-motion appearance, and it is the case worth
+    stating.  A stationary band would be the exact shape of a partly-filled
+    determinate bar and would be read as one, so motion off does not mean "the
+    same picture, frozen": the track is drawn as evenly spaced segments across
+    its whole width, which cannot be read as a fill level at all.
+    """
+    tokens.draw_round_rect(dc, rect, 2, palette.surface_container_high, None)
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    if still:
+        segment = max(tokens.scaled(8), rect.width // 12)
+        gap = max(tokens.scaled(5), segment // 2)
+        x = rect.x
+        while x < rect.GetRight():
+            width = min(segment, rect.GetRight() - x)
+            if width <= 0:
+                break
+            tokens.draw_round_rect(
+                dc, wx.Rect(x, rect.y, width, rect.height), 2, palette.primary, None
+            )
+            x += segment + gap
+        return
+    span = max(tokens.scaled(40), rect.width // 4)
+    start = rect.x + int((rect.width + span) * pulse) - span
+    # The band is the *intersection* of its travel with the track, so it grows
+    # in from the left edge and shrinks out at the right one.  Clamping the
+    # left edge while keeping the full width -- which is the obvious way to
+    # write this -- pins the band at the left for the first fifth of every
+    # cycle, so an indeterminate indicator spends that fifth apparently
+    # stationary.  A progress indicator that stops moving is read as work that
+    # has stopped, which is the one thing this band exists to deny.
+    left = max(rect.x, start)
+    right = min(rect.GetRight(), start + span)
+    # The intersection above is exactly zero width at ``pulse == 0.0`` -- the
+    # seam where one lap ends and the next begins -- and a row starts life at
+    # exactly that pulse, before its first tick has ever run.  A band that is
+    # genuinely invisible there paints the same pixels as an empty determinate
+    # bar at fraction zero, which is precisely the confusion this function
+    # exists to prevent.  So the band keeps a minimum floor width at the edge
+    # it is arriving from or departing to, rather than ever vanishing.
+    floor = min(rect.width, max(tokens.scaled(6), 2))
+    if right - left < floor:
+        if pulse < 0.5:
+            left = rect.x
+            right = min(rect.GetRight(), rect.x + floor)
+        else:
+            right = rect.GetRight()
+            left = max(rect.x, right - floor)
+    if right > left:
+        tokens.draw_round_rect(
+            dc,
+            wx.Rect(left, rect.y, right - left, rect.height),
+            2,
+            palette.primary,
+            None,
+        )
+
+
 @dataclass
 class Stage:
     """One named step of a load, with an honest state and optional progress."""
@@ -298,14 +389,7 @@ class LoadingView(wx.Panel, _Themed):
             dc.DrawText(elide(dc, message, column), left, row_top + tokens.scaled(6))
 
     def _draw_bar(self, dc: wx.DC, rect: wx.Rect, fraction: float, palette) -> None:
-        radius = rect.height // 2
-        tokens.draw_round_rect(dc, rect, radius, palette.surface_container_high, None)
-        if fraction <= 0:
-            return
-        filled = wx.Rect(
-            rect.x, rect.y, max(rect.height, int(rect.width * fraction)), rect.height
-        )
-        tokens.draw_round_rect(dc, filled, radius, palette.primary, None)
+        draw_determinate_bar(dc, rect, fraction, palette)
 
     def _draw_stage(
         self, dc: wx.DC, stage: Stage, left: int, top: int, column: int, palette
@@ -353,18 +437,6 @@ class LoadingView(wx.Panel, _Themed):
             if stage.fraction is None:
                 # Indeterminate: a travelling band, visibly different from an
                 # empty bar, because "cannot say" is not "nothing yet".
-                tokens.draw_round_rect(
-                    dc, track, 2, palette.surface_container_high, None
-                )
-                span = max(tokens.scaled(40), track.width // 4)
-                start = track.x + int((track.width + span) * self._pulse) - span
-                band = wx.Rect(
-                    max(track.x, start),
-                    track.y,
-                    min(span, track.GetRight() - max(track.x, start)),
-                    track.height,
-                )
-                if band.width > 0:
-                    tokens.draw_round_rect(dc, band, 2, palette.primary, None)
+                draw_indeterminate_band(dc, track, self._pulse, palette)
             else:
                 self._draw_bar(dc, track, stage.fraction, palette)

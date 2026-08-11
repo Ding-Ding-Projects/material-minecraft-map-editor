@@ -235,15 +235,13 @@ _MUTATING_COMMANDS: Tuple[str, ...] = (
 #: Editor commands ``_after_editor_command`` answers with a branch of its own,
 #: because the undo depth is not their evidence.
 #:
-#: Copy and Reload plugins were in neither tuple, and a command in neither
-#: tuple falls off the end of that function and says *nothing at all* -- which
-#: is how pressing Ctrl+C on a world came to produce zero notifications at any
-#: severity.  Listing them here rather than in ``_MUTATING_COMMANDS`` is the
-#: distinction that matters: neither writes to the world, so the mutating
-#: report would have answered a copy that worked perfectly with "the world
-#: recorded no new undo point, so nothing in it changed".  Copy's evidence is
-#: the clipboard and Reload's is the operation list, and each reports from the
-#: thing it actually did.
+#: Reload plugins was in neither tuple, and a command in neither tuple falls
+#: off the end of that function and says *nothing at all*.  Listing it here
+#: rather than in ``_MUTATING_COMMANDS`` is the distinction that matters: it
+#: does not write to the world, so the mutating report would have answered a
+#: reload that worked perfectly with "the world recorded no new undo point, so
+#: nothing in it changed".  Its evidence is the operation list, and it reports
+#: from the thing it actually did.
 #:
 #: ``undo`` and ``redo`` appear here *and* in ``_MUTATING_COMMANDS``, which is
 #: correct for those two alone: they genuinely move the world, and they also
@@ -254,9 +252,24 @@ _REPORTED_COMMANDS: Tuple[str, ...] = (
     "redo",
     "selectAll",
     "goto",
-    "copy",
     "reloadPlugins",
 )
+
+#: Editor commands whose report is raised by the editor's own canvas method
+#: rather than anywhere in this shell, and which this shell therefore stays
+#: deliberately quiet about.
+#:
+#: Copy is here because the shell is the wrong layer for it.  It reported from
+#: ``_after_editor_command``, which only ever runs for a command the shell
+#: routed -- and two shipped controls call ``EditCanvas.copy`` directly and
+#: never come through here at all: the Select tool's own Copy button and the
+#: 3D editor's Edit ▸ Copy / Ctrl+C.  Measured on a running editor, both moved
+#: the clipboard and raised zero notifications at any severity, so the command
+#: with nothing to look at afterwards was still silent from the two places most
+#: people press it.  ``EditCanvas.copy`` reports for itself now, which is the
+#: one layer all three routes share; a second report here would put two toasts
+#: on screen for one Ctrl+C.
+_EDITOR_REPORTED_COMMANDS: Tuple[str, ...] = ("copy",)
 
 #: The three press-and-hold selection gestures: the keybind the editor listens
 #: for, what it moves, and the button on the Select tool that does the same job
@@ -876,6 +889,25 @@ class StudioShell(wx.Panel):
         finally:
             self._refresh_enablement(force=True)
 
+    def unmet_conditions(self, key: str) -> Tuple[str, ...]:
+        """Return what ``key`` is waiting for, read from the world right now.
+
+        Public because a control that is about to be drawn has the same question
+        as a command that is about to be run, and they must not answer it from
+        two readings: the ribbon greys its tiles from the sweep below, and a
+        right-click menu -- which is built fresh each time and is nobody's child
+        in particular -- walks up to this method and greys its own rows from the
+        same conditions.  A menu row saying a command is ready while the tile
+        beside it says the opposite is one window disagreeing with itself.
+
+        An empty tuple means the command can run: either it needs nothing, or
+        the world already answers everything it needs.
+        """
+        needs = commands.requirements(key)
+        if not needs:
+            return ()
+        return self._command_state().unmet(needs)
+
     def _require(self, key: str) -> bool:
         """Report why ``key`` cannot run, and return whether it can.
 
@@ -883,10 +915,7 @@ class StudioShell(wx.Panel):
         the sentence a disabled tile shows in its tooltip and the sentence a
         pressed one shows in a notification cannot describe different worlds.
         """
-        needs = commands.requirements(key)
-        if not needs:
-            return True
-        unmet = self._command_state().unmet(needs)
+        unmet = self.unmet_conditions(key)
         if not unmet:
             return True
         self.notify(
@@ -1510,7 +1539,11 @@ class StudioShell(wx.Panel):
             self._apply_paste_transform(key, announce=True)
             return
         try:
-            copied = canvas.copy()
+            # ``report=False``: this copy is an internal step of a rotation, not
+            # something the user asked for, and ``EditCanvas.copy`` otherwise
+            # announces what reached the clipboard.  Somebody who pressed
+            # Rotate should not be told about a clipboard they never used.
+            copied = canvas.copy(report=False)
         except Exception:
             log.exception("Could not float a copy of the selection for %r", key)
             self.notify(
@@ -1993,13 +2026,8 @@ class StudioShell(wx.Panel):
         """Hand a command to the live editor and report what it did."""
         action = _EDITOR_ACTIONS.get(key)
         before = self._history_counts()
-        # Read before the command runs, because a copy's only evidence is that
-        # the clipboard grew: its size afterwards on its own cannot tell a copy
-        # that worked from one that raised over a clipboard somebody had
-        # already filled.
-        clipboard_before = self._clipboard_size()
         if action is not None and self._editor_call(action):
-            self._after_editor_command(key, before, clipboard_before=clipboard_before)
+            self._after_editor_command(key, before)
             return
         fallback = _COMMAND_SURFACES.get(key)
         if fallback:
@@ -2240,7 +2268,6 @@ class StudioShell(wx.Panel):
         key: str,
         before: Tuple[int, int],
         subject: str = "",
-        clipboard_before: int = -1,
     ) -> None:
         """Record, re-read, and report what a delegated command changed.
 
@@ -2249,14 +2276,17 @@ class StudioShell(wx.Panel):
         one that did not says so rather than reporting a success the user cannot
         see in the viewport.
 
-        It is not evidence for every command, though, and the two it says
-        nothing about were the two this function used to answer with silence.
-        A copy writes nothing to the world, so its undo depth is unmoved
-        whether it filled the clipboard or raised; a plugin reload does not
-        touch the world at all.  ``clipboard_before`` is what the copy branch
-        measures against instead, and it is read before the command runs
-        because a clipboard that is non-empty afterwards may simply have been
-        non-empty already.  ``-1`` means nobody took that reading.
+        It is not evidence for every command, though.  A plugin reload does not
+        touch the world at all, so it reports from the operation list it came
+        back with; it used to fall off the end of this function and say nothing.
+
+        Copy is not answered here at all, and deliberately so.  It writes
+        nothing to the world either, but the wrong thing about reporting it
+        from this function was never the evidence -- it was the layer.  This
+        function runs only for a command the shell routed, and the Select
+        tool's Copy button and the 3D editor's Edit ▸ Copy both call
+        ``EditCanvas.copy`` directly.  The report lives on that method now, so
+        every route speaks once; see :data:`_EDITOR_REPORTED_COMMANDS`.
         """
         after = self._history_counts()
         level = self._level()
@@ -2318,8 +2348,8 @@ class StudioShell(wx.Panel):
                 ),
             )
             return
-        if key == "copy":
-            self._report_copy(clipboard_before)
+        if key in _EDITOR_REPORTED_COMMANDS:
+            # The editor's own method has already spoken from its own evidence.
             return
         if key == "reloadPlugins":
             self._report_plugin_reload()
@@ -2356,60 +2386,11 @@ class StudioShell(wx.Panel):
                 severity="success",
             )
 
-    # -- what the two read-only commands say ---------------------------------
-    def _report_copy(self, clipboard_before: int) -> None:
-        """Say what reached the clipboard, or that nothing did.
-
-        Copy is the one editing command whose entire result is invisible: the
-        viewport looks identical afterwards whether it worked or raised.  It
-        reported nothing at all, so those two outcomes were indistinguishable
-        from the interface.
-
-        The evidence is the clipboard growing rather than the command having
-        been called.  ``EditCanvas.run_operation`` swallows the operation's
-        exception when ``throw_exceptions`` is false, so "the method ran" is
-        exactly the claim that cannot be trusted here.
-        """
-        copied = self._copied_structure()
-        if clipboard_before < 0 or self._clipboard_size() <= clipboard_before:
-            self.notify(
-                studio_label("Nothing was copied", "冇嘢複製到"),
-                studio_text(
-                    "The editor ran the copy but nothing reached the clipboard, "
-                    "so there is nothing to paste. The world was not changed."
-                ),
-                severity="warning",
-            )
-            return
-        if copied is None:
-            self.notify(
-                studio_label("Copied", "複製咗"),
-                studio_text(
-                    "Something is on the clipboard, but the editor did not "
-                    "report how big it is. The world was not changed."
-                ),
-                severity="warning",
-            )
-            return
-        blocks, boxes = copied
-        # The dimension the editor is in, not the one the structure calls
-        # itself.  ``structure_cache`` hands back the *structure's* own
-        # dimension key, which for every extracted structure is the literal
-        # string ``"main"`` -- so this sentence read "copied from main", which
-        # is not a place in anybody's world.
-        dimension = self._dimension_name()
-        self.notify(
-            studio_label("Copied", "複製咗"),
-            studio_text(
-                f"{blocks:,} {'block' if blocks == 1 else 'blocks'} in "
-                f"{boxes} {'box' if boxes == 1 else 'boxes'}"
-                + (f" from {dimension}" if dimension else "")
-                + f" {'is' if blocks == 1 else 'are'} on the clipboard. "
-                "Nothing in the world was changed."
-            ),
-            severity="success",
-        )
-
+    # -- what the read-only command says -------------------------------------
+    # Copy's report used to live here.  It moved to ``EditCanvas.copy``, which
+    # is the layer the Select tool's Copy button and the 3D editor's Ctrl+C
+    # share with the shell's own ``copy`` command; a report here only ever
+    # reached the third of those.  See :data:`_EDITOR_REPORTED_COMMANDS`.
     def _report_plugin_reload(self) -> None:
         """Say how many operations came back, or that none did.
 
@@ -2449,42 +2430,6 @@ class StudioShell(wx.Panel):
             ),
             severity="success",
         )
-
-    @staticmethod
-    def _clipboard_size() -> int:
-        """Return how many structures the editor's clipboard is holding."""
-        try:
-            from amulet.api.structure import structure_cache
-
-            return len(structure_cache)
-        except Exception:  # pragma: no cover - amulet-core unavailable
-            log.debug("Could not read the editor clipboard", exc_info=True)
-            return 0
-
-    @staticmethod
-    def _copied_structure() -> Optional[Tuple[int, int]]:
-        """Return ``(blocks, boxes)`` for the newest entry on the clipboard.
-
-        Measured from the structure that is actually on the clipboard rather
-        than from the editor's current selection: the two agree only until
-        somebody drags a box after copying, and this sentence is about what can
-        be pasted.
-
-        The structure's own dimension key is deliberately not returned.  Every
-        extracted structure calls its single dimension ``"main"``, so reporting
-        it produced "copied from main" -- a place in no world.
-        """
-        try:
-            from amulet.api.structure import structure_cache
-
-            if not len(structure_cache):
-                return None
-            structure, _dimension = structure_cache.get_structure()
-            bounds = structure.selection_bounds
-            return (int(bounds.volume), len(bounds.selection_boxes))
-        except Exception:  # pragma: no cover - a structure mid-write
-            log.debug("Could not measure the copied structure", exc_info=True)
-            return None
 
     def _loaded_operation_names(self) -> Optional[Tuple[str, ...]]:
         """Return the operations the editor is offering, or ``None``.

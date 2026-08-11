@@ -156,8 +156,11 @@ def test_the_check_and_the_report_ask_the_same_question() -> None:
     ``_MUTATING_COMMANDS`` is covered without anyone remembering to add it
     here.  ``_REPORTED_COMMANDS`` comes back out because those return from a
     branch of their own before this one is reached and answer from evidence
-    that is not the undo depth -- Copy from the clipboard, Reload plugins from
-    the operation list.  ``runOperation`` is added because it is not a mutating
+    that is not the undo depth -- Reload plugins from the operation list, for
+    instance.  (Copy answers from the clipboard, but no longer here: its report
+    is raised by ``EditCanvas.copy``, which is the layer the Select tool's Copy
+    button and the editor's Ctrl+C share with this shell's own command.)
+    ``runOperation`` is added because it is not a mutating
     command and reaches this branch anyway, through its subject, which is
     exactly how the original defect got in.
     """

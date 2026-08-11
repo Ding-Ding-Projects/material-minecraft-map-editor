@@ -10,7 +10,7 @@ adding a surface is one data entry rather than a new window class.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, Sequence, Tuple
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 from amulet_map_editor.api.studio.search import SearchState
 
@@ -61,11 +61,28 @@ class Field:
 
 @dataclass(frozen=True)
 class Select:
-    """One searchable dropdown inside a ``selects`` section."""
+    """One searchable dropdown inside a ``selects`` section.
+
+    ``on_change`` is what makes a dropdown a control rather than a picture of
+    one.  A select without it renders, opens, highlights and closes again
+    having changed nothing, which is worse than no dropdown at all: the Key
+    Select window offered a real list of the reader's own key groups, with the
+    active one already selected, beside a button reading "Save group", and
+    choosing a different group did nothing whatsoever.  The renderer calls this
+    with the chosen option and then re-reads the surface, so a family that
+    wires one gets both the effect and the redraw.
+
+    It is excluded from equality and from the repr: two descriptions differ
+    when their labels, options or values differ, never because they were built
+    with two separately-created closures.
+    """
 
     label: str
     options: Tuple[str, ...] = ()
     value: str = ""
+    on_change: Optional[Callable[[str], None]] = field(
+        default=None, compare=False, repr=False
+    )
 
     def current(self) -> str:
         """Return the selected option, defaulting to the first one."""

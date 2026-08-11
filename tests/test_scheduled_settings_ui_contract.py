@@ -38,11 +38,15 @@ class ScheduledSettingsUiContractTestCase(unittest.TestCase):
             self.source, self.methods["_build_schedule_tab"]
         )
         for required in (
-            "wx.ScrolledWindow",
-            "wx.ListBox",
-            "wx.TextCtrl",
-            "wx.CheckBox",
-            "wx.SpinCtrl",
+            # Painted replacements for the five native controls this tab
+            # used to build. Each keeps the wx vocabulary the handlers below
+            # speak -- GetValue, SetSelection, Set, EVT_TEXT, EVT_CHECKBOX,
+            # EVT_SPINCTRL -- so what this contract cares about is unchanged.
+            "forms.MaterialScrolled",
+            "forms.MaterialListBox",
+            "forms.MaterialTextField",
+            "studio.StudioCheckBox",
+            "forms.MaterialSpin",
             "schedule_every_day",
             "schedule_weekdays",
             "schedule_start_date",

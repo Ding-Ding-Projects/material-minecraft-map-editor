@@ -62,13 +62,15 @@ def _frame() -> wx.Frame:
 def test_a_flat_surface_reads_as_entirely_uniform(app) -> None:
     """One colour edge to edge is ``1.0``, which is the alarm value."""
     frame = _frame()
-    panel = wx.Panel(frame)
-    panel.SetBackgroundColour(wx.Colour(200, 200, 200))
-    frame.Show()
-    capture_surface.settle(frame)
-    image, *_ = capture_surface._composite(panel)
-    assert capture_surface._uniform_fraction(image) == pytest.approx(1.0)
-    frame.Destroy()
+    try:
+        panel = wx.Panel(frame)
+        panel.SetBackgroundColour(wx.Colour(200, 200, 200))
+        frame.Show()
+        capture_surface.settle(frame)
+        image, *_ = capture_surface._composite(panel)
+        assert capture_surface._uniform_fraction(image) == pytest.approx(1.0)
+    finally:
+        frame.Destroy()
 
 
 def test_a_surface_with_real_content_is_not_uniform(app) -> None:
@@ -79,26 +81,28 @@ def test_a_surface_with_real_content_is_not_uniform(app) -> None:
     then report every real capture as empty.
     """
     frame = _frame()
-    panel = wx.Panel(frame)
-    panel.SetBackgroundColour(wx.Colour(200, 200, 200))
-    sizer = wx.BoxSizer(wx.VERTICAL)
-    for colour in ((220, 20, 20), (20, 220, 20), (20, 20, 220), (250, 250, 10)):
-        block = wx.Panel(panel, size=wx.Size(200, 30))
-        block.SetBackgroundColour(wx.Colour(*colour))
-        sizer.Add(block, 1, wx.EXPAND)
-    panel.SetSizer(sizer)
-    panel.Layout()
-    frame.Show()
-    capture_surface.settle(frame)
-    image, contributed, *_ = capture_surface._composite(panel)
-    assert contributed >= 4, "the blocks did not composite, so nothing is proven"
-    fraction = capture_surface._uniform_fraction(image)
-    assert fraction < 0.5, (
-        "four equal bands of four different colours read as "
-        f"{fraction:.3f} of one colour, so the measurement cannot tell a full "
-        "picture from an empty one"
-    )
-    frame.Destroy()
+    try:
+        panel = wx.Panel(frame)
+        panel.SetBackgroundColour(wx.Colour(200, 200, 200))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        for colour in ((220, 20, 20), (20, 220, 20), (20, 20, 220), (250, 250, 10)):
+            block = wx.Panel(panel, size=wx.Size(200, 30))
+            block.SetBackgroundColour(wx.Colour(*colour))
+            sizer.Add(block, 1, wx.EXPAND)
+        panel.SetSizer(sizer)
+        panel.Layout()
+        frame.Show()
+        capture_surface.settle(frame)
+        image, contributed, *_ = capture_surface._composite(panel)
+        assert contributed >= 4, "the blocks did not composite, so nothing is proven"
+        fraction = capture_surface._uniform_fraction(image)
+        assert fraction < 0.5, (
+            "four equal bands of four different colours read as "
+            f"{fraction:.3f} of one colour, so the measurement cannot tell a full "
+            "picture from an empty one"
+        )
+    finally:
+        frame.Destroy()
 
 
 def test_the_report_carries_the_measurement(app, tmp_path) -> None:
@@ -109,21 +113,23 @@ def test_the_report_carries_the_measurement(app, tmp_path) -> None:
     module would have changed nothing about what that run reported.
     """
     frame = _frame()
-    panel = wx.Panel(frame)
-    panel.SetBackgroundColour(wx.Colour(200, 200, 200))
-    child = wx.Panel(panel, size=wx.Size(80, 40))
-    child.SetBackgroundColour(wx.Colour(10, 90, 200))
-    frame.Show()
-    capture_surface.settle(frame)
-    report = capture_surface.capture_composite(
-        panel, tmp_path / "surface.png", require_content=False
-    )
-    assert (
-        "uniform_fraction" in report
-    ), f"the report does not carry the blankness measurement: {sorted(report)}"
-    assert 0.0 <= report["uniform_fraction"] <= 1.0
-    assert report["uniform_fraction"] < 1.0, (
-        "a surface with a differently coloured child on it reports as one flat "
-        f"colour: {report}"
-    )
-    frame.Destroy()
+    try:
+        panel = wx.Panel(frame)
+        panel.SetBackgroundColour(wx.Colour(200, 200, 200))
+        child = wx.Panel(panel, size=wx.Size(80, 40))
+        child.SetBackgroundColour(wx.Colour(10, 90, 200))
+        frame.Show()
+        capture_surface.settle(frame)
+        report = capture_surface.capture_composite(
+            panel, tmp_path / "surface.png", require_content=False
+        )
+        assert (
+            "uniform_fraction" in report
+        ), f"the report does not carry the blankness measurement: {sorted(report)}"
+        assert 0.0 <= report["uniform_fraction"] <= 1.0
+        assert report["uniform_fraction"] < 1.0, (
+            "a surface with a differently coloured child on it reports as one flat "
+            f"colour: {report}"
+        )
+    finally:
+        frame.Destroy()

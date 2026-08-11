@@ -89,6 +89,21 @@ doing it after a failure would make the two indistinguishable. The refusal is
 dropped as soon as another object is lifted, so it can never be read as a report
 about the new one.
 
+Copying says what reached the clipboard, and says it from the canvas rather than
+from the shell. Copy is the one editing command with nothing to look at
+afterwards — the viewport is identical whether it filled the clipboard or
+raised — so the report names how many blocks in how many boxes are now on the
+clipboard, from which dimension, and that the world was not changed. The
+evidence is the clipboard having actually grown, not the method having been
+called, because the editor's progress path contains the operation's exception.
+The report lives on `EditCanvas.copy` because three separate controls run a
+copy: the Studio's own Copy command, the Select tool's Copy button, and the 3D
+editor's Edit ▸ Copy and Ctrl+C. The last two call the canvas directly and never
+reach the shell, so a report placed there left them silent. One layer, one
+notification per copy — a copy that raised is left to the failure the progress
+path has already shown, and a rotation, which floats a copy of the selection as
+an internal step, asks for no report at all.
+
 A pending position past the world's limits is clamped to the nearest position
 inside them and reported as the move it is, with the boxes showing the value the
 tool actually took. Calling a clamp a failure would take the pending panel away

@@ -6,6 +6,7 @@ import traceback
 import logging
 import zipfile
 import subprocess
+import threading
 from amulet_map_editor.api import process
 
 import wx
@@ -14,9 +15,11 @@ from amulet import load_format
 from amulet.api.errors import FormatError
 
 from amulet_map_editor import lang, CONFIG
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.ui import simple
 from amulet_map_editor.api.wx.ui.path_dialog import choose_path
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
+from amulet_map_editor.api.wx.progress import begin_progress
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.framework import app
 
@@ -255,9 +258,9 @@ class WorldUI(wx.Panel):
         self.img = wx.StaticBitmap(self, wx.ID_ANY, img, (0, 0), (width, 128))
         sizer.Add(self.img)
 
-        self.world_name = wx.StaticText(
+        self.world_name = studio.StudioText(
             self,
-            label="\n".join(
+            "\n".join(
                 [
                     world_format.level_name,
                     world_format.game_version_string,
@@ -266,6 +269,9 @@ class WorldUI(wx.Panel):
                     ),
                 ]
             ),
+            size_px=13,
+            role="on_surface",
+            name=world_format.level_name,
         )
         sizer.Add(self.world_name, 0, wx.ALL | wx.ALIGN_CENTER, 5)
 
@@ -361,8 +367,11 @@ class CollapsibleWorldListUI(wx.CollapsiblePane):
                     process.call(["xdg-open", root_directory])
                 evt.Skip()
 
-            open_directory_button = wx.Button(
-                panel, label=lang.get("select_world.open_directory")
+            open_directory_button = studio.StudioButton(
+                panel,
+                lang.get("select_world.open_directory"),
+                variant="outlined",
+                name=lang.get("select_world.open_directory"),
             )
             panel_sizer.Add(
                 open_directory_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 5
@@ -424,16 +433,22 @@ class WorldSelectUI(wx.Panel):
         sizer.Add(header_sizer, 0, wx.EXPAND)
         header_sizer.AddStretchSpacer()
 
-        self.header_open_world = wx.Button(
-            self, label=lang.get("select_world.open_world_button")
+        self.header_open_world = studio.StudioButton(
+            self,
+            lang.get("select_world.open_world_button"),
+            variant="filled",
+            name=lang.get("select_world.open_world_button"),
         )
         self.header_open_world.Bind(wx.EVT_BUTTON, self._open_world)
         header_sizer.Add(self.header_open_world)
 
         header_sizer.AddSpacer(20)
 
-        self.header_open_mcworld = wx.Button(
-            self, label=lang.get("select_world.open_mcworld_button")
+        self.header_open_mcworld = studio.StudioButton(
+            self,
+            lang.get("select_world.open_mcworld_button"),
+            variant="outlined",
+            name=lang.get("select_world.open_mcworld_button"),
         )
         self.header_open_mcworld.Bind(wx.EVT_BUTTON, self._open_mcworld)
         header_sizer.Add(self.header_open_mcworld)
@@ -469,19 +484,37 @@ class WorldSelectUI(wx.Panel):
         if extract_dir is None:
             return
 
-        busy_msg = wx.BusyInfo(lang.get("select_world.extracting_world_wait"))
-
+        # ``wx.BusyInfo`` used to stand in for this: a borderless banner that
+        # blocks input and reports nothing at all, so a large archive looked
+        # identical after ten seconds and after ten minutes.  The overlay says
+        # what is being extracted and how far through it is, and the shell
+        # underneath stays live.
+        #
+        # An archive knows how many members it holds, so this is genuinely
+        # measurable and draws a filling bar.  It is extracted member by member
+        # on a worker thread rather than through ``extractall`` for exactly that
+        # reason -- ``extractall`` returns one number, at the end.  Per-member
+        # extraction goes through the same ``ZipFile.extract`` that
+        # ``extractall`` calls, so the member-name sanitising that stops an
+        # archive writing outside its destination is unchanged.
+        report = begin_progress(
+            self,
+            key=f"extract-mcworld-{id(self)}",
+            title=lang.get("select_world.extracting_world_wait"),
+            detail=os.path.basename(mcworld_path),
+        )
         try:
             if not os.path.isdir(extract_dir):
                 raise NotADirectoryError(
                     f"Extraction destination is not an existing directory: {extract_dir}"
                 )
             if next(os.scandir(extract_dir), None) is not None:
+                report.finish()
                 wx.LogError(lang.get("select_world.extracting_world_not_empty"))
                 return
-            zipfile.ZipFile(mcworld_path).extractall(extract_dir)
+            self._extract_archive(mcworld_path, extract_dir, report)
         except Exception as e:
-            del busy_msg
+            report.fail(str(e) or type(e).__name__)
             notify_exception(
                 self,
                 lang.get("select_world.extracting_world_failed"),
@@ -490,7 +523,7 @@ class WorldSelectUI(wx.Panel):
             )
             return
         else:
-            del busy_msg
+            report.finish()
 
         notify(
             self,
@@ -501,6 +534,71 @@ class WorldSelectUI(wx.Panel):
 
         self.open_world_callback(extract_dir)
 
+    @staticmethod
+    def _extract_archive(archive_path: str, destination: str, report) -> None:
+        """Extract ``archive_path`` into ``destination``, reporting as it goes.
+
+        The work runs on a worker thread and this yields between joins, which
+        is what keeps the shell responsive and the overlay repainting.  An
+        error on that thread is re-raised here so the caller's existing failure
+        path -- which carries the traceback into notification history -- is the
+        one that reports it.
+        """
+        state: Dict[str, object] = {"done": 0, "total": 0, "error": None}
+
+        def work() -> None:
+            try:
+                with zipfile.ZipFile(archive_path) as archive:
+                    members = archive.infolist()
+                    state["total"] = len(members)
+                    for index, member in enumerate(members, 1):
+                        archive.extract(member, destination)
+                        state["done"] = index
+            except BaseException as error:  # re-raised on the caller's thread
+                state["error"] = error
+
+        thread = threading.Thread(target=work, name="amulet-mcworld-extract")
+        thread.daemon = True
+        thread.start()
+        while thread.is_alive():
+            thread.join(0.05)
+            total = int(state["total"] or 0)
+            done = int(state["done"] or 0)
+            # Until the archive has been opened there is no member count, so
+            # there is no fraction to draw -- and an empty bar would claim a
+            # measurement nobody has taken yet.
+            report.update(
+                fraction=(done / total) if total else None,
+                indeterminate=not total,
+                detail=(
+                    f"{done} of {total} files"
+                    if total
+                    else os.path.basename(archive_path)
+                ),
+            )
+            application = wx.GetApp()
+            if application is not None:
+                application.Yield()
+        # ``is_alive()`` can already read False by the time the loop rechecks
+        # it, even though the poll published one join earlier was still short
+        # of the true final count -- the thread can finish its last member
+        # between that publish and the next check. Flushing the state once
+        # more here, now that the thread has genuinely terminated and every
+        # member is written, is what guarantees the row is never left
+        # reporting less than what actually happened.
+        total = int(state["total"] or 0)
+        done = int(state["done"] or 0)
+        report.update(
+            fraction=(done / total) if total else None,
+            indeterminate=not total,
+            detail=(
+                f"{done} of {total} files" if total else os.path.basename(archive_path)
+            ),
+        )
+        error = state["error"]
+        if error is not None:
+            raise error
+
 
 class RecentWorldUI(wx.Panel):
     def __init__(self, parent, open_world_callback):
@@ -510,13 +608,11 @@ class RecentWorldUI(wx.Panel):
         self._sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self._sizer)
 
-        text = wx.StaticText(
+        text = studio.StudioText(
             self,
-            wx.ID_ANY,
             lang.get("select_world.recent_worlds"),
-            wx.DefaultPosition,
-            wx.DefaultSize,
-            0,
+            size_px=13,
+            role="on_surface",
         )
         self._sizer.Add(
             text,
@@ -555,9 +651,11 @@ class WorldSelectAndRecentUI(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(sizer)
 
-        warning_text = wx.StaticText(
+        warning_text = studio.StudioText(
             self,
-            label=lang.get("select_world.open_world_warning"),
+            lang.get("select_world.open_world_warning"),
+            size_px=13,
+            role="on_surface",
         )
         sizer.Add(warning_text, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
         # bar

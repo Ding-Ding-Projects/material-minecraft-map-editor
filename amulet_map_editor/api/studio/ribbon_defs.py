@@ -2023,11 +2023,14 @@ def validate() -> Tuple[str, ...]:
                     problems.append(f"A field in group {where} has no label")
                 if not entry.command:
                     # The same rule the dropdown above gets, and for the same
-                    # reason.  Every box in this ribbon's field grids raised
-                    # nothing: what was typed went into a dictionary whose only
-                    # reader re-seeded the widget it came from, so the six
-                    # Coordinates boxes could be filled in with anything at all
-                    # and the world never heard about it.
+                    # reason.  A field grid box with no command raises
+                    # nothing: what was typed would go into a dictionary whose
+                    # only reader re-seeds the widget it came from, so it
+                    # could be filled in with anything at all and the world
+                    # never hears about it.  This used to be spelled
+                    # ``if False and not entry.command:``, which never runs --
+                    # the exact vacuous shape ``test_the_skipping_shape_is_what
+                    # _the_empty_case_check_prevents`` above exists to catch.
                     problems.append(
                         f"Field {where}/{entry.label} raises no command, so "
                         "typing in it changes nothing and its value is read by "

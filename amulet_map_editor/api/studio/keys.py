@@ -41,6 +41,7 @@ __all__ = [
     "declared_actions",
     "editor_bindings",
     "format_binding",
+    "group_bindings",
     "key_config",
     "read_key_groups",
     "viewport_accelerator",
@@ -251,6 +252,42 @@ def active_keybinds() -> Mapping[str, Any]:
     return read_key_groups().bindings
 
 
+def group_bindings(group_id: str) -> Mapping[str, Any]:
+    """Return one named key group's bindings, or an empty mapping.
+
+    ``group_id`` empty means the group the editor is listening to, which is
+    what every surface that prints a key it claims works must ask for.  A named
+    group is how the Key Select window lets a reader look at a group *without*
+    switching to it -- the reading is the same shape either way, and the caller
+    stays responsible for saying on screen which of the two it is showing.
+
+    A group nobody has heard of answers empty rather than falling back to the
+    active one: a window that quietly showed a different group's keys under the
+    name of the one that was asked for would be the same lie in a new place.
+    """
+    name = str(group_id)
+    if not name:
+        return read_key_groups().bindings
+    editor = key_config()
+    if editor is None:
+        return {}
+    try:
+        from amulet_map_editor.api import config
+
+        PresetKeybinds = editor.PresetKeybinds
+    except Exception:  # pragma: no cover - a truncated key configuration
+        log.debug("The 3D editor key configuration is unusable", exc_info=True)
+        return {}
+    try:
+        edit_config = config.get("amulet_edit", {}) or {}
+        user_groups = edit_config.get("user_keybinds", {}) or {}
+        group = user_groups.get(name) or PresetKeybinds.get(name)
+    except Exception:  # pragma: no cover - a hand-edited profile
+        log.exception("Could not read the 3D editor key group %r", name)
+        return {}
+    return MappingProxyType(dict(group or {}))
+
+
 def declared_actions() -> Tuple[str, ...]:
     """Return every action the 3D editor declares, in the order it declares it.
 
@@ -309,29 +346,33 @@ def action_label(action: str) -> str:
     return " ".join(words) or text
 
 
-def editor_bindings() -> Tuple[KeyBinding, ...]:
+def editor_bindings(group_id: str = "") -> Tuple[KeyBinding, ...]:
     """Return every 3D editor action with the key it is really bound to.
 
     This is what the Key Select window shows.  The list is the editor's own
-    action list in the editor's own order, each row resolved against the active
-    key group, so a key printed here is a key that works -- by construction,
-    rather than by somebody remembering to edit two files at once.  An action
-    the active group binds nothing to reads :data:`NOT_BOUND`; a configuration
-    that could not be read at all returns an empty tuple, and the surface shows
-    :data:`UNREADABLE` and says why instead of drawing an empty grid.
+    action list in the editor's own order, each row resolved against a real key
+    group, so a key printed here is a key that works -- by construction, rather
+    than by somebody remembering to edit two files at once.  An action the group
+    binds nothing to reads :data:`NOT_BOUND`; a configuration that could not be
+    read at all returns an empty tuple, and the surface shows :data:`UNREADABLE`
+    and says why instead of drawing an empty grid.
+
+    ``group_id`` empty reads the group the editor is listening to.  Naming one
+    reads that group instead, which is how the Key Select window answers "what
+    does *this* group bind" without changing what the editor listens for.
     """
-    groups = read_key_groups()
-    if not groups.readable:
+    bindings = group_bindings(group_id)
+    if not bindings:
         return ()
     declared = declared_actions()
     ordered: list = [action for action in declared]
     known = set(declared)
-    ordered.extend(sorted(action for action in groups.bindings if action not in known))
+    ordered.extend(sorted(action for action in bindings if action not in known))
     if not ordered:
-        ordered = sorted(groups.bindings)
+        ordered = sorted(bindings)
     rows: Dict[str, str] = {}
     for action in ordered:
-        rows[action] = format_binding(groups.bindings.get(action)) or NOT_BOUND
+        rows[action] = format_binding(bindings.get(action)) or NOT_BOUND
     return tuple(
         KeyBinding(action_label(action), binding) for action, binding in rows.items()
     )

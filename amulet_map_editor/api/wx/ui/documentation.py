@@ -15,8 +15,10 @@ from amulet_map_editor.api.docs_browser import (
 )
 from amulet_map_editor.api import preferences
 from amulet_map_editor.api import lang
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.modeless import finish_dialog
+from amulet_map_editor.api.wx.ui import material_forms as forms
 from amulet_map_editor.api.wx.ui.regex_dialog import RegexBuilderDialog
 
 
@@ -101,13 +103,24 @@ class DocumentationDialog(wx.Dialog):
 
         root = wx.BoxSizer(wx.VERTICAL)
         filters = wx.BoxSizer(wx.HORIZONTAL)
-        self.query = wx.TextCtrl(self)
-        self.query.SetHint(_copy("search_hint", self._language_mode))
-        self.regex = wx.CheckBox(self, label=_copy("regex", self._language_mode))
-        self.regex_button = wx.Button(self, label="Regex…")
-        self.regex_button.SetName("Documentation search regex builder")
-        self.regex_button.SetToolTip("Build a bounded regular-expression search")
-        self.feedback = wx.StaticText(self, label="")
+        self.query = forms.MaterialTextField(
+            self,
+            placeholder=_copy("search_hint", self._language_mode),
+            name="Documentation search",
+        )
+        self.regex = studio.StudioCheckBox(
+            self, _copy("regex", self._language_mode), name="Documentation regex mode"
+        )
+        self.regex_button = studio.StudioButton(
+            self,
+            "Regex…",
+            variant="outlined",
+            hint="Build a bounded regular-expression search",
+            name="Documentation search regex builder",
+        )
+        self.feedback = studio.StudioText(
+            self, "", size_px=12, role="on_surface_variant"
+        )
         filters.Add(self.query, 1, wx.EXPAND | wx.RIGHT, 8)
         filters.Add(self.regex, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
         filters.Add(self.regex_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 8)
@@ -115,16 +128,20 @@ class DocumentationDialog(wx.Dialog):
         root.Add(filters, 0, wx.EXPAND | wx.ALL, 12)
 
         body = wx.BoxSizer(wx.HORIZONTAL)
-        self.results = wx.ListBox(self)
+        self.results = forms.MaterialListBox(self, name="Documentation articles")
         self.results.SetMinSize(wx.Size(250, -1))
         body.Add(self.results, 0, wx.EXPAND | wx.RIGHT, 12)
         self.article_view = wx.html.HtmlWindow(self, style=wx.html.HW_SCROLLBAR_AUTO)
         body.Add(self.article_view, 1, wx.EXPAND)
         root.Add(body, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
 
-        close = wx.Button(
-            self, id=wx.ID_CLOSE, label=_copy("close", self._language_mode)
+        close = studio.StudioButton(
+            self,
+            _copy("close", self._language_mode),
+            variant="outlined",
+            name="Close documentation",
         )
+        close.SetId(wx.ID_CLOSE)
         close.Bind(wx.EVT_BUTTON, lambda _event: finish_dialog(self, wx.ID_CANCEL))
         root.Add(close, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
         self.SetSizer(root)

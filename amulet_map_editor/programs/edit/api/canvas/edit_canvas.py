@@ -2,7 +2,7 @@ import logging
 import warnings
 import wx
 from dataclasses import dataclass
-from typing import Callable, Any, Generator, Optional, Iterable
+from typing import Callable, Any, Generator, Optional, Iterable, Tuple
 from types import GeneratorType
 from threading import RLock, Thread
 import sys
@@ -38,7 +38,9 @@ from amulet_map_editor import CONFIG
 from amulet_map_editor.api import preferences
 from amulet_map_editor.api.outcome import Outcome
 from amulet_map_editor import close_level
+from amulet_map_editor.api.studio.copy import studio_label, studio_text
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
+from amulet_map_editor.api.wx.progress import ProgressReporter, begin_progress
 from amulet_map_editor.programs.edit.api.ui.goto import show_goto
 from amulet_map_editor.programs.edit.api.ui.tool_manager import ToolManagerSizer
 from amulet_map_editor.programs.edit.api.operations.errors import (
@@ -79,6 +81,30 @@ def _copy_never_rolls_back() -> bool:
     own selection history.  See :meth:`EditCanvas.copy`.
     """
     return False
+
+
+def _copied_structure() -> Optional[Tuple[int, int]]:
+    """Return ``(blocks, boxes)`` for the newest entry on the clipboard.
+
+    Measured from the structure that is actually on the clipboard rather than
+    from the editor's current selection: the two agree only until somebody
+    drags a box after copying, and the sentence built from this is about what
+    can be pasted.
+
+    The structure's own dimension key is deliberately not returned.  Every
+    extracted structure calls its single dimension ``"main"``, so reporting it
+    produced "copied from main" -- a place in no world.  The dimension the
+    canvas is editing is used instead.
+    """
+    try:
+        if not len(structure_cache):
+            return None
+        structure, _dimension = structure_cache.get_structure()
+        bounds = structure.selection_bounds
+        return (int(bounds.volume), len(bounds.selection_boxes))
+    except Exception:  # pragma: no cover - a structure mid-write
+        log.debug("Could not measure the copied structure", exc_info=True)
+        return None
 
 
 @dataclass(frozen=True)
@@ -180,19 +206,18 @@ def show_loading_dialog(
     run: OperationType, title: str, message: str, parent: wx.Window
 ) -> Any:
     warnings.warn("show_loading_dialog is depreciated.", DeprecationWarning)
-    dialog = wx.ProgressDialog(
-        title,
-        message,
-        maximum=10_000,
-        parent=parent,
-        style=wx.PD_APP_MODAL
-        | wx.PD_ELAPSED_TIME
-        | wx.PD_REMAINING_TIME
-        | wx.PD_AUTO_HIDE,
-    )
-    dialog.Fit()
     t = time.time()
-    try:
+    # The overlay rather than a modal dialog, for the reason the whole of this
+    # change exists: loading something is information, not a question, and the
+    # window behind it stays live. The row opens indeterminate because nothing
+    # has reported a fraction yet, and becomes determinate the moment the
+    # generator yields one.
+    with begin_progress(
+        parent,
+        key=f"loading-{id(run)}",
+        title=title,
+        detail=message,
+    ) as report:
         obj = run()
         if isinstance(obj, GeneratorType):
             try:
@@ -204,17 +229,16 @@ def show_loading_dialog(
                         if len(progress) >= 1:
                             progress = progress[0]
                     if isinstance(progress, (int, float)) and isinstance(message, str):
-                        dialog.Update(
-                            min(9999, max(0, int(progress * 10_000))), message
+                        report.update(
+                            fraction=min(1.0, max(0.0, float(progress))),
+                            detail=message,
                         )
                     wx.Yield()
             except StopIteration as e:
                 obj = e.value
-    except Exception as e:
-        dialog.Update(10_000)
-        raise e
-    time.sleep(max(0.2 - time.time() + t, 0))
-    dialog.Update(10_000)
+        # Keep the row up for a moment even on a fast load, so a surface that
+        # appears and vanishes within one frame does not read as a flicker.
+        time.sleep(max(0.2 - time.time() + t, 0))
     return obj
 
 
@@ -228,6 +252,15 @@ class OperationThread(Thread):
     message: str
     # The operation progress (from 0-1)
     progress: float
+    # Whether ``progress`` is a number anybody actually reported.
+    #
+    # An operation that is not a generator, or one that has not yielded yet,
+    # leaves ``progress`` at its initial 0.0 -- which is indistinguishable from
+    # an operation that has genuinely reported being at the very beginning.
+    # The progress dialog this replaced drew both as an empty bar, so work that
+    # could not report at all looked exactly like work that had not started.
+    # This flag is what lets the overlay draw "cannot say" instead.
+    reported: bool
     # The return value from the operation
     out: Any
     # The error raised if any
@@ -239,6 +272,7 @@ class OperationThread(Thread):
         self.stop = False
         self.message = message
         self.progress = 0.0
+        self.reported = False
         self.out = None
         self.error = None
 
@@ -258,8 +292,10 @@ class OperationThread(Thread):
                                 self.message = progress[1]
                             if len(progress) >= 1:
                                 self.progress = progress[0]
+                                self.reported = True
                         elif isinstance(progress, (int, float)):
                             self.progress = progress
+                            self.reported = True
                 except StopIteration as e:
                     self.out = e.value
         except BaseException as e:
@@ -437,24 +473,32 @@ class EditCanvas(BaseEditCanvas):
                 )
             self._operation_running = True
 
+            # Declared before the try so the cleanup below can close it even if
+            # the operation never got as far as starting. A row left open by a
+            # crash is a progress indicator that never goes away.
+            report: Optional[ProgressReporter] = None
             try:
                 self.renderer.disable_threads()
 
-                style = (
-                    wx.PD_APP_MODAL
-                    | wx.PD_ELAPSED_TIME
-                    | wx.PD_REMAINING_TIME
-                    | wx.PD_AUTO_HIDE
-                    | (wx.PD_CAN_ABORT * cancelable)
+                # The overlay, not a modal dialog. An operation writes the
+                # world on a worker thread while this loop yields, so the
+                # interface behind it genuinely does keep running -- what the
+                # old application-modal dialog took away was never necessary,
+                # it was just what a ProgressDialog does.
+                #
+                # One thing is genuinely unavailable, and the row says which:
+                # a second operation cannot start while this one holds the edit
+                # lock, and ``_operation_running`` above raises if one tries.
+                # Naming that is the difference between an interface that is
+                # partly busy and one that appears to have frozen.
+                report = begin_progress(
+                    self,
+                    key=f"edit-operation-{id(self)}",
+                    title=title,
+                    detail=msg,
+                    cancellable=cancelable,
+                    unavailable=("Another edit cannot start until this one finishes."),
                 )
-                dialog = wx.ProgressDialog(
-                    title,
-                    msg,
-                    maximum=10_000,
-                    parent=self,
-                    style=style,
-                )
-                dialog.Fit()
 
                 # Set up a thread to run the actual operation
                 op = OperationThread(operation, msg)
@@ -462,14 +506,35 @@ class EditCanvas(BaseEditCanvas):
                 op.start()
                 while op.is_alive():
                     op.join(0.1)
-                    dialog.Update(
-                        max(0, min(int(op.progress * 10_000), 9999)), op.message
+                    # ``reported`` rather than ``progress``: an operation that
+                    # has yielded nothing has not measured anything, and the
+                    # row draws that as a travelling band instead of claiming
+                    # nought percent.
+                    report.update(
+                        fraction=op.progress if op.reported else None,
+                        indeterminate=not op.reported,
+                        detail=op.message,
                     )
                     wx.Yield()
-                    if dialog.WasCancelled():
+                    if report.cancelled:
                         op.stop = True
 
-                dialog.Destroy()
+                # The row's fate is decided by the outcome, not by the loop
+                # ending: retiring it unconditionally here would take a failure
+                # off the screen at the exact moment it happened.  A deliberate
+                # abort is not a failure and retires quietly; a real error keeps
+                # its row until the user dismisses it.
+                # ``OperationSuccessful`` is in here despite being a loud
+                # exception: it is how an operation says "stop, and do not
+                # record an undo point" on the path where it *worked*, so
+                # drawing it as a failure would put a red row on screen for a
+                # copy that succeeded.  See ``_lift``.
+                if op.error is None or isinstance(
+                    op.error, (BaseSilentException, OperationSuccessful)
+                ):
+                    report.finish()
+                else:
+                    report.fail(str(op.error) or type(op.error).__name__)
                 wx.Yield()
 
                 if op.error is not None:
@@ -523,6 +588,8 @@ class EditCanvas(BaseEditCanvas):
                     raise op.error
                 return op.out
             finally:
+                if report is not None and not report.closed:
+                    report.fail("The operation stopped unexpectedly.")
                 try:
                     self.renderer.enable_threads()
                     self.renderer.render_world.rebuild_changed()
@@ -610,8 +677,8 @@ class EditCanvas(BaseEditCanvas):
             lambda: cut(self.world, self.dimension, self.selection.selection_group)
         )
 
-    def copy(self) -> OperationOutcome:
-        """Copy the selection into the structure cache; see :meth:`_lift`.
+    def copy(self, report: bool = True) -> OperationOutcome:
+        """Copy the selection into the structure cache, and say what went.
 
         **Why this one refuses the rollback.**  ``copy`` finishes by raising
         ``OperationSilentAbort``, and :meth:`_run_operation` answers every
@@ -630,14 +697,93 @@ class EditCanvas(BaseEditCanvas):
         whether the *next* undo point records a revision.  A read-only action
         was arming an undo point that undoes nothing.
 
-        Inside the 400 ms before the selection's own deferred undo point fires
-        it is worse than pointless: the value unpacked is then the *previous*
-        committed selection, so the rollback would take away the box the user
-        had just drawn and was copying.
+        What this deliberately no longer claims is that the same rollback would
+        take the copied box away when Copy is pressed inside the 400 ms before
+        the selection's own deferred undo point fires.  Measured in exactly
+        that window with the refusal disabled -- box drawn, no main loop in
+        between, then Copy -- the box count was one before and one after, and
+        still one after a further 1.5 s.  Copy's own progress pump is what
+        finally delivers that timer, so the selection's undo point is committed
+        with the *current* box before ``_run_operation`` reaches the rollback,
+        and what gets restored is the box that is already there.  The damage in
+        that window is the same damage as everywhere else: the changed flag is
+        left set.
+
+        **And it reports here rather than above.**  Copy is the one editing
+        command with nothing to look at afterwards, and the report used to live
+        in the Studio shell -- so a copy from the Studio spoke and the two
+        controls that call this method directly, the Select tool's Copy button
+        and the 3D editor's own Edit ▸ Copy / Ctrl+C, said nothing at all.
+        Measured on a running editor: the clipboard grew and zero notifications
+        were raised at any severity.  This method is the layer all three share.
+
+        ``report`` is false for the one caller that copies as a means to an end
+        rather than because the user asked for a copy: the Studio's rotate and
+        flip float a copy of the selection into the paste tool, and announcing
+        "4,096 blocks are on the clipboard" to somebody who pressed Rotate
+        would be describing an internal step as though it were the action.
         """
-        return self._lift(
+        before = len(structure_cache)
+        outcome = self._lift(
             lambda: copy(self.world, self.dimension, self.selection.selection_group),
             rollback_on_error=_copy_never_rolls_back,
+        )
+        if report:
+            self._report_copy(before, outcome)
+        return outcome
+
+    def _report_copy(self, before: int, outcome: OperationOutcome) -> None:
+        """Say what reached the clipboard, or that nothing did.
+
+        The evidence is the clipboard growing rather than the method having
+        been called.  :meth:`run_operation` contains the operation's exception,
+        so "the copy ran" is exactly the claim that cannot be trusted here.
+
+        A copy that raised is left alone: :meth:`_run_operation` has already put
+        the failure on screen, and a second notification underneath it saying
+        nothing was copied would be the same event reported twice.
+        """
+        if outcome.failed:
+            return
+        if len(structure_cache) <= before:
+            notify(
+                self,
+                studio_label("Nothing was copied", "冇嘢複製到"),
+                studio_text(
+                    "The editor ran the copy but nothing reached the clipboard, "
+                    "so there is nothing to paste. The world was not changed."
+                ),
+                severity="warning",
+            )
+            return
+        measured = _copied_structure()
+        if measured is None:
+            notify(
+                self,
+                studio_label("Copied", "複製咗"),
+                studio_text(
+                    "Something is on the clipboard, but the editor did not "
+                    "report how big it is. The world was not changed."
+                ),
+                severity="warning",
+            )
+            return
+        blocks, boxes = measured
+        try:
+            dimension = str(self.dimension or "")
+        except Exception:  # pragma: no cover - a canvas without a renderer yet
+            dimension = ""
+        notify(
+            self,
+            studio_label("Copied", "複製咗"),
+            studio_text(
+                f"{blocks:,} {'block' if blocks == 1 else 'blocks'} in "
+                f"{boxes} {'box' if boxes == 1 else 'boxes'}"
+                + (f" from {dimension}" if dimension else "")
+                + f" {'is' if blocks == 1 else 'are'} on the clipboard. "
+                "Nothing in the world was changed."
+            ),
+            severity="success",
         )
 
     def paste(self, structure: BaseLevel, dimension: Dimension):

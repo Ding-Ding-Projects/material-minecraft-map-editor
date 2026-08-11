@@ -7,7 +7,7 @@ surfaces without each surface inventing its own language or appearance state.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 import re
 from typing import Any, Dict, Tuple
 import unicodedata
@@ -117,13 +117,20 @@ def format_window_title(
     return title + " (source)" if source else title
 
 
+#: The persisted field names, resolved once.  ``load`` runs underneath every
+#: appearance token and therefore from inside paint handlers, and it was asking
+#: for these by building a whole default ``Preferences`` and deep-copying it
+#: into a dict on every call, to read nothing but the keys.
+_FIELD_NAMES: Tuple[str, ...] = tuple(field.name for field in fields(Preferences))
+
+
 def load() -> Preferences:
     """Load preferences, migrating missing keys to the shipped values."""
     raw: Dict[str, Any] = config.get(PREFERENCES_ID, {})
     if not isinstance(raw, dict):
         raw = {}
-    fields = {key: raw[key] for key in asdict(Preferences()) if key in raw}
-    return Preferences(**fields).normalised()
+    values = {key: raw[key] for key in _FIELD_NAMES if key in raw}
+    return Preferences(**values).normalised()
 
 
 def save(preferences: Preferences) -> Preferences:

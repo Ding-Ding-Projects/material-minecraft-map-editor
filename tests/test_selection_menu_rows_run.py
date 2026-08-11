@@ -17,6 +17,15 @@ classes the running editor owns -- run each row's command through the same
 what they now hold.  A row is verified by the state it changed, never by the
 notification it posted.
 
+Wiring them exposed the opposite fault on rows nobody had looked at: a menu
+asked only whether a command *existed*, never whether the open world could
+answer it, so with a world open and nothing selected thirteen rows across five
+menus drew at full strength beside a ribbon that greyed every one of them.  The
+tests under "registered is not the same as runnable" build the menus over that
+live shell and compare each row against the shell's own reading, and they keep
+the two greys apart: a row this build has no command for withholds its key,
+while a row merely waiting on a selection keeps printing it.
+
 The framing test is the one worth reading twice: it does not check that the
 camera moved somewhere plausible, it multiplies all eight corners of the
 dimension's extent by the camera's own ``transformation_matrix`` and asserts
@@ -298,7 +307,13 @@ def test_the_sweeps_own_predicate_catches_the_pairing_it_looks_for(app) -> None:
 
 
 def test_no_context_menu_draws_a_disabled_row_beside_a_shortcut(app) -> None:
-    """The sweep, with a precondition so it cannot pass by finding nothing."""
+    """The sweep, with a precondition so it cannot pass by finding nothing.
+
+    Built on a bare frame deliberately.  There is no shell above it to ask what
+    the world is waiting for, so every row here is disabled for the one reason
+    this sweep is about -- this build has nothing behind it -- and the *other*
+    grey, the row waiting on a selection, is covered below where it belongs.
+    """
     frame = wx.Frame(None, pos=OFFSCREEN)
     offenders: List[str] = []
     disabled = 0
@@ -320,6 +335,163 @@ def test_no_context_menu_draws_a_disabled_row_beside_a_shortcut(app) -> None:
         "the disabled state stopped being reported."
     )
     assert not offenders, "Disabled rows printing a shortcut: " + ", ".join(offenders)
+
+
+# ---------------------------------------------------------------------------
+# registered is not the same as runnable
+# ---------------------------------------------------------------------------
+#
+# The four rows above were dead: named by a menu, in no command table, greyed
+# from the day they shipped.  Wiring them exposed the opposite fault, which had
+# been there all along on rows nobody had looked at.  A menu asked only whether
+# a command *existed*, so with a world open and nothing selected "Duplicate
+# selection box", "Delete selection box", "Move point 1", "Move point 2", "Move
+# the active box", "Export the selection…", "Undo" and "Redo" all drew at full
+# strength and answered a click with a warning toast -- while the ribbon, in the
+# same window, greyed every one of them.  One window, two answers.
+#
+# The sweep below also reports the recent-project menu's "Copy the project path"
+# waiting on a *selection*, which is the honest answer to the wrong question:
+# that row is wired to ``copy``, the editor's copy-the-selected-blocks command,
+# so it has never copied a path.  Left as found and recorded here rather than
+# fixed in passing, because fixing it means a new command rather than a truer
+# greying, and a row that is greyed for a reason nobody can act on is still
+# better than one that silently copies something else.
+
+
+def _row(popup: Any, label: str) -> Any:
+    """Return one row of a built menu by its visible label."""
+    for row in popup._rows:
+        if row.item.label == label:
+            return row
+    raise AssertionError(
+        f"No row labelled {label!r}: {[r.item.label for r in popup._rows]}"
+    )
+
+
+def _menu(shell: StudioShell, key: str) -> Any:
+    """Open one menu under the live shell, which is what it asks for state."""
+    return context_menu.SearchableContextMenu(shell, key)
+
+
+def test_a_row_the_world_cannot_answer_yet_is_greyed_and_says_why(
+    shell: StudioShell,
+) -> None:
+    """Nothing selected: the row greys, and its tooltip names the condition.
+
+    The second half is the precondition, and it is the half that matters: the
+    same row, with a box drawn, comes back enabled.  Without it a menu that had
+    simply started greying everything would pass the first half.
+    """
+    _select(shell, ())
+    popup = _menu(shell, "navigator")
+    try:
+        row = _row(popup, "Duplicate selection box")
+        assert not row.IsEnabled(), (
+            "The row was pressable with nothing selected, so pressing it can only "
+            "produce a toast saying what the row could have shown beforehand."
+        )
+        tip = row.GetToolTip()
+        assert tip is not None
+        assert (
+            tip.GetTip()
+            == "Duplicate selection box is unavailable: nothing is selected."
+        )
+        assert "unavailable: nothing is selected" in row.GetName()
+    finally:
+        popup.Destroy()
+
+    _select(shell, (BOXES[0],))
+    popup = _menu(shell, "navigator")
+    try:
+        assert _row(popup, "Duplicate selection box").IsEnabled(), (
+            "With a box selected the row must come back, or the menu has stopped "
+            "reading the world and started refusing everything."
+        )
+    finally:
+        popup.Destroy()
+
+
+def test_a_row_waiting_on_the_world_keeps_printing_its_shortcut(
+    shell: StudioShell,
+) -> None:
+    """The two greys are different, and this is the difference.
+
+    A row this build has no command for is dead whatever the user does next, so
+    it withholds its key.  A row waiting on a selection is here and its key is
+    the key that will run it -- both come alive together when a box is drawn --
+    so withholding it would teach the user the shortcut does not exist, which is
+    the same lesson the dead-row rule exists to prevent.
+    """
+    _select(shell, ())
+    popup = _menu(shell, "navigator")
+    try:
+        row = _row(popup, "Delete selection box")
+        assert not row.IsEnabled()
+        assert row.accel == "Del", (
+            "A row waiting on a selection dropped its shortcut. That key still "
+            "runs the moment a box is drawn, so the row now teaches the user the "
+            "feature has no shortcut."
+        )
+        assert "Del" in row.GetName()
+    finally:
+        popup.Destroy()
+
+
+def test_the_menu_greys_exactly_what_the_shell_says_is_unmet(
+    shell: StudioShell,
+) -> None:
+    """Derived from the live world, with a precondition against a vacuous pass.
+
+    Every command row in every menu is compared against the shell's own reading
+    -- the reading the ribbon greys its tiles from -- so the menu cannot answer
+    a question the rest of the window answers differently.
+    """
+    _select(shell, ())
+    waiting = 0
+    wrong: List[str] = []
+    for key in context_menu.CTX_MENUS:
+        popup = _menu(shell, key)
+        try:
+            for row in popup._rows:
+                command = row.item.command
+                if not command or commands.command(command) is None:
+                    continue
+                unmet = shell.unmet_conditions(command)
+                waiting += bool(unmet)
+                if bool(unmet) != (not row.IsEnabled()):
+                    wrong.append(
+                        f"{key}: {row.item.label} enabled={row.IsEnabled()} "
+                        f"unmet={unmet}"
+                    )
+        finally:
+            popup.Destroy()
+    assert waiting, (
+        "No command row anywhere was waiting on anything, so this proved nothing. "
+        "The fixture opens a world with no selection, and several rows need one."
+    )
+    assert not wrong, "Menu rows disagreeing with the shell: " + ", ".join(wrong)
+
+
+def test_a_menu_with_no_shell_above_it_greys_nothing_for_the_world(app) -> None:
+    """ "I cannot tell" is not "you cannot do this".
+
+    A menu built without a shell -- a preview, a capture harness, a surface
+    still being wired -- must not grey every row it has: a menu that greys
+    itself wholesale reads as a broken application rather than as a world
+    waiting for a selection.
+    """
+    frame = wx.Frame(None, pos=OFFSCREEN)
+    try:
+        assert not hasattr(frame, "unmet_conditions")
+        popup = context_menu.SearchableContextMenu(frame, "navigator")
+        try:
+            assert _row(popup, "Duplicate selection box").IsEnabled()
+            assert _row(popup, "Delete selection box").IsEnabled()
+        finally:
+            popup.Destroy()
+    finally:
+        frame.Destroy()
 
 
 # ---------------------------------------------------------------------------

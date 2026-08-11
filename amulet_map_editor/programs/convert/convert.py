@@ -8,6 +8,8 @@ from amulet import load_format
 from amulet.api.level import BaseLevel
 
 from amulet_map_editor import lang
+from amulet_map_editor.api.studio import widgets as studio
+from amulet_map_editor.api.wx.ui import material_forms as forms
 from amulet_map_editor.api.wx.ui.simple import SimplePanel, SimpleScrollablePanel
 from amulet_map_editor.api.wx.ui.select_world import WorldSelectDialog, WorldUI
 from amulet_map_editor.api.wx.nonblocking import notify
@@ -33,8 +35,11 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
         self._thread: Optional[Thread] = None
         self.world = world
 
-        self._close_world_button = wx.Button(
-            self, wx.ID_ANY, label=lang.get("world.close_world")
+        self._close_world_button = studio.StudioButton(
+            self,
+            lang.get("world.close_world"),
+            variant="outlined",
+            name=lang.get("world.close_world"),
         )
         self._close_world_button.Bind(wx.EVT_BUTTON, self._close_world)
         self.add_object(self._close_world_button, 0, wx.ALL | wx.CENTER)
@@ -42,13 +47,11 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
         self._input = SimplePanel(self, wx.HORIZONTAL)
         self.add_object(self._input, 0, wx.ALL | wx.CENTER)
         self._input.add_object(
-            wx.StaticText(
+            studio.StudioText(
                 self._input,
-                wx.ID_ANY,
                 lang.get("program_convert.input_world"),
-                wx.DefaultPosition,
-                wx.DefaultSize,
-                0,
+                size_px=13,
+                role="on_surface",
             ),
             0,
             wx.ALL | wx.CENTER,
@@ -60,20 +63,21 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
         self._output = SimplePanel(self, wx.HORIZONTAL)
         self.add_object(self._output, 0, wx.ALL | wx.CENTER)
         self._output.add_object(
-            wx.StaticText(
+            studio.StudioText(
                 self._output,
-                wx.ID_ANY,
                 lang.get("program_convert.output_world"),
-                wx.DefaultPosition,
-                wx.DefaultSize,
-                0,
+                size_px=13,
+                role="on_surface",
             ),
             0,
             wx.ALL | wx.CENTER,
         )
 
-        self._select_output_button = wx.Button(
-            self, wx.ID_ANY, label=lang.get("program_convert.select_output_world")
+        self._select_output_button = studio.StudioButton(
+            self,
+            lang.get("program_convert.select_output_world"),
+            variant="outlined",
+            name=lang.get("program_convert.select_output_world"),
         )
         self._select_output_button.Bind(wx.EVT_BUTTON, self._show_world_select)
         self.add_object(self._select_output_button, 0, wx.ALL | wx.CENTER)
@@ -81,21 +85,19 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
         self._convert_bar = SimplePanel(self, wx.HORIZONTAL)
         self.add_object(self._convert_bar, 0, wx.ALL | wx.CENTER)
 
-        self.loading_bar = wx.Gauge(
+        self.loading_bar = studio.ProgressRow(
             self._convert_bar,
-            wx.ID_ANY,
-            100,
-            wx.DefaultPosition,
-            wx.DefaultSize,
-            wx.GA_HORIZONTAL,
+            lang.get("program_convert.convert_button"),
+            0.0,
+            "0%",
         )
         self._convert_bar.add_object(self.loading_bar, options=wx.ALL | wx.EXPAND)
-        self.loading_bar.SetValue(0)
 
-        self.convert_button = wx.Button(
+        self.convert_button = studio.StudioButton(
             self._convert_bar,
-            wx.ID_ANY,
-            label=lang.get("program_convert.convert_button"),
+            lang.get("program_convert.convert_button"),
+            variant="filled",
+            name=lang.get("program_convert.convert_button"),
         )
         self._convert_bar.add_object(self.convert_button)
         self.convert_button.Bind(wx.EVT_BUTTON, self._convert_event)
@@ -144,7 +146,9 @@ class ConvertExtension(SimpleScrollablePanel, BaseProgram):
         # self.Fit()
 
     def _update_loading_bar(self, chunk_index, chunk_total):
-        wx.CallAfter(self.loading_bar.SetValue, int(100 * chunk_index / chunk_total))
+        fraction = chunk_index / chunk_total if chunk_total else 0.0
+        percent = int(round(100 * fraction))
+        wx.CallAfter(self.loading_bar.set_progress, fraction, f"{percent}%")
 
     def _convert_event(self, evt):
         if self.out_world_path is None:

@@ -19,11 +19,12 @@ from functools import lru_cache
 import logging
 from pathlib import Path
 import re
+import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import wx
 
-from amulet_map_editor.api import preferences, scheduled_runtime, school_mode
+from amulet_map_editor.api import config, preferences, scheduled_runtime, school_mode
 
 log = logging.getLogger(__name__)
 
@@ -155,6 +156,23 @@ _theme_listeners: List[Callable[[], None]] = []
 _face_cache: Optional[frozenset] = None
 _bundled_fonts: Optional["BundledFonts"] = None
 
+#: (config generation, monotonic time read, resolved presentation) the last
+#: time :func:`_presentation` actually asked ``preferences``/``school_mode``
+#: for an answer.  Every public token function resolves the presentation
+#: fresh -- ``palette()``, ``font()``, ``scaled()``, ``control_height()``,
+#: ``density()``, and ``emoji()`` each call :func:`_presentation` on their
+#: own -- so one repaint that asks for a dozen tokens was doing a dozen
+#: ``Preferences(...).normalised()`` builds (plus, underneath, a dozen
+#: ``config.get`` calls apiece for the two identifiers) to answer what is,
+#: within one paint, always the same question.
+_presentation_cache: Optional[Tuple[int, float, "preferences.Preferences"]] = None
+
+
+def _invalidate_presentation() -> None:
+    """Drop the cached presentation so the next call resolves it fresh."""
+    global _presentation_cache
+    _presentation_cache = None
+
 
 @dataclass(frozen=True)
 class StudioPalette:
@@ -250,12 +268,34 @@ def _presentation() -> preferences.Preferences:
 
     A malformed or unreadable profile must not stop the shell painting, so the
     shipped defaults stand in and the failure is logged once per call site.
+
+    Resolving this is more than the two cached ``config.get`` calls
+    underneath it: it also builds and validates a :class:`preferences.Preferences`
+    instance, and every public token function calls this on its own, so one
+    paint that resolves a dozen tokens repeats that build a dozen times.  The
+    answer is cached for the same window :mod:`config` already promises a
+    profile write is visible within, so this can never be staler than reading
+    ``preferences``/``school_mode`` directly would be.  A write *this process*
+    makes is visible at once regardless of the window, because
+    ``config.generation()`` changes the moment :func:`config.put` runs --
+    :func:`preferences.save` and every ``school_mode`` setter go through it --
+    which is what keeps a settings change from painting with a stale
+    palette for up to a quarter of a second after the user made it.
     """
+    global _presentation_cache
+    generation = config.generation()
+    now = time.monotonic()
+    if _presentation_cache is not None:
+        cached_generation, cached_at, cached_value = _presentation_cache
+        if cached_generation == generation and now - cached_at < config.CACHE_SECONDS:
+            return cached_value
     try:
-        return school_mode.presentation_preferences(preferences.load())
+        value = school_mode.presentation_preferences(preferences.load())
     except (OSError, AttributeError, TypeError, ValueError):
         log.exception("Could not read appearance preferences; using shipped defaults")
-        return preferences.Preferences().normalised()
+        value = preferences.Preferences().normalised()
+    _presentation_cache = (generation, now, value)
+    return value
 
 
 def _runtime_value(key: str, fallback: str) -> str:
@@ -367,10 +407,20 @@ def is_dark() -> bool:
     return _resolve_theme(_runtime_value("theme", _presentation().theme)) == "dark"
 
 
+def _density_of(prefs: preferences.Preferences) -> str:
+    """Return the live density name for preferences already in hand.
+
+    Split out so a caller that has resolved the presentation is not made to
+    resolve it a second time; :func:`density` is the same question asked
+    without one.
+    """
+    value = _runtime_value("density", prefs.density)
+    return value if value in DENSITY_HEIGHTS else "comfortable"
+
+
 def density() -> str:
     """Return the live density name, honouring a scheduled override."""
-    value = _runtime_value("density", _presentation().density)
-    return value if value in DENSITY_HEIGHTS else "comfortable"
+    return _density_of(_presentation())
 
 
 def control_height() -> int:
@@ -381,7 +431,7 @@ def control_height() -> int:
     multiplied by the persisted interface scale.
     """
     prefs = _presentation()
-    base = DENSITY_HEIGHTS.get(density(), DENSITY_HEIGHTS["comfortable"])
+    base = DENSITY_HEIGHTS.get(_density_of(prefs), DENSITY_HEIGHTS["comfortable"])
     return max(1, round(base * prefs.ui_scale * _dpi_factor))
 
 
@@ -629,6 +679,47 @@ def _resolve_face(candidates: Sequence[str], preferred: str = "") -> str:
     return ""
 
 
+@lru_cache(maxsize=256)
+def _build_font(
+    base_description: str,
+    point_size: int,
+    weight: int,
+    mono: bool,
+    ui_scale: float,
+    ui_font: str,
+    faces_known: bool,
+) -> wx.Font:
+    """Build one font from a fully resolved description of what it must be.
+
+    Every argument is something that changes the answer, which is what makes
+    this cacheable: the base font arrives as its own native description rather
+    than as a live window, so two windows sharing the system face share one
+    entry.  ``faces_known`` is in the key because :func:`_available_faces`
+    cannot enumerate before there is a wx application, and a font resolved
+    while the enumerator was empty must not be handed out once the design's
+    faces have been registered.
+    """
+    base = wx.Font()
+    base.SetNativeFontInfo(base_description)
+    result = wx.Font(base)
+    result.SetPointSize(max(MIN_POINT_SIZE, round(point_size * ui_scale)))
+    result.SetWeight(weight)
+    if mono:
+        # The family is set first and the face second, and the order matters:
+        # setting the family afterwards replaces the resolved face with the
+        # platform's generic one, so a chosen monospaced face would be quietly
+        # thrown away.  The family stands in only when no candidate face is
+        # installed, which still yields a monospaced font rather than a
+        # proportional one.
+        result.SetFamily(wx.FONTFAMILY_TELETYPE)
+        face = _resolve_face(MONO_FONT_CANDIDATES)
+    else:
+        face = _resolve_face(UI_FONT_CANDIDATES, ui_font)
+    if face:
+        result.SetFaceName(face)
+    return result
+
+
 def font(
     window: Optional[wx.Window],
     point_size: int,
@@ -641,6 +732,12 @@ def font(
     chosen one; it never overrides the monospaced family, because a coordinate
     or an identifier stops being readable the moment its columns stop lining
     up.
+
+    Building the font is cached, because a text-bearing control asks for one
+    every time it paints and constructing it measured at 126us -- six fonts for
+    a single row of the recent-worlds table.  The cache is keyed on everything
+    that changes the result, so a new scale, a new chosen face, or a window
+    with its own font all produce a different entry rather than a stale font.
     """
     prefs = _presentation()
     base = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
@@ -651,23 +748,20 @@ def font(
                 base = current
         except RuntimeError:  # pragma: no cover - window torn down mid-paint
             pass
-    result = wx.Font(base)
-    result.SetPointSize(max(MIN_POINT_SIZE, round(point_size * prefs.ui_scale)))
-    result.SetWeight(weight)
-    if mono:
-        # The family is set first and the face second, and the order matters:
-        # setting the family afterwards replaces the resolved face with the
-        # platform's generic one, so a chosen monospaced face would be quietly
-        # thrown away.  The family stands in only when no candidate face is
-        # installed, which still yields a monospaced font rather than a
-        # proportional one.
-        result.SetFamily(wx.FONTFAMILY_TELETYPE)
-        face = _resolve_face(MONO_FONT_CANDIDATES)
-    else:
-        face = _resolve_face(UI_FONT_CANDIDATES, prefs.ui_font)
-    if face:
-        result.SetFaceName(face)
-    return result
+    built = _build_font(
+        base.GetNativeFontInfoDesc(),
+        int(point_size),
+        int(weight),
+        bool(mono),
+        float(prefs.ui_scale),
+        str(prefs.ui_font or ""),
+        bool(_available_faces()),
+    )
+    # Handed out as a copy, because reading the answer out of a cache must not
+    # change what a caller may do with it: the uncached version returned a
+    # fresh font every time, and something that mutated one would otherwise be
+    # editing every later caller's font too.
+    return wx.Font(built)
 
 
 def mono_font(
@@ -879,16 +973,23 @@ def theme_listener_count() -> int:
 
 
 def reset_caches() -> None:
-    """Drop the derived palette and installed-face caches.
+    """Drop the derived palette, presentation, and installed-face caches.
 
     The bundled private faces are deliberately left registered: wx offers no
     way to unregister one, and a theme change calls this on every switch, so
     clearing that state would re-register the same files for the life of the
     session.  The next enumeration still sees them.
+
+    ``_build_font``'s cache is also deliberately left alone: its key already
+    carries every input that changes the answer (scale, chosen face, weight,
+    the caller's own base font), so a stale entry cannot be served -- a
+    changed input is a changed key, not a hit -- and clearing it here would
+    only throw away fonts that are still correct.
     """
     global _face_cache
     _build_palette.cache_clear()
     _face_cache = None
+    _invalidate_presentation()
 
 
 def notify_theme_changed() -> None:

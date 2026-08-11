@@ -75,6 +75,8 @@ If you are new to the interface, start with
 - [External editor](external-editor/README.md)
 - [Notification centre](notification-centre/README.md)
 - [Non-blocking error reporting](non-blocking-error-reporting/README.md)
+- [In-app progress](progress-overlay/README.md) — the linear indicator that
+  replaced every modal progress dialog
 
 ## Builds and delivery
 

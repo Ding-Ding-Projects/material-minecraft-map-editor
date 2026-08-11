@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 import wx
 
 import weakref
@@ -7,6 +7,7 @@ import math
 
 from amulet_map_editor.api.opengl.camera import Camera
 from amulet_map_editor.api.opengl.matrix import rotation_matrix_xy
+from amulet_map_editor.api.studio.widgets import StudioButton
 from amulet_map_editor.programs.edit.api.key_config import (
     KeybindGroup,
     ACT_MOVE_UP,
@@ -37,23 +38,27 @@ _MoveActions = {
 }
 
 
-class NudgeButton(wx.Button):
-    """A button that catches actions when pressed."""
+class _NudgeBehaviour:
+    """Catching the movement actions, independent of what draws the button.
 
-    def __init__(
-        self,
-        parent: wx.Window,
-        camera: Camera,
-        keybinds: KeybindGroup,
-        label: str,
-        tooltip: str,
-    ):
-        super().__init__(parent, label=label, style=wx.WANTS_CHARS)
-        self.SetToolTip(tooltip)
+    Split out from :class:`NudgeButton` so a panel that has been migrated to
+    Material can have the same button without the native one changing at all.
+    The behaviour is one implementation with two shells rather than two
+    implementations: a nudge that worked in one panel and not the other would
+    be the worst possible outcome of a restyle.
+    """
+
+    def _init_nudge(
+        self, camera: Camera, keybinds: KeybindGroup, tooltip: str = ""
+    ) -> None:
+        if tooltip:
+            self.SetToolTip(tooltip)
         self._camera = weakref.ref(camera)
         self._buttons = ButtonInput(self)
         self._buttons.register_actions(keybinds)
-        self._buttons.bind_events()  # this is fine here because we are binding to a custom button not the canvas.
+        # This is fine here because we are binding to a custom button not the
+        # canvas.
+        self._buttons.bind_events()
         self.Bind(EVT_INPUT_PRESS, self._on_down)
         self.Bind(EVT_INPUT_RELEASE, self._on_up)
         self.Bind(EVT_INPUT_HELD, self._on_held)
@@ -143,3 +148,63 @@ class NudgeButton(wx.Button):
 
     def _move(self, offset: Tuple[int, int, int]):
         pass
+
+
+class NudgeButton(wx.Button, _NudgeBehaviour):
+    """A button that catches actions when pressed."""
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        camera: Camera,
+        keybinds: KeybindGroup,
+        label: str,
+        tooltip: str,
+    ):
+        wx.Button.__init__(self, parent, label=label, style=wx.WANTS_CHARS)
+        self._init_nudge(camera, keybinds, tooltip)
+
+
+class MaterialNudgeButton(StudioButton, _NudgeBehaviour):
+    """The same nudge button, drawn as one of the shell's own buttons.
+
+    ``ButtonInput`` binds its mouse and key handlers *after* the Studio button
+    has bound its own, so wx runs ``ButtonInput`` first and the Studio button's
+    press, hover and focus states still arrive behind it -- each of those
+    handlers calls ``Skip``.  That ordering is the whole reason this can be a
+    subclass rather than a re-implementation, and it is what the
+    ``_NudgeBehaviour`` split above exists to keep true for both shells.
+    """
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        camera: Camera,
+        keybinds: KeybindGroup,
+        label: str,
+        tooltip: str,
+        *,
+        variant: str = "outlined",
+        height: Optional[int] = 34,
+    ):
+        StudioButton.__init__(
+            self,
+            parent,
+            label,
+            variant=variant,
+            hint=tooltip,
+            name=label,
+            height=height,
+        )
+        self._init_nudge(camera, keybinds, tooltip)
+
+    def activate(self) -> None:
+        """Do nothing on a plain click.
+
+        A nudge button is held rather than pressed: the movement it offers
+        arrives through ``ButtonInput`` while the box-click action is down or
+        while it has focus.  ``StudioButton`` would post an ``EVT_BUTTON`` here,
+        and a button that announces a command it does not have is the kind of
+        decorative control this interface is not allowed to ship.
+        """
+        return None

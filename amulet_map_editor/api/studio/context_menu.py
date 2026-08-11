@@ -22,14 +22,30 @@ registered leaves the row exactly where the design put it, disabled, carrying a
 tooltip that names what is unmet: a menu that quietly loses a command teaches
 the reader the product does not have it.
 
-**And a disabled row prints no shortcut.**  The two halves of a row come from
-different places -- a viewport row's key is read from the 3D editor's live key
-group, while whether it can be run is read from the shell's command registry --
-so a row can be greyed out beside a key that works.  It was: "Deselect all
-boxes" sat disabled next to the editor's real ``ACT_DESELECT_ALL_BOXES``
-binding, teaching a user that a working feature was missing.  Both those rows
-are wired now, and :class:`_MenuRow` withholds the accelerator from any row it
-draws disabled, so the pairing cannot come back through a different row.
+**And a row this build cannot run prints no shortcut.**  The two halves of a row
+come from different places -- a viewport row's key is read from the 3D editor's
+live key group, while whether it can be run is read from the shell's command
+registry -- so a row can be greyed out beside a key that works.  It was:
+"Deselect all boxes" sat disabled next to the editor's real
+``ACT_DESELECT_ALL_BOXES`` binding, teaching a user that a working feature was
+missing.  Both those rows are wired now, and :class:`_MenuRow` withholds the
+accelerator from any row whose destination this build does not have, so the
+pairing cannot come back through a different row.
+
+**A row waiting on the world is greyed too, and keeps its key.**  Being
+registered is not the same as being runnable: "Duplicate selection box" is a
+command this build has, and with nothing selected it cannot do anything, so it
+drew at full strength and answered a click with a warning toast.  The ribbon
+greys exactly those commands under exactly those conditions -- one window, two
+answers -- so the menus ask the same question the ribbon asks, through
+:func:`live_conditions`, and say what the world is waiting for.
+
+The two greys are deliberately different, and the difference is the accelerator.
+A row this build has no command for is dead whatever the user does next, so its
+printed key would be a key for something absent.  A row waiting on a selection
+is here, its key is the key that will run it, and both of them come alive
+together the moment a box is drawn -- so it keeps printing the key rather than
+teaching the user that the shortcut does not exist either.
 
 **Accelerators the shell installs come from one table.**  :data:`ACCELERATORS`
 is the single source for those bindings: the retained menus read it to draw
@@ -80,6 +96,7 @@ __all__ = [
     "accelerator",
     "accelerator_table_entries",
     "decorate_select",
+    "live_conditions",
     "menu",
     "menu_feedback",
     "open_context_menu",
@@ -93,6 +110,8 @@ __all__ = [
     "unavailable_clause",
     "unavailable_hint",
     "viewport_accelerator",
+    "waiting_clause",
+    "waiting_hint",
 ]
 
 #: Local menu actions that neither open a surface nor run a shell command.
@@ -636,13 +655,83 @@ def unavailable_hint(item: MenuItem) -> str:
     return f"{item.label} is unavailable: {clause}." if clause else ""
 
 
-def _layout_host(start: Optional[wx.Window], method: str) -> Optional[wx.Window]:
+#: The method a host exposes to answer "could this command run right now".  The
+#: shell implements it; nothing else has to, and a menu that finds no host is
+#: told nothing rather than told "no".
+_CONDITIONS_METHOD = "unmet_conditions"
+
+
+def live_conditions(start: Optional[wx.Window], key: str) -> Tuple[str, ...]:
+    """Return what ``key`` is waiting for, asked of the open world.
+
+    The answer comes from the shell above ``start`` -- the same reading the
+    ribbon greys its tiles from -- so a menu row and the tile beside it cannot
+    disagree about whether a command can run.
+
+    An empty tuple means either that nothing is unmet or that no shell was found
+    to ask, and those two are deliberately the same answer.  A menu built
+    without one -- a preview, a test frame, a surface still being wired -- must
+    not grey out every row it has, because "I cannot tell" is not "you cannot do
+    this", and a menu that greys itself wholesale reads as a broken application.
+    """
+    host = _host_offering(start, _CONDITIONS_METHOD)
+    if host is None:
+        return ()
+    try:
+        return tuple(str(name) for name in getattr(host, _CONDITIONS_METHOD)(key))
+    except Exception:  # pragma: no cover - shell boundary
+        log.debug("Could not read what %r is waiting for", key, exc_info=True)
+        return ()
+
+
+def waiting_clause(unmet: Sequence[str]) -> str:
+    """Return the conditions in ``unmet`` as one clause, or an empty string.
+
+    The wording is the command registry's own, so the greyed menu row, the
+    greyed ribbon tile, and the notification a keyboard shortcut posts all name
+    the same condition in the same words.
+    """
+    names = [str(name) for name in unmet if str(name)]
+    if not names:
+        return ""
+    try:
+        from amulet_map_editor.api.studio import commands
+    except Exception:  # pragma: no cover - registry import boundary
+        log.debug("The command registry is unavailable", exc_info=True)
+        return ""
+    reasons = [commands.unmet_reason(name) for name in names]
+    if len(reasons) == 1:
+        return reasons[0]
+    return ", ".join(reasons[:-1]) + f", and {reasons[-1]}"
+
+
+def waiting_hint(item: MenuItem, clause: str) -> str:
+    """Return the sentence a row shows while the world cannot answer it yet.
+
+    It differs from :func:`unavailable_hint` in the one way that matters to the
+    person reading it: that one says this build does not have the feature, and
+    this one says the feature is here and waiting for something they can go and
+    do -- open a world, draw a box.  The sentence names the row rather than the
+    command behind it, because "Deselect active box" and "Remove the active
+    selection box" are one implementation under two labels, and a user who
+    pressed the first should not be answered about the second.
+    """
+    return f"{item.label} is unavailable: {clause}." if clause else ""
+
+
+def _host_offering(start: Optional[wx.Window], method: str) -> Optional[wx.Window]:
     """Return the nearest ancestor of ``start`` exposing ``method``.
 
-    The ribbon owns ``set_collapsed`` and the workspace owns
-    ``show_properties``, and a menu raised on either is a descendant of both, so
-    walking upwards finds the right window without this module having to know
-    which class it is.
+    Two different questions are answered this way.  The ribbon owns
+    ``set_collapsed`` and the workspace owns ``show_properties``, and a menu
+    raised on either is a descendant of both, so walking upwards finds the
+    window that can carry a layout row out without this module having to know
+    which class it is.  The shell owns :data:`_CONDITIONS_METHOD`, so a row
+    backed by a command can ask the open world whether it could run at all.
+
+    The lookup happens per call rather than once, exactly as the title bar
+    resolves its own handlers: a menu can be built before the shell above it has
+    finished wiring itself, and a shell that appears later must still be found.
     """
     window = start
     for _step in range(_MAX_ANCESTORS):
@@ -871,15 +960,23 @@ class _MenuRow(wx.Control, widgets._Interactive):
     this build has not registered is drawn disabled and says what is unmet in
     both its tooltip and its accessible name.
 
-    **A disabled row shows no accelerator.**  It showed one, and the viewport
-    menu proved why that is worse than showing nothing: "Deselect all boxes" was
-    greyed out beside ``Ctrl+Shift+D``, a key the 3D editor really does listen
-    for, because the row's accelerator is read from the *editor's* live key
-    group while the row's enabled state is read from the *shell's* command
-    registry.  The two answer different questions, so a row can be dead and its
-    printed key alive at the same time -- and a menu is where a user learns a
-    shortcut, so that pairing teaches them the feature does not exist when it
-    does.  A row this build cannot run says only that.
+    **A row this build has nothing behind shows no accelerator.**  It showed
+    one, and the viewport menu proved why that is worse than showing nothing:
+    "Deselect all boxes" was greyed out beside ``Ctrl+Shift+D``, a key the 3D
+    editor really does listen for, because the row's accelerator is read from
+    the *editor's* live key group while the row's enabled state is read from the
+    *shell's* command registry.  The two answer different questions, so a row can
+    be dead and its printed key alive at the same time -- and a menu is where a
+    user learns a shortcut, so that pairing teaches them the feature does not
+    exist when it does.  A row this build cannot run says only that.
+
+    **A row merely waiting on the world keeps its accelerator.**  ``waiting`` is
+    the other grey: the command is registered, its key is installed, and the
+    world has not been given a selection yet.  Both the row and the key are inert
+    for that one reason and both come alive together the moment a box is drawn,
+    so there is no contradiction to hide -- and withholding the key here would
+    teach the user the shortcut does not exist, which is the very lesson the
+    paragraph above exists to prevent.
     """
 
     HEIGHT = 32
@@ -892,28 +989,36 @@ class _MenuRow(wx.Control, widgets._Interactive):
         *,
         on_activate: Optional[Callable[[MenuItem], None]] = None,
         unavailable: str = "",
+        waiting: str = "",
     ) -> None:
         super().__init__(parent, style=wx.BORDER_NONE | wx.WANTS_CHARS)
         self.item = item
         self.on_activate = on_activate
         self.unavailable = str(unavailable)
-        #: What this row actually draws on its right: nothing while it cannot
-        #: be run, whatever the item states otherwise.  Read by the painter and
-        #: by the accessible name so the two cannot disagree.
+        #: The clause naming what the open world is waiting for, when the row's
+        #: destination exists.  A row this build has nothing behind is answered
+        #: by ``unavailable`` alone: it is the more fundamental of the two, and
+        #: saying "nothing is selected" about a command that does not exist
+        #: would send the user off to select something to no purpose.
+        self.waiting = "" if self.unavailable else str(waiting)
+        #: What this row actually draws on its right: nothing while this build
+        #: has no destination for it, whatever the item states otherwise.  Read
+        #: by the painter and by the accessible name so the two cannot disagree.
         self.accel = "" if self.unavailable else item.accel
         name = item.label
         if self.accel:
             name = f"{name}, {self.accel}"
-        if self.unavailable:
+        clause = unavailable_clause(item) if self.unavailable else self.waiting
+        if clause:
             # A disabled window does not reliably raise a tooltip, so the reason
             # rides in the accessible name too rather than only in the tooltip.
-            name = f"{name}, unavailable: {unavailable_clause(item)}"
+            name = f"{name}, unavailable: {clause}"
         self._install(name, listen=False)
         self._bind_interaction()
-        tooltip = self.unavailable or item.hint
+        tooltip = self.unavailable or waiting_hint(item, self.waiting) or item.hint
         if tooltip:
             self.SetToolTip(tooltip)
-        if self.unavailable:
+        if self.unavailable or self.waiting:
             self.Enable(False)
         self.SetInitialSize(self.DoGetBestSize())
 
@@ -1078,12 +1183,26 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         """
         if item.action in _LAYOUT_ACTIONS:
             method = _LAYOUT_ACTIONS[item.action][0]
-            if _layout_host(self.target, method) is None and (
-                _layout_host(self.GetParent(), method) is None
+            if _host_offering(self.target, method) is None and (
+                _host_offering(self.GetParent(), method) is None
             ):
                 return unavailable_hint(item)
             return ""
         return unavailable_hint(item)
+
+    def waiting_for(self, item: MenuItem) -> str:
+        """Return what the open world is waiting for before ``item`` can run.
+
+        Only a row backed by a *command* is asked.  A surface row is not: the
+        shell's ``open_surface`` answers every one of them, and the one surface
+        key carrying a condition of its own -- ``goto`` -- deliberately falls
+        back to describing the camera dialog when there is no editor to open the
+        real one, so greying that row would take away a window that does open.
+        """
+        if not item.command:
+            return ""
+        start = self.target if self.target is not None else self.GetParent()
+        return waiting_clause(live_conditions(start, item.command))
 
     def _rebuild(self) -> None:
         """Draw the rows that survive the query, plus an honest empty state."""
@@ -1093,11 +1212,13 @@ class SearchableContextMenu(wx.PopupTransientWindow):
         self._rows = []
         visible = self.visible_items()
         for item in visible:
+            unavailable = self.can_run(item)
             row = _MenuRow(
                 self.list,
                 item,
                 on_activate=self._activate,
-                unavailable=self.can_run(item),
+                unavailable=unavailable,
+                waiting="" if unavailable else self.waiting_for(item),
             )
             self.list_sizer.Insert(
                 len(self._rows), row, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(2)
@@ -1230,7 +1351,7 @@ class SearchableContextMenu(wx.PopupTransientWindow):
     ) -> None:
         """Collapse, expand, show, or hide, in the one direction the row names."""
         method, value = _LAYOUT_ACTIONS[item.action]
-        host = _layout_host(target, method) or _layout_host(parent, method)
+        host = _host_offering(target, method) or _host_offering(parent, method)
         if host is None:
             log.warning("Nothing in this window can %s for %r", method, item.label)
             return

@@ -1,5 +1,4 @@
 import wx
-from amulet_map_editor.api.wx.material3 import apply_material3
 from wx.lib import newevent
 from typing import Tuple, Dict, Optional, List, Union
 import weakref
@@ -11,9 +10,11 @@ from amulet.api.block import PropertyDataTypes, PropertyType
 
 WildcardSNBTType = Union[SNBTType, str]
 
-from amulet_map_editor.api.image import ADD_ICON, SUBTRACT_ICON
 from amulet_map_editor.api import lang, preferences
+from amulet_map_editor.api.studio import tokens
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.ui import material_forms as forms
 
 
 def _copy(key: str, mode: str) -> str:
@@ -179,6 +180,18 @@ class PropertySelect(wx.Panel):
 
 
 class SimplePropertySelect(wx.Panel):
+    """One :class:`~material_forms.MaterialChoice` dropdown per block property.
+
+    Each dropdown carries the property's own name as its floating label and
+    its current value as the chosen option, so the separate "Name" / "Value"
+    header this used to need above a two-column grid of a bare
+    ``wx.StaticText`` and a bare ``wx.Choice`` is now redundant -- the control
+    already says both.  ``MaterialChoice`` is also the one dropdown this
+    project ships: closed it is an outlined field, open it is a search popup
+    with the project's own regex builder, so a block with a dozen properties
+    is as searchable as any other list in the shell.
+    """
+
     def __init__(
         self,
         parent: wx.Window,
@@ -191,24 +204,13 @@ class SimplePropertySelect(wx.Panel):
         self.SetSizer(sizer)
         self._translation_manager = translation_manager
 
-        header_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(header_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 5)
-        label = wx.StaticText(
-            self,
-            label=_copy("name", self._language_mode),
-            style=wx.ALIGN_CENTER,
-        )
-        header_sizer.Add(label, 1)
-        label = wx.StaticText(
-            self,
-            label=_copy("value", self._language_mode),
-            style=wx.ALIGN_CENTER,
-        )
-        header_sizer.Add(label, 1, wx.LEFT, 5)
-        self._property_sizer = wx.GridSizer(2, 5, 5)
+        # Properties wrap onto further lines rather than clipping or forcing
+        # the dialog wider, the same way the bulk-action row does elsewhere
+        # in this design system.
+        self._property_sizer = wx.WrapSizer(wx.HORIZONTAL, wx.REMOVE_LEADING_SPACES)
         sizer.Add(self._property_sizer, 0, wx.ALL | wx.EXPAND, 5)
 
-        self._properties: Dict[str, wx.Choice] = {}
+        self._properties: Dict[str, forms.MaterialChoice] = {}
         self._specification: dict = {}
         self._wildcard_mode = wildcard_mode
         apply_material3(self)
@@ -234,19 +236,8 @@ class SimplePropertySelect(wx.Panel):
         spec_defaults = self._specification.get("defaults", {})
 
         for name, choices in spec_properties.items():
-            label = wx.StaticText(self, label=name)
-            self._property_sizer.Add(label, 0, wx.ALIGN_CENTER)
             if self._wildcard_mode:
                 choices = ["*"] + choices
-            choice = wx.Choice(self, choices=choices)
-            self._property_sizer.Add(choice, 0, wx.EXPAND)
-            choice.Bind(
-                wx.EVT_CHOICE,
-                lambda evt: wx.PostEvent(
-                    self,
-                    PropertiesChangeEvent(self.GetId(), properties=self.properties),
-                ),
-            )
             val = spec_defaults[name]
             if name in properties and val != "*":
                 try:
@@ -256,8 +247,17 @@ class SimplePropertySelect(wx.Panel):
                 else:
                     if snbt in choices:
                         val = snbt
-            if val in choices:
-                choice.SetSelection(choices.index(val))
+            choice = forms.MaterialChoice(
+                self, choices, label=name, name=name, value=val
+            )
+            self._property_sizer.Add(choice, 0, wx.ALL, 5)
+            choice.Bind(
+                wx.EVT_CHOICE,
+                lambda evt: wx.PostEvent(
+                    self,
+                    PropertiesChangeEvent(self.GetId(), properties=self.properties),
+                ),
+            )
             self._properties[name] = choice
         self.Thaw()
         self.Fit()
@@ -275,34 +275,29 @@ class ManualPropertySelect(wx.Panel):
         self._translation_manager = translation_manager
 
         header_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        add_button = wx.BitmapButton(
-            self, bitmap=ADD_ICON.bitmap(30, 30), size=(30, 30)
+        add_button = studio.StudioButton(
+            self,
+            variant="icon",
+            glyph="+",
+            on_click=self._add_property,
+            name="Add manual property",
+            hint="Add a manual block-state property",
         )
         header_sizer.Add(add_button)
         sizer.Add(header_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 5)
-        label = wx.StaticText(
-            self,
-            label=_copy("name", self._language_mode),
-            style=wx.ALIGN_CENTER,
-        )
-        header_sizer.Add(label, 1, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 5)
-        label = wx.StaticText(
-            self,
-            label=_copy("value", self._language_mode),
-            style=wx.ALIGN_CENTER,
-        )
-        header_sizer.Add(label, 1, wx.LEFT | wx.ALIGN_CENTER_VERTICAL, 5)
-        header_sizer.AddStretchSpacer(1)
+        # The row this used to head -- a bare "Name" / "Value" caption pair --
+        # is carried instead by each entry's own floating label below, exactly
+        # as the searchable properties above dropped theirs.
 
         self._property_sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(
             self._property_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 5
         )
 
-        add_button.Bind(wx.EVT_BUTTON, lambda evt: self._add_property())
-
         self._property_index = 0
-        self._properties: Dict[int, Tuple[wx.TextCtrl, wx.TextCtrl]] = {}
+        self._properties: Dict[
+            int, Tuple[forms.MaterialTextField, forms.MaterialTextField]
+        ] = {}
         apply_material3(self)
 
     def _post_property_change(self):
@@ -314,20 +309,38 @@ class ManualPropertySelect(wx.Panel):
         self.Freeze()
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._property_index += 1
-        subtract_button = wx.BitmapButton(
-            self, bitmap=SUBTRACT_ICON.bitmap(30, 30), size=(30, 30)
+        index = self._property_index
+        subtract_button = studio.StudioButton(
+            self,
+            variant="icon",
+            glyph="−",
+            on_click=lambda: self._on_remove_property(sizer, index),
+            name=f"Remove property {index}",
+            hint="Remove this manual property",
         )
         sizer.Add(subtract_button, 0, wx.ALIGN_CENTER_VERTICAL)
-        index = self._property_index
-        subtract_button.Bind(
-            wx.EVT_BUTTON, lambda evt: self._on_remove_property(sizer, index)
+        name_entry = forms.MaterialTextField(
+            self,
+            label=_copy("name", self._language_mode),
+            value=name,
+            name=f"Property {index} name",
         )
-        name_entry = wx.TextCtrl(self, value=name, style=wx.TE_CENTER)
         sizer.Add(name_entry, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
         name_entry.Bind(wx.EVT_TEXT, lambda evt: self._post_property_change())
-        value_entry = wx.TextCtrl(self, value=value, style=wx.TE_CENTER)
+        value_entry = forms.MaterialTextField(
+            self,
+            label=_copy("value", self._language_mode),
+            value=str(value),
+            name=f"Property {index} value",
+        )
         sizer.Add(value_entry, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
-        snbt_text = wx.StaticText(self, style=wx.ALIGN_CENTER)
+        snbt_text = studio.StudioText(
+            self,
+            "",
+            size_px=13,
+            role="on_surface_variant",
+            name=f"Property {index} SNBT status",
+        )
         sizer.Add(snbt_text, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
         self._change_value("", snbt_text)
         value_entry.Bind(wx.EVT_TEXT, lambda evt: self._on_value_change(evt, snbt_text))
@@ -338,28 +351,31 @@ class ManualPropertySelect(wx.Panel):
         self.TopLevelParent.Layout()
         self.Thaw()
 
-    def _on_value_change(self, evt, snbt_text: wx.StaticText):
+    def _on_value_change(self, evt, snbt_text: studio.StudioText):
         self._change_value(evt.GetString(), snbt_text)
         self._post_property_change()
         evt.Skip()
 
-    def _change_value(self, snbt: SNBTType, snbt_text: wx.StaticText):
+    def _change_value(self, snbt: SNBTType, snbt_text: studio.StudioText):
         try:
             nbt = amulet_nbt.from_snbt(snbt)
         except:
             snbt_text.SetLabel(_copy("invalid", self._language_mode))
-            snbt_text.SetBackgroundColour((255, 200, 200))
+            # Only the error red is pushed in; the ordinary ink comes back
+            # through ``set_role`` below so a later theme change still finds
+            # it, rather than pinning it to whatever palette was live here.
+            snbt_text.SetForegroundColour(tokens.palette().error)
         else:
             if isinstance(nbt, PropertyDataTypes):
                 snbt_text.SetLabel(nbt.to_snbt())
-                snbt_text.SetBackgroundColour(wx.NullColour)
+                snbt_text.set_role("on_surface_variant")
             else:
                 snbt_text.SetLabel(
                     _copy("not_valid", self._language_mode).format(
                         type_name=nbt.__class__.__name__
                     )
                 )
-                snbt_text.SetBackgroundColour((255, 200, 200))
+                snbt_text.SetForegroundColour(tokens.palette().error)
         self.Layout()
 
     def _on_remove_property(self, sizer: wx.Sizer, key: int):

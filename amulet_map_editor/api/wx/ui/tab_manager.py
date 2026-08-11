@@ -16,6 +16,22 @@ anchored builder popover, and its
 for a display too small to hold that popover behave here exactly as they do on
 every other search surface in the application.
 
+The four pages themselves live on the project's own
+:class:`~amulet_map_editor.api.wx.ui.material_tabs.MaterialTabs` strip rather
+than a native ``wx.Notebook`` -- browser-style tabs, reorderable, searchable,
+and drawn from the same design tokens as the rest of the shell, exactly as
+:mod:`~amulet_map_editor.api.wx.ui.preferences` already uses for its own
+settings sections.  Each page's results are a
+:class:`~amulet_map_editor.api.wx.ui.material_dialog.RecordTable`: a native
+list contributes nothing to a capture, which meant the one part of this window
+worth checking -- the matches themselves -- was the one part no screenshot
+could show.  It also carries real multi-select (click, Shift-range, Ctrl+click,
+Ctrl+A to select every match, Ctrl+I to invert) as a keyboard-reachable
+capability of the list itself, in addition to the query-scoped bulk close
+below; pinning, grouping, and activating stay single-target actions, so
+selecting more than one match is reported honestly rather than acted on for
+whichever row happened to be first.
+
 Revealing a match never spends the user's layout.  A tab inside a collapsed
 group is shown by expanding this dialog's own view of it; the group's stored
 collapsed preference is never written back, because a search that quietly
@@ -30,11 +46,13 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import wx
 
 from amulet_map_editor.api import local_history
+from amulet_map_editor.api.studio import tokens
 from amulet_map_editor.api.studio.search import SearchState
 from amulet_map_editor.api.studio.widgets import (
     SearchBar,
     SearchableChoice,
     StudioButton,
+    StudioCheckBox,
 )
 from amulet_map_editor.api.tab_groups import (
     BulkClosePreview,
@@ -44,9 +62,20 @@ from amulet_map_editor.api.tab_groups import (
 )
 from amulet_map_editor.api.wx.material3 import apply_material3
 from amulet_map_editor.api.wx.ui.confirm import show_material_confirmation
+from amulet_map_editor.api.wx.ui.material_dialog import (
+    DialogChrome,
+    RecordTable,
+    heading,
+    studio,
+)
+from amulet_map_editor.api.wx.ui.material_tabs import MaterialTabs
 from amulet_map_editor.api.wx.ui.simple import MaterialTextEntryDialog
 
 #: Columns every result list shows, so a match always names where it lives.
+#: The second number is a relative weight :class:`RecordTable` splits the
+#: available width by, not a device-pixel width -- kept in the same ratio the
+#: native list's fixed columns used, so a wide match still reads the way it
+#: always has.
 _RESULT_COLUMNS: Tuple[Tuple[str, int], ...] = (
     ("Label", 250),
     ("Window or workspace", 170),
@@ -58,6 +87,13 @@ _RESULT_COLUMNS: Tuple[Tuple[str, int], ...] = (
 #: How many titles a close confirmation lists before it summarises the rest.
 _PREVIEW_ROWS = 12
 
+#: The stable persisted-state key for this dialog's own four-page strip.  It
+#: is unrelated to the tab workspace being searched -- that one lives on the
+#: notebook this dialog was opened for -- and stays fixed across every open so
+#: a dock edge or reorder chosen once is remembered the next time, exactly as
+#: :mod:`~amulet_map_editor.api.wx.ui.preferences` remembers its own.
+_STRIP_SURFACE_ID = "tab-manager-search"
+
 
 def _named(control: wx.Window, *, name: str, hint: str = "") -> wx.Window:
     """Give an embedded control its own screen-reader name and tooltip."""
@@ -66,18 +102,6 @@ def _named(control: wx.Window, *, name: str, hint: str = "") -> wx.Window:
     if hint:
         control.SetToolTip(hint)
     return control
-
-
-def _studio(widget: wx.Window) -> wx.Window:
-    """Let a Studio widget keep its own painting during the Material pass.
-
-    Studio widgets are owner-drawn from the design tokens and re-theme
-    themselves on a theme change, so the native styling traversal has nothing
-    to add and would only overwrite colours the widget is about to redraw.
-    """
-
-    widget._material3_opt_out = True
-    return widget
 
 
 class _TabSearchPage(wx.Panel):
@@ -112,29 +136,49 @@ class _TabSearchPage(wx.Panel):
         #: Groups this page is showing expanded for the current reveal only.
         self.revealed_groups: set = set()
         self.state = SearchState(label=self.label, sample=sample)
-        self.search = _studio(
+        self.search = studio(
             SearchBar(self, placeholder, self.state, on_change=self._query_changed)
         )
-        self.list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
-        self.list.SetName(f"{self.label} results")
-        for index, (column, _width) in enumerate(_RESULT_COLUMNS):
-            self.list.InsertColumn(index, column)
-        self.detail = wx.StaticText(self, label="Nothing selected.")
-        self.detail.SetName(f"{self.label} selected result")
-        self.feedback = wx.StaticText(self, label=str(summary))
-        self.feedback.SetName(f"{self.label} status")
+        self.list = RecordTable(
+            self,
+            _RESULT_COLUMNS,
+            name=f"{self.label} results",
+            on_selection=self._selection_changed,
+            on_activate=self._list_activated,
+            empty_text=f"No {self.noun}s match this search yet.",
+        )
+        self.detail = heading(
+            self,
+            "Nothing selected.",
+            size_px=12,
+            role="on_surface",
+            name=f"{self.label} selected result",
+        )
+        self.feedback = heading(
+            self,
+            str(summary),
+            size_px=12,
+            role="on_surface_variant",
+            name=f"{self.label} status",
+        )
 
         root = wx.BoxSizer(wx.VERTICAL)
         self._build_scope(root)
-        root.Add(self.search, 0, wx.EXPAND | wx.ALL, 12)
-        root.Add(self.list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 12)
-        root.Add(self.detail, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 12)
-        root.Add(self.feedback, 0, wx.EXPAND | wx.ALL, 12)
+        root.Add(self.search, 0, wx.EXPAND | wx.ALL, tokens.scaled(tokens.SPACE_SM))
+        root.Add(
+            self.list,
+            1,
+            wx.EXPAND | wx.LEFT | wx.RIGHT,
+            tokens.scaled(tokens.SPACE_SM),
+        )
+        root.Add(
+            self.detail,
+            0,
+            wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP,
+            tokens.scaled(tokens.SPACE_SM),
+        )
+        root.Add(self.feedback, 0, wx.EXPAND | wx.ALL, tokens.scaled(tokens.SPACE_SM))
         self.SetSizer(root)
-
-        self.list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._activated)
-        self.list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._selection_changed)
-        self.list.Bind(wx.EVT_LIST_ITEM_DESELECTED, self._selection_changed)
 
     # -- subclass hook --------------------------------------------------------
     def _build_scope(self, sizer: wx.Sizer) -> None:
@@ -164,7 +208,6 @@ class _TabSearchPage(wx.Panel):
 
         previous = self.selected_result()
         wanted = self._identity(previous) if previous else None
-        self.list.DeleteAllItems()
         try:
             results = tuple(self._run(self.state))
             error = ""
@@ -172,24 +215,32 @@ class _TabSearchPage(wx.Panel):
             results = ()
             error = str(exc)
         self.results = results
-        restore = -1
-        for index, result in enumerate(results):
-            row = self.list.InsertItem(self.list.GetItemCount(), result.title)
-            self.list.SetItem(row, 1, result.surface_id or "unrecorded window")
-            self.list.SetItem(row, 2, f"{result.dock.value} strip")
-            self.list.SetItem(row, 3, self._group_cell(result))
-            self.list.SetItem(row, 4, "Pinned" if result.pinned else "")
-            self.list.SetItemData(row, index)
-            if wanted is not None and self._identity(result) == wanted:
-                restore = row
-        for column, (_label, width) in enumerate(_RESULT_COLUMNS):
-            self.list.SetColumnWidth(column, width)
+        self.list.set_rows(
+            [
+                (
+                    result.title,
+                    result.surface_id or "unrecorded window",
+                    f"{result.dock.value} strip",
+                    self._group_cell(result),
+                    "Pinned" if result.pinned else "",
+                )
+                for result in results
+            ]
+        )
+        if wanted is not None:
+            for index, result in enumerate(results):
+                if self._identity(result) != wanted:
+                    continue
+                self.list.cursor = index
+                self.list.anchor = index
+                self.list.select(index, True, notify=False)
+                self.list._ensure_visible()
+                self.list.Refresh()
+                break
         self.feedback.SetLabel(
             error or self.state.describe_matches(len(results), self.noun)
         )
-        if restore >= 0:
-            self.list.Select(restore)
-            self.list.Focus(restore)
+        self.feedback.SetName(f"{self.label} status: {self.feedback.GetLabel()}")
         self._selection_changed()
 
     def _group_cell(self, result: TabSearchResult) -> str:
@@ -206,15 +257,19 @@ class _TabSearchPage(wx.Panel):
         return f"{result.group_name} (collapsed)"
 
     def selected_result(self) -> Optional[TabSearchResult]:
-        """Return the highlighted match, or ``None`` when nothing is chosen."""
+        """Return the one selected match, or ``None`` when that is ambiguous.
 
-        row = self.list.GetFirstSelected()
-        if row < 0:
+        More than one row selected is reported honestly rather than acted on
+        for whichever happened to be first: pinning, grouping, and activating
+        are single-target actions, and guessing which of several selected
+        matches was meant would be a silent, surprising choice.
+        """
+
+        indices = self.list.selected_indices()
+        if len(indices) != 1:
             return None
-        index = self.list.GetItemData(row)
-        if 0 <= index < len(self.results):
-            return self.results[index]
-        return None
+        index = indices[0]
+        return self.results[index] if 0 <= index < len(self.results) else None
 
     def reveal(self, group_id: Optional[str]) -> None:
         """Show a collapsed group's contents here without persisting anything."""
@@ -226,7 +281,7 @@ class _TabSearchPage(wx.Panel):
     def _query_changed(self, _state: SearchState) -> None:
         self.refresh()
 
-    def _selection_changed(self, _event: Optional[wx.Event] = None) -> None:
+    def _selection_changed(self) -> None:
         result = self.selected_result()
         self.detail.SetLabel(result.location() if result else "Nothing selected.")
         self.detail.SetName(f"{self.label} selected result: {self.detail.GetLabel()}")
@@ -234,7 +289,7 @@ class _TabSearchPage(wx.Panel):
         if callable(self.on_selection):
             self.on_selection()
 
-    def _activated(self, _event: wx.Event) -> None:
+    def _list_activated(self) -> None:
         result = self.selected_result()
         if result is not None:
             self._on_activate(result)
@@ -271,7 +326,7 @@ class _GroupScopedSearchPage(_TabSearchPage):
         self.sync_groups()
 
     def _build_scope(self, sizer: wx.Sizer) -> None:
-        self.scope = _studio(
+        self.scope = studio(
             SearchableChoice(
                 self,
                 "Group to search",
@@ -280,7 +335,12 @@ class _GroupScopedSearchPage(_TabSearchPage):
                 on_change=lambda _value: self.refresh(),
             )
         )
-        sizer.Add(self.scope, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 12)
+        sizer.Add(
+            self.scope,
+            0,
+            wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP,
+            tokens.scaled(tokens.SPACE_SM),
+        )
 
     def sync_groups(self) -> None:
         """Rebuild the scope list from the groups that actually exist."""
@@ -322,7 +382,7 @@ class TabManagerDialog(wx.Dialog):
         super().__init__(
             parent,
             title="Tabs, groups, and safe closing",
-            size=wx.Size(960, 720),
+            size=wx.Size(tokens.scaled(960), tokens.scaled(720)),
             style=wx.NO_BORDER | wx.RESIZE_BORDER,
         )
         self._notebook = notebook
@@ -331,29 +391,46 @@ class TabManagerDialog(wx.Dialog):
         )
         self._sync_notebook()
 
-        root = wx.BoxSizer(wx.VERTICAL)
-        eyebrow = wx.StaticText(self, label="Workspace navigation")
-        eyebrow.SetName("Tab manager eyebrow")
-        heading = wx.StaticText(self, label="Tabs, groups, and safe closing")
-        heading.SetName("Tab manager heading")
-        intro = wx.StaticText(
-            self,
-            label=(
-                "Four independent searches cover this strip, one group at a "
-                "time, the group names, and every tab in every window. Bulk "
-                "closing previews the exact visible-label match set before it "
-                "is authorised."
+        self.chrome = DialogChrome(self, status_name="Tab manager status")
+        self.chrome.add(
+            heading(
+                self.chrome.body,
+                "Workspace navigation",
+                size_px=12,
+                role="on_surface_variant",
+                name="Tab manager eyebrow",
             ),
+            0,
+            wx.EXPAND,
         )
-        intro.SetName("Tab manager introduction")
-        root.Add(eyebrow, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
-        root.Add(heading, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
-        root.Add(intro, 0, wx.ALL | wx.EXPAND, 16)
+        self.chrome.add(
+            heading(
+                self.chrome.body,
+                "Tabs, groups, and safe closing",
+                size_px=18,
+                role="on_surface",
+                name="Tab manager heading",
+            ),
+            0,
+            wx.EXPAND,
+        )
+        intro = heading(
+            self.chrome.body,
+            "Four independent searches cover this strip, one group at a "
+            "time, the group names, and every tab in every window. Bulk "
+            "closing previews the exact visible-label match set before it "
+            "is authorised.",
+            size_px=12,
+            role="on_surface_variant",
+            name="Tab manager introduction",
+        )
+        self.chrome.add(intro, 0, wx.EXPAND)
+        self.chrome.gap()
 
-        self.pages = wx.Notebook(self)
+        self.pages = MaterialTabs(self.chrome.body, _STRIP_SURFACE_ID)
         self.pages.SetName("Tab manager searches")
         self.strip_page = _TabSearchPage(
-            self.pages,
+            self.pages.host,
             label="Tab manager search",
             placeholder="Search this strip",
             summary="Searches this window's own tab strip, and nothing beyond it.",
@@ -364,10 +441,12 @@ class TabManagerDialog(wx.Dialog):
             noun="tab",
         )
         self.group_page = _GroupScopedSearchPage(
-            self.pages, workspace=self._workspace, on_activate=self._activate_result
+            self.pages.host,
+            workspace=self._workspace,
+            on_activate=self._activate_result,
         )
         self.group_name_page = _TabSearchPage(
-            self.pages,
+            self.pages.host,
             label="Tab group name search",
             placeholder="Search tab groups",
             summary="Searches the groups themselves by their visible names.",
@@ -379,7 +458,7 @@ class TabManagerDialog(wx.Dialog):
             sample="Survival worlds",
         )
         self.master_page = _TabSearchPage(
-            self.pages,
+            self.pages.host,
             label="Master tab search",
             placeholder="Search every tab",
             summary=(
@@ -396,7 +475,7 @@ class TabManagerDialog(wx.Dialog):
         self.pages.AddPage(self.group_page, "Inside a group")
         self.pages.AddPage(self.group_name_page, "Group names")
         self.pages.AddPage(self.master_page, "Every tab")
-        root.Add(self.pages, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
+        self.chrome.add(self.pages, 1, wx.EXPAND)
 
         # The strip search is this dialog's primary field, so it carries the
         # names the shell and its documentation refer to it by.
@@ -412,50 +491,68 @@ class TabManagerDialog(wx.Dialog):
                 hint="Build a pattern for the strip search.",
             )
 
+        self.chrome.gap()
         options = wx.BoxSizer(wx.HORIZONTAL)
-        self.dock = _studio(
+        self.dock = studio(
             SearchableChoice(
-                self,
+                self.chrome.body,
                 "Tab strip edge",
                 [item.value.title() for item in TabDock],
                 self._workspace.state.dock.value.title(),
                 on_change=lambda _value: self._dock_changed(),
             )
         )
-        self.pin = wx.CheckBox(self, label="Pinned")
-        self.pin.SetName("Pin the selected tab")
+        self.pin = studio(
+            StudioCheckBox(self.chrome.body, "Pinned", name="Pin the selected tab")
+        )
         self._group_options: List[Tuple[str, Optional[str]]] = [("No group", None)]
-        self.group = _studio(
+        self.group = studio(
             SearchableChoice(
-                self,
+                self.chrome.body,
                 "Tab group",
                 ["No group"],
                 "No group",
                 on_change=lambda _value: self._group_changed(),
             )
         )
-        self.new_group = StudioButton(
-            self,
-            "New group",
-            variant="outlined",
-            on_click=self._new_group,
-            hint="Create a group for the selected tab.",
+        self.new_group = studio(
+            StudioButton(
+                self.chrome.body,
+                "New group",
+                variant="outlined",
+                on_click=self._new_group,
+                hint="Create a group for the selected tab.",
+            )
         )
-        options.Add(self.dock, 0, wx.RIGHT, 16)
-        options.Add(self.pin, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 16)
-        options.Add(self.group, 1, wx.RIGHT, 8)
+        options.Add(self.dock, 0, wx.RIGHT, tokens.scaled(tokens.SPACE_MD))
+        options.Add(
+            self.pin,
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            tokens.scaled(tokens.SPACE_MD),
+        )
+        options.Add(self.group, 1, wx.RIGHT, tokens.scaled(tokens.SPACE_SM))
         options.Add(self.new_group, 0, wx.ALIGN_CENTER_VERTICAL)
-        root.Add(options, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
+        self.chrome.add(options, 0, wx.EXPAND)
+        self.chrome.gap()
 
-        bulk_heading = wx.StaticText(self, label="Bulk close")
-        bulk_heading.SetName("Bulk close heading")
-        root.Add(bulk_heading, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
+        self.chrome.add(
+            heading(
+                self.chrome.body,
+                "Bulk close",
+                size_px=13,
+                role="on_surface",
+                name="Bulk close heading",
+            ),
+            0,
+            wx.EXPAND,
+        )
         self.close_state = SearchState(
             label="Bulk close tab query", sample="Debug 1.14"
         )
-        self.close_search = _studio(
+        self.close_search = studio(
             SearchBar(
-                self,
+                self.chrome.body,
                 "Visible label text",
                 self.close_state,
                 on_change=lambda _state: self._update_close_preview(),
@@ -472,64 +569,76 @@ class TabManagerDialog(wx.Dialog):
                 name="Bulk close regex builder",
                 hint="Build a pattern for both bulk closes.",
             )
-        root.Add(self.close_search, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
+        self.chrome.add(self.close_search, 0, wx.EXPAND)
+        self.chrome.gap()
 
         bulk = wx.BoxSizer(wx.HORIZONTAL)
-        self.include_pinned = wx.CheckBox(self, label="Include pinned")
-        self.include_pinned.SetName("Include pinned tabs in a bulk close")
-        self.include_pinned.Bind(
-            wx.EVT_CHECKBOX, lambda _event: self._update_close_preview()
+        self.include_pinned = studio(
+            StudioCheckBox(
+                self.chrome.body,
+                "Include pinned",
+                name="Include pinned tabs in a bulk close",
+                on_change=lambda _value: self._update_close_preview(),
+            )
         )
-        self.close_contains = StudioButton(
-            self,
-            "Close tabs containing text",
-            variant="danger",
-            on_click=lambda: self._bulk_close(False),
-            hint="Close every tab whose visible label matches the query.",
+        self.close_contains = studio(
+            StudioButton(
+                self.chrome.body,
+                "Close tabs containing text",
+                variant="danger",
+                on_click=lambda: self._bulk_close(False),
+                hint="Close every tab whose visible label matches the query.",
+            )
         )
-        self.close_not_contains = StudioButton(
-            self,
-            "Close tabs not containing text",
-            variant="danger",
-            on_click=lambda: self._bulk_close(True),
-            hint="Close every tab whose visible label does not match the query.",
+        self.close_not_contains = studio(
+            StudioButton(
+                self.chrome.body,
+                "Close tabs not containing text",
+                variant="danger",
+                on_click=lambda: self._bulk_close(True),
+                hint="Close every tab whose visible label does not match the query.",
+            )
         )
-        bulk.Add(self.include_pinned, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 16)
-        bulk.Add(self.close_contains, 0, wx.RIGHT, 8)
+        bulk.Add(
+            self.include_pinned,
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            tokens.scaled(tokens.SPACE_MD),
+        )
+        bulk.Add(self.close_contains, 0, wx.RIGHT, tokens.scaled(tokens.SPACE_SM))
         bulk.Add(self.close_not_contains, 0)
-        root.Add(bulk, 0, wx.LEFT | wx.RIGHT | wx.TOP | wx.EXPAND, 16)
+        self.chrome.add(bulk, 0, wx.EXPAND)
+        self.chrome.gap()
 
-        self.close_preview_text = wx.StaticText(self, label="")
-        self.close_preview_text.SetName("Bulk close preview")
-        root.Add(self.close_preview_text, 0, wx.ALL | wx.EXPAND, 16)
+        self.close_preview_text = heading(
+            self.chrome.body,
+            "",
+            size_px=12,
+            role="on_surface_variant",
+            name="Bulk close preview",
+        )
+        self.chrome.add(self.close_preview_text, 0, wx.EXPAND)
 
-        self.feedback = wx.StaticText(self, label="")
-        self.feedback.SetName("Tab manager status")
-        root.Add(self.feedback, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
-
-        actions = wx.BoxSizer(wx.HORIZONTAL)
-        self.activate = StudioButton(
-            self,
+        self.activate = self.chrome.action(
             "Activate selected",
             variant="tonal",
             on_click=self._activate_selected,
+            name="Activate selected",
             hint="Go to the selected match without changing any collapsed group.",
         )
-        close = StudioButton(
-            self,
+        self.close_button = self.chrome.action(
             "Close",
             variant="outlined",
             on_click=lambda: self._dismiss(wx.ID_CLOSE),
+            name="Close",
         )
-        actions.Add(self.activate, 0, wx.RIGHT, 8)
-        actions.Add(close, 0)
-        root.Add(actions, 0, wx.ALL | wx.ALIGN_RIGHT, 16)
-        self.SetSizer(root)
 
         self.pages.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self._page_changed)
         self.pin.Bind(wx.EVT_CHECKBOX, lambda _event: self._pin_changed())
         for page in self._search_pages():
             page.on_selection = self._page_selection_changed
+        self.SetMinSize(wx.Size(tokens.scaled(760), tokens.scaled(560)))
+        self.Layout()
         apply_material3(self)
         self._refresh()
 
@@ -600,9 +709,7 @@ class TabManagerDialog(wx.Dialog):
         return None
 
     def _status(self, message: str) -> None:
-        self.feedback.SetLabel(message)
-        self.feedback.SetName(f"Tab manager status: {message}")
-        self.Layout()
+        self.chrome.set_status(message)
 
     def _dismiss(self, code: int) -> None:
         """Close the dialog however it was opened.

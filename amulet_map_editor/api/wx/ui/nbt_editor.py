@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import partial
 from collections.abc import MutableMapping, MutableSequence
 
 import wx
@@ -11,8 +10,10 @@ import amulet_nbt as nbt
 
 from amulet_map_editor.api import image
 from amulet_map_editor.api import lang, preferences
+from amulet_map_editor.api.studio import widgets as studio
 from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.wx.ui import material_forms as forms
 
 nbt_resources = image.nbt
 
@@ -29,25 +30,22 @@ def _copy(key: str, mode: str) -> str:
     return english
 
 
-class NBTRadioButton(simple.SimplePanel):
-    def __init__(self, parent, nbt_tag_class, icon):
-        super(NBTRadioButton, self).__init__(parent, wx.HORIZONTAL)
+#: The canonical ``TAG_*`` alias for each amulet_nbt tag class, resolved from
+#: the ``nbt`` module's own attributes rather than trusted from
+#: ``cls.__name__``.  A newer amulet_nbt release renamed the classes
+#: themselves (``ByteTag`` rather than ``TAG_Byte``) while keeping the
+#: ``nbt.TAG_Byte`` alias working, which silently emptied every tag-type list
+#: this file built from ``__name__`` -- the add/edit dialog's tag-type
+#: control had nothing to offer and nothing to preselect, and choosing "Add
+#: Tag" would go on to raise once a name was actually saved.
+_TAG_TYPE_NAMES = {
+    getattr(nbt, alias): alias for alias in dir(nbt) if alias.startswith("TAG_")
+}
 
-        self.nbt_tag_class = nbt_tag_class
 
-        self.radio_button = wx.RadioButton(self, wx.ID_ANY, wx.EmptyString)
-        self.add_object(self.radio_button, 0, wx.ALIGN_CENTER | wx.ALL)
-
-        self.tag_bitmap = wx.StaticBitmap(self, wx.ID_ANY, icon)
-        self.tag_bitmap.SetToolTip(nbt_tag_class)
-
-        self.add_object(self.tag_bitmap, 0, wx.ALIGN_CENTER | wx.ALL)
-
-    def GetValue(self):
-        return self.radio_button.GetValue()
-
-    def SetValue(self, val):
-        self.radio_button.SetValue(val)
+def _tag_type_name(tag_class) -> str:
+    """Return the canonical ``TAG_*`` name for a tag class."""
+    return _TAG_TYPE_NAMES.get(tag_class, getattr(tag_class, "__name__", ""))
 
 
 class NBTEditor(simple.SimplePanel):
@@ -79,15 +77,31 @@ class NBTEditor(simple.SimplePanel):
         }
         self.other = self.image_map[nbt.TAG_String]
 
+        # The tree itself stays a native ``wx.TreeCtrl``, deliberately.  This
+        # design system has no hierarchical, per-node-iconed tree widget yet
+        # -- the searchable ``TreeRows`` it does ship is one flat list, with
+        # no expand/collapse and no per-item bitmap -- and a half-built one
+        # invented here, in a file about NBT editing rather than about tree
+        # widgets, would be worse than the platform's.  That is the same
+        # trade the local history browser already made for its date pickers.
+        # The native styling pass still themes it (colours, font, minimum
+        # row height), so it reads as part of this surface rather than as a
+        # hole in it.
         self.tree = self.build_tree(root_tag_name)
         self.add_object(self.tree, 1, wx.ALL | wx.CENTER | wx.EXPAND)
 
         button_row = simple.SimplePanel(self, wx.HORIZONTAL)
-        self.commit_button = wx.Button(
-            button_row, label=_copy("commit", self._language_mode)
+        self.commit_button = studio.StudioButton(
+            button_row,
+            label=_copy("commit", self._language_mode),
+            variant="filled",
+            name=_copy("commit", self._language_mode),
         )
-        self.cancel_button = wx.Button(
-            button_row, label=_copy("cancel", self._language_mode)
+        self.cancel_button = studio.StudioButton(
+            button_row,
+            label=_copy("cancel", self._language_mode),
+            variant="outlined",
+            name=_copy("cancel", self._language_mode),
         )
 
         button_row.add_object(self.commit_button, space=0)
@@ -226,7 +240,7 @@ class NBTEditor(simple.SimplePanel):
             tag_type = [
                 tag_class
                 for tag_class in self.image_map
-                if tag_class.__name__ == new_tag_type
+                if _tag_type_name(tag_class) == new_tag_type
             ][0]
             self.nbt_data[new_name] = nbt_tag = tag_type(new_tag_value)
 
@@ -241,9 +255,9 @@ class NBTEditor(simple.SimplePanel):
             "",
             nbt.TAG_Byte(0),
             [
-                tag_type.__name__
+                _tag_type_name(tag_type)
                 for tag_type in self.image_map.keys()
-                if "TAG_" in tag_type.__name__
+                if "TAG_" in _tag_type_name(tag_type)
             ],
             create=True,
             save_callback=save_func,
@@ -258,7 +272,7 @@ class NBTEditor(simple.SimplePanel):
             tag_type = [
                 tag_class
                 for tag_class in self.image_map
-                if tag_class.__name__ == new_tag_type
+                if _tag_type_name(tag_class) == new_tag_type
             ][0]
 
             self.nbt_data[new_name] = nbt_tag = tag_type(new_tag_value)
@@ -276,9 +290,9 @@ class NBTEditor(simple.SimplePanel):
             name,
             data,
             [
-                tag_type.__name__
+                _tag_type_name(tag_type)
                 for tag_type in self.image_map.keys()
-                if "TAG_" in tag_type.__name__
+                if "TAG_" in _tag_type_name(tag_type)
             ],
             save_callback=save_func,
         )
@@ -286,9 +300,6 @@ class NBTEditor(simple.SimplePanel):
 
 
 class EditTagDialog(wx.Frame):
-    GRID_ROWS = 3
-    GRID_COLUMNS = 4
-
     def __init__(
         self, parent, tag_name, tag, tag_types, create=False, save_callback=None
     ):
@@ -313,54 +324,63 @@ class EditTagDialog(wx.Frame):
         tag_type_panel = simple.SimplePanel(main_panel)
         button_panel = simple.SimplePanel(main_panel, sizer_dir=wx.HORIZONTAL)
 
-        name_label = wx.StaticText(name_panel, label=_copy("name", self._language_mode))
-        self.name_field = wx.TextCtrl(name_panel)
+        # The field's own floating label carries "Name:" / "Value:" now, so
+        # the bare ``wx.StaticText`` caption that used to sit beside a plain
+        # ``wx.TextCtrl`` is gone rather than duplicated.
+        self.name_field = forms.MaterialTextField(
+            name_panel,
+            label=_copy("name", self._language_mode),
+            name=_copy("name", self._language_mode),
+        )
 
         if tag_name == "" and not create:
-            self.name_field.Disable()
+            self.name_field.Enable(False)
         else:
             self.name_field.SetValue(tag_name)
 
-        name_panel.add_object(name_label, space=0, options=wx.ALL | wx.CENTER)
         name_panel.add_object(self.name_field, space=1, options=wx.ALL | wx.EXPAND)
 
-        value_label = wx.StaticText(
-            value_panel, label=_copy("value", self._language_mode)
+        self.value_field = forms.MaterialTextField(
+            value_panel,
+            label=_copy("value", self._language_mode),
+            name=_copy("value", self._language_mode),
         )
-        self.value_field = wx.TextCtrl(value_panel)
 
         if isinstance(tag, (nbt.TAG_Compound, nbt.TAG_List)):
-            self.value_field.Disable()
+            self.value_field.Enable(False)
         else:
             self.value_field.SetValue(str(tag.value))
 
-        value_panel.add_object(value_label, space=0, options=wx.ALL | wx.CENTER)
         value_panel.add_object(self.value_field, space=1, options=wx.ALL | wx.EXPAND)
 
-        tag_type_sizer = wx.GridSizer(self.GRID_ROWS, self.GRID_COLUMNS, 0, 0)
-
-        self.radio_buttons = []
-
-        for tag_type in tag_types:
-            rd_btn = NBTRadioButton(
-                tag_type_panel,
-                tag_type,
-                parent.image_list.GetBitmap(parent.image_map[getattr(nbt, tag_type)]),
-            )
-            self.radio_buttons.append(rd_btn)
-            rd_btn.Bind(wx.EVT_RADIOBUTTON, partial(self.handle_radio_button, tag_type))
-            tag_type_sizer.Add(rd_btn, 0, wx.ALL, 0)
-
-            if tag_type == tag.__class__.__name__:
-                rd_btn.SetValue(True)
-
-        tag_type_panel.SetSizerAndFit(tag_type_sizer)
-
-        self.save_button = wx.Button(
-            button_panel, label=_copy("save", self._language_mode)
+        # A single searchable dropdown replaces the grid of icon radio
+        # buttons this used to be: one control that names every tag type,
+        # carries the project's own search field and regex builder once the
+        # list is opened, and is reachable with the same Tab/Enter/arrow keys
+        # as every other dropdown in the shell -- rather than a bespoke grid
+        # whose only way to move between options was the mouse or a
+        # per-button Tab stop.
+        self.tag_type = forms.MaterialChoice(
+            tag_type_panel,
+            tag_types,
+            label=_copy("tag_type", self._language_mode),
+            name=_copy("tag_type", self._language_mode),
+            value=_tag_type_name(tag.__class__),
         )
-        self.cancel_button = wx.Button(
-            button_panel, label=_copy("cancel", self._language_mode)
+        tag_type_panel.add_object(self.tag_type, space=0, options=wx.ALL | wx.EXPAND)
+        self.tag_type.Bind(wx.EVT_CHOICE, self._on_tag_type_change)
+
+        self.save_button = studio.StudioButton(
+            button_panel,
+            label=_copy("save", self._language_mode),
+            variant="filled",
+            name=_copy("save", self._language_mode),
+        )
+        self.cancel_button = studio.StudioButton(
+            button_panel,
+            label=_copy("cancel", self._language_mode),
+            variant="outlined",
+            name=_copy("cancel", self._language_mode),
         )
 
         button_panel.add_object(self.save_button, space=0)
@@ -384,10 +404,9 @@ class EditTagDialog(wx.Frame):
         tag_value = evt.GetString()
         self.value_field.ChangeValue(str(self.data_type_func(tag_value)))
 
-    def handle_radio_button(self, tag_type, evt):
-        for rd_btn in self.radio_buttons:
-            rd_btn.SetValue(rd_btn.nbt_tag_class == tag_type)
-        self.change_tag_type_func(tag_type)
+    def _on_tag_type_change(self, evt):
+        self.change_tag_type_func(self.tag_type.GetStringSelection())
+        evt.Skip()
 
     def change_tag_type_func(self, tag_type):
         self.data_type_func = lambda x: x
@@ -402,10 +421,7 @@ class EditTagDialog(wx.Frame):
             )
 
     def get_selected_tag_type(self):
-        for rd_btn in self.radio_buttons:
-            if rd_btn.GetValue():
-                return rd_btn.nbt_tag_class
-        return None
+        return self.tag_type.GetStringSelection() or None
 
     def save(self, evt):
         self.save_callback(

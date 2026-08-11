@@ -7,8 +7,34 @@ import wx.adv
 from wx.lib.scrolledpanel import ScrolledPanel
 from typing import Iterable, Union, Any, List, Optional, Sequence, Dict, Tuple
 from amulet_map_editor.api.wx.material3 import apply_material3
+from amulet_map_editor.api.studio import widgets as studio
+from amulet_map_editor.api.wx.ui import material_forms as forms
 
 log = logging.getLogger(__name__)
+
+
+def _painted_ok_cancel(dialog: wx.Dialog) -> wx.Sizer:
+    """Return a painted OK / Cancel row, standing in for ``CreateButtonSizer``.
+
+    ``CreateButtonSizer`` builds native ``wx.Button`` instances hidden inside
+    the wx library itself, so no amount of grepping the caller's source finds
+    them -- and a native button on a desktop with no compositor photographs as
+    an empty rectangle exactly like every other native control this project
+    has been replacing. The ids stay ``wx.ID_OK``/``wx.ID_CANCEL`` so the
+    dialog's own default button handling still ends the modal loop.
+    """
+    ok_button = studio.StudioButton(dialog, "OK", variant="filled", name="OK")
+    ok_button.SetId(wx.ID_OK)
+    cancel_button = studio.StudioButton(
+        dialog, "Cancel", variant="outlined", name="Cancel"
+    )
+    cancel_button.SetId(wx.ID_CANCEL)
+    dialog.SetAffirmativeId(wx.ID_OK)
+    dialog.SetEscapeId(wx.ID_CANCEL)
+    row = wx.BoxSizer(wx.HORIZONTAL)
+    row.Add(cancel_button, 0, wx.RIGHT, 8)
+    row.Add(ok_button, 0)
+    return row
 
 
 class SimpleSizer:
@@ -181,8 +207,8 @@ class SimpleDialog(wx.Dialog):
         self.bottom_sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(self.bottom_sizer, 0, wx.EXPAND)
         self.bottom_sizer.AddStretchSpacer()
-        button_sizer = self.CreateButtonSizer(wx.OK | wx.CANCEL)
-        self.bottom_sizer.Add(button_sizer, flag=wx.ALL, border=5)
+        button_sizer = _painted_ok_cancel(self)
+        self.bottom_sizer.Add(button_sizer, flag=wx.ALL | wx.EXPAND, border=5)
         apply_material3(self)
 
 
@@ -192,12 +218,21 @@ class MaterialTextEntryDialog(wx.Dialog):
     def __init__(self, parent: wx.Window, message: str, value: str = ""):
         super().__init__(parent, title=message, style=wx.NO_BORDER | wx.RESIZE_BORDER)
         root = wx.BoxSizer(wx.VERTICAL)
-        root.Add(wx.StaticText(self, label=message), 0, wx.ALL | wx.EXPAND, 16)
-        self.value = wx.TextCtrl(self, value=value, style=wx.TE_PROCESS_ENTER)
-        self.value.SetName("Text entry value")
+        root.Add(
+            studio.StudioText(self, message, size_px=13, role="on_surface"),
+            0,
+            wx.ALL | wx.EXPAND,
+            16,
+        )
+        self.value = forms.MaterialTextField(
+            self,
+            value=value,
+            process_enter=True,
+            name="Text entry value",
+        )
         root.Add(self.value, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 16)
         root.Add(
-            self.CreateButtonSizer(wx.OK | wx.CANCEL),
+            _painted_ok_cancel(self),
             0,
             wx.ALL | wx.ALIGN_RIGHT,
             16,
@@ -219,8 +254,11 @@ class MaterialDateTimeField(wx.Panel):
             raise ValueError("kind must be date or time")
         super().__init__(parent)
         self.kind = kind
-        self.text = wx.TextCtrl(self)
-        self.text.SetHint("YYYY-MM-DD" if kind == "date" else "HH:MM")
+        self.text = forms.MaterialTextField(
+            self,
+            placeholder="YYYY-MM-DD" if kind == "date" else "HH:MM",
+            name=f"Schedule {kind}",
+        )
         if kind == "date":
             self.picker = wx.adv.DatePickerCtrl(
                 self, style=wx.adv.DP_DROPDOWN | wx.adv.DP_SHOWCENTURY
