@@ -5,6 +5,7 @@ import locale
 import logging
 import os
 
+from amulet_map_editor.api.studio import tokens
 from amulet_map_editor.api.wx.material3 import apply_material3_deferred
 
 # Disable OpenGL_accelerate logging
@@ -48,6 +49,13 @@ class AmuletApp(wx.App):
 
         self._amulet_ui = amulet_ui.AmuletUI(None)
         self.SetTopWindow(self._amulet_ui)
+        # A real window can report the scale of the display it is actually on,
+        # which a ScreenDC cannot on a multi-monitor desk. Read it before the
+        # first paint so nothing is ever drawn at the wrong size, then follow
+        # it: dragging the window to a differently-scaled monitor changes the
+        # factor without any resize the interface would otherwise notice.
+        tokens.refresh_dpi(self._amulet_ui)
+        self._amulet_ui.Bind(wx.EVT_DPI_CHANGED, self._on_dpi_changed)
         self._amulet_ui.Maximize()
         self._amulet_ui.Show()
         log.debug(
@@ -60,6 +68,17 @@ class AmuletApp(wx.App):
         wx.CallLater(0, self._amulet_ui.begin_startup_dim_sum_surprise)
 
         return True
+
+    def _on_dpi_changed(self, event: wx.DPIChangedEvent) -> None:
+        """Redraw at the new display scale after the window crosses monitors."""
+        window = getattr(self, "_amulet_ui", None)
+        if window is not None:
+            tokens.refresh_dpi(window)
+            # Every owner-drawn control caches sizes from tokens.scaled(), so
+            # the tree needs re-laying out, not merely repainting.
+            window.Layout()
+            window.Refresh()
+        event.Skip()
 
     def _on_window_create(self, event: wx.WindowCreateEvent) -> None:
         """Apply the shared M3 tree theme to every native surface."""

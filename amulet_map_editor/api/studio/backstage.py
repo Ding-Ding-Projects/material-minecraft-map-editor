@@ -2883,10 +2883,20 @@ class BackstageView(wx.Panel):
         new title can never orphan a stored profile.
         """
         try:
-            return preferences.resolve_display_name("{display_name} Studio")
+            chosen = preferences.resolve_display_name("{display_name}").strip()
         except (TypeError, ValueError, OSError):
             log.debug("Could not resolve the display name", exc_info=True)
             return "Amulet Studio"
+        if not chosen:
+            return "Amulet Studio"
+        # The suffix is part of the SHIPPED name, not something to bolt onto a
+        # chosen one. Appending it unconditionally turned "My Map Studio" into
+        # "My Map Studio Studio", and would make any rename read as somebody
+        # else's product line. A renamed application shows exactly the name the
+        # user typed; only the default gains the word.
+        if chosen == preferences.DEFAULT_DISPLAY_NAME:
+            return f"{chosen} Studio"
+        return chosen
 
     # -- body ----------------------------------------------------------------
     def _on_body_size(self, event: wx.SizeEvent) -> None:

@@ -47,6 +47,11 @@ exe = EXE(
     # Amulet is a windowed application: a console here would flash a black
     # terminal over the user's work on every launch.
     console=False,
+    # Declares per-monitor v2 DPI awareness (and asInvoker). Read by the Windows
+    # loader before any Python runs, so the process is never briefly treated as
+    # DPI-unaware; amulet_map_editor.api.dpi makes the same declaration for a
+    # source checkout, which has no manifest.
+    manifest="amulet.manifest",
     icon="logo.ico",
     contents_directory="lib",
     # macOS packaging is intentionally unsigned; never discover or invoke a
