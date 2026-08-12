@@ -77,6 +77,7 @@ application:
 | `preferences.write` | `amulet_map_editor.api.preferences.update(**params)`, allowlisted field-by-field |
 | `language.get` / `language.set` / `language.list` | `amulet_map_editor.api.lang` |
 | `converter.formats` | `amulet_map_editor.api.converter.registry.ADAPTERS` |
+| `world.open` / `world.open_status` / `world.dimensions` / `world.close` / `recents.list` | real, read-only world access -- see `docs/features/electron-world-access/README.md` |
 
 `preferences.write` only accepts the fields listed in
 `methods._WRITABLE_PREFERENCE_FIELDS` -- a new preference field is opt-in to
