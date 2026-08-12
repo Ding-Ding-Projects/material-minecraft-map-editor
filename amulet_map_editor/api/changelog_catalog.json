@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "4d571859f155b92ab2ce4a5542fabd488d965c46",
+  "source_revision": "d916d18a4ebeba2d083e1af9956cab6cb34ad89d",
   "entries": [
+    {
+      "version": "0.10.0-dev.793",
+      "released_on": "2026-08-12",
+      "commit_sha": "254914303faa8890a6f030e7f9558f7c5be07244",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bring the changelog catalog up to today's commits",
+          "commit_sha": "254914303faa8890a6f030e7f9558f7c5be07244"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.790",
+      "released_on": "2026-08-12",
+      "commit_sha": "56ad405e22a47e42858500ff4b2c1ede50f296f9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Capture the tab strip drawing real tabs at all four dock edges",
+          "commit_sha": "56ad405e22a47e42858500ff4b2c1ede50f296f9"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.787",
+      "released_on": "2026-08-12",
+      "commit_sha": "4d571859f155b92ab2ce4a5542fabd488d965c46",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Exile every test window off-screen so a suite run stops stealing the keyboard",
+          "commit_sha": "4d571859f155b92ab2ce4a5542fabd488d965c46"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.783",
       "released_on": "2026-08-12",

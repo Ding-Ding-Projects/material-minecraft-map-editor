@@ -26,7 +26,7 @@ instead of silently passing.
 | localization | `amulet_map_editor/api/lang.py` | `docs/features/language-modes/README.md` | `amulet_map_editor/api/lang.py` (itself the localization resource) | `amulet_map_editor/api/wx/ui/preferences.py` | `tests/test_lang.py`, `tests/test_language_select_ui_contract.py` | `tests/test_language_select_ui_contract.py` | `tests/test_language_select_ui_contract.py` (capture_composite) | complete |
 | locked-surfaces | `amulet_map_editor/api/item_locks.py`, `amulet_map_editor/api/wx/ui/item_locks.py`, `docs/site/locks.js` | `docs/features/item-locks/README.md` | `amulet_map_editor/api/lang.py`, `t(en, yue)` inline in `docs/site/locks.js` | metadata in the config record, credential in the OS vault; browser local storage on the site | `tests/test_item_locks.py`, `tests/test_site_runtime_render_contract.py` | `tests/test_item_lock_ui_contract.py` | `tests/test_item_lock_ui_contract.py` (capture_composite) | complete |
 | memory-console | `amulet_map_editor/api/studio/memory_console.py`, `memory_content.py`, `surfaces.py` | `docs/features/memory-console/README.md` | `amulet_map_editor/api/lang.py` | `amulet_map_editor/api/studio/recents.py` | `tests/test_studio_accessibility_contract.py` | `tests/test_studio_runtime_render_contract.py` | `tests/test_studio_runtime_render_contract.py` (capture_composite) | complete |
-| pages-site-parity | `docs/site/site-data.js`, `docs/site/app.js` | `docs/features/pages-site/README.md` | inline `t(en, yue)` helpers across `docs/site/*.js` | browser local storage | `tests/test_site_runtime_render_contract.py`, `tests/test_site_palette_inventory_contract.py` | `tests/test_site_runtime_render_contract.py` | none (no headless browser capture harness for the Pages site in this repo) | incomplete — missing built-artifact capture evidence for the deployed site |
+| pages-site-parity | `docs/site/site-data.js`, `docs/site/app.js` | `docs/features/pages-site/README.md` | inline `t(en, yue)` helpers across `docs/site/*.js` | browser local storage | `tests/test_site_runtime_render_contract.py`, `tests/test_site_capture_contract.py` | `tests/test_site_runtime_render_contract.py` (executes the real scripts in a DOM) | `scripts/capture_site_surfaces.js` — 25 surfaces from a real headless browser, manifest at `docs/huishots/site/manifest.json` | complete |
 | personal-vocabulary | `amulet_map_editor/api/text_overlay.py` (bounded overlay mechanism), `amulet_map_editor/api/lang.py` (substitution wired into the shared translation boundary) | `docs/features/personal-vocabulary/README.md` | `amulet_map_editor/api/lang.py` (the overlay's own substitution point) | cached in the profile directory via `amulet_map_editor/api/config.py` | `tests/test_text_overlay.py`, `tests/test_display_text_overlay_ui_contract.py`, `tests/test_personal_vocabulary.py` | `tests/test_display_text_overlay_ui_contract.py` (Preferences upload row) | `tests/test_display_text_overlay_ui_contract.py` (capture_composite) | complete |
 | regex-builder | `amulet_map_editor/api/wx/ui/regex_dialog.py`, `amulet_map_editor/api/wx/ui/base_select.py`, `docs/site/regex-builder.js` | `docs/features/search-and-regex/README.md` | `amulet_map_editor/api/lang.py` | n/a (stateless per search field) | `tests/test_studio_regex_builder_coverage.py` + 33 more regex-builder tests | `tests/test_base_select_ui_contract.py` | `tests/test_base_select_ui_contract.py` (capture_composite) | complete |
 | rich-controls | `docs/site/palette.js` (site), command-palette inline controls in `amulet_map_editor/api/studio/palette_dialog.py` | `docs/features/command-palette/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/palette.js` | n/a | `tests/test_site_palette_inventory_contract.py`, `tests/test_rich_controls_beyond_palette.py` | `tests/test_rich_controls_beyond_palette.py` (hand-written non-palette surface inventory: drives the recents pin star and the NBT editor's boolean-row toggle switch, and records the notification history list's documented escape clause) | none | complete |
@@ -38,11 +38,13 @@ instead of silently passing.
 
 ## Honest summary
 
-Of the 19 tracked rows, **18 are complete** with implementation, article, localized
+Of the 19 tracked rows, **19 are complete** with implementation, article, localized
 copy, persistence where relevant, tests, an interaction proof and capture
-evidence all present and verified by the test below. **1 is recorded
-incomplete**, with the exact missing item named in the table rather than
-silently omitted:
+evidence all present and verified by the test below. No row is recorded
+incomplete. That is a statement about this register, not a claim that the
+product is finished: a row is complete when its declared evidence exists and
+the fail-closed test enforces it, and the register only ever knew about the
+nineteen features a person typed into it.
 
 Four rows moved from incomplete to complete after this inventory was first
 written, and they moved because the inventory named the gap: `locked-surfaces`

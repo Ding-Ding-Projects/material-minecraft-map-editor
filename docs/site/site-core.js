@@ -259,8 +259,21 @@
     return new RegExp(useRegex ? value || "(?:)" : escapeLiteral(value), resolved);
   }
 
+  // Adding "s" to every noun is right until the first noun it is wrong for,
+  // and then it is wrong in the most visible place a list has: the count line
+  // at the top of it. The authenticator read "0 entrys" on the published site
+  // for exactly this reason -- no test could see it, because every guard
+  // compared the rendered text against the same broken rule that produced it.
+  // A capture of the page found it in one look.
+  function pluralize(noun) {
+    if (/(s|x|z|ch|sh)$/.test(noun)) return noun + "es";
+    // A "y" after a consonant becomes "ies"; after a vowel it stays ("days").
+    if (/[^aeiou]y$/.test(noun)) return noun.slice(0, -1) + "ies";
+    return noun + "s";
+  }
+
   function describe(count, noun, query) {
-    var plural = count === 1 ? noun : noun + "s";
+    var plural = count === 1 ? noun : pluralize(noun);
     if (!query) return count + " " + plural;
     if (count === 0) return "No " + noun + " matches “" + query + "”.";
     return count + " " + plural + " match “" + query + "”.";

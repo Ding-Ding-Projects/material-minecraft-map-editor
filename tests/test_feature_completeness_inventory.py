@@ -137,12 +137,15 @@ INVENTORY = {
         ],
     ),
     "pages-site-parity": (
-        "incomplete",
+        "complete",
         [
             "docs/site/site-data.js",
             "docs/site/app.js",
             "docs/features/pages-site/README.md",
             "tests/test_site_runtime_render_contract.py",
+            "scripts/capture_site_surfaces.js",
+            "tests/test_site_capture_contract.py",
+            "docs/huishots/site/manifest.json",
         ],
     ),
     "personal-vocabulary": (
