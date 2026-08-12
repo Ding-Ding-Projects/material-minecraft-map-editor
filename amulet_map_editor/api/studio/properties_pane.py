@@ -1540,6 +1540,38 @@ class PropertiesPane(wx.Panel):
             self._wrap_in_column(self.empty_note)
         self.empty_note.Show(bool(message))
 
+    def _dimension_choice(self, value: str, options: List[str]) -> SearchableChoice:
+        """Return the Dimension row as a real, wired dropdown.
+
+        Same code the navigator's own dimension switch uses: the canvas is
+        told first, because it is the thing that actually changes what is
+        rendered, and the world context is told afterwards so every other
+        pane -- this one included -- follows.  A canvas that refuses the
+        change (mid-teardown, still loading) leaves the dropdown showing the
+        dimension that is still actually open, rather than claiming a switch
+        that did not happen.
+        """
+        choice = SearchableChoice(
+            self.scroller,
+            "Dimension",
+            options,
+            value,
+            on_change=self._switch_dimension,
+            hint="Switch which dimension is open in the viewport",
+        )
+        choice.SetName(f"Dimension: {value}")
+        return choice
+
+    def _switch_dimension(self, key: str) -> None:
+        canvas = studio_canvas()
+        if canvas is not None:
+            try:
+                canvas.dimension = key
+            except Exception as err:  # noqa: BLE001 - a canvas being torn down
+                log.debug("The renderer would not switch to dimension %r: %s", key, err)
+                return
+        context.set_dimension(key)
+
     def rebuild(self) -> None:
         """Rebuild the open tab's body from the open world and the query."""
         state = self.search_state
@@ -1566,6 +1598,8 @@ class PropertiesPane(wx.Panel):
 
         if self.tab == "properties":
             sections = self.visible_sections()
+            ctx = context.current()
+            dimension_names = [info.name for info in ctx.dimension_info if info.name]
             kept = 0
             for section in sections:
                 filtered = section.matches(state)
@@ -1579,6 +1613,27 @@ class PropertiesPane(wx.Panel):
                     tokens.scaled(tokens.SPACE_SM),
                 )
                 for label, value in filtered.rows:
+                    # The dimension is a value the pane may write, not only
+                    # show: the world context and the canvas both expose a
+                    # way to switch it, so a row that only printed the name
+                    # would be a label pretending it could not be changed.
+                    # It becomes a real dropdown once there is more than one
+                    # dimension to choose between -- with only one, or with
+                    # the names unreadable, there is nothing to switch to and
+                    # the plain row says so exactly as before.
+                    if (
+                        label == "Dimension"
+                        and ctx.open
+                        and len(dimension_names) > 1
+                        and value in dimension_names
+                    ):
+                        self.body.Add(
+                            self._dimension_choice(value, dimension_names),
+                            0,
+                            wx.EXPAND | wx.BOTTOM,
+                            gap,
+                        )
+                        continue
                     self.body.Add(
                         PropertyRow(self.scroller, label, value),
                         0,
