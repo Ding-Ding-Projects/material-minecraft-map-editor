@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import contextlib
 import pathlib
 import sys
 
@@ -340,6 +341,42 @@ def app():
         created.Destroy()
 
 
+@contextlib.contextmanager
+def _patched(owner, name: str, replacement):
+    """Patch a class attribute and restore it EXACTLY as it was.
+
+    ``setattr`` back is not a restore when the attribute was only inherited.
+    ``AnchoredPopup`` does not define ``Popup`` -- it gets it from
+    ``wx.PopupTransientWindow`` -- so reading it, patching it, and assigning it
+    back leaves a NEW entry in ``AnchoredPopup.__dict__`` holding the BASE
+    class's unbound SIP method.  Every later call then resolves to a method
+    that rejects the subclass instance it is handed:
+
+        TypeError: PopupTransientWindow.Popup(): first argument of unbound
+                   method must have type 'PopupTransientWindow'
+
+    Proven rather than assumed: ``'Popup' in AnchoredPopup.__dict__`` is
+    ``False`` before the patch and ``True`` after the restore.
+
+    It cost two tests in ``test_editor_toolbar_material_contract.py``, whose
+    dimension dropdown is itself an anchored popup and was simply the next
+    caller.  Both passed alone and failed in company, in a file that never
+    mentions menus -- the whole cost of a restore that looked correct.
+
+    So: delete when the attribute was inherited, assign when it was owned.
+    """
+    owned = name in owner.__dict__
+    original = owner.__dict__.get(name) if owned else None
+    setattr(owner, name, replacement)
+    try:
+        yield
+    finally:
+        if owned:
+            setattr(owner, name, original)
+        else:
+            delattr(owner, name)
+
+
 def _open_menu(key: str = "viewport"):
     """Build one real menu off-screen and return it with its frame."""
     frame = wx.Frame(None, size=wx.Size(900, 700))
@@ -353,6 +390,30 @@ def _open_menu(key: str = "viewport"):
     menu.Show()
     capture_surface.settle(menu)
     return frame, menu
+
+
+def _close_menu(menu, frame) -> None:
+    """Dismiss a transient popup before destroying it, then the frame.
+
+    ``SearchableContextMenu`` is a ``wx.PopupTransientWindow``, and wxWidgets
+    tracks the *current* transient popup globally so it can route the click
+    that dismisses one.  Destroying a shown popup without dismissing it first
+    leaves that global handler installed, pointing at an object that no longer
+    exists -- and the next ``Popup()`` anywhere in the process fails.
+
+    That is not hypothetical: it made
+    ``test_editor_toolbar_material_contract.py`` fail whenever this file ran
+    before it, while both passed perfectly alone.  The toolbar's dimension
+    dropdown is itself an anchored popup, so it was the next caller and it
+    inherited the wreckage.  Two tests failing in a file that never mentions
+    menus, because of a teardown two hundred lines away in another file.
+    """
+    try:
+        menu.Dismiss()
+    except Exception:  # noqa: BLE001 - already dismissed or mid-teardown
+        pass
+    menu.Destroy()
+    frame.Destroy()
 
 
 def test_a_context_menu_composites_its_rows(app, tmp_path) -> None:
@@ -394,8 +455,7 @@ def test_a_context_menu_composites_its_rows(app, tmp_path) -> None:
         )
         assert not blank, f"{len(blank)} of {measured} rows drew no ink: {blank}"
     finally:
-        menu.Destroy()
-        frame.Destroy()
+        _close_menu(menu, frame)
 
 
 def test_a_disabled_row_is_not_mistaken_for_a_blank_one(app, tmp_path) -> None:
@@ -427,8 +487,7 @@ def test_a_disabled_row_is_not_mistaken_for_a_blank_one(app, tmp_path) -> None:
             f"{len(disabled)} of this menu's rows are merely disabled: {blank}"
         )
     finally:
-        menu.Destroy()
-        frame.Destroy()
+        _close_menu(menu, frame)
 
 
 def test_a_one_letter_row_is_not_mistaken_for_a_blank_one(app, tmp_path) -> None:
@@ -454,9 +513,7 @@ def test_a_one_letter_row_is_not_mistaken_for_a_blank_one(app, tmp_path) -> None
     frame.Show()
     capture_surface.settle(frame)
 
-    original = widgets.AnchoredPopup.Popup
-    widgets.AnchoredPopup.Popup = harness._show_offscreen
-    try:
+    with _patched(widgets.AnchoredPopup, "Popup", harness._show_offscreen):
         combo.open_popup()
         popup = combo._popup
         capture_surface.settle(popup)
@@ -473,8 +530,6 @@ def test_a_one_letter_row_is_not_mistaken_for_a_blank_one(app, tmp_path) -> None
             f"{len(blank)} of {measured} rows read as blank in a list whose "
             f"labels are {labels}: {blank}"
         )
-    finally:
-        widgets.AnchoredPopup.Popup = original
         frame.Destroy()
 
 
@@ -500,7 +555,6 @@ def test_the_blank_row_check_can_actually_fail(app, tmp_path) -> None:
                 "cannot tell a drawn row from an undrawn one"
             )
         finally:
-            menu.Destroy()
-            frame.Destroy()
+            _close_menu(menu, frame)
     finally:
         context_menu._MenuRow._on_paint = original
