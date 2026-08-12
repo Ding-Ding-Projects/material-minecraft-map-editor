@@ -26,13 +26,14 @@ Colour, spacing and typography are sourced from one persisted
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 
 from datetime import date
 from dataclasses import asdict
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 import re
 import uuid
 
@@ -40,6 +41,7 @@ import wx
 import wx.adv
 
 from amulet_map_editor.api import (
+    app_logo,
     appearance_presets,
     appearance_editor,
     changelog,
@@ -1038,6 +1040,8 @@ class PreferencesDialog(wx.Dialog):
         self.external_editor_browse.Bind(wx.EVT_BUTTON, self._browse_external_editor)
         self.external_editor_test.Bind(wx.EVT_BUTTON, self._test_external_editor)
 
+        self._build_app_mark_section(page, root)
+
         outer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(root, 0, wx.EXPAND | wx.ALL, 20)
         page.SetSizer(outer)
@@ -1072,6 +1076,461 @@ class PreferencesDialog(wx.Dialog):
         self._appearance_font_names = self._installed_font_names()
         self._filter_appearance_fonts()
         self._update_accent_controls(self._prefs.accent)
+
+    def _png_bytes_to_bitmap(self, data: bytes, size: int) -> wx.Bitmap:
+        """Decode a validated PNG into a bitmap, or an empty square on failure."""
+        try:
+            image = wx.Image(io.BytesIO(data), wx.BITMAP_TYPE_PNG)
+        except Exception:
+            image = None
+        if image is None or not image.IsOk():
+            return wx.Bitmap(max(size, 1), max(size, 1))
+        return wx.Bitmap(image)
+
+    def _refresh_app_mark_preview(self, assets: Dict[int, bytes]) -> None:
+        for size, bmp_ctrl in self._app_mark_preview_bitmaps.items():
+            data = assets.get(size)
+            bmp_ctrl.set_bitmap(self._png_bytes_to_bitmap(data, size) if data else None)
+        page = self._app_mark_preview_bitmaps[app_logo.OUTPUT_SIZES[0]].GetParent()
+        page.Layout()
+
+    def _load_active_app_mark(self) -> None:
+        try:
+            active = app_logo.load_active_logo()
+        except app_logo.LogoError as exc:
+            self._show_app_mark_status(
+                f"Could not load the active app mark: {exc}", error=True
+            )
+            return
+        self._refresh_app_mark_preview(active.assets)
+        label = {"shipped": "the shipped mark"}.get(active.source, active.source)
+        self._show_app_mark_status(f"Currently active: {label}.", error=False)
+
+    def _select_app_mark_preset(self, name: str) -> None:
+        try:
+            active = app_logo.select_preset(name)
+        except app_logo.LogoError as exc:
+            self._show_app_mark_status(str(exc), error=True)
+            return
+        self._app_mark_pending = None
+        self.app_mark_activate.Enable(False)
+        self._refresh_app_mark_preview(active.assets)
+        self._show_app_mark_status(f"Activated the {name} preset mark.", error=False)
+
+    def _browse_app_mark_source(self, _event: wx.Event) -> None:
+        value = choose_path(
+            self,
+            "Choose a custom app mark image",
+            wildcard=(
+                "Images (*.png;*.jpg;*.jpeg;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.bmp;*.gif|"
+                "All files (*.*)|*.*"
+            ),
+        )
+        if not value:
+            return
+        # A browsed path and a typed path both land in the same field and run
+        # through the exact same validation in _preview_app_mark_source --
+        # neither is trusted more than the other.
+        self.app_mark_path.SetValue(value)
+
+    def _build_app_mark_adjustment(self) -> "app_logo.LogoAdjustment":
+        fit_map = {0: "fit", 1: "fill", 2: "stretch"}
+        fit = fit_map.get(self.app_mark_fit.GetSelection(), "fit")
+        focal_x = self.app_mark_focal_x.GetValue() / 100.0
+        focal_y = self.app_mark_focal_y.GetValue() / 100.0
+        if self.app_mark_bg_transparent.GetValue():
+            background: object = "transparent"
+        else:
+            colour = self.app_mark_bg_colour.GetColour()
+            background = (colour.Red(), colour.Green(), colour.Blue())
+        crop_box = None
+        raw_crop = self.app_mark_crop.GetValue().strip()
+        if raw_crop:
+            parts = [p.strip() for p in raw_crop.split(",")]
+            if len(parts) != 4:
+                raise app_logo.LogoValidationError(
+                    "crop box needs four comma-separated numbers between 0 and 1 "
+                    "-- left,top,right,bottom"
+                )
+            try:
+                crop_box = tuple(float(p) for p in parts)
+            except ValueError as exc:
+                raise app_logo.LogoValidationError(
+                    "crop box values must be numbers between 0 and 1"
+                ) from exc
+        return app_logo.LogoAdjustment(
+            fit=fit,
+            focal_x=focal_x,
+            focal_y=focal_y,
+            background=background,
+            crop_box=crop_box,
+        )
+
+    def _preview_app_mark_source(self, _event: wx.Event) -> None:
+        path = self.app_mark_path.GetValue().strip()
+        if not path:
+            self._show_app_mark_status("Choose a custom image file first.", error=True)
+            return
+        if not os.path.isfile(path):
+            self._show_app_mark_status(f"No file found at {path}.", error=True)
+            return
+        try:
+            if os.path.getsize(path) > app_logo.MAX_SOURCE_BYTES:
+                raise app_logo.LogoValidationError(
+                    f"source file exceeds the {app_logo.MAX_SOURCE_BYTES} byte bound"
+                )
+            with open(path, "rb") as fp:
+                data = fp.read()
+            adjustment = self._build_app_mark_adjustment()
+            assets, disclosures = app_logo.convert_source_bytes(data, adjustment)
+        except app_logo.LogoError as exc:
+            self._app_mark_pending = None
+            self.app_mark_activate.Enable(False)
+            self._show_app_mark_status(str(exc), error=True)
+            return
+        except OSError as exc:
+            self._app_mark_pending = None
+            self.app_mark_activate.Enable(False)
+            self._show_app_mark_status(f"Could not read {path}: {exc}", error=True)
+            return
+        self._app_mark_pending = (data, adjustment)
+        self._refresh_app_mark_preview(assets)
+        if disclosures:
+            self.app_mark_disclosure.SetLabel(
+                "Before activating: " + "; ".join(disclosures) + "."
+            )
+            self.app_mark_disclosure.SetForegroundColour(wx.Colour(160, 110, 20))
+        else:
+            self.app_mark_disclosure.SetLabel(
+                "No quality loss disclosed for this source and these settings."
+            )
+            self.app_mark_disclosure.SetForegroundColour(wx.Colour(40, 120, 70))
+        self.app_mark_activate.Enable(True)
+        self._show_app_mark_status(
+            "Previewed. Choose Activate custom mark to make it the app's mark.",
+            error=False,
+        )
+
+    def _activate_app_mark(self, _event: wx.Event) -> None:
+        if self._app_mark_pending is None:
+            self._show_app_mark_status(
+                "Preview the custom image before activating it.", error=True
+            )
+            return
+        data, adjustment = self._app_mark_pending
+        try:
+            active = app_logo.apply_custom_logo(data, adjustment)
+        except app_logo.LogoError as exc:
+            self._show_app_mark_status(str(exc), error=True)
+            return
+        self._refresh_app_mark_preview(active.assets)
+        self.app_mark_activate.Enable(False)
+        self._app_mark_pending = None
+        self._show_app_mark_status(
+            "Custom mark activated -- applied immediately, no restart needed.",
+            error=False,
+        )
+
+    def _reset_app_mark(self, _event: wx.Event) -> None:
+        app_logo.reset_to_shipped()
+        self._app_mark_pending = None
+        self.app_mark_activate.Enable(False)
+        self.app_mark_disclosure.SetLabel("")
+        self._refresh_app_mark_preview({})
+        self._show_app_mark_status("Reset to the shipped mark.", error=False)
+
+    def _show_app_mark_status(self, message: str, *, error: bool) -> None:
+        self.app_mark_status.SetLabel(message)
+        self.app_mark_status.SetForegroundColour(
+            wx.Colour(180, 40, 40) if error else wx.Colour(40, 120, 70)
+        )
+
+    def _filter_app_mark_presets(self, _event: wx.Event = None) -> None:
+        query = self.app_mark_preset_search.GetValue()
+        regex_on = self.app_mark_preset_regex.GetValue()
+        for preset, (_bmp, _btn, box) in self._app_mark_preset_controls.items():
+            visible = True
+            if query:
+                if regex_on:
+                    try:
+                        visible = bool(
+                            re.search(
+                                query,
+                                preset.label,
+                                getattr(self, "_app_mark_preset_flags", 0),
+                            )
+                        )
+                    except re.error:
+                        visible = True
+                else:
+                    visible = query.lower() in preset.label.lower()
+            box.ShowItems(visible)
+        self.app_mark_preset_search.GetParent().Layout()
+
+    def _open_app_mark_regex_builder(self, _event: wx.Event) -> None:
+        with RegexBuilderDialog(
+            self,
+            pattern=self.app_mark_preset_search.GetValue(),
+            regex_enabled=self.app_mark_preset_regex.GetValue(),
+            flags=getattr(self, "_app_mark_preset_flags", 0),
+            sample="App mark preset name",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            self.app_mark_preset_search.ChangeValue(dialog.pattern)
+            self.app_mark_preset_regex.SetValue(dialog.regex_enabled)
+            self._app_mark_preset_flags = dialog.flags
+        self._filter_app_mark_presets()
+
+    def _build_app_mark_section(self, page: wx.Window, root: wx.Sizer) -> None:
+        """Build the app-mark preset gallery, custom picker, and live preview.
+
+        Every consumed size is previewed live, a preset is shown as itself
+        rather than named in a list, a browsed and a typed source run through
+        the same validation, disclosures show before activation, and Reset is
+        one immediate action. A custom mark changes presentation only --
+        ``app_logo.identity_snapshot`` is the mechanical proof this never
+        touches the package id, executable name, update feed or data folder.
+        """
+        header = _label(
+            page,
+            "App mark",
+            "The image this application shows as its own mark -- title bar, "
+            "taskbar, and every size the app renders. Changing it never "
+            "touches the package or application id, the executable or "
+            "installer filename, the update feed, the data directory, or the "
+            "(permanently disabled) signing state.",
+        )
+        root.Add(header, 0, wx.BOTTOM, 6)
+
+        self._app_mark_pending = None
+        self._app_mark_preview_bitmaps: Dict[int, studio.BitmapPreview] = {}
+        self._app_mark_preset_controls = {}
+
+        preset_search_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.app_mark_preset_search = forms.MaterialTextField(
+            page,
+            "Search app mark presets",
+            placeholder="Search presets",
+            name="App mark preset search",
+        )
+        self.app_mark_preset_regex = studio.StudioCheckBox(
+            page, "Regex", name="App mark preset regex mode"
+        )
+        self.app_mark_preset_regex_button = studio.StudioButton(
+            page,
+            "Regex…",
+            variant="outlined",
+            hint="Build a bounded regular-expression preset search",
+            name="App mark preset regex builder",
+        )
+        preset_search_row.Add(self.app_mark_preset_search, 1, wx.EXPAND | wx.RIGHT, 8)
+        preset_search_row.Add(self.app_mark_preset_regex, 0, wx.ALIGN_CENTER_VERTICAL)
+        preset_search_row.Add(
+            self.app_mark_preset_regex_button,
+            0,
+            wx.LEFT | wx.ALIGN_CENTER_VERTICAL,
+            6,
+        )
+        root.Add(preset_search_row, 0, wx.EXPAND | wx.BOTTOM, 8)
+
+        gallery = wx.WrapSizer(wx.HORIZONTAL)
+        for preset in app_logo.PRESETS:
+            preview_assets = app_logo.render_preset_preview(preset.name)
+            box = wx.BoxSizer(wx.VERTICAL)
+            bmp_ctrl = studio.BitmapPreview(
+                page, size=64, name=f"{preset.label} preview"
+            )
+            bmp_ctrl.set_bitmap(self._png_bytes_to_bitmap(preview_assets[64], 64))
+            button = studio.StudioButton(
+                page,
+                f"Use {preset.label}",
+                variant="outlined",
+                name=f"Use {preset.label}",
+            )
+            button.Bind(
+                wx.EVT_BUTTON,
+                lambda _evt, preset_name=preset.name: self._select_app_mark_preset(
+                    preset_name
+                ),
+            )
+            box.Add(bmp_ctrl, 0, wx.ALIGN_CENTER | wx.BOTTOM, 4)
+            box.Add(button, 0, wx.ALIGN_CENTER)
+            gallery.Add(box, 0, wx.RIGHT | wx.BOTTOM, 12)
+            self._app_mark_preset_controls[preset] = (bmp_ctrl, button, box)
+        root.Add(gallery, 0, wx.EXPAND | wx.BOTTOM, 14)
+
+        custom_row = self._row(
+            page,
+            "Custom app mark image",
+            "A PNG, JPEG, BMP or GIF up to 8 MB and 8192px per side, single "
+            "frame only. A browsed file and a typed path run through the "
+            "exact same validation.",
+        )
+        self.app_mark_path = forms.MaterialTextField(
+            custom_row.body,
+            "Custom app mark path",
+            placeholder="Path to an image file",
+            name="Custom app mark path",
+        )
+        self.app_mark_browse = studio.StudioButton(
+            custom_row.body,
+            "Browse…",
+            variant="outlined",
+            name="Browse for app mark image",
+        )
+        custom_row.set_control(self.app_mark_path, 1)
+        custom_row.add_extra(self.app_mark_browse)
+        root.Add(custom_row, 0, wx.EXPAND | wx.BOTTOM, 10)
+
+        adjust_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.app_mark_fit = forms.MaterialChoice(
+            page,
+            ["Fit (contain)", "Fill (cover)", "Stretch"],
+            label="App mark fit mode",
+        )
+        self.app_mark_fit.SetSelection(0)
+        adjust_row.Add(self.app_mark_fit, 0, wx.RIGHT, 10)
+        self.app_mark_bg_transparent = studio.StudioCheckBox(
+            page,
+            "Transparent background",
+            value=True,
+            name="App mark transparent background",
+        )
+        adjust_row.Add(
+            self.app_mark_bg_transparent, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10
+        )
+        self.app_mark_bg_colour = forms.MaterialColourField(
+            page,
+            "#FFFFFF",
+            name="App mark background colour",
+            subject="App mark",
+        )
+        adjust_row.Add(self.app_mark_bg_colour, 0, wx.ALIGN_CENTER_VERTICAL)
+        root.Add(adjust_row, 0, wx.EXPAND | wx.BOTTOM, 8)
+
+        focal_row = wx.BoxSizer(wx.HORIZONTAL)
+        self.app_mark_focal_x = forms.MaterialSlider(
+            page,
+            value=50,
+            minValue=0,
+            maxValue=100,
+            suffix="%",
+            name="App mark focal point X",
+        )
+        self.app_mark_focal_y = forms.MaterialSlider(
+            page,
+            value=50,
+            minValue=0,
+            maxValue=100,
+            suffix="%",
+            name="App mark focal point Y",
+        )
+        focal_row.Add(
+            _label(page, "Focal X", "Horizontal crop centre used for Fill mode."),
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            6,
+        )
+        focal_row.Add(self.app_mark_focal_x, 1, wx.EXPAND | wx.RIGHT, 16)
+        focal_row.Add(
+            _label(page, "Focal Y", "Vertical crop centre used for Fill mode."),
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            6,
+        )
+        focal_row.Add(self.app_mark_focal_y, 1, wx.EXPAND)
+        root.Add(focal_row, 0, wx.EXPAND | wx.BOTTOM, 8)
+
+        crop_row = self._row(
+            page,
+            "Crop box (optional)",
+            "Four comma-separated fractions of the source, 0 to 1: "
+            "left,top,right,bottom. Applied before fit/fill/stretch. Leave "
+            "blank to use the whole source image.",
+        )
+        self.app_mark_crop = forms.MaterialTextField(
+            crop_row.body,
+            "App mark crop box",
+            placeholder="e.g. 0.1,0.1,0.9,0.9",
+            name="App mark crop box",
+        )
+        crop_row.set_control(self.app_mark_crop)
+        root.Add(crop_row, 0, wx.EXPAND | wx.BOTTOM, 10)
+
+        preview_label = _label(
+            page,
+            "Live preview at every size the app renders",
+            "Every one of these updates from the previewed or active mark, "
+            "at the exact pixels the application uses.",
+        )
+        root.Add(preview_label, 0, wx.BOTTOM, 6)
+        preview_row = wx.WrapSizer(wx.HORIZONTAL)
+        for size in app_logo.OUTPUT_SIZES:
+            cell = wx.BoxSizer(wx.VERTICAL)
+            bmp = studio.BitmapPreview(
+                page,
+                size=max(size, 16),
+                name=f"App mark preview at {size}px",
+            )
+            cell.Add(bmp, 0, wx.ALIGN_CENTER | wx.BOTTOM, 2)
+            cell.Add(
+                _label(page, f"{size}px", f"The mark rendered at {size} pixels."),
+                0,
+                wx.ALIGN_CENTER,
+            )
+            preview_row.Add(cell, 0, wx.RIGHT | wx.BOTTOM, 10)
+            self._app_mark_preview_bitmaps[size] = bmp
+        root.Add(preview_row, 0, wx.EXPAND | wx.BOTTOM, 8)
+
+        self.app_mark_disclosure = studio.StudioText(
+            page, "", size_px=12, name="App mark disclosure"
+        )
+        self.app_mark_disclosure.Wrap(540)
+        root.Add(self.app_mark_disclosure, 0, wx.EXPAND | wx.BOTTOM, 8)
+
+        action_row = wx.WrapSizer(wx.HORIZONTAL)
+        self.app_mark_preview_button = studio.StudioButton(
+            page, "Preview custom mark", variant="tonal", name="Preview custom app mark"
+        )
+        self.app_mark_activate = studio.StudioButton(
+            page,
+            "Activate custom mark",
+            variant="tonal",
+            name="Activate custom app mark",
+        )
+        self.app_mark_activate.Enable(False)
+        self.app_mark_reset = studio.StudioButton(
+            page,
+            "Reset to shipped mark",
+            variant="outlined",
+            name="Reset app mark to shipped",
+        )
+        for control in (
+            self.app_mark_preview_button,
+            self.app_mark_activate,
+            self.app_mark_reset,
+        ):
+            action_row.Add(control, 0, wx.RIGHT | wx.BOTTOM, 8)
+        root.Add(action_row, 0, wx.EXPAND)
+
+        self.app_mark_status = studio.StudioText(
+            page, "", size_px=12, name="App mark status"
+        )
+        self.app_mark_status.Wrap(540)
+        root.Add(self.app_mark_status, 0, wx.EXPAND | wx.TOP, 6)
+
+        self.app_mark_browse.Bind(wx.EVT_BUTTON, self._browse_app_mark_source)
+        self.app_mark_preview_button.Bind(wx.EVT_BUTTON, self._preview_app_mark_source)
+        self.app_mark_activate.Bind(wx.EVT_BUTTON, self._activate_app_mark)
+        self.app_mark_reset.Bind(wx.EVT_BUTTON, self._reset_app_mark)
+        self.app_mark_preset_search.Bind(wx.EVT_TEXT, self._filter_app_mark_presets)
+        self.app_mark_preset_regex.Bind(wx.EVT_CHECKBOX, self._filter_app_mark_presets)
+        self.app_mark_preset_regex_button.Bind(
+            wx.EVT_BUTTON, self._open_app_mark_regex_builder
+        )
+
+        self._load_active_app_mark()
 
     def _reset_display_name_form(self, _event: wx.Event) -> None:
         self.display_name.SetValue(preferences.DEFAULT_DISPLAY_NAME)

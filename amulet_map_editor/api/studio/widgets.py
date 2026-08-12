@@ -4704,6 +4704,60 @@ class ImageSlot(wx.Panel, _Themed):
                 draw_focus_ring(dc, rect, radius, palette.primary)
 
 
+class BitmapPreview(wx.Panel, _Themed):
+    """A read-only square bitmap preview that paints through ``render_to``.
+
+    A plain ``wx.StaticBitmap`` is a native control: this codebase's capture
+    harness composites it through ``PrintWindow`` or a client-DC blit, and
+    both routes photograph an empty rectangle wherever there is no real
+    on-screen compositor behind the window -- exactly the "photographs
+    blank" failure this project's own working notes warn about. Painting the
+    bitmap in ``render_to`` instead means the screen and a capture take the
+    same code path, so this control shows the same pixels either way.
+    """
+
+    def __init__(self, parent: wx.Window, *, size: int = 64, name: str = "") -> None:
+        super().__init__(parent, style=wx.WANTS_CHARS | wx.TAB_TRAVERSAL)
+        self.size = int(size)
+        self._bitmap: Optional[wx.Bitmap] = None
+        self._install(name or "Preview")
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
+        self.SetInitialSize(self.DoGetBestSize())
+
+    def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
+        side = tokens.scaled(self.size)
+        return wx.Size(side, side)
+
+    def set_bitmap(self, bitmap: Optional[wx.Bitmap]) -> None:
+        """Replace the previewed bitmap, or clear it with ``None``."""
+        self._bitmap = bitmap if bitmap is not None and bitmap.IsOk() else None
+        self.Refresh()
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw the bitmap centred and scaled to fit, over its own backdrop."""
+        palette = self.palette()
+        with self._painting(dc, rect) as rect:
+            radius = tokens.scaled(6)
+            tokens.draw_round_rect(
+                dc, rect, radius, palette.surface_container, palette.outline
+            )
+            if self._bitmap is None:
+                return
+            image = self._bitmap.ConvertToImage()
+            source_w = max(1, image.GetWidth())
+            source_h = max(1, image.GetHeight())
+            scale = min(rect.width / source_w, rect.height / source_h)
+            target_w = max(1, int(source_w * scale))
+            target_h = max(1, int(source_h * scale))
+            if (target_w, target_h) != (source_w, source_h):
+                image = image.Scale(target_w, target_h, wx.IMAGE_QUALITY_HIGH)
+            bitmap = wx.Bitmap(image)
+            x = rect.x + (rect.width - target_w) // 2
+            y = rect.y + (rect.height - target_h) // 2
+            dc.DrawBitmap(bitmap, x, y, True)
+
+
 class ListRow(wx.Control, _Interactive):
     """One record row: an optional swatch, a name, a detail, and a tag.
 

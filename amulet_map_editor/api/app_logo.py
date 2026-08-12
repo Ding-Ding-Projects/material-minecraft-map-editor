@@ -53,6 +53,7 @@ __all__ = [
     "convert_source_bytes",
     "apply_custom_logo",
     "select_preset",
+    "render_preset_preview",
     "reset_to_shipped",
     "load_active_logo",
     "identity_snapshot",
@@ -430,6 +431,19 @@ def _render_preset(preset: _Preset) -> Dict[int, bytes]:
         canvas.save(buf, format="PNG")
         outputs[size] = buf.getvalue()
     return outputs
+
+
+def render_preset_preview(name: str) -> Dict[int, bytes]:
+    """Render one of :data:`PRESETS` at every output size without persisting it.
+
+    Used by the settings surface to draw a real preview of each preset in the
+    gallery -- the same pixels ``select_preset`` would activate -- rather than
+    a preset named in a plain list.
+    """
+    matches = [p for p in PRESETS if p.name == name]
+    if not matches:
+        raise LogoValidationError(f"unknown preset: {name!r}")
+    return _render_preset(matches[0])
 
 
 def select_preset(name: str) -> ActiveLogo:
