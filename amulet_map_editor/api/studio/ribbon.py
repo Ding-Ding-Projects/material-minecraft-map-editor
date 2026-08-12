@@ -552,7 +552,19 @@ class _TabStrip(wx.Panel, widgets._Themed):
 
         visible, overflowed = self._split(cursor, limit, tab_gap, active_tab)
         self._overflowed = overflowed
+        # A resize that hides the exact control the pointer is sitting on --
+        # a tab pulled into overflow, or the "More" button when the window
+        # widens enough that every tab fits again -- leaves Windows' own
+        # tooltip popup on screen with nothing under it: the mouse never
+        # crossed the control's edge, so the OS never got the leave that
+        # would normally dismiss it.  ``dismissed_under_pointer`` is set the
+        # instant a control that was showing is about to be hidden, and the
+        # native popup is force-closed once below rather than once per
+        # control, since the trick is a brief app-wide tooltip toggle.
+        dismissed_under_pointer = False
         for tab in overflowed:
+            if tab.IsShown():
+                dismissed_under_pointer = True
             tab.Hide()
         x = cursor
         for tab in visible:
@@ -579,8 +591,30 @@ class _TabStrip(wx.Panel, widgets._Themed):
                     overflow_size.height,
                 )
             else:
+                if self.overflow.IsShown():
+                    dismissed_under_pointer = True
                 self.overflow.Hide()
+        if dismissed_under_pointer:
+            self._dismiss_stray_tooltip()
         self.Refresh()
+
+    @staticmethod
+    def _dismiss_stray_tooltip() -> None:
+        """Force-close whatever native tooltip popup is currently on screen.
+
+        Hiding the control a tooltip belongs to does not ask Windows to close
+        the popup -- the platform only does that on a real mouse-leave, which
+        never happens when the control vanishes out from under a stationary
+        pointer.  Toggling ``wx.ToolTip`` off and back on is the standard,
+        if blunt, remedy: it is a brief app-wide flicker rather than a
+        per-control one, so it is only reached for when a layout pass has
+        just hidden something the pointer could plausibly still be over.
+        """
+        try:
+            wx.ToolTip.Enable(False)
+            wx.ToolTip.Enable(True)
+        except Exception:  # pragma: no cover - platform boundary
+            log.debug("Could not force-dismiss a stray ribbon tooltip")
 
     def _split(
         self,
