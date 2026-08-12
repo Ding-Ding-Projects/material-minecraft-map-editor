@@ -942,9 +942,7 @@ class _TemplateCard(_HoverControl):
                 if (self._hovered or self._pressed)
                 else palette.outline_variant
             )
-            tokens.draw_round_rect(
-                gcdc, local, radius, palette.surface_container, None
-            )
+            tokens.draw_round_rect(gcdc, local, radius, palette.surface_container, None)
             header = wx.Rect(0, 0, width, _px(self.HEADER))
             context = gcdc.GetGraphicsContext()
             if context is not None:
