@@ -135,135 +135,109 @@ Release 1.0.0 is published with its Squirrel.Windows artifacts, unsigned and
 stated as unsigned.
 
 The per-surface completeness inventory (`docs/features/completeness-inventory/`)
-is the register of what is actually delivered: **18 of 19 rows complete**, each
-row's evidence enforced fail-closed by
-`tests/test_feature_completeness_inventory.py`. The one open row is
-`pages-site-parity`, which needs a headless browser capture harness this
-repository does not have.
+is the register of what is delivered: **all 19 rows complete**, each row's
+evidence enforced fail-closed by `tests/test_feature_completeness_inventory.py`.
+That is a statement about this register, not a claim that the product is
+finished — a row is complete when its declared evidence exists and the test
+enforces it, and the register only ever knew about the nineteen features a
+person typed into it.
 
-The inventory earns its keep. Three rows it marked incomplete —
+It earned its keep several times over. Three rows it marked incomplete —
 `locked-surfaces`, `two-factor-authenticator`, `app-logo-customization` — turned
 out to be features that existed **only on the documentation site**, or an engine
 with no surface to reach it from. A tree scan found their names in a dozen files
-and every one was a generated catalog. Closing those rows then found four more
+and every one was a generated catalog. Closing those rows found four more
 defects underneath: `substitute_text()` was never called by anything, the
 destructive gate's copy was hard-coded English, `MaterialButton` had no
 `render_to` so its captures silently photographed nothing, and `ConverterPanel`
 was fully built and reachable from nowhere in the running application.
 
+## The Electron application
+
+It exists, it is packaged, and it works. `scripts/accept_electron_app.js` is the
+single run that says so: it launches the **packaged executable** — not
+`electron .` — headlessly over the DevTools protocol and checks eleven
+capabilities without stopping at the first failure. All eleven pass.
+
+The interface is the existing Material 3 renderer under `docs/site/`, unmodified,
+hosted in a frameless window. Behind it, a Python sidecar runs the real core over
+a versioned newline-delimited JSON protocol on stdio: preferences, language,
+changelog, documentation articles, the dim sum draw, the converter — including
+running a real conversion — and read-only world access with untrusted-path
+validation. The 3D viewport draws real chunks in WebGL2, meshed by the
+**unmodified Python mesher**, with camera input, chunk streaming, a selection box
+and a chunk grid.
+
+### What the packaged run caught that nothing else could
+
+Every check before it ran `electron .` on the development tree, where the Python
+package is simply present on disk. Two defects existed only in the packaged
+layout, and both made the application look perfect while doing nothing:
+
+- `electron-builder.yml` never bundled `amulet_map_editor/` at all, and
+  `main.js` computed the sidecar's working directory as a path **inside
+  `app.asar`** — a virtual archive no interpreter can enter. In every packaged
+  build, every preference write, language switch, catalog lookup and world open
+  failed with `sidecar_unavailable`, while the window opened and the interface
+  rendered.
+- Earlier, the same shape: `sidecar-client.js` was omitted from the `files` glob,
+  so the packaged app crashed before creating a window.
+
+Both are the same lesson written twice. **A dev run proves the code; only the
+packaged artifact proves the product.**
+
+### What is not done
+
+The viewport is a first pass. There is no level-of-detail, no translucent depth
+sorting, no biome tint, and no editing — it draws a world and a selection, and
+nothing yet modifies one through it. The wx application remains the shipping
+product until editing moves across.
+
+The renderer has one surface per capability rather than a designed workflow: the
+settings surface drives real preferences, the viewport tab opens a world by path.
+Wiring the remaining surfaces to the methods that now exist is ordinary work with
+no unknowns left in it.
+
 ## What is not verified
 
-Rendering against a loaded world, the real renderer inside the workspace
-viewport, and every operation on real world data still need a Windows desktop
-with a working OpenGL context. Hosted delta publication and a three-version
-installed-client update proof remain open before delta delivery is advertised.
+Rendering against a large real world, and every operation on real world data,
+still need a Windows desktop with a working OpenGL context.
 
-**Fixed: the interface repainted continuously and the viewport reported
-3 fps.** The 3 fps reading was the tell, not a random number: it is close to
-`1 / _IDLE_REDRAW_INTERVAL` (0.25s → 4 Hz), because `Renderer._do_draw` in
-`amulet_map_editor/programs/edit/api/renderer.py` was posting a `PreDrawEvent`
-and calling `Refresh(False)` on *every* tick of its 15ms `wx.Timer` — roughly
-66 times a second — whether or not the camera, tool, selection, or loaded
-chunks had actually changed since the previous tick, so a genuinely still
-camera was doing a full GL redraw of the world 66×/s and the FPS chip's own
-half-second sampling window landed on the idle floor's true rate instead of
-motion. `_do_draw` now only redraws on a `mark_dirty()` edge (camera move,
-tool/selection/projection/size change, or a chunk finishing meshing on the
-background generator thread) or after `_IDLE_REDRAW_INTERVAL` (0.25s) of
-real idle time, so a still camera redraws at most 4×/s and interactive motion
-still redraws every tick. `StudioButton`, `StudioCheckBox` and `SearchBar`
-reaching `_install()` (which sets `BG_STYLE_PAINT` and double-buffering) was
-confirmed **not** the cause, ruling out the earlier erase-background
-hypothesis. Regression coverage: `tests/test_renderer_idle_redraw_gate.py`
-(4 tests — still camera draws at most once per idle window, a single
-`mark_dirty()` produces exactly one redraw and no repeat flood, the idle
-floor still fires eventually, and continuous dirtying never drops below the
-timer's own rate); verified red when the idle-floor gate is removed, then
-green again restored. `scripts/measure_renderer_redraw_rate.py` measures the
-real rate end to end against the shipped fixture world.
+Hosted delta publication and a three-version installed-client update proof remain
+open before delta delivery is advertised.
 
-**Still open, separate from the above:** a black rectangle around the regex
-opt-in and builder button in more than one search bar, and text clipped in
-the properties pane. These are layout/paint-appearance defects, not the
-redraw-rate defect, and remain undiagnosed.
+## Things that cost real time, so nobody pays twice
 
-## Converting to an Electron application, piece by piece
-
-The decision is to migrate rather than rewrite. What follows is the order that
-keeps a working application at every step.
-
-**Real status, verified against running artifacts (see
-`docs/features/electron-migration/README.md` for the full evidence):** the
-wxPython application is still the shipping product. Phase 0 and Phase 1 are
-done. Phase 2 is half done — the Python sidecar is real and was driven end to
-end (`protocol.ping`, `preferences.read`/`write`, `language.get`/`set`/`list`,
-`converter.formats`, and its structured error path all answered correctly
-from a real child process) — but `electron/main.js` does not spawn it and
-`electron/preload.js` exposes no bridge to it, so nothing in the shipped
-Electron shell can reach it yet. The Electron shell itself launches
-headlessly and renders the real `docs/site/` interface
-(`docs/huishots/electron/electron-shell-home.png`), which is genuine progress
-independent of the sidecar wiring. Phase 3 (porting a real user-facing
-surface) has not started. Phase 4 (the viewport) is explicitly untouched.
-Phase 5 (packaging) has config but no built release.
-
-**Why it is tractable at all:** the renderer already exists. `docs/site/` is a
-complete Material 3 web application carrying the tabs, the command palette, the
-regex builder, the settings surfaces, the appearance system, the locks and the
-authenticator, all built to the same contracts as the desktop app and already
-tested by `tests/test_site_runtime_render_contract.py`. The migration is
-therefore mostly about giving that renderer real data, not about drawing an
-interface twice.
-
-**Phase 0 — freeze the contracts.** The completeness inventory becomes the
-migration checklist: a row may not regress from complete to incomplete because
-of a port. This is the gate that stops a rewrite quietly shipping less than the
-thing it replaced.
-
-**Phase 1 — separate the core from wx.** Everything under `amulet_map_editor/api/`
-that does not import `wx` is already portable: `config.py`, `lang.py`,
-`text_overlay.py`, `authenticator.py`, `item_locks.py`, `converter/`,
-`dim_sum_surprise.py`, `app_logo.py`, `changelog_catalog.json`. Give that set an
-explicit boundary and a test that fails when a `wx` import crosses it. Do this
-first because it is useful on its own even if the migration stops here.
-
-**Phase 2 — a process boundary, not a rewrite.** The core stays Python and runs
-as a sidecar; the Electron main process supervises it and speaks a typed,
-versioned JSON protocol over stdio. Every call is already shaped for this: the
-converter sandbox spawns a child process today, so the pattern is proven in this
-repository rather than borrowed.
-
-**Phase 3 — port surfaces one at a time, cheapest first.** Backstage, then
-settings, then the dialogs, then the properties pane. Each ported surface keeps
-its Python core, its localized copy, its persistence and its tests; only the
-drawing moves. The inventory row for that surface must stay complete across the
-move, with a capture from the Electron build replacing the wx one.
-
-**Phase 4 — the viewport is the hard part and goes last.** The 3D editor is
-PyOpenGL inside a wx canvas and has no web equivalent in this tree. Two honest
-options, to be decided with real measurements rather than in advance: keep the
-wx viewport as a native child window owned by the sidecar and composite it into
-the Electron frame, or port the renderer to WebGL. The second is a genuine
-rewrite of the one component whose performance is already a reported defect, so
-it must not be started while that defect is open.
-
-**Phase 5 — packaging.** Squirrel.Windows is already the required installer and
-is Electron's own updater, so the artifact contract does not change. Code signing
-stays permanently out of scope, and the installer keeps saying so.
-
-**Known risks, written down now rather than discovered later.** The OS credential
-vault is reached from Python today and the authenticator's and locks' secrets
-live there — a port must not migrate a secret through a file or a log to get it
-into Node. The capture harness renders wx widgets and does not transfer; an
-Electron surface needs its own capture route before its inventory row can claim
-capture evidence. And a sidecar that dies must not lose unsaved work: the local
-version history has to record before the boundary, not after it.
+- **`Page.captureScreenshot` hangs indefinitely against a WebGL2 canvas**, with no
+  error and no timeout. Read the canvas with `toDataURL()` instead — and read it
+  in the **same frame as the draw**, because the drawing buffer is cleared after
+  compositing unless `preserveDrawingBuffer` is set. A capture taken one tick
+  late returns a blank image that is indistinguishable from a viewport which
+  drew nothing.
+- **Pixel variance is not proof.** The reference grid alone gives a colour range
+  of 245, which is enough to satisfy any "is something drawn" check. To prove a
+  specific thing is drawn, capture with it and without it and compare bytes.
+- **The streaming viewport increments `chunkCount`, not `vertexCount`.** The
+  latter belongs to the legacy single-mesh path. Reading the wrong one reports
+  zero geometry against an application that is streaming perfectly.
+- **Positive pitch looks down.** From `mat4View`, forward is
+  `[sin(yaw)cos(pitch), -sin(pitch), -cos(yaw)cos(pitch)]`, so yaw zero looks
+  toward `-Z`. Getting the sign backwards aims the camera at empty sky, which
+  looks exactly like a world that failed to load.
+- **A capture script must redirect every profile store, not just `CONFIG_DIR`.**
+  `AMULET_RECENTS_DIR` and `AMULET_HISTORY_DIR` are separate on purpose, and the
+  redirect must happen **before the first application import**, because the
+  config module reads the environment at import time. A redirect written after
+  it runs too late and does nothing, silently.
+- **Test windows are shown without activating them**, never moved off-screen. A
+  window with no on-screen pixels never paints, so the capture tests photograph
+  a flat colour and report, correctly, that nothing is drawing.
 
 ## Next
 
-1. Reproduce the repaint defect against a built artifact and fix it. It blocks
-   the viewport decision in phase 4 and it is what a user sees first.
-2. Phase 0 and phase 1 of the migration: freeze the inventory as the checklist,
-   then draw the no-`wx` boundary around the core and guard it with a test.
-3. Give `pages-site-parity` a headless browser capture harness, which the
-   Electron work needs anyway — the same harness photographs both.
+1. Wire the remaining renderer surfaces to the sidecar methods that already
+   exist. No unknowns; ordinary work.
+2. Editing through the viewport — the first operation that writes to a world is
+   the point at which the Electron app can start replacing the wx one.
+3. Level-of-detail and depth sorting in the viewport, once there is a large real
+   world to measure against rather than a fixture chunk.
