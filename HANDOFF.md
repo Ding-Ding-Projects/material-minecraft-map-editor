@@ -158,15 +158,34 @@ viewport, and every operation on real world data still need a Windows desktop
 with a working OpenGL context. Hosted delta publication and a three-version
 installed-client update proof remain open before delta delivery is advertised.
 
-**Open defect: the interface repaints continuously and the viewport reports
-3 fps.** Reported from a running build, with two visible symptoms: a black
-rectangle around the regex opt-in and builder button in more than one search bar,
-and text clipped in the properties pane. Not yet diagnosed. Ruled out so far:
-`StudioButton`, `StudioCheckBox` and `SearchBar` all reach `_install()`, which
-sets `BG_STYLE_PAINT` and double-buffering, so a missing erase-background
-suppression is **not** the cause — that was the first hypothesis and it was
-wrong. Next step is to reproduce against a built artifact rather than to reason
-about the source, since the source says this should already be correct.
+**Fixed: the interface repainted continuously and the viewport reported
+3 fps.** The 3 fps reading was the tell, not a random number: it is close to
+`1 / _IDLE_REDRAW_INTERVAL` (0.25s → 4 Hz), because `Renderer._do_draw` in
+`amulet_map_editor/programs/edit/api/renderer.py` was posting a `PreDrawEvent`
+and calling `Refresh(False)` on *every* tick of its 15ms `wx.Timer` — roughly
+66 times a second — whether or not the camera, tool, selection, or loaded
+chunks had actually changed since the previous tick, so a genuinely still
+camera was doing a full GL redraw of the world 66×/s and the FPS chip's own
+half-second sampling window landed on the idle floor's true rate instead of
+motion. `_do_draw` now only redraws on a `mark_dirty()` edge (camera move,
+tool/selection/projection/size change, or a chunk finishing meshing on the
+background generator thread) or after `_IDLE_REDRAW_INTERVAL` (0.25s) of
+real idle time, so a still camera redraws at most 4×/s and interactive motion
+still redraws every tick. `StudioButton`, `StudioCheckBox` and `SearchBar`
+reaching `_install()` (which sets `BG_STYLE_PAINT` and double-buffering) was
+confirmed **not** the cause, ruling out the earlier erase-background
+hypothesis. Regression coverage: `tests/test_renderer_idle_redraw_gate.py`
+(4 tests — still camera draws at most once per idle window, a single
+`mark_dirty()` produces exactly one redraw and no repeat flood, the idle
+floor still fires eventually, and continuous dirtying never drops below the
+timer's own rate); verified red when the idle-floor gate is removed, then
+green again restored. `scripts/measure_renderer_redraw_rate.py` measures the
+real rate end to end against the shipped fixture world.
+
+**Still open, separate from the above:** a black rectangle around the regex
+opt-in and builder button in more than one search bar, and text clipped in
+the properties pane. These are layout/paint-appearance defects, not the
+redraw-rate defect, and remain undiagnosed.
 
 ## Converting to an Electron application, piece by piece
 
