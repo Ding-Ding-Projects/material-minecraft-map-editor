@@ -684,10 +684,13 @@ def about_spec() -> Spec:
     chose, and the update state the frame has actually observed, are current
     every time the window is shown.
     """
+    import os
+
     from amulet_map_editor import __version__
     from amulet_map_editor.api import preferences
 
     current = preferences.load()
+    log_dir = os.environ.get("LOG_DIR", "") or "not yet configured"
     rows = [
         Row("Version", str(__version__), "build"),
         Row("Shown as", current.display_name, "display name"),
@@ -696,6 +699,7 @@ def about_spec() -> Spec:
             "Updates", "One immutable release route, checked in the background", "feed"
         ),
         Row("Network use", "None at runtime; every asset is bundled", "privacy"),
+        Row("Log folder", log_dir, "diagnostics"),
     ]
     return Spec(
         key="about",
@@ -724,6 +728,7 @@ def about_spec() -> Spec:
             Action("Third-party licences", "outlined", surface="licenses"),
             Action("Documentation", "outlined", surface="docs"),
             Action("Changelog", "outlined", surface="changelog"),
+            Action("Open log folder", "outlined", command="openLogFolder"),
         ),
     )
 

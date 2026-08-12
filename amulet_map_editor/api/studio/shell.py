@@ -815,6 +815,7 @@ class StudioShell(wx.Panel):
             "backToWorkspace": self._cmd_back_to_workspace,
             "convertWorld": self._cmd_convert_world,
             "openOperationsFolder": self._cmd_operations_folder,
+            "openLogFolder": self._cmd_open_log_folder,
             "openInEditor": self._cmd_open_in_editor,
             "addBox": self._cmd_add_box,
             "removeBox": self._cmd_remove_box,
@@ -1027,6 +1028,36 @@ class StudioShell(wx.Panel):
             return
         self.notify(
             studio_label("Operations folder", "操作資料夾"),
+            studio_text(f"Opened {target}."),
+        )
+
+    def _cmd_open_log_folder(self, _key: str) -> None:
+        """Open the folder holding this build's rotating log files.
+
+        This is the reachable diagnostic surface a user asked to send a log
+        needs: a real, current path -- not a generic phrase -- and one action
+        that opens it.
+        """
+        target = os.environ.get("LOG_DIR", "")
+        if not target:
+            self.notify(
+                studio_label("The log folder is unknown", "搵唔到日誌資料夾"),
+                studio_text(
+                    "This build has no log directory configured, so the log "
+                    "folder cannot be located."
+                ),
+                severity="warning",
+            )
+            return
+        if not wx.LaunchDefaultApplication(target):
+            self.notify(
+                studio_label("The log folder did not open", "日誌資料夾開唔到"),
+                studio_text(f"Windows refused to open {target}."),
+                severity="warning",
+            )
+            return
+        self.notify(
+            studio_label("Log folder", "日誌資料夾"),
             studio_text(f"Opened {target}."),
         )
 

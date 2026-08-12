@@ -62,6 +62,16 @@ class AmuletApp(wx.App):
             f"Shown AmuletUI at {self._amulet_ui.GetRect()} maximised={self._amulet_ui.IsMaximized()}"
         )
 
+        # A single dense block naming the DPI mode, every display's geometry
+        # and scale, the window's requested/min/actual size, and the resolved
+        # theme/density/language/funny levels. See
+        # amulet_map_editor.api.startup_diagnostics for why this exists: three
+        # real bugs here were each obvious from these lines and invisible
+        # without them.
+        from amulet_map_editor.api import startup_diagnostics
+
+        startup_diagnostics.log_startup(log, window=self._amulet_ui)
+
         # Startup has no acknowledgement, purchase, review, or promotional
         # gate. Schedule the optional delight only after the usable shell has
         # returned to the event loop.

@@ -63,10 +63,16 @@ except Exception as e_:
     sys.exit(1)
 
 
-_APP_LOG_NAME = re.compile(r"amulet_\d+\.log\Z")
+_APP_LOG_NAME = re.compile(r"amulet_\d+\.log(\.\d+)?\Z")
 _LOG_RETENTION_SECONDS = 3600 * 24 * 7
 _EARLY_DIAGNOSTIC_LIMIT = 512
 _LOG_DIR_CHANNEL_LIMIT = 4096
+#: A running session writes to one file at a time, capped at a few megabytes,
+#: and keeps a handful of rotated predecessors -- so a machine left running
+#: for weeks accumulates a bounded amount of log data per process rather than
+#: one file that grows without limit.
+_LOG_MAX_BYTES = 5 * 1024 * 1024
+_LOG_BACKUP_COUNT = 4
 
 
 def _early_diagnostic(message: str, error: Optional[BaseException] = None) -> None:
@@ -109,7 +115,15 @@ def _clean_stale_app_logs(logs_path: str) -> None:
 
 
 def _open_log_file(logs_path: str) -> Tuple[Optional[str], Optional[Any], bool]:
-    """Open an application log, falling back to a safe temporary directory if needed."""
+    """Open a rotating application log, falling back to a temp dir if needed.
+
+    The handler caps itself at :data:`_LOG_MAX_BYTES` per file and keeps
+    :data:`_LOG_BACKUP_COUNT` rotated predecessors (``amulet_<pid>.log``,
+    ``amulet_<pid>.log.1``, ...), so a session left running for a long time
+    cannot grow one file without bound.
+    """
+    import logging.handlers
+
     candidates = [(logs_path, False)]
     try:
         fallback_path = os.path.join(tempfile.gettempdir(), "AmuletMapEditor", "Logs")
@@ -122,15 +136,13 @@ def _open_log_file(logs_path: str) -> Tuple[Optional[str], Optional[Any], bool]:
     for candidate, is_fallback in candidates:
         try:
             os.makedirs(candidate, exist_ok=True)
-            return (
-                candidate,
-                open(
-                    os.path.join(candidate, f"amulet_{os.getpid()}.log"),
-                    "w",
-                    encoding="utf-8",
-                ),
-                is_fallback,
+            handler = logging.handlers.RotatingFileHandler(
+                os.path.join(candidate, f"amulet_{os.getpid()}.log"),
+                maxBytes=_LOG_MAX_BYTES,
+                backupCount=_LOG_BACKUP_COUNT,
+                encoding="utf-8",
             )
+            return candidate, handler, is_fallback
         except OSError as e:
             _early_diagnostic(f"Unable to use log directory {candidate!r}", e)
 
@@ -144,7 +156,7 @@ def _init_log(*, clean_stale_logs: bool = False) -> logging.Logger:
         logs_path = platformdirs.user_log_dir("AmuletMapEditor", "AmuletTeam")
         os.environ["LOG_DIR"] = logs_path
 
-    effective_logs_path, log_file, using_fallback = _open_log_file(logs_path)
+    effective_logs_path, file_handler, using_fallback = _open_log_file(logs_path)
     if effective_logs_path is not None:
         os.environ["LOG_DIR"] = effective_logs_path
         if clean_stale_logs or using_fallback:
@@ -163,8 +175,7 @@ def _init_log(*, clean_stale_logs: bool = False) -> logging.Logger:
     debug = "debug" in os.path.basename(sys.executable) or "--amulet-debug" in sys.argv
 
     handlers: List[logging.Handler] = []
-    if log_file is not None:
-        file_handler = logging.StreamHandler(log_file)
+    if file_handler is not None:
         file_handler.setFormatter(
             logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
         )
@@ -210,8 +221,11 @@ def _init_log(*, clean_stale_logs: bool = False) -> logging.Logger:
 
     if "--enable-py-faulthandler" in sys.argv:
         # When running via pythonw stderr can be unavailable, so use the application log.
-        if log_file is not None:
-            faulthandler.enable(log_file)
+        if (
+            file_handler is not None
+            and getattr(file_handler, "stream", None) is not None
+        ):
+            faulthandler.enable(file_handler.stream)
         else:
             log.warning(
                 "Unable to enable faulthandler because no writable log file is available."

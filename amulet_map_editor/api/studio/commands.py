@@ -198,6 +198,7 @@ _DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
     ("openDocs", "Open the documentation", "Application"),
     ("openMemory", "Open the Memory Console", "Application"),
     ("openRegex", "Open the regular expression builder", "Application"),
+    ("openLogFolder", "Open the log folder", "Application"),
     ("updateRestart", "Restart to install the staged update", "Application"),
 )
 
