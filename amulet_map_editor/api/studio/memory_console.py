@@ -21,6 +21,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import wx
 
 import amulet_map_editor
+from amulet_map_editor.api.studio import control_plane
 from amulet_map_editor.api.studio import copy as studio_copy
 from amulet_map_editor.api.studio import memory_content, tokens, widgets
 from amulet_map_editor.api.studio.memory_content import (
@@ -36,6 +37,12 @@ from amulet_map_editor.api.studio.memory_content import (
     search_articles,
 )
 from amulet_map_editor.api.studio.search import SearchState
+
+#: Rail keys of the two views the control plane replaces with real GitHub and
+#: git state, read live through the local ``gh`` CLI, instead of the static
+#: transcribed cards every other view still shows.
+OPERATIONS_VIEW_KEY = "operations"
+CHANGELOG_VIEW_KEY = "changelog"
 
 log = logging.getLogger(__name__)
 
@@ -666,6 +673,18 @@ class MemoryConsoleDialog(wx.Dialog):
         )
         self.article_path = ARTICLES[0].path if ARTICLES else ""
 
+        #: The two live snapshots the control plane reads, cached so switching
+        #: away and back does not re-shell out to ``gh`` for nothing.  ``None``
+        #: means "not fetched yet" -- distinct from an empty snapshot, which
+        #: means the fetch ran and genuinely found nothing.
+        self._operations_snapshot: Optional[control_plane.OperationsSnapshot] = None
+        self._changelog_snapshot: Optional[control_plane.ChangelogSnapshot] = None
+        self._changelog_start = ""
+        self._changelog_end = ""
+        self._discussion_body = ""
+        self._selected_discussion_id = ""
+        self._posting_comment = False
+
         self._build_header()
         self._build_body()
         # Registered only once the window it repaints exists, so a theme change
@@ -810,6 +829,7 @@ class MemoryConsoleDialog(wx.Dialog):
         self.docs_panel = self._build_docs_panel(self.content)
         self.cards_panel = wx.Panel(self.content, style=wx.TAB_TRAVERSAL)
         self.cards_panel.SetName("Cards")
+        self.comment_panel = self._build_comment_panel(self.content)
 
         column = wx.BoxSizer(wx.VERTICAL)
         column.Add(self.eyebrow, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(7))
@@ -818,6 +838,7 @@ class MemoryConsoleDialog(wx.Dialog):
         column.Add(self.match_line, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(14))
         column.Add(self.docs_panel, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(20))
         column.Add(self.cards_panel, 0, wx.EXPAND)
+        column.Add(self.comment_panel, 0, wx.EXPAND | wx.TOP, tokens.scaled(16))
         content_outer = wx.BoxSizer(wx.VERTICAL)
         content_outer.AddSpacer(tokens.scaled(22))
         content_outer.Add(column, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, tokens.scaled(24))
@@ -937,6 +958,60 @@ class MemoryConsoleDialog(wx.Dialog):
         panel.SetSizer(columns)
         return panel
 
+    def _build_comment_panel(self, parent: wx.Window) -> wx.Window:
+        """Build Operations' one write control: post a Discussion comment.
+
+        Only the Operations view shows this; every other view keeps it hidden.
+        The body is the user's own text, the button disables for the duration
+        of the request, and the result -- success or refusal -- always arrives
+        as a notification rather than a silent change.
+        """
+        panel = widgets.Card(parent, radius=14)
+        panel.SetName("Post Discussion progress")
+        self.discussion_choice = widgets.SearchableChoice(
+            panel,
+            "Discussion",
+            [],
+            value="",
+            on_change=self._on_discussion_chosen,
+        )
+        self.comment_field = widgets.OutlinedField(
+            panel,
+            "Progress comment",
+            "",
+            mono=False,
+            placeholder="What changed, what's next",
+            on_change=self._on_comment_text,
+        )
+        self.post_comment_button = widgets.StudioButton(
+            panel,
+            "Post progress comment",
+            variant="filled",
+            on_click=self.post_discussion_comment,
+            name="Post a progress comment to the selected Discussion",
+            hint="Posts the typed body to the selected Discussion through gh",
+            height=32,
+        )
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(
+            self.discussion_choice,
+            0,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            tokens.scaled(10),
+        )
+        row.Add(
+            self.comment_field,
+            1,
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT,
+            tokens.scaled(10),
+        )
+        row.Add(self.post_comment_button, 0, wx.ALIGN_CENTER_VERTICAL)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(row, 1, wx.EXPAND | wx.ALL, tokens.scaled(16))
+        panel.SetSizer(outer)
+        panel.Hide()
+        return panel
+
     # ------------------------------------------------------------------
     # navigation
     # ------------------------------------------------------------------
@@ -957,9 +1032,224 @@ class MemoryConsoleDialog(wx.Dialog):
         if docs:
             self._rebuild_articles()
             self._show_article(self.article_path)
+        live = view.key in (OPERATIONS_VIEW_KEY, CHANGELOG_VIEW_KEY)
+        self.comment_panel.Show(view.key == OPERATIONS_VIEW_KEY)
+        if live:
+            view = self._with_live_cards(view)
         self._rebuild_cards(view)
         self._update_match_line(view)
         self._relayout()
+        if view.key == OPERATIONS_VIEW_KEY:
+            self._refresh_discussion_choices()
+
+    def _repo_root(self) -> str:
+        return str(repository_root())
+
+    def _with_live_cards(self, view: MemoryView) -> MemoryView:
+        """Prepend the live GitHub/git evidence card onto a live view.
+
+        The static cards after it stay exactly as written -- they explain what
+        an operation does and how the changelog is verified, which is true
+        whether or not ``gh`` can reach GitHub right now.  Only the top card
+        changes, from a fixed transcript to this machine's real state.
+        """
+        if view.key == OPERATIONS_VIEW_KEY:
+            card = self._live_operations_card()
+        else:
+            card = self._live_changelog_card()
+        return MemoryView(
+            key=view.key,
+            label=view.label,
+            glyph=view.glyph,
+            title=view.title,
+            subtitle=view.subtitle,
+            cards=(card,) + view.cards,
+        )
+
+    def _live_operations_card(self) -> MemoryCard:
+        """Fetch (or reuse) the live Operations snapshot and render it as a card."""
+        if self._operations_snapshot is None:
+            self._operations_snapshot = control_plane.fetch_operations_snapshot(
+                cwd=self._repo_root()
+            )
+        snapshot = self._operations_snapshot
+        rows: List[CardRow] = [
+            CardRow(name="Git status", detail=snapshot.git.summary(), tag="local"),
+        ]
+        if not snapshot.status.available:
+            rows.append(
+                CardRow(
+                    name="GitHub",
+                    detail=snapshot.status.reason,
+                    tag="unavailable",
+                )
+            )
+        else:
+            rows.append(
+                CardRow(
+                    name="Open issues",
+                    detail=(
+                        snapshot.issues_reason
+                        or f"{len(snapshot.issues)} open issue(s)"
+                    ),
+                    tag="live",
+                )
+            )
+            for issue in snapshot.issues[:8]:
+                rows.append(
+                    CardRow(
+                        name=f"#{issue.number} {issue.title}",
+                        detail=issue.updated_at,
+                        tag="issue",
+                        note=issue.url,
+                    )
+                )
+            rows.append(
+                CardRow(
+                    name="Workflow runs",
+                    detail=snapshot.runs_reason
+                    or f"{len(snapshot.runs)} observed run(s)",
+                    tag="live",
+                )
+            )
+            for run in snapshot.runs[:8]:
+                rows.append(
+                    CardRow(
+                        name=run.name,
+                        detail=f"{run.status} · {run.conclusion or 'pending'}",
+                        tag=run.branch,
+                        note=run.url,
+                    )
+                )
+            rows.append(
+                CardRow(
+                    name="Discussions",
+                    detail=(
+                        snapshot.discussions_reason
+                        or f"{len(snapshot.discussions)} observed"
+                    ),
+                    tag="live",
+                )
+            )
+            rows.append(
+                CardRow(
+                    name="Project items",
+                    detail=(
+                        snapshot.project_reason
+                        or f"{len(snapshot.project_items)} visible item(s)"
+                    ),
+                    tag="live",
+                )
+            )
+        return MemoryCard(
+            title="Live repository state",
+            span=12,
+            body=(
+                "Read just now through the local gh CLI."
+                if snapshot.status.available
+                else "gh could not be read; only local git status is shown."
+            ),
+            rows=tuple(rows),
+        )
+
+    def _live_changelog_card(self) -> MemoryCard:
+        """Fetch (or reuse) the live release list and render it as a card."""
+        if self._changelog_snapshot is None:
+            self._changelog_snapshot = control_plane.fetch_changelog_snapshot(
+                cwd=self._repo_root()
+            )
+        snapshot = self._changelog_snapshot
+        if not snapshot.status.available:
+            return MemoryCard(
+                title="Live release history",
+                span=12,
+                body=snapshot.status.reason,
+            )
+        releases = control_plane.filter_releases_by_date(
+            snapshot.releases, self._changelog_start, self._changelog_end
+        )
+        rows = [
+            CardRow(
+                name=release.name or release.tag,
+                detail=release.published_at[:10],
+                tag=release.source_commit()[:12] or "no commit found",
+                note=release.url,
+            )
+            for release in releases
+        ]
+        return MemoryCard(
+            title="Live release history",
+            span=12,
+            body=(
+                snapshot.reason
+                or f"{len(releases)} of {len(snapshot.releases)} published release(s) shown."
+            ),
+            rows=tuple(rows),
+        )
+
+    def _refresh_discussion_choices(self) -> None:
+        """Point the Discussion picker at the live list, once it is known."""
+        snapshot = self._operations_snapshot
+        if snapshot is None or not snapshot.status.available:
+            self.discussion_choice.set_options([])
+            return
+        labels = [f"#{d.number} {d.title}" for d in snapshot.discussions]
+        self._discussion_labels = {
+            f"#{d.number} {d.title}": d.node_id for d in snapshot.discussions
+        }
+        self.discussion_choice.set_options(labels)
+
+    def _on_discussion_chosen(self, label: str) -> None:
+        self._selected_discussion_id = getattr(self, "_discussion_labels", {}).get(
+            label, ""
+        )
+
+    def _on_comment_text(self, text: str) -> None:
+        self._discussion_body = str(text)
+
+    def post_discussion_comment(self) -> None:
+        """Post the typed body to the selected Discussion through gh.
+
+        This is the console's one write path: nothing here runs unless the
+        user picked a Discussion, typed a body, and pressed this button.  The
+        button disables for the request and the result -- success or refusal
+        -- always arrives as a reviewable notification.
+        """
+        if self._posting_comment:
+            return
+        discussion_id = self._selected_discussion_id
+        body = self._discussion_body
+        self._posting_comment = True
+        self.post_comment_button.Enable(False)
+
+        def work() -> control_plane.CommentResult:
+            return control_plane.post_discussion_comment(
+                discussion_id, body, cwd=self._repo_root()
+            )
+
+        def finish(result: control_plane.CommentResult) -> None:
+            self._posting_comment = False
+            self.post_comment_button.Enable(True)
+            self._notify(
+                "Post Discussion progress",
+                result.message,
+                severity="info" if result.ok else "warning",
+                details=result.url,
+            )
+            if result.ok:
+                self.comment_field.set_value("")
+                self._discussion_body = ""
+                self._operations_snapshot = None
+                if self.view_key == OPERATIONS_VIEW_KEY:
+                    wx.CallAfter(self.show_view, OPERATIONS_VIEW_KEY)
+
+        import threading
+
+        def runner() -> None:
+            result = work()
+            wx.CallAfter(finish, result)
+
+        threading.Thread(target=runner, daemon=True).start()
 
     def choose_domain(self, domain: str) -> None:
         """Filter the article list to one domain, or to all of them."""
