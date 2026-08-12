@@ -188,6 +188,48 @@ window, and now spawns and talks to the Python sidecar too: opening the app
 starts the sidecar, and the site's `theme` setting reads and writes through
 it for real.
 
+## Building a real installable artifact
+
+```bat
+build-electron.bat /s             :: bootstrap Node, npm install
+build-electron-installer.bat /s   :: package the unsigned Squirrel.Windows installer
+```
+
+Both scripts have been run end to end on a real Windows checkout, not merely
+written:
+
+- `build-electron.bat /s` bootstraps Node.js if missing, refreshes `PATH` in
+  the running process, and runs `npm ci`/`npm install`.
+- `build-electron-installer.bat /s` calls the above, refuses to proceed if
+  `electron/electron-builder.yml` enables any signing control, then runs
+  `electron-builder --config electron/electron-builder.yml` and verifies the
+  produced setup executable carries no Authenticode signer certificate.
+- The build writes `Setup.exe`, `RELEASES`, and the full `.nupkg` under
+  `dist/electron/squirrel-windows/`, and the script prints the setup
+  executable's path and SHA-256.
+
+**A real packaging defect was caught and fixed by running this end to end.**
+`electron/electron-builder.yml`'s `files` list originally named
+`electron/main.js` and `electron/preload.js` explicitly but not
+`electron/sidecar-client.js`, which `main.js` requires. The packaged
+`app.asar` therefore omitted a file the main process needs to start, so the
+packaged executable crashed before ever creating a window or opening its
+DevTools port — invisible in a dev run (`npm run electron:dev`, which reads
+`sidecar-client.js` straight off disk) and invisible to a script that only
+checks "did the installer get produced," since packaging itself succeeded.
+The fix widened the glob to `electron/*.js` so every same-level module main.js
+depends on ships with it.
+
+Verification that the **packaged** build (not the dev one) actually works:
+`scripts/verify_packaged_electron.js` launches
+`dist/electron/win-unpacked/Material Minecraft Map Editor.exe` headlessly
+with `--remote-debugging-port`, connects over the DevTools protocol, and
+asserts the loaded URL is the real `docs/site/index.html` served out of
+`app.asar`, that `document.title`/body text are non-empty, and that
+`window.mmweDesktop` (with its `sidecar` key) is exposed from the installed
+resource layout — a bridge that only worked from `electron/main.js` on the
+dev source tree and not from inside `app.asar` would be caught here.
+
 ## How the two processes talk (today, and what remains)
 
 **Today**, on every launch: `electron/main.js` spawns
