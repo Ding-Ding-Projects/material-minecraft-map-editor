@@ -46,7 +46,7 @@ from amulet_map_editor.api.wx.ui.local_history import LocalHistoryDialog
 from amulet_map_editor.api.wx.ui.tab_manager import TabManagerDialog
 from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
 from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
-from amulet_map_editor.api.wx.ui.notification_toast import NotificationToast
+from amulet_map_editor.api.wx.ui.notification_toast import NotificationToast, wrap_lines
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
 from amulet_map_editor.api.progress import FAILED, ProgressTask
 from .squirrel_update import (
@@ -185,6 +185,12 @@ class AmuletUI(wx.Frame):
         self._update_banner_text = wx.StaticText(self._update_banner)
         self._update_banner_text.SetName("Update notification message")
         self._update_banner_text.Wrap(620)
+        # The unwrapped source text.  ``wx.StaticText.Wrap`` silently stops
+        # rewrapping after its first call on wxWidgets 3.3.3 (see
+        # NotificationToast._rewrap), so every later resize measures its own
+        # breaks from this raw string instead of re-wrapping an already
+        # wrapped label.
+        self._update_banner_raw_text = ""
         self._update_banner_sizer.Add(
             self._update_banner_text, 0, wx.EXPAND | wx.BOTTOM, 8
         )
@@ -347,12 +353,53 @@ class AmuletUI(wx.Frame):
                 lambda: self._dismiss_notification(toast),
             )
 
+    def _fit_and_clamp_overlay_card(
+        self,
+        window: wx.Window,
+        min_width: int,
+        max_width: int,
+        manual_rewrap=None,
+    ) -> wx.Size:
+        """Return ``window``'s size once it fits its content at a clamped width.
+
+        Clamping a card's width with a bare ``SetSize`` and then reading
+        ``GetSize().height`` for stacking measures a height computed for the
+        *previous* width -- the label has not re-wrapped yet, or has just
+        re-wrapped to more lines, and either way the number read back is
+        stale. That stale height is exactly why two toasts could land in the
+        same place: the shorter, pre-wrap height was used to step up from the
+        one below it. This measures again after the width settles, so the
+        height that is actually stacked with is the height the card ends up
+        drawn at.
+        """
+        window.Fit()
+        size = window.GetSize()
+        target_width = min(max(size.width, min_width), max_width)
+        if target_width != size.width:
+            if manual_rewrap is not None:
+                manual_rewrap(target_width)
+            # For a NotificationToast this SetSize alone re-wraps its own
+            # text, synchronously, through the EVT_SIZE handler it binds to
+            # itself -- the same width change that grows a two-line bilingual
+            # message to three or four lines.
+            window.SetSize(wx.Size(target_width, size.height))
+            window.Layout()
+            window.Fit()
+            size = window.GetSize()
+            target_width = min(max(size.width, min_width), max_width)
+            if size.width != target_width:
+                window.SetSize(wx.Size(target_width, size.height))
+                size = window.GetSize()
+        return size
+
     def _position_notification_toasts(self) -> None:
         """Stack the live toasts up from the bottom-right of the interface.
 
         They are positioned, never laid out: a toast must not take space from
         the surface it is reporting about, and it must not move anything the
-        reader is currently looking at.
+        reader is currently looking at. The stack is re-clamped on every
+        call -- including a resize -- so nothing is ever pushed off the
+        bottom or the right of the window.
         """
         if self.IsBeingDeleted():
             return
@@ -362,18 +409,23 @@ class AmuletUI(wx.Frame):
         margin = 16
         width, height = shell.GetClientSize()
         bottom = height - margin
+        # However narrow the window gets, a card must still fit between the
+        # margins -- never wider than the client area it is floating over.
+        max_card_width = max(160, width - margin * 2)
 
         # The update card sits lowest so a burst of toasts never pushes a
         # standing offer off the bottom of the window.
         banner = getattr(self, "_update_banner", None)
         if banner is not None and banner.IsShown():
             try:
-                banner.Fit()
-                size = banner.GetSize()
-                banner_width = min(max(size.width, 320), max(320, width - margin * 2))
-                banner.SetSize(wx.Size(banner_width, size.height))
-                bottom -= size.height
-                banner.SetPosition(wx.Point(width - banner_width - margin, bottom))
+                size = self._fit_and_clamp_overlay_card(
+                    banner,
+                    min(320, max_card_width),
+                    max_card_width,
+                    manual_rewrap=self._rewrap_update_banner_text,
+                )
+                bottom = max(margin, bottom - size.height)
+                banner.SetPosition(wx.Point(width - size.width - margin, bottom))
                 bottom -= 8
                 banner.Raise()
             except RuntimeError:
@@ -383,12 +435,11 @@ class AmuletUI(wx.Frame):
             try:
                 if toast.IsBeingDeleted():
                     continue
-                toast.Fit()
-                size = toast.GetSize()
-                toast_width = min(max(size.width, 280), max(280, width - margin * 2))
-                toast.SetSize(wx.Size(toast_width, size.height))
-                bottom -= size.height
-                toast.SetPosition(wx.Point(width - toast_width - margin, bottom))
+                size = self._fit_and_clamp_overlay_card(
+                    toast, min(280, max_card_width), max_card_width
+                )
+                bottom = max(margin, bottom - size.height)
+                toast.SetPosition(wx.Point(width - size.width - margin, bottom))
                 bottom -= 8
                 toast.Raise()
             except RuntimeError:
@@ -1210,12 +1261,24 @@ class AmuletUI(wx.Frame):
         """Keep the side rail compact while preserving the editor viewport."""
 
         self._apply_tab_rail()
-        self._update_banner_text.Wrap(max(240, event.GetSize().width - 48))
+        self._rewrap_update_banner_text(max(288, event.GetSize().width - 32))
         self._update_banner.Layout()
         # A positioned overlay is not laid out by a sizer, so nothing else moves
         # it when the window resizes -- it would keep the width the shell had
         # when the operation started and hang off the edge or stop short of it.
         self._position_progress_overlay()
+        # The toast/banner stack is positioned, not laid out, for the same
+        # reason: nothing else re-clamps it on resize, so a shrink used to
+        # leave a card hanging off the right edge or the bottom of the window
+        # until the next unrelated reposition happened to run.
+        #
+        # Deferred with CallAfter rather than called here directly: this
+        # dynamically bound handler runs *before* wx's own built-in sizer
+        # layout for this frame, which only happens once ``event.Skip()``
+        # below hands the event on. Reading ``self._shell.GetClientSize()``
+        # right now would read the size the shell had before this resize --
+        # the stack would be clamped to where the window used to end.
+        wx.CallAfter(self._position_notification_toasts)
         event.Skip()
 
     def _open_command_palette(self, _event=None) -> None:
@@ -1544,11 +1607,31 @@ class AmuletUI(wx.Frame):
         self._update_banner.Hide()
         self._position_notification_toasts()
 
+    def _rewrap_update_banner_text(self, card_width: int | None = None) -> None:
+        """Re-flow the banner's title and body for the width it now has.
+
+        Measured with :func:`wrap_lines` rather than repeated
+        ``wx.StaticText.Wrap`` calls, which stop rewrapping after the first
+        one on wxWidgets 3.3.3 -- the exact bug that left "Choose Stage
+        avai..." clipped mid-word instead of wrapping to a second line.
+        """
+        text = self._update_banner_raw_text
+        if not text:
+            return
+        if card_width is None:
+            card_width = self._update_banner.GetSize().width
+        available = max(160, card_width - 48)
+        dc = wx.ClientDC(self._update_banner_text)
+        lines = wrap_lines(dc, self._update_banner_text.GetFont(), text, available)
+        self._update_banner_text.SetLabel("\n".join(lines))
+        self._update_banner_text.InvalidateBestSize()
+
     def _render_update_banner(self, state: SquirrelUpdateState) -> None:
         title, body = update_copy.update_copy(
             state.status, version=state.version, detail=state.detail
         )
-        self._update_banner_text.SetLabel(f"{title}\n{body}")
+        self._update_banner_raw_text = f"{title}\n{body}"
+        self._rewrap_update_banner_text()
         action_label, later_label = update_copy.action_labels(state.status)
         self._update_banner_action.SetLabel(action_label)
         self._update_banner_later.SetLabel(later_label)

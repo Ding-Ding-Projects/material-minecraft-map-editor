@@ -39,6 +39,47 @@ PADDING = 12
 BUTTON_GAP = 8
 
 
+def wrap_lines(dc: wx.DC, font: wx.Font, text: str, available: int) -> list[str]:
+    """Return ``text`` broken into lines no wider than ``available``.
+
+    A standalone function rather than a method, so any surface that owns a
+    :class:`wx.StaticText` and needs correct re-wrapping can measure with its
+    own device context instead of going through ``wx.StaticText.Wrap`` --
+    which on wxWidgets 3.3.3 does nothing on a second call once the label has
+    already been wrapped once, per :meth:`NotificationToast._rewrap`.  A word
+    wider than the whole line is broken across lines by character rather than
+    left to hang off the right-hand edge.
+    """
+    dc.SetFont(font)
+    limit = max(1, available)
+    lines: list[str] = []
+    for paragraph in str(text).split("\n"):
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        current = ""
+        for word in words:
+            while dc.GetTextExtent(word)[0] > limit and len(word) > 1:
+                cut = len(word)
+                while cut > 1 and dc.GetTextExtent(word[:cut])[0] > limit:
+                    cut -= 1
+                if current:
+                    lines.append(current)
+                    current = ""
+                lines.append(word[:cut])
+                word = word[cut:]
+            candidate = f"{current} {word}" if current else word
+            if not current or dc.GetTextExtent(candidate)[0] <= limit:
+                current = candidate
+                continue
+            lines.append(current)
+            current = word
+        if current:
+            lines.append(current)
+    return lines or [""]
+
+
 class NotificationToast(wx.Panel):
     """A bounded toast that never steals focus or blocks the active surface."""
 
@@ -153,34 +194,7 @@ class NotificationToast(wx.Panel):
         a toast with no way to read the rest of it.
         """
         dc = wx.ClientDC(self)
-        dc.SetFont(self._message.GetFont())
-        limit = max(1, available)
-        lines: list[str] = []
-        for paragraph in str(text).split("\n"):
-            words = paragraph.split()
-            if not words:
-                lines.append("")
-                continue
-            current = ""
-            for word in words:
-                while dc.GetTextExtent(word)[0] > limit and len(word) > 1:
-                    cut = len(word)
-                    while cut > 1 and dc.GetTextExtent(word[:cut])[0] > limit:
-                        cut -= 1
-                    if current:
-                        lines.append(current)
-                        current = ""
-                    lines.append(word[:cut])
-                    word = word[cut:]
-                candidate = f"{current} {word}" if current else word
-                if not current or dc.GetTextExtent(candidate)[0] <= limit:
-                    current = candidate
-                    continue
-                lines.append(current)
-                current = word
-            if current:
-                lines.append(current)
-        return lines or [""]
+        return wrap_lines(dc, self._message.GetFont(), text, available)
 
     def wrapped_body(self, available: int) -> str:
         """Return the body wrapped to ``available`` and bounded in height.
@@ -212,4 +226,4 @@ class NotificationToast(wx.Panel):
             callback(self)
 
 
-__all__ = ["NotificationToast", "MAX_BODY_LINES"]
+__all__ = ["NotificationToast", "MAX_BODY_LINES", "wrap_lines"]
