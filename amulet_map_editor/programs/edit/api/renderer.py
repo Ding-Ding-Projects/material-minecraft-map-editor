@@ -1,3 +1,5 @@
+import time
+import threading
 from typing import TYPE_CHECKING, Optional
 import wx
 from OpenGL.GL import (
@@ -8,7 +10,11 @@ from OpenGL.GL import (
 
 from amulet.api.data_types import Dimension
 
-from amulet_map_editor.api.opengl.camera import Projection
+from amulet_map_editor.api.opengl.camera import (
+    Projection,
+    EVT_PROJECTION_CHANGED,
+    EVT_SPEED_CHANGED,
+)
 from amulet_map_editor.api.opengl.mesh.level import RenderLevel
 from amulet_map_editor.api.opengl.mesh.level_group import LevelGroup
 from amulet_map_editor.api.opengl.mesh.sky_box import SkyBox
@@ -20,8 +26,18 @@ from .events import (
     DimensionChangeEvent,
     CameraMovedEvent,
     EVT_CAMERA_MOVED,
+    EVT_TOOL_CHANGE,
+    EVT_SELECTION_CHANGE,
     PreDrawEvent,
 )
+
+#: How often the renderer redraws while nothing has actually changed. This is
+#: the "idle floor": low enough that anything which alters the viewport
+#: without going through :meth:`Renderer.mark_dirty` (a resource pack finishing
+#: an unrelated load, for instance) still reaches the screen quickly, but far
+#: below the interactive draw rate so a genuinely still camera does not spend
+#: CPU and GPU time repainting an unchanged picture 66 times a second.
+_IDLE_REDRAW_INTERVAL = 0.25
 
 if TYPE_CHECKING:
     from amulet_map_editor.programs.edit.api.canvas import EditCanvas
@@ -39,6 +55,8 @@ class Renderer(EditCanvasContainer):
         "_sky_box",
         "_draw_timer",
         "_gc_timer",
+        "_dirty",
+        "_last_draw_time",
     )
 
     _sky_box: Optional[SkyBox]
@@ -72,6 +90,12 @@ class Renderer(EditCanvasContainer):
         self._draw_timer = wx.Timer(self.canvas)
         self._gc_timer = wx.Timer(self.canvas)
 
+        # Set so the very first tick after enabling always draws: there is
+        # nothing on screen yet and nothing to compare against.
+        self._dirty = threading.Event()
+        self._dirty.set()
+        self._last_draw_time = time.monotonic()
+
     def bind_events(self):
         """Set up all events required to run."""
         self.canvas.Bind(wx.EVT_TIMER, self._gc, self._gc_timer)
@@ -81,6 +105,14 @@ class Renderer(EditCanvasContainer):
             self._draw_timer,
         )
         self.canvas.Bind(EVT_CAMERA_MOVED, self._on_camera_moved)
+        # A projection switch (perspective/orthographic) or a fly-speed change
+        # does not move the camera itself but does change what the next frame
+        # must show, and neither goes through ``_on_camera_moved``.
+        self.canvas.Bind(EVT_PROJECTION_CHANGED, self._on_view_changed)
+        self.canvas.Bind(EVT_SPEED_CHANGED, self._on_view_changed)
+        self.canvas.Bind(EVT_TOOL_CHANGE, self._on_view_changed)
+        self.canvas.Bind(EVT_SELECTION_CHANGE, self._on_view_changed)
+        self.canvas.Bind(wx.EVT_SIZE, self._on_view_changed)
         self.canvas.Bind(wx.EVT_WINDOW_DESTROY, self._on_destroy, self.canvas)
 
     def enable(self):
@@ -118,7 +150,14 @@ class Renderer(EditCanvasContainer):
         """Start the generation of new chunk geometry."""
         self.render_world.enable()
         self.fake_levels.enable()
+        # The chunk generator runs on its own background thread and finishes
+        # chunk meshes without going through any wx event. Give it a plain
+        # thread-safe callback so a freshly meshed chunk marks a redraw as
+        # needed, rather than relying solely on the idle floor to notice it.
+        self.render_world.on_chunk_loaded = self.mark_dirty
+        self.fake_levels.on_chunk_loaded = self.mark_dirty
         self._chunk_generator.start()
+        self.mark_dirty()
         self._draw_timer.Start(15)
         self._gc_timer.Start(10000)
 
@@ -170,6 +209,7 @@ class Renderer(EditCanvasContainer):
             self.render_world.dimension = dimension
             wx.PostEvent(self.canvas, DimensionChangeEvent(dimension=dimension))
             self.enable_threads()
+            self.mark_dirty()
 
     @property
     def render_distance(self) -> int:
@@ -186,7 +226,27 @@ class Renderer(EditCanvasContainer):
     def _on_camera_moved(self, evt: CameraMovedEvent):
         """The camera has moved. Update each class's camera state."""
         self.move_camera(evt.camera_location, evt.camera_rotation)
+        self.mark_dirty()
         evt.Skip()
+
+    def _on_view_changed(self, evt: wx.Event):
+        """Something other than the camera changed what the viewport shows.
+
+        Covers the projection mode, fly speed, active tool, selection, and
+        window size -- none of which move the camera, but all of which
+        change the next frame.
+        """
+        self.mark_dirty()
+        evt.Skip()
+
+    def mark_dirty(self):
+        """Flag that the viewport must be redrawn on the next timer tick.
+
+        Thread-safe: called from the UI thread by camera/tool/selection/
+        resize handlers, and from the background chunk-generation thread
+        when a chunk finishes meshing.
+        """
+        self._dirty.set()
 
     def move_camera(self, location, rotation):
         # TODO: add combined methods
@@ -199,6 +259,22 @@ class Renderer(EditCanvasContainer):
         self.sky_box.set_camera_location(location)
 
     def _do_draw(self, evt):
+        """Redraw the viewport, but only when there is a reason to.
+
+        The timer ticks at the full interactive rate (roughly 66Hz) so that
+        genuine motion -- an orbiting camera, streaming chunks -- stays
+        smooth. When nothing has flagged the view as dirty since the last
+        draw, most ticks do nothing at all: no event posted, no ``Refresh``,
+        no GL work. A slow idle floor still fires so anything that changes
+        the view without going through :meth:`mark_dirty` reaches the screen
+        within a fraction of a second rather than never.
+        """
+        now = time.monotonic()
+        if self._dirty.is_set():
+            self._dirty.clear()
+        elif now - self._last_draw_time < _IDLE_REDRAW_INTERVAL:
+            return
+        self._last_draw_time = now
         wx.PostEvent(self.canvas, PreDrawEvent())
         self.canvas.Refresh(False)
 

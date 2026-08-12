@@ -73,6 +73,10 @@ class RenderLevel(OpenGLResourcePackManager, Drawable, ThreadedObject, ContextMa
         )
         self._chunk_rebuilds = self._rebuild_generator()
         self._rebuild_time = 0
+        # Called from the background chunk-generation thread whenever a
+        # chunk finishes meshing, so a caller can flag the viewport dirty
+        # without this class knowing anything about wx or the renderer.
+        self.on_chunk_loaded: Optional[Any] = None
 
     @property
     def level(self) -> "BaseLevel":
@@ -173,6 +177,8 @@ class RenderLevel(OpenGLResourcePackManager, Drawable, ThreadedObject, ContextMa
                 )
 
             self.chunk_manager.add_render_chunk(chunk)
+            if self.on_chunk_loaded is not None:
+                self.on_chunk_loaded()
 
         t = time.time()
         if t > self._rebuild_time + 1:

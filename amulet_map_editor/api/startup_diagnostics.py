@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import logging
 import platform
-import subprocess
 import sys
 from typing import Optional, Sequence, Tuple
+
+from amulet_map_editor.api import process
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def _git_commit(repo_root: Optional[str] = None) -> Optional[str]:
     the build.
     """
     try:
-        result = subprocess.run(
+        result = process.run(
             ["git", "rev-parse", "--short", "HEAD"],
             cwd=repo_root,
             capture_output=True,

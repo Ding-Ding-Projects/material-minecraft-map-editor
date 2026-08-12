@@ -52,6 +52,26 @@ class LevelGroup(
         self._is_mirrored: List[bool] = []
         self._active_level_index: Optional[int] = None
         self._camera_location: LocationType = (0.0, 100.0, 0.0)
+        # Called whenever any member level finishes meshing a chunk. Set by
+        # a caller (the renderer) after construction; forwarded to every
+        # member RenderLevel (present and future, see ``register``) so its
+        # own chunk-loaded callback fires this one.
+        self._on_chunk_loaded: Optional[Any] = None
+
+    @property
+    def on_chunk_loaded(self) -> Optional[Any]:
+        return self._on_chunk_loaded
+
+    @on_chunk_loaded.setter
+    def on_chunk_loaded(self, callback: Optional[Any]):
+        self._on_chunk_loaded = callback
+        for level in self._objects:
+            level.on_chunk_loaded = callback
+
+    def register(self, thread_object):
+        super().register(thread_object)
+        if hasattr(thread_object, "on_chunk_loaded"):
+            thread_object.on_chunk_loaded = self._on_chunk_loaded
 
     @property
     def active_level_index(self) -> Optional[int]:
