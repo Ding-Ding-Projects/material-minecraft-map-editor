@@ -789,9 +789,9 @@ class PropertyRow(wx.Control):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(12)))
+        dc.SetFont(tokens.font_px(self, point_size(12)))
         label_width, label_height = dc.GetTextExtent(self.label or " ")
-        dc.SetFont(tokens.mono_font(self, point_size(12)))
+        dc.SetFont(tokens.mono_font_px(self, point_size(12)))
         value_width, value_height = dc.GetTextExtent(self.value or " ")
         return wx.Size(
             label_width + value_width + tokens.scaled(self.PADDING_X * 2 + 10),
@@ -863,14 +863,14 @@ class PropertyRow(wx.Control):
             palette.outline_variant,
         )
         inset = tokens.scaled(self.PADDING_X)
-        dc.SetFont(tokens.mono_font(self, point_size(12)))
+        dc.SetFont(tokens.mono_font_px(self, point_size(12)))
         value = elide(dc, self.value, max(0, width - inset * 2))
         value_width = dc.GetTextExtent(value)[0]
         dc.SetTextForeground(palette.on_surface)
         dc.DrawText(
             value, width - inset - value_width, (height - dc.GetCharHeight()) // 2
         )
-        dc.SetFont(tokens.font(self, point_size(12)))
+        dc.SetFont(tokens.font_px(self, point_size(12)))
         dc.SetTextForeground(palette.on_surface_variant)
         available = max(0, width - inset * 2 - value_width - tokens.scaled(10))
         dc.DrawText(
@@ -971,12 +971,12 @@ class RevisionRow(wx.Panel):
         dc.DrawEllipse(left, top, dot, dot)
         text_left = left + dot + tokens.scaled(10)
         available = max(0, width - text_left - tokens.scaled(11))
-        dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, point_size(12), _MEDIUM))
         dc.SetTextForeground(palette.on_surface)
         dc.DrawText(
             elide(dc, self.revision.message, available), text_left, tokens.scaled(10)
         )
-        dc.SetFont(tokens.mono_font(self, point_size(11)))
+        dc.SetFont(tokens.mono_font_px(self, point_size(11)))
         dc.SetTextForeground(palette.on_surface_variant)
         dc.DrawText(
             elide(dc, self.revision.meta, available),
@@ -2683,7 +2683,7 @@ class PropertiesPane(wx.Panel):
         # label that stops re-measuring when the scale moves.
         self.notes_field.SetBackgroundColour(palette.surface)
         self.notes_field.SetForegroundColour(palette.on_surface)
-        self.notes_field.SetFont(tokens.font(self, point_size(12)))
+        self.notes_field.SetFont(tokens.font_px(self, point_size(12)))
 
     def refresh_theme(self) -> None:
         """Re-read the palette for the pane and every row in it."""

@@ -131,7 +131,7 @@ class _TabButton(widgets.StudioButton):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with widgets.measuring(self) as dc:
-            dc.SetFont(tokens.font(self, widgets.point_size(13), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, widgets.point_size(13), _MEDIUM))
             padding = tokens.scaled(18 if self.emphasis == "filled" else 16)
             lines = [line for line in self.GetLabel().split("\n") if line] or [" "]
             width = (
@@ -187,7 +187,7 @@ class _TabButton(widgets.StudioButton):
                 if self.emphasis in ("filled", "active")
                 else wx.FONTWEIGHT_NORMAL
             )
-            dc.SetFont(tokens.font(self, widgets.point_size(13), weight))
+            dc.SetFont(tokens.font_px(self, widgets.point_size(13), weight))
             dc.SetTextForeground(ink)
             lines = [line for line in self.GetLabel().split("\n") if line] or [" "]
             available = max(0, width - tokens.scaled(12))

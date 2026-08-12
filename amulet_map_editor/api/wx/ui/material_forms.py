@@ -157,7 +157,7 @@ class MaterialTextField(wx.Panel, _Themed):
         if self._multiline:
             height = tokens.scaled(self.LABEL_TOP) + tokens.scaled(self.BOX_HEIGHT * 2)
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(11)))
+            dc.SetFont(tokens.font_px(self, point_size(11)))
             label_width = dc.GetTextExtent(self.label or " ")[0]
         width = min(
             tokens.scaled(self.MAX_WIDTH),
@@ -306,7 +306,7 @@ class MaterialTextField(wx.Panel, _Themed):
                 if self.IsEnabled()
                 else tokens.blend(palette.on_surface_variant, palette.surface, 0.45)
             )
-            text.SetFont(tokens.font(self, point_size(13), mono=self._mono))
+            text.SetFont(tokens.font_px(self, point_size(13), mono=self._mono))
 
     def _backdrop(self) -> wx.Colour:
         return self.GetBackgroundColour()
@@ -332,7 +332,7 @@ class MaterialTextField(wx.Panel, _Themed):
             )
             if not self.label:
                 return
-            dc.SetFont(tokens.font(self, point_size(11)))
+            dc.SetFont(tokens.font_px(self, point_size(11)))
             label = elide(dc, self.label, max(0, box.width - tokens.scaled(30)))
             widgets.note_elision(self, self.label, label)
             label_width, label_height = dc.GetTextExtent(label)
@@ -545,7 +545,7 @@ class MaterialSlider(wx.Control, _Interactive):
         height = tokens.scaled(self.HEIGHT)
         if self.show_labels:
             with measuring(self) as dc:
-                dc.SetFont(tokens.font(self, point_size(11)))
+                dc.SetFont(tokens.font_px(self, point_size(11)))
                 height += dc.GetCharHeight() + tokens.scaled(self.LABEL_GAP)
         return wx.Size(tokens.scaled(180), height)
 
@@ -711,7 +711,7 @@ class MaterialSlider(wx.Control, _Interactive):
             # the reading sits on top of the end label it has reached, and the
             # two overlapped into an unreadable smear -- a slider at maximum
             # read "55" for a value of 5 on a scale ending at 5.
-            dc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
+            dc.SetFont(tokens.mono_font_px(self, point_size(12), _MEDIUM))
             dc.SetTextForeground(palette.primary if enabled else palette.outline)
             reading = f"{self._value}{self.suffix}"
             reading_width = dc.GetTextExtent(reading)[0]
@@ -720,7 +720,7 @@ class MaterialSlider(wx.Control, _Interactive):
             )
             dc.DrawText(reading, reading_x, baseline)
             gap = tokens.scaled(8)
-            dc.SetFont(tokens.font(self, point_size(11)))
+            dc.SetFont(tokens.font_px(self, point_size(11)))
             dc.SetTextForeground(palette.on_surface_variant)
             low = f"{self.minimum}{self.suffix}"
             high = f"{self.maximum}{self.suffix}"
@@ -1017,7 +1017,7 @@ class MaterialListBox(wx.Control, _Interactive):
             )
             padding = tokens.scaled(self.PADDING)
             row_height = self._row_height()
-            dc.SetFont(tokens.font(self, point_size(12)))
+            dc.SetFont(tokens.font_px(self, point_size(12)))
             if not self._items:
                 dc.SetTextForeground(palette.on_surface_variant)
                 dc.DrawText("No entries yet", padding, padding)

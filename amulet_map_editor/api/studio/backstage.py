@@ -199,7 +199,7 @@ def _fit_owner_drawn(window: wx.Window) -> None:
             if not label:
                 continue
             is_chip = isinstance(control, widgets.Chip)
-            font = tokens.font(
+            font = tokens.font_px(
                 control, widgets.point_size(14 if is_chip else 13), _MEDIUM
             )
             measuring.SetFont(font)
@@ -555,7 +555,7 @@ class _Text(wx.Control):
         return self._text.upper() if self._uppercase else self._text
 
     def _font(self) -> wx.Font:
-        return tokens.font(
+        return tokens.font_px(
             self, widgets.point_size(self._size_px), self._weight, mono=self._mono
         )
 
@@ -710,7 +710,7 @@ class _RailButton(_HoverControl):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(14)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(14)))
         lines = self.label.split("\n") or [""]
         width = max(dc.GetTextExtent(line or " ")[0] for line in lines)
         leading = _line_height(dc, 14, 1.3)
@@ -745,7 +745,7 @@ class _RailButton(_HoverControl):
         tokens.draw_round_rect(gcdc, rect, _px(self.RADIUS), fill, None)
         gcdc.SetTextForeground(ink)
         glyph = self.glyph
-        gcdc.SetFont(tokens.font(self, widgets.point_size(14)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(14)))
         glyph_width = gcdc.GetTextExtent(glyph)[0] if glyph else 0
         column = _px(self.GLYPH_COLUMN)
         left = _px(self.PADDING)
@@ -755,7 +755,7 @@ class _RailButton(_HoverControl):
                 left + max(0, (column - glyph_width) // 2),
                 (height - gcdc.GetCharHeight()) // 2,
             )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(14), weight))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(14), weight))
         text_left = left + column + _px(self.GAP)
         available = max(0, width - text_left - _px(self.PADDING))
         lines = self.label.split("\n") or [""]
@@ -887,14 +887,14 @@ class _TemplateCard(_HoverControl):
 
     def _body_height(self, dc: wx.DC) -> int:
         available = max(0, self._width - _px(self.PADDING_X * 2))
-        dc.SetFont(tokens.font(self, widgets.point_size(14), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(14), _MEDIUM))
         title_lines = (
             widgets.wrap_text(dc, self.title, available, max_lines=3)
             if available
             else self.title.split("\n")
         )
         title_height = _line_height(dc, 14, 1.3) * len(title_lines)
-        dc.SetFont(tokens.font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         hint_lines = (
             widgets.wrap_text(dc, self.hint, available, max_lines=4)
             if available
@@ -916,63 +916,82 @@ class _TemplateCard(_HoverControl):
         )
 
     def _on_paint(self, _event: wx.PaintEvent) -> None:
-        palette = tokens.palette()
         dc, gcdc = widgets.paint_context(self, self.backdrop())
         width, height = self.GetClientSize()
-        rect = wx.Rect(0, 0, width, height)
-        radius = _px(self.RADIUS)
-        border = (
-            palette.primary
-            if (self._hovered or self._pressed)
-            else palette.outline_variant
-        )
-        tokens.draw_round_rect(gcdc, rect, radius, palette.surface_container, None)
-        header = wx.Rect(0, 0, width, _px(self.HEADER))
-        context = gcdc.GetGraphicsContext()
-        if context is not None:
-            _fill_rounded_top(
-                context,
-                header,
-                radius,
-                palette.primary_container,
-                palette.surface_container_high,
-            )
-        else:  # pragma: no cover - backend without a graphics context
-            dc.GradientFillLinear(
-                header,
-                palette.primary_container,
-                palette.surface_container_high,
-                wx.SOUTH,
-            )
-        gcdc.SetPen(wx.Pen(palette.outline_variant))
-        gcdc.DrawLine(0, header.height, width, header.height)
-        glyph = self.template.glyph
-        gcdc.SetFont(tokens.font(self, widgets.point_size(26)))
-        gcdc.SetTextForeground(palette.on_primary_container)
-        glyph_width, glyph_height = gcdc.GetTextExtent(glyph)
-        gcdc.DrawText(
-            glyph, (width - glyph_width) // 2, (header.height - glyph_height) // 2
-        )
-        available = max(0, width - _px(self.PADDING_X * 2))
-        left = _px(self.PADDING_X)
-        y = header.height + _px(self.PADDING_TOP)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(14), _MEDIUM))
-        gcdc.SetTextForeground(palette.on_surface)
-        leading = _line_height(gcdc, 14, 1.3)
-        for line in widgets.wrap_text(gcdc, self.title, available, max_lines=3):
-            gcdc.DrawText(line, left, y)
-            y += leading
-        y += _px(4)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
-        gcdc.SetTextForeground(palette.on_surface_variant)
-        leading = _line_height(gcdc, 12, 1.45)
-        for line in widgets.wrap_text(gcdc, self.hint, available, max_lines=4):
-            gcdc.DrawText(line, left, y)
-            y += leading
-        tokens.draw_round_rect(gcdc, rect, radius, None, border)
-        if self.HasFocus():
-            widgets.draw_focus_ring(gcdc, rect, radius, palette.primary)
+        self.render_to(gcdc, wx.Rect(0, 0, width, height))
         del gcdc
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw this card's whole appearance into ``dc`` at ``rect``.
+
+        Shared by the on-screen paint handler above and a headless capture
+        calling it directly: a card that only knew how to draw itself inside
+        ``_on_paint`` photographed as an empty backdrop on a hidden desktop,
+        because that route never fires a paint event. Routing both through
+        this one method is what keeps a capture and a running window unable
+        to disagree.
+        """
+        palette = tokens.palette()
+        with widgets.translated(dc, rect):
+            gcdc = dc
+            width, height = rect.width, rect.height
+            local = wx.Rect(0, 0, width, height)
+            radius = _px(self.RADIUS)
+            border = (
+                palette.primary
+                if (self._hovered or self._pressed)
+                else palette.outline_variant
+            )
+            tokens.draw_round_rect(
+                gcdc, local, radius, palette.surface_container, None
+            )
+            header = wx.Rect(0, 0, width, _px(self.HEADER))
+            context = gcdc.GetGraphicsContext()
+            if context is not None:
+                _fill_rounded_top(
+                    context,
+                    header,
+                    radius,
+                    palette.primary_container,
+                    palette.surface_container_high,
+                )
+            else:  # pragma: no cover - backend without a graphics context
+                gcdc.GradientFillLinear(
+                    header,
+                    palette.primary_container,
+                    palette.surface_container_high,
+                    wx.SOUTH,
+                )
+            gcdc.SetPen(wx.Pen(palette.outline_variant))
+            gcdc.DrawLine(0, header.height, width, header.height)
+            glyph = self.template.glyph
+            gcdc.SetFont(tokens.font_px(self, widgets.point_size(26)))
+            gcdc.SetTextForeground(palette.on_primary_container)
+            glyph_width, glyph_height = gcdc.GetTextExtent(glyph)
+            gcdc.DrawText(
+                glyph,
+                (width - glyph_width) // 2,
+                (header.height - glyph_height) // 2,
+            )
+            available = max(0, width - _px(self.PADDING_X * 2))
+            left = _px(self.PADDING_X)
+            y = header.height + _px(self.PADDING_TOP)
+            gcdc.SetFont(tokens.font_px(self, widgets.point_size(14), _MEDIUM))
+            gcdc.SetTextForeground(palette.on_surface)
+            leading = _line_height(gcdc, 14, 1.3)
+            for line in widgets.wrap_text(gcdc, self.title, available, max_lines=3):
+                gcdc.DrawText(line, left, y)
+                y += leading
+            y += _px(4)
+            gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
+            gcdc.SetTextForeground(palette.on_surface_variant)
+            leading = _line_height(gcdc, 12, 1.45)
+            for line in widgets.wrap_text(gcdc, self.hint, available, max_lines=4):
+                gcdc.DrawText(line, left, y)
+                y += leading
+            tokens.draw_round_rect(gcdc, local, radius, None, border)
+            if self.HasFocus():
+                widgets.draw_focus_ring(gcdc, local, radius, palette.primary)
 
 
 # ---------------------------------------------------------------------------
@@ -1029,7 +1048,7 @@ class _RecentHeader(wx.Control):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(11), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(11), _MEDIUM))
         lines = max(len(label.split("\n")) for label in self.labels)
         return wx.Size(_px(200), _line_height(dc, 11, 1.35) * lines + _px(20))
 
@@ -1042,7 +1061,7 @@ class _RecentHeader(wx.Control):
         gcdc.DrawRectangle(0, 0, width, height)
         gcdc.SetPen(wx.Pen(palette.outline_variant))
         gcdc.DrawLine(0, height - 1, width, height - 1)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(11), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(11), _MEDIUM))
         gcdc.SetTextForeground(palette.on_surface_variant)
         leading = _line_height(gcdc, 11, 1.35)
         tracking = _px(0.6)
@@ -1101,10 +1120,10 @@ class _RecentRow(_HoverControl):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(14), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(14), _MEDIUM))
         name_lines = len(self.entry.name.split("\n"))
         height = _line_height(dc, 14, 1.3) * name_lines
-        dc.SetFont(tokens.font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         height += _line_height(dc, 12, 1.35)
         return wx.Size(
             _px(200), max(tokens.control_height() + _px(16), height + _px(24))
@@ -1182,14 +1201,14 @@ class _RecentRow(_HoverControl):
         columns = _recent_columns(width)
         entry = self.entry
         # pin
-        gcdc.SetFont(tokens.font(self, widgets.point_size(14)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(14)))
         gcdc.SetTextForeground(palette.primary)
         gcdc.DrawText(
             entry.pin_glyph(), columns[0][0], (height - gcdc.GetCharHeight()) // 2
         )
         # name and kind
         x, column = columns[1]
-        gcdc.SetFont(tokens.font(self, widgets.point_size(14), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(14), _MEDIUM))
         gcdc.SetTextForeground(palette.on_surface)
         name_leading = _line_height(gcdc, 14, 1.3)
         detail_leading = _line_height(gcdc, 12, 1.35)
@@ -1199,12 +1218,12 @@ class _RecentRow(_HoverControl):
         for line in name_lines:
             gcdc.DrawText(widgets.elide(gcdc, line, column), x, y)
             y += name_leading
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         gcdc.DrawText(widgets.elide(gcdc, entry.kind or "Project", column), x, y)
         # platform
         x, column = columns[2]
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         middle = (height - gcdc.GetCharHeight()) // 2
         gcdc.DrawText(
             widgets.elide(gcdc, entry.platform or "Platform not recorded", column),
@@ -1213,7 +1232,7 @@ class _RecentRow(_HoverControl):
         )
         # location, in the monospaced face every path uses
         x, column = columns[3]
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(12)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(12)))
         gcdc.DrawText(
             widgets.elide(gcdc, entry.path or "No path recorded", column),
             x,
@@ -1221,7 +1240,7 @@ class _RecentRow(_HoverControl):
         )
         # opened
         x, column = columns[4]
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         gcdc.DrawText(
             widgets.elide(gcdc, entry.opened_label(), column),
             x,
@@ -1489,14 +1508,14 @@ class _SourceRow(_HoverControl):
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
         available = self._text_width()
-        dc.SetFont(tokens.font(self, widgets.point_size(15), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(15), _MEDIUM))
         title_lines = (
             widgets.wrap_text(dc, self.title, available, max_lines=3)
             if available
             else self.title.split("\n")
         )
         height = _line_height(dc, 15, 1.3) * len(title_lines) + _px(3)
-        dc.SetFont(tokens.font(self, widgets.point_size(13)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         hint_lines = (
             widgets.wrap_text(dc, self.hint, available, max_lines=4)
             if available
@@ -1535,7 +1554,7 @@ class _SourceRow(_HoverControl):
         )
         tokens.draw_round_rect(gcdc, tile, _px(10), palette.primary_container, None)
         glyph = self.source.glyph
-        gcdc.SetFont(tokens.font(self, widgets.point_size(17)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(17)))
         gcdc.SetTextForeground(palette.on_primary_container)
         glyph_width, glyph_height = gcdc.GetTextExtent(glyph)
         gcdc.DrawText(
@@ -1545,28 +1564,28 @@ class _SourceRow(_HoverControl):
         )
         left = tile.x + tile.width + _px(self.GAP)
         available = self._text_width()
-        gcdc.SetFont(tokens.font(self, widgets.point_size(15), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(15), _MEDIUM))
         title_lines = widgets.wrap_text(gcdc, self.title, available, max_lines=3)
         title_leading = _line_height(gcdc, 15, 1.3)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         hint_lines = widgets.wrap_text(gcdc, self.hint, available, max_lines=4)
         hint_leading = _line_height(gcdc, 13, 1.45)
         total = (
             title_leading * len(title_lines) + _px(3) + hint_leading * len(hint_lines)
         )
         y = max(_px(self.PADDING), (height - total) // 2)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(15), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(15), _MEDIUM))
         gcdc.SetTextForeground(palette.on_surface)
         for line in title_lines:
             gcdc.DrawText(line, left, y)
             y += title_leading
         y += _px(3)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         for line in hint_lines:
             gcdc.DrawText(line, left, y)
             y += hint_leading
-        gcdc.SetFont(tokens.font(self, widgets.point_size(18)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(18)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         chevron = "›"
         chevron_width, chevron_height = gcdc.GetTextExtent(chevron)
@@ -1618,7 +1637,7 @@ class _Advisory(wx.Control):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(13)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         available = self._text_width()
         self._lines = (
             widgets.wrap_text(dc, self.text, available, max_lines=8)
@@ -1642,7 +1661,7 @@ class _Advisory(wx.Control):
         gcdc.SetBrush(wx.Brush(palette.error))
         gcdc.SetPen(wx.TRANSPARENT_PEN)
         gcdc.DrawRectangle(0, _px(4), _px(self.EDGE), max(0, height - _px(8)))
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         gcdc.SetTextForeground(palette.on_surface)
         leading = _line_height(gcdc, 13, 1.55)
         left = _px(self.EDGE) + _px(self.PADDING_X)
@@ -1717,7 +1736,7 @@ class _InfoRow(wx.Control):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, widgets.point_size(13)))
+        dc.SetFont(tokens.mono_font_px(self, widgets.point_size(13)))
         available = self._value_width()
         lines = (
             widgets.wrap_text(dc, self.value, available, max_lines=4)
@@ -1725,7 +1744,7 @@ class _InfoRow(wx.Control):
             else [self.value]
         )
         value_height = _line_height(dc, 13, 1.4) * len(lines)
-        dc.SetFont(tokens.font(self, widgets.point_size(13)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         label_height = _line_height(dc, 13, 1.4) * len(self.label.split("\n"))
         return wx.Size(
             max(_px(320), self._width),
@@ -1747,7 +1766,7 @@ class _InfoRow(wx.Control):
             palette.surface_container,
             palette.outline_variant,
         )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         leading = _line_height(gcdc, 13, 1.4)
         y = _px(self.PADDING_Y)
@@ -1758,7 +1777,7 @@ class _InfoRow(wx.Control):
                 y,
             )
             y += leading
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(13)))
         gcdc.SetTextForeground(palette.on_surface)
         left = _px(self.PADDING_X) + _px(self.LABEL_COLUMN) + _px(self.GAP)
         y = _px(self.PADDING_Y)
@@ -1992,7 +2011,7 @@ class _WorldTile(wx.Control):
             palette.surface_container_high,
             palette.outline_variant,
         )
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(10)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(10)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         label = widgets.elide(gcdc, "world icon", width - _px(8))
         text_width, text_height = gcdc.GetTextExtent(label)
@@ -2029,7 +2048,7 @@ class _EmptySlot(wx.Control):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(13)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         lines = self.text.split("\n")
         return wx.Size(
             _px(320), _line_height(dc, 13, 1.4) * len(lines) + _px(self.PADDING * 2)
@@ -2046,7 +2065,7 @@ class _EmptySlot(wx.Control):
         widgets.draw_dashed_round_rect(
             gcdc, wx.Rect(0, 0, width - 1, height - 1), _px(12), palette.outline
         )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         lines = self.text.split("\n")
         leading = _line_height(gcdc, 13, 1.4)
@@ -2102,14 +2121,14 @@ class _SurfaceCard(_HoverControl):
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
         available = max(0, self._width - _px(self.PADDING_X * 2))
-        dc.SetFont(tokens.font(self, widgets.point_size(13), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(13), _MEDIUM))
         label_lines = (
             widgets.wrap_text(dc, self.label, available, max_lines=2)
             if available
             else [self.label]
         )
         height = _line_height(dc, 13, 1.3) * len(label_lines) + _px(3)
-        dc.SetFont(tokens.font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         hint_lines = (
             widgets.wrap_text(dc, self.hint, available, max_lines=3)
             if available
@@ -2135,14 +2154,14 @@ class _SurfaceCard(_HoverControl):
         available = max(0, width - _px(self.PADDING_X * 2))
         left = _px(self.PADDING_X)
         y = _px(self.PADDING_Y)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13), _MEDIUM))
         gcdc.SetTextForeground(palette.on_surface)
         leading = _line_height(gcdc, 13, 1.3)
         for line in widgets.wrap_text(gcdc, self.label, available, max_lines=2):
             gcdc.DrawText(line, left, y)
             y += leading
         y += _px(3)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         leading = _line_height(gcdc, 12, 1.45)
         for line in widgets.wrap_text(gcdc, self.hint, available, max_lines=3):

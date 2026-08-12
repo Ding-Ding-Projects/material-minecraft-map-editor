@@ -900,5 +900,5 @@ def tool_button(
 def measure_text(window: wx.Window, text: str, size_px: float = 11) -> int:
     """Return how wide ``text`` is in ``window``'s own font, in pixels."""
     with measuring(window) as dc:
-        dc.SetFont(tokens.font(window, point_size(size_px)))
+        dc.SetFont(tokens.font_px(window, point_size(size_px)))
         return int(dc.GetTextExtent(str(text))[0])

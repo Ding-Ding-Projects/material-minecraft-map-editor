@@ -399,18 +399,18 @@ class DimensionRow(StudioButton):
             tokens.draw_round_rect(gcdc, rect, radius, fill)
         centre = height // 2
         left = tokens.scaled(9)
-        gcdc.SetFont(tokens.font(self, point_size(9)))
+        gcdc.SetFont(tokens.font_px(self, point_size(9)))
         gcdc.SetTextForeground(variant_ink)
         chevron = "▾" if self.expanded else "▸"
         chevron_width, chevron_height = gcdc.GetTextExtent(chevron)
         gcdc.DrawText(chevron, left, centre - chevron_height // 2)
         left += max(chevron_width, tokens.scaled(9)) + tokens.scaled(9)
-        gcdc.SetFont(tokens.font(self, point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, point_size(12)))
         gcdc.SetTextForeground(ink)
         glyph_height = gcdc.GetCharHeight()
         gcdc.DrawText(self.entry.glyph, left, centre - glyph_height // 2)
         left += tokens.scaled(16) + tokens.scaled(9)
-        gcdc.SetFont(tokens.mono_font(self, point_size(10)))
+        gcdc.SetFont(tokens.mono_font_px(self, point_size(10)))
         count_left = _CountPill.draw(
             gcdc,
             self.entry.count_text(),
@@ -423,7 +423,7 @@ class DimensionRow(StudioButton):
                 else palette.surface_container_high
             ),
         )
-        gcdc.SetFont(tokens.font(self, point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, point_size(13)))
         gcdc.SetTextForeground(ink)
         available = max(0, count_left - left - tokens.scaled(8))
         gcdc.DrawText(
@@ -482,7 +482,7 @@ class DimensionDetail(wx.Control):
             tokens.scaled(20),
             height - tokens.scaled(6),
         )
-        gcdc.SetFont(tokens.mono_font(self, point_size(11)))
+        gcdc.SetFont(tokens.mono_font_px(self, point_size(11)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         gcdc.DrawText(
             elide(gcdc, self.entry.detail(), max(0, width - left - tokens.scaled(8))),
@@ -538,9 +538,9 @@ class BoxCard(StudioButton):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, point_size(12), _MEDIUM))
         label_height = dc.GetCharHeight()
-        dc.SetFont(tokens.mono_font(self, point_size(11)))
+        dc.SetFont(tokens.mono_font_px(self, point_size(11)))
         size_height = dc.GetCharHeight()
         return wx.Size(
             tokens.scaled(MIN_PANEL_WIDTH),
@@ -571,11 +571,11 @@ class BoxCard(StudioButton):
         left = tokens.scaled(10)
         available = max(0, width - left * 2)
         top = tokens.scaled(9)
-        gcdc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, point_size(12), _MEDIUM))
         gcdc.SetTextForeground(palette.on_surface)
         gcdc.DrawText(elide(gcdc, self.box.label, available), left, top)
         top += gcdc.GetCharHeight()
-        gcdc.SetFont(tokens.mono_font(self, point_size(11)))
+        gcdc.SetFont(tokens.mono_font_px(self, point_size(11)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         gcdc.DrawText(elide(gcdc, self.box.size_text(), available), left, top)
         if self.HasFocus():
@@ -628,7 +628,7 @@ class DashedButton(StudioButton):
         draw_dashed_round_rect(
             gcdc, wx.Rect(rect).Deflate(1, 1), radius, palette.outline
         )
-        gcdc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, point_size(12), _MEDIUM))
         gcdc.SetTextForeground(palette.primary)
         lines = self.GetLabel().split("\n")
         line_height = gcdc.GetCharHeight()

@@ -403,7 +403,7 @@ class HudChip(wx.Control):
         return self._detail
 
     def _font(self) -> wx.Font:
-        return tokens.mono_font(self, point_size(self._size_px))
+        return tokens.mono_font_px(self, point_size(self._size_px))
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         """Measure the way the chip paints, or its own text comes out elided.
@@ -481,7 +481,7 @@ class AxesLegend(wx.Control):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.mono_font(self, point_size(10)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(10)))
             width = max(dc.GetTextExtent(label)[0] for _axis, label in self.ROWS)
             line_height = dc.GetCharHeight()
         return wx.Size(
@@ -505,7 +505,7 @@ class AxesLegend(wx.Control):
         radius = tokens.scaled(tokens.RADIUS_SM + 2)
         tokens.draw_elevation(gcdc, rect, radius, 2, True)
         tokens.draw_round_rect(gcdc, rect, radius, palette.scrim)
-        gcdc.SetFont(tokens.mono_font(self, point_size(10)))
+        gcdc.SetFont(tokens.mono_font_px(self, point_size(10)))
         top = tokens.scaled(self.PADDING_Y)
         line_height = gcdc.GetCharHeight()
         for axis, label in self.ROWS:
@@ -657,7 +657,7 @@ class MinimapView(StudioButton):
         gcdc.SetBrush(wx.Brush(wx.Colour(255, 255, 255)))
         gcdc.SetPen(wx.TRANSPARENT_PEN)
         gcdc.DrawEllipse(marker_x - dot // 2, marker_y - dot // 2, dot, dot)
-        gcdc.SetFont(tokens.mono_font(self, point_size(9)))
+        gcdc.SetFont(tokens.mono_font_px(self, point_size(9)))
         gcdc.SetTextForeground(wx.Colour(255, 255, 255))
         label = f"MINIMAP · {self.dimension}"
         gcdc.DrawText(
@@ -728,7 +728,7 @@ class CompassView(StudioButton):
         gcdc.SetPen(wx.Pen(wx.Colour(255, 255, 255, 64)))
         gcdc.DrawEllipse(0, 0, width - 1, height - 1)
         accent = colour_of(OVERLAY_ACCENT)
-        gcdc.SetFont(tokens.mono_font(self, point_size(9)))
+        gcdc.SetFont(tokens.mono_font_px(self, point_size(9)))
         dim = wx.Colour(255, 255, 255, 153)
         inset = tokens.scaled(5)
         edge = tokens.scaled(6)
@@ -842,7 +842,7 @@ class ViewportToolButton(StudioButton):
             fill,
             accent if highlighted else wx.Colour(255, 255, 255, 56),
         )
-        gcdc.SetFont(tokens.font(self, point_size(14)))
+        gcdc.SetFont(tokens.font_px(self, point_size(14)))
         gcdc.SetTextForeground(accent if highlighted else wx.Colour(255, 255, 255))
         glyph_width, glyph_height = gcdc.GetTextExtent(self.glyph)
         gcdc.DrawText(
@@ -2422,7 +2422,7 @@ class ViewportHost(wx.Panel):
         dc.DrawLine(0, band.GetBottom(), width, band.GetBottom())
 
     def _paint_crosshair(self, dc: wx.DC, width: int, height: int) -> None:
-        dc.SetFont(tokens.font(self, point_size(14)))
+        dc.SetFont(tokens.font_px(self, point_size(14)))
         dc.SetTextForeground(wx.Colour(255, 255, 255, 191))
         text = "＋"
         text_width, text_height = dc.GetTextExtent(text)

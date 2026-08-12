@@ -232,7 +232,7 @@ class TextField(widgets.Card):
         entry = getattr(self, "text", None)
         hint = entry.GetHint() if entry is not None else ""
         with widgets.measuring(self) as dc:
-            dc.SetFont(tokens.font(self, widgets.point_size(self._size_px)))
+            dc.SetFont(tokens.font_px(self, widgets.point_size(self._size_px)))
             content = dc.GetTextExtent(str(hint) or " ")[0]
         width = min(
             tokens.scaled(self.MAX_WIDTH),
@@ -282,7 +282,7 @@ class TextField(widgets.Card):
         entry.SetBackgroundColour(palette.role(self.role))
         entry.SetForegroundColour(palette.on_surface)
         entry.SetFont(
-            tokens.font(self, widgets.point_size(self._size_px), mono=self._mono)
+            tokens.font_px(self, widgets.point_size(self._size_px), mono=self._mono)
         )
 
     def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
@@ -715,7 +715,7 @@ class RecordTable(wx.Panel):
         self, dc: wx.DC, palette: tokens.StudioPalette, frame: wx.Rect
     ) -> None:
         header_height = tokens.scaled(self.HEADER_HEIGHT)
-        dc.SetFont(tokens.font(self, widgets.point_size(11), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(11), _MEDIUM))
         dc.SetTextForeground(palette.on_surface_variant)
         baseline = (header_height - dc.GetCharHeight()) // 2
         for (x, width), (label, _weight) in zip(
@@ -739,7 +739,7 @@ class RecordTable(wx.Panel):
             # gets the blank surface a native list showed rather than a line of
             # English inside a window that speaks the user's language.
             return
-        dc.SetFont(tokens.font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         dc.SetTextForeground(palette.on_surface_variant)
         text = widgets.elide(
             dc, self.empty_text, max(0, frame.width - tokens.scaled(self.PADDING) * 2)
@@ -760,7 +760,7 @@ class RecordTable(wx.Panel):
         columns = self._column_rects(frame.width)
         visible = self._visible_rows()
         focused = self.HasFocus()
-        dc.SetFont(tokens.font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         for position in range(visible):
             index = self.offset + position
             if index >= len(self.rows):

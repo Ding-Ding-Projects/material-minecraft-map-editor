@@ -132,7 +132,7 @@ class _Caption(_Painted):
         self.SetInitialSize(self.DoGetBestSize())
 
     def _font(self) -> wx.Font:
-        return tokens.font(self, widgets.point_size(10), wx.FONTWEIGHT_BOLD)
+        return tokens.font_px(self, widgets.point_size(10), wx.FONTWEIGHT_BOLD)
 
     def lines(self) -> List[str]:
         """Return the caption's lines, upper-cased as the design draws them."""
@@ -169,7 +169,7 @@ class _Eyebrow(_Painted):
         self.SetInitialSize(self.DoGetBestSize())
 
     def _font(self) -> wx.Font:
-        return tokens.font(self, widgets.point_size(11), wx.FONTWEIGHT_BOLD)
+        return tokens.font_px(self, widgets.point_size(11), wx.FONTWEIGHT_BOLD)
 
     def lines(self) -> List[str]:
         return [line.upper() for line in self.text.split("\n") if line]
@@ -203,7 +203,7 @@ class _Pill(_Painted):
         self.SetInitialSize(self.DoGetBestSize())
 
     def _font(self) -> wx.Font:
-        return tokens.mono_font(self, widgets.point_size(11))
+        return tokens.mono_font_px(self, widgets.point_size(11))
 
     def set_text(self, text: str) -> None:
         """Replace the pill's text and re-measure it."""
@@ -245,7 +245,7 @@ class _InspectorRow(_Painted):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        dc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         lines = max(1, len(self._value_lines(dc, tokens.scaled(150))))
         return wx.Size(
             tokens.scaled(RIGHT_PANE_WIDTH - 28),
@@ -267,7 +267,7 @@ class _InspectorRow(_Painted):
             palette.outline_variant,
         )
         padding = tokens.scaled(11)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(11)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         label_width = min(
             gcdc.GetTextExtent(self.label)[0], max(0, width // 2 - padding)
@@ -277,7 +277,7 @@ class _InspectorRow(_Painted):
             padding,
             (height - gcdc.GetCharHeight()) // 2,
         )
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         gcdc.SetTextForeground(palette.on_surface)
         available = max(20, width - label_width - padding * 3)
         lines = self._value_lines(gcdc, available)
@@ -333,7 +333,7 @@ class _NoteBlock(_Painted):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         width = self.GetSize().width or tokens.scaled(RIGHT_PANE_WIDTH - 28)
         lines = self._lines(dc, width - tokens.scaled(28))
         height = int(dc.GetCharHeight() * 1.55 * len(lines)) + tokens.scaled(20)
@@ -351,7 +351,7 @@ class _NoteBlock(_Painted):
         gcdc.DrawRectangle(
             0, tokens.scaled(2), tokens.scaled(3), height - tokens.scaled(4)
         )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         gcdc.SetTextForeground(palette.on_surface)
         padding = tokens.scaled(12)
         lines = self._lines(gcdc, width - padding * 2 - tokens.scaled(4))
@@ -379,7 +379,7 @@ class _CrumbTrail(_Painted):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        dc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         width = sum(
             dc.GetTextExtent(f"{part} ")[0] + tokens.scaled(6) for part in self.parts
         )
@@ -389,7 +389,7 @@ class _CrumbTrail(_Painted):
         palette = tokens.palette()
         _dc, gcdc = widgets.paint_context(self, self.backdrop(palette))
         width, height = self.GetClientSize()
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         y = (height - gcdc.GetCharHeight()) // 2
         x = 0
         for index, part in enumerate(self.parts):
@@ -425,14 +425,14 @@ class _FieldLabel(_Painted):
     def _hint_lines(self, dc: wx.DC) -> List[str]:
         if not self.hint:
             return []
-        dc.SetFont(tokens.font(self, widgets.point_size(11)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(11)))
         return widgets.wrap_text(
             dc, self.hint, tokens.scaled(LABEL_COLUMN) - tokens.scaled(4), max_lines=3
         )
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(12), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12), _MEDIUM))
         height = max(dc.GetCharHeight(), tokens.scaled(16))
         lines = self._hint_lines(dc)
         if lines:
@@ -443,7 +443,7 @@ class _FieldLabel(_Painted):
         palette = tokens.palette()
         _dc, gcdc = widgets.paint_context(self, self.backdrop(palette))
         width, _height = self.GetClientSize()
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(9)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(9)))
         badge_width = gcdc.GetTextExtent(self.badge)[0] + tokens.scaled(10)
         badge_height = gcdc.GetCharHeight() + tokens.scaled(2)
         badge = wx.Rect(0, 0, badge_width, badge_height)
@@ -452,7 +452,7 @@ class _FieldLabel(_Painted):
         )
         gcdc.SetTextForeground(palette.primary)
         gcdc.DrawText(self.badge, tokens.scaled(5), tokens.scaled(1))
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12), _MEDIUM))
         gcdc.SetTextForeground(palette.on_surface)
         name_x = badge_width + tokens.scaled(7)
         gcdc.DrawText(
@@ -460,7 +460,7 @@ class _FieldLabel(_Painted):
             name_x,
             (badge_height - gcdc.GetCharHeight()) // 2,
         )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(11)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         y = badge_height + tokens.scaled(3)
         line_height = int(gcdc.GetCharHeight() * 1.4)
@@ -584,7 +584,7 @@ class _SegmentButton(_Clickable):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         lines = self.label.split("\n")
         width = max(dc.GetTextExtent(line or " ")[0] for line in lines)
         height = max(
@@ -607,7 +607,7 @@ class _SegmentButton(_Clickable):
             fill, ink = None, palette.on_surface_variant
         if fill is not None:
             tokens.draw_round_rect(gcdc, rect, height // 2, fill)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         gcdc.SetTextForeground(ink)
         lines = self.label.split("\n")
         line_height = gcdc.GetCharHeight()
@@ -722,7 +722,7 @@ class _SourceButton(_Clickable):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         lines = self.label.split("\n")
         # The density token is the floor every touch target has to reach, and
         # a bilingual label needs whichever of the three figures is tallest.
@@ -751,18 +751,18 @@ class _SourceButton(_Clickable):
             ink = palette.on_surface
             muted = palette.on_surface_variant
         padding = tokens.scaled(10)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(11)))
         gcdc.SetTextForeground(ink)
         glyph = self.info.glyph
         gcdc.DrawText(glyph, padding, (height - gcdc.GetCharHeight()) // 2)
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(10)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(10)))
         gcdc.SetTextForeground(muted)
         count = str(self.count)
         count_width = gcdc.GetTextExtent(count)[0]
         gcdc.DrawText(
             count, width - padding - count_width, (height - gcdc.GetCharHeight()) // 2
         )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         gcdc.SetTextForeground(ink)
         label_x = padding + tokens.scaled(23)
         available = max(0, width - label_x - count_width - padding * 2)
@@ -923,7 +923,7 @@ class _TagTreeView(_Clickable):
         _dc, gcdc = widgets.paint_context(self, self.backdrop(palette))
         width, height = self.GetClientSize()
         if not self.rows:
-            gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
+            gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
             gcdc.SetTextForeground(palette.on_surface_variant)
             for offset, line in enumerate(
                 widgets.wrap_text(
@@ -955,7 +955,7 @@ class _TagTreeView(_Clickable):
             else:
                 ink = palette.on_surface
             x = rect.x + tokens.scaled(4) + tokens.scaled(9) * row.depth
-            gcdc.SetFont(tokens.font(self, widgets.point_size(8)))
+            gcdc.SetFont(tokens.font_px(self, widgets.point_size(8)))
             gcdc.SetTextForeground(
                 palette.on_primary_container if selected else palette.on_surface_variant
             )
@@ -967,7 +967,7 @@ class _TagTreeView(_Clickable):
             tokens.draw_round_rect(
                 gcdc, badge, tokens.scaled(4), palette.surface_container_high
             )
-            gcdc.SetFont(tokens.mono_font(self, widgets.point_size(9)))
+            gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(9)))
             gcdc.SetTextForeground(palette.primary)
             badge_text = widgets.elide(gcdc, row.badge, badge.width - tokens.scaled(2))
             gcdc.DrawText(
@@ -976,7 +976,7 @@ class _TagTreeView(_Clickable):
                 badge.y + (badge.height - gcdc.GetCharHeight()) // 2,
             )
             x += badge_width + tokens.scaled(6)
-            gcdc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+            gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
             gcdc.SetTextForeground(ink)
             label = widgets.elide(gcdc, row.label, max(0, rect.GetRight() - x))
             gcdc.DrawText(label, x, top + (row_height - gcdc.GetCharHeight()) // 2)
@@ -1016,7 +1016,7 @@ class _TypeChip(_Clickable):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        dc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         width = dc.GetTextExtent(self.label)[0] + tokens.scaled(20)
         return wx.Size(width, tokens.scaled(self.HEIGHT))
 
@@ -1038,7 +1038,7 @@ class _TypeChip(_Clickable):
                 border = palette.error if self.lossy else palette.primary
                 ink = border
         tokens.draw_round_rect(gcdc, rect, radius, fill, border)
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         gcdc.SetTextForeground(ink)
         text = widgets.elide(gcdc, self.label, width - tokens.scaled(8))
         text_width, text_height = gcdc.GetTextExtent(text)
@@ -1079,7 +1079,7 @@ class _ElementChip(_Clickable):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        dc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         width, height = dc.GetTextExtent(self.value or " ")
         return wx.Size(width + tokens.scaled(18), height + tokens.scaled(6))
 
@@ -1093,7 +1093,7 @@ class _ElementChip(_Clickable):
         if self._hovered or self._pressed:
             fill = tokens.blend(fill, palette.primary, 0.16)
         tokens.draw_round_rect(gcdc, rect, radius, fill)
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         gcdc.SetTextForeground(palette.on_surface)
         text = widgets.elide(gcdc, self.value, width - tokens.scaled(8))
         text_width, text_height = gcdc.GetTextExtent(text)
@@ -1186,9 +1186,9 @@ class _Field(wx.Panel):
         self.text.SetBackgroundColour(palette.surface)
         self.text.SetForegroundColour(palette.on_surface)
         self.text.SetFont(
-            tokens.mono_font(self, widgets.point_size(12))
+            tokens.mono_font_px(self, widgets.point_size(12))
             if self._mono
-            else tokens.font(self, widgets.point_size(12))
+            else tokens.font_px(self, widgets.point_size(12))
         )
         self.Refresh()
 
@@ -1445,7 +1445,7 @@ class _AddChipButton(_Clickable):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(11)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(11)))
         lines = self.label.split("\n")
         width = max(dc.GetTextExtent(line or " ")[0] for line in lines)
         height = max(
@@ -1467,7 +1467,7 @@ class _AddChipButton(_Clickable):
                 tokens.blend(self.backdrop(palette), palette.primary, 0.10),
             )
         widgets.draw_dashed_round_rect(gcdc, rect, radius, palette.outline)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(11)))
         gcdc.SetTextForeground(palette.primary)
         lines = self.label.split("\n")
         line_height = gcdc.GetCharHeight()
@@ -1622,7 +1622,7 @@ class _CodeView(wx.Panel):
         self.SetBackgroundColour(palette.surface_container)
         self.text.SetBackgroundColour(palette.surface_container)
         self.text.SetForegroundColour(palette.on_surface)
-        self.text.SetFont(tokens.mono_font(self, widgets.point_size(12)))
+        self.text.SetFont(tokens.mono_font_px(self, widgets.point_size(12)))
         self.Refresh()
 
     def _on_paint(self, _event: wx.PaintEvent) -> None:

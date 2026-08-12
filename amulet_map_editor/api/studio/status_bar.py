@@ -436,8 +436,8 @@ class BarLabel(wx.Control):
     def _font(self) -> wx.Font:
         weight = _MEDIUM if self._emphasis else wx.FONTWEIGHT_NORMAL
         if self._mono:
-            return tokens.mono_font(self, point_size(self._size_px), weight)
-        return tokens.font(self, point_size(self._size_px), weight)
+            return tokens.mono_font_px(self, point_size(self._size_px), weight)
+        return tokens.font_px(self, point_size(self._size_px), weight)
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
@@ -508,7 +508,7 @@ class StatusReadout(wx.Control):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, point_size(12)))
+        dc.SetFont(tokens.font_px(self, point_size(12)))
         width, height = dc.GetTextExtent(self._text or " ")
         return wx.Size(
             width + tokens.scaled(self.DOT) + tokens.scaled(8),
@@ -558,7 +558,7 @@ class StatusReadout(wx.Control):
         gcdc.SetPen(wx.TRANSPARENT_PEN)
         gcdc.DrawEllipse(0, (height - dot) // 2, dot, dot)
         left = dot + tokens.scaled(8)
-        gcdc.SetFont(tokens.font(self, point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, point_size(12)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         gcdc.DrawText(
             elide(gcdc, self._text, max(0, width - left)),

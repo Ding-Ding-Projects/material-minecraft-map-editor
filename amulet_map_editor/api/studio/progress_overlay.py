@@ -382,7 +382,7 @@ class ProgressOverlay(wx.Panel, _Themed):
         # facts a glance needs -- what is happening and how far along it is --
         # are on one line.
         reading = self._reading(task)
-        dc.SetFont(tokens.font(self, 11, wx.FONTWEIGHT_BOLD))
+        dc.SetFont(tokens.font_px(self, 11, wx.FONTWEIGHT_BOLD))
         dc.SetTextForeground(palette.on_surface)
         reading_width = dc.GetTextExtent(reading)[0] if reading else 0
         dc.DrawText(
@@ -394,7 +394,7 @@ class ProgressOverlay(wx.Panel, _Themed):
             dc.DrawText(reading, rect.x + rect.width - reserved - reading_width, line)
         line += tokens.scaled(18)
 
-        dc.SetFont(tokens.font(self, 9))
+        dc.SetFont(tokens.font_px(self, 9))
         if task.detail:
             # The detail stays ordinary ink even on a failed row: the error
             # role is reserved for the error line itself, and red-on-red made

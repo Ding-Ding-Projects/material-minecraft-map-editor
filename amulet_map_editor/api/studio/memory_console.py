@@ -133,7 +133,9 @@ class _Eyebrow(_Painted):
         self.size_px = size_px
 
     def _font(self) -> wx.Font:
-        return tokens.font(self, widgets.point_size(self.size_px), wx.FONTWEIGHT_BOLD)
+        return tokens.font_px(
+            self, widgets.point_size(self.size_px), wx.FONTWEIGHT_BOLD
+        )
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
@@ -221,7 +223,7 @@ class _Paragraph(_Painted):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(self.size_px)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(self.size_px)))
         lines = self._lines(dc)
         height = int(dc.GetCharHeight() * self.line_height * len(lines)) + 2
         return wx.Size(self.GetSize().width or tokens.scaled(560), height)
@@ -238,7 +240,7 @@ class _Paragraph(_Painted):
     def _on_paint(self, _event: wx.PaintEvent) -> None:
         palette = tokens.palette()
         dc, gcdc = widgets.paint_context(self, self._backdrop(palette))
-        gcdc.SetFont(tokens.font(self, widgets.point_size(self.size_px)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(self.size_px)))
         gcdc.SetTextForeground(palette.role(self.role))
         step = int(gcdc.GetCharHeight() * self.line_height)
         y = 0
@@ -270,7 +272,7 @@ class _Badge(_Painted):
         tokens.draw_round_rect(
             gcdc, wx.Rect(0, 0, width, height), tokens.scaled(7), palette.primary
         )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12), wx.FONTWEIGHT_BOLD))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12), wx.FONTWEIGHT_BOLD))
         gcdc.SetTextForeground(palette.on_primary)
         text_width, text_height = gcdc.GetTextExtent(self.letter)
         gcdc.DrawText(
@@ -325,7 +327,7 @@ class _CodeBlock(wx.Panel):
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
         self.text.SetBackgroundColour(palette.surface_container_high)
         self.text.SetForegroundColour(palette.on_surface_variant)
-        self.text.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        self.text.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         self.Refresh()
 
     def _on_paint(self, _event: wx.PaintEvent) -> None:
@@ -510,7 +512,7 @@ class _RailItem(_Tappable):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(13)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         width = (
             tokens.scaled(self.PADDING) * 2
             + tokens.scaled(self.GLYPH_WIDTH)
@@ -546,7 +548,7 @@ class _RailItem(_Tappable):
             tokens.draw_round_rect(gcdc, rect, radius, fill)
         left = tokens.scaled(self.PADDING)
         gcdc.SetTextForeground(ink)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         glyph_height = gcdc.GetCharHeight()
         gcdc.DrawText(self.view.glyph, left, (height - glyph_height) // 2)
         left += tokens.scaled(self.GLYPH_WIDTH) + tokens.scaled(self.GAP)
@@ -585,9 +587,9 @@ class _ArticleButton(_Tappable):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(12), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(12), _MEDIUM))
         title_height = dc.GetCharHeight()
-        dc.SetFont(tokens.mono_font(self, widgets.point_size(10)))
+        dc.SetFont(tokens.mono_font_px(self, widgets.point_size(10)))
         path_height = dc.GetCharHeight()
         height = max(
             tokens.control_height(),
@@ -619,11 +621,11 @@ class _ArticleButton(_Tappable):
         left = tokens.scaled(self.PADDING_X)
         available = max(0, width - left * 2)
         top = tokens.scaled(self.PADDING_Y)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12), _MEDIUM))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12), _MEDIUM))
         gcdc.SetTextForeground(title_ink)
         gcdc.DrawText(widgets.elide(gcdc, self.article.title, available), left, top)
         top += gcdc.GetCharHeight() + 2
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(10)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(10)))
         gcdc.SetTextForeground(path_ink)
         gcdc.DrawText(widgets.elide(gcdc, self.article.path, available), left, top)
         if self.HasFocus():

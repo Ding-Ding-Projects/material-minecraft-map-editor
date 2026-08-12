@@ -1051,7 +1051,7 @@ class FaceList(PaintedControl):
         row_height = tokens.scaled(self.ROW_HEIGHT)
         rows = max(1, rect.height // row_height)
         if not self.faces:
-            dc.SetFont(tokens.font(self, widgets.point_size(13)))
+            dc.SetFont(tokens.font_px(self, widgets.point_size(13)))
             dc.SetTextForeground(palette.on_surface_variant)
             dc.DrawText(
                 "No face matches this search.",
@@ -1090,7 +1090,7 @@ class FaceList(PaintedControl):
                     faceName=face,
                 )
             except Exception:  # pragma: no cover - a face the platform refuses
-                sample = tokens.font(self, widgets.point_size(15))
+                sample = tokens.font_px(self, widgets.point_size(15))
             dc.SetFont(sample)
             label = widgets.elide(
                 dc, f"{face} — Ag 世", max(0, row_rect.width - tokens.scaled(16))

@@ -856,7 +856,7 @@ class StudioButton(wx.Control, _Interactive):
         return _BUTTON_METRICS[self.variant]
 
     def _label_font(self, size_px: int, weight: int) -> wx.Font:
-        return tokens.font(self, point_size(size_px), weight, mono=self._mono)
+        return tokens.font_px(self, point_size(size_px), weight, mono=self._mono)
 
     def _height_for(self) -> int:
         padding, _radius, _size, _weight, fixed = self._metrics()
@@ -1075,7 +1075,7 @@ class StudioButton(wx.Control, _Interactive):
             tokens.blend(palette.surface, palette.primary, 0.10),
         )
         if self.glyph:
-            dc.SetFont(tokens.font(self, point_size(17)))
+            dc.SetFont(tokens.font_px(self, point_size(17)))
             dc.SetTextForeground(palette.primary)
             glyph_width, glyph_height = dc.GetTextExtent(self.glyph)
             dc.DrawText(
@@ -1163,7 +1163,7 @@ class Chip(wx.Control, _Interactive):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(14), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(14), _MEDIUM))
             lines = self.GetLabel().split("\n") or [" "]
             width = max(dc.GetTextExtent(line or " ")[0] for line in lines)
             height = max(
@@ -1205,7 +1205,7 @@ class Chip(wx.Control, _Interactive):
                         0.12 if self._pressed else 0.06,
                     )
             tokens.draw_round_rect(dc, rect, radius, fill, border)
-            dc.SetFont(tokens.font(self, point_size(14), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(14), _MEDIUM))
             dc.SetTextForeground(ink)
             lines = self.GetLabel().split("\n")
             available = max(0, width - tokens.scaled(24))
@@ -1241,7 +1241,7 @@ class SectionLabel(wx.Control, _Themed):
         return False
 
     def _font(self) -> wx.Font:
-        return tokens.font(self, point_size(10), wx.FONTWEIGHT_BOLD)
+        return tokens.font_px(self, point_size(10), wx.FONTWEIGHT_BOLD)
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
@@ -1464,7 +1464,7 @@ class StudioText(wx.Control, _Themed):
     def _font(self) -> wx.Font:
         if self._font_override is not None:
             return self._font_override
-        return tokens.font(
+        return tokens.font_px(
             self, point_size(self._size_px), self._weight, mono=self._mono
         )
 
@@ -1745,7 +1745,7 @@ class StudioCheckBox(wx.Control, _Interactive):
 
     # -- geometry ------------------------------------------------------------
     def _font(self) -> wx.Font:
-        return tokens.font(self, point_size(self._size_px))
+        return tokens.font_px(self, point_size(self._size_px))
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         box = tokens.scaled(self.BOX)
@@ -1952,7 +1952,7 @@ class Stepper(wx.Control, _Interactive):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.mono_font(self, point_size(10)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(10)))
             range_width = dc.GetTextExtent(self._range_text())[0]
             field = self._field_width(dc)
             width = (
@@ -1988,7 +1988,7 @@ class Stepper(wx.Control, _Interactive):
         if dc is None:
             with measuring(self) as own:
                 return self._field_width(own)
-        dc.SetFont(tokens.mono_font(self, point_size(12)))
+        dc.SetFont(tokens.mono_font_px(self, point_size(12)))
         widest = max(
             dc.GetTextExtent(f"{format_number(bound)} {self.suffix}".strip() or " ")[0]
             for bound in (self.minimum, self.maximum)
@@ -2113,7 +2113,7 @@ class Stepper(wx.Control, _Interactive):
             radius = tokens.scaled(tokens.RADIUS_SM)
             for rect, glyph in ((minus, "−"), (plus, "＋")):
                 tokens.draw_round_rect(dc, rect, radius, None, palette.outline)
-                dc.SetFont(tokens.font(self, point_size(14)))
+                dc.SetFont(tokens.font_px(self, point_size(14)))
                 dc.SetTextForeground(palette.primary)
                 text_width, text_height = dc.GetTextExtent(glyph)
                 dc.DrawText(
@@ -2130,7 +2130,7 @@ class Stepper(wx.Control, _Interactive):
                 palette.primary if editing else palette.outline,
                 border_width=2 if editing else 1,
             )
-            dc.SetFont(tokens.mono_font(self, point_size(12)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(12)))
             dc.SetTextForeground(palette.on_surface)
             text = elide(dc, self._display_text(), value.width - tokens.scaled(12))
             text_width, text_height = dc.GetTextExtent(text)
@@ -2139,7 +2139,7 @@ class Stepper(wx.Control, _Interactive):
                 value.x + (value.width - text_width) // 2,
                 value.y + (value.height - text_height) // 2,
             )
-            dc.SetFont(tokens.mono_font(self, point_size(10)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(10)))
             dc.SetTextForeground(palette.on_surface_variant)
             dc.DrawText(
                 self._range_text(),
@@ -2166,7 +2166,7 @@ class _ValuePill(wx.Control, _Themed):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
+            dc.SetFont(tokens.mono_font_px(self, point_size(12), _MEDIUM))
             width = dc.GetTextExtent(self.GetLabel() or " ")[0]
             return wx.Size(
                 width + TEXT_SLACK * 2 + tokens.scaled(24), tokens.scaled(26)
@@ -2191,7 +2191,7 @@ class _ValuePill(wx.Control, _Themed):
                 tokens.scaled(tokens.RADIUS_SM),
                 palette.primary,
             )
-            dc.SetFont(tokens.mono_font(self, point_size(12), _MEDIUM))
+            dc.SetFont(tokens.mono_font_px(self, point_size(12), _MEDIUM))
             dc.SetTextForeground(palette.on_primary)
             text = elide(dc, self.GetLabel(), width - tokens.scaled(8))
             text_width, text_height = dc.GetTextExtent(text)
@@ -2362,7 +2362,7 @@ class ProgressRow(wx.Panel, _Themed):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(12)))
+            dc.SetFont(tokens.font_px(self, point_size(12)))
             height = (
                 dc.GetCharHeight() + tokens.scaled(self.BAR_HEIGHT) + tokens.scaled(8)
             )
@@ -2370,7 +2370,7 @@ class ProgressRow(wx.Panel, _Themed):
             # both of them plus the gap between; the design's 240 is the floor
             # rather than the answer, and it was not scaled at all before.
             hint_width = dc.GetTextExtent(self.hint)[0]
-            dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(12), _MEDIUM))
             label_width = dc.GetTextExtent(self.label)[0]
             width = max(
                 tokens.scaled(240),
@@ -2395,14 +2395,14 @@ class ProgressRow(wx.Panel, _Themed):
         palette = self.palette()
         with self._painting(dc, rect) as rect:
             width = rect.width
-            dc.SetFont(tokens.font(self, point_size(12)))
+            dc.SetFont(tokens.font_px(self, point_size(12)))
             text_height = dc.GetCharHeight()
             dc.SetTextForeground(palette.on_surface_variant)
             label_width = dc.GetTextExtent(self.label)[0]
             hint = elide(dc, self.hint, max(0, width - label_width - tokens.scaled(12)))
             note_elision(self, self.hint, hint)
             dc.DrawText(hint, 0, 0)
-            dc.SetFont(tokens.font(self, point_size(12), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(12), _MEDIUM))
             dc.SetTextForeground(palette.primary)
             dc.DrawText(self.label, max(0, width - label_width), 0)
             bar_height = tokens.scaled(self.BAR_HEIGHT)
@@ -2499,7 +2499,7 @@ class _TextBox(wx.Panel, _Themed):
             else tokens.control_height()
         )
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(self.size_px), mono=self._mono))
+            dc.SetFont(tokens.font_px(self, point_size(self.size_px), mono=self._mono))
             hint = self.text.GetHint() if getattr(self, "text", None) else ""
             content = dc.GetTextExtent(str(hint) or " ")[0]
             padding = tokens.scaled(11) * 2 + self._prefix_width(dc)
@@ -2527,7 +2527,7 @@ class _TextBox(wx.Panel, _Themed):
     def _prefix_width(self, dc: wx.DC) -> int:
         if not self.prefix:
             return 0
-        dc.SetFont(tokens.mono_font(self, point_size(10)))
+        dc.SetFont(tokens.mono_font_px(self, point_size(10)))
         return dc.GetTextExtent(self.prefix)[0] + tokens.scaled(6)
 
     def _on_size(self, event: wx.SizeEvent) -> None:
@@ -2568,7 +2568,9 @@ class _TextBox(wx.Panel, _Themed):
         if text is not None:
             text.SetBackgroundColour(palette.role(self.fill_role))
             text.SetForegroundColour(palette.on_surface)
-            text.SetFont(tokens.font(self, point_size(self.size_px), mono=self._mono))
+            text.SetFont(
+                tokens.font_px(self, point_size(self.size_px), mono=self._mono)
+            )
 
     def _backdrop(self) -> wx.Colour:
         return self.GetBackgroundColour()
@@ -2591,7 +2593,7 @@ class _TextBox(wx.Panel, _Themed):
                 border_width=2 if self._focused else 1,
             )
             if self.prefix:
-                dc.SetFont(tokens.mono_font(self, point_size(10)))
+                dc.SetFont(tokens.mono_font_px(self, point_size(10)))
                 dc.SetTextForeground(
                     colour_of(self.prefix_colour, palette.on_surface_variant)
                 )
@@ -2675,7 +2677,7 @@ class OutlinedField(wx.Panel, _Themed):
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         height = tokens.scaled(self.LABEL_TOP) + tokens.scaled(self.BOX_HEIGHT)
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(11)))
+            dc.SetFont(tokens.font_px(self, point_size(11)))
             label_width = dc.GetTextExtent(self.label or " ")[0]
         width = min(
             tokens.scaled(self.MAX_WIDTH),
@@ -2778,7 +2780,7 @@ class OutlinedField(wx.Panel, _Themed):
         if text is not None:
             text.SetBackgroundColour(self.GetBackgroundColour())
             text.SetForegroundColour(palette.on_surface)
-            text.SetFont(tokens.font(self, point_size(14), mono=self._mono))
+            text.SetFont(tokens.font_px(self, point_size(14), mono=self._mono))
 
     def _backdrop(self) -> wx.Colour:
         return self.GetBackgroundColour()
@@ -2798,7 +2800,7 @@ class OutlinedField(wx.Panel, _Themed):
                 border_width=2 if self._focused else 1,
             )
             if self.label:
-                dc.SetFont(tokens.font(self, point_size(11)))
+                dc.SetFont(tokens.font_px(self, point_size(11)))
                 label = elide(dc, self.label, max(0, box.width - tokens.scaled(30)))
                 note_elision(self, self.label, label)
                 label_width = dc.GetTextExtent(label)[0]
@@ -3582,7 +3584,7 @@ class _OptionRow(wx.Control, _Interactive):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(12)))
+            dc.SetFont(tokens.font_px(self, point_size(12)))
             width = (
                 dc.GetTextExtent(self.GetLabel() or " ")[0]
                 + TEXT_SLACK * 2
@@ -3630,7 +3632,7 @@ class _OptionRow(wx.Control, _Interactive):
                     palette.outline_variant,
                 )
                 left += side + tokens.scaled(8)
-            dc.SetFont(tokens.font(self, point_size(12)))
+            dc.SetFont(tokens.font_px(self, point_size(12)))
             dc.SetTextForeground(ink)
             text = elide(dc, self.GetLabel(), max(0, width - left - tokens.scaled(9)))
             note_elision(self, self.GetLabel(), text)
@@ -3714,10 +3716,10 @@ class SearchableChoice(wx.Panel, _Interactive):
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         height = tokens.scaled(self.LABEL_TOP) + tokens.scaled(self.BOX_HEIGHT)
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(14)))
+            dc.SetFont(tokens.font_px(self, point_size(14)))
             values = [*self.options, self.value] or [" "]
             value_width = max(dc.GetTextExtent(text or " ")[0] for text in values)
-            dc.SetFont(tokens.font(self, point_size(11)))
+            dc.SetFont(tokens.font_px(self, point_size(11)))
             label_width = dc.GetTextExtent(self.label or " ")[0]
         width = min(
             tokens.scaled(self.MAX_WIDTH),
@@ -3888,7 +3890,7 @@ class SearchableChoice(wx.Panel, _Interactive):
                 border,
                 border_width=2 if focused else 1,
             )
-            dc.SetFont(tokens.font(self, point_size(14)))
+            dc.SetFont(tokens.font_px(self, point_size(14)))
             dc.SetTextForeground(palette.on_surface)
             available = max(0, box.width - tokens.scaled(46))
             value = elide(dc, self.value, available)
@@ -3898,7 +3900,7 @@ class SearchableChoice(wx.Panel, _Interactive):
                 tokens.scaled(15),
                 box.y + (box.height - dc.GetCharHeight()) // 2,
             )
-            dc.SetFont(tokens.font(self, point_size(10)))
+            dc.SetFont(tokens.font_px(self, point_size(10)))
             dc.SetTextForeground(palette.on_surface_variant)
             caret_width = dc.GetTextExtent("▾")[0]
             dc.DrawText(
@@ -3907,7 +3909,7 @@ class SearchableChoice(wx.Panel, _Interactive):
                 box.y + (box.height - dc.GetCharHeight()) // 2,
             )
             if self.label:
-                dc.SetFont(tokens.font(self, point_size(11)))
+                dc.SetFont(tokens.font_px(self, point_size(11)))
                 label = elide(dc, self.label, max(0, box.width - tokens.scaled(30)))
                 label_width = dc.GetTextExtent(label)[0]
                 notch = wx.Rect(
@@ -4211,7 +4213,7 @@ class OverlayChoice(_OnOverlay, SearchableChoice):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(13), _MEDIUM))
             # Only the current value is measured, not the longest option: a
             # toolbar has a fixed width to spend and a dimension list can be
             # arbitrarily long, so the popup is where a long name is read.
@@ -4246,12 +4248,12 @@ class OverlayChoice(_OnOverlay, SearchableChoice):
                 dc, rect, radius, fill, border, border_width=2 if focused else 1
             )
             left = tokens.scaled(11)
-            dc.SetFont(tokens.font(self, point_size(10)))
+            dc.SetFont(tokens.font_px(self, point_size(10)))
             caret_width, caret_height = dc.GetTextExtent("▾")
             caret_x = rect.width - tokens.scaled(10) - caret_width
             dc.SetTextForeground(OVERLAY_INK)
             dc.DrawText("▾", caret_x, (rect.height - caret_height) // 2)
-            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(13), _MEDIUM))
             value = elide(dc, self.value, max(0, caret_x - left - tokens.scaled(6)))
             note_elision(self, self.value, value, hint=self.hint or self.label)
             dc.DrawText(value, left, (rect.height - dc.GetCharHeight()) // 2)
@@ -4313,7 +4315,7 @@ class TextureTile(wx.Panel, _Themed):
             tokens.draw_round_rect(
                 dc, rect, tokens.scaled(11), None, palette.outline_variant
             )
-            dc.SetFont(tokens.mono_font(self, point_size(9)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(9)))
             text_width, text_height = dc.GetTextExtent(self.label)
             chip = wx.Rect(
                 tokens.scaled(6),
@@ -4608,7 +4610,7 @@ class ImageSlot(wx.Panel, _Themed):
                     radius,
                     palette.primary if self._hovered else palette.outline,
                 )
-                dc.SetFont(tokens.font(self, point_size(12)))
+                dc.SetFont(tokens.font_px(self, point_size(12)))
                 dc.SetTextForeground(palette.on_surface_variant)
                 lines = wrap_text(dc, self.hint, width - tokens.scaled(24), 2)
                 y = (height - dc.GetCharHeight() * len(lines)) // 2
@@ -4668,14 +4670,14 @@ class ListRow(wx.Control, _Interactive):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(13), _MEDIUM))
             name_height = dc.GetCharHeight()
             text_width = dc.GetTextExtent(self.row_name or " ")[0]
-            dc.SetFont(tokens.font(self, point_size(12)))
+            dc.SetFont(tokens.font_px(self, point_size(12)))
             detail_height = dc.GetCharHeight() if self.detail else 0
             if self.detail:
                 text_width = max(text_width, dc.GetTextExtent(self.detail)[0])
-            dc.SetFont(tokens.mono_font(self, point_size(11)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(11)))
             tag_width = dc.GetTextExtent(self.tag)[0] if self.tag else 0
             height = max(
                 tokens.control_height(),
@@ -4723,7 +4725,7 @@ class ListRow(wx.Control, _Interactive):
                     palette.outline_variant,
                 )
                 left += side + tokens.scaled(11)
-            dc.SetFont(tokens.mono_font(self, point_size(11)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(11)))
             tag_width = dc.GetTextExtent(self.tag)[0] if self.tag else 0
             if self.tag:
                 dc.SetTextForeground(palette.primary)
@@ -4733,21 +4735,21 @@ class ListRow(wx.Control, _Interactive):
                     (height - dc.GetCharHeight()) // 2,
                 )
             available = max(0, width - left - tag_width - tokens.scaled(24))
-            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(13), _MEDIUM))
             dc.SetTextForeground(palette.on_surface)
             name_height = dc.GetCharHeight()
             detail_height = 0
             if self.detail:
-                detail_font = tokens.font(self, point_size(12))
+                detail_font = tokens.font_px(self, point_size(12))
                 dc.SetFont(detail_font)
                 detail_height = dc.GetCharHeight()
             top = (height - name_height - detail_height) // 2
-            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(13), _MEDIUM))
             drawn_name = elide(dc, self.row_name, available)
             dc.DrawText(drawn_name, left, top)
             drawn_detail = self.detail
             if self.detail:
-                dc.SetFont(tokens.font(self, point_size(12)))
+                dc.SetFont(tokens.font_px(self, point_size(12)))
                 dc.SetTextForeground(palette.on_surface_variant)
                 drawn_detail = elide(dc, self.detail, available)
                 dc.DrawText(drawn_detail, left, top + name_height)
@@ -4921,7 +4923,7 @@ class _Slot(wx.Control, _Interactive):
             tokens.draw_round_rect(dc, rect, radius, None, border)
             short = str(self.slot.get("short") or "")
             if short and not block_id:
-                dc.SetFont(tokens.mono_font(self, point_size(9)))
+                dc.SetFont(tokens.mono_font_px(self, point_size(9)))
                 dc.SetTextForeground(palette.on_surface_variant)
                 text = elide(dc, short, width - tokens.scaled(6))
                 text_width, text_height = dc.GetTextExtent(text)
@@ -4930,7 +4932,7 @@ class _Slot(wx.Control, _Interactive):
                 )
             count = str(self.slot.get("count") or "")
             if count:
-                dc.SetFont(tokens.mono_font(self, point_size(9), _MEDIUM))
+                dc.SetFont(tokens.mono_font_px(self, point_size(9), _MEDIUM))
                 dc.SetTextForeground(palette.on_surface)
                 count_width, count_height = dc.GetTextExtent(count)
                 dc.DrawText(
@@ -5036,7 +5038,7 @@ class TreeRows(wx.Panel, _Themed):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.mono_font(self, point_size(12)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(12)))
             width = tokens.scaled(200)
             for glyph, label, _selected in self.nodes:
                 width = max(
@@ -5098,7 +5100,7 @@ class TreeRows(wx.Panel, _Themed):
                 palette.surface_container,
                 palette.outline_variant,
             )
-            dc.SetFont(tokens.mono_font(self, point_size(12)))
+            dc.SetFont(tokens.mono_font_px(self, point_size(12)))
             row_height = tokens.scaled(self.ROW_HEIGHT)
             y = tokens.scaled(10)
             for index, (glyph, label, _selected) in enumerate(self.nodes):
@@ -5155,7 +5157,7 @@ class _KeyButton(wx.Control, _Interactive):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(13)))
+            dc.SetFont(tokens.font_px(self, point_size(13)))
             width = (
                 dc.GetTextExtent(self.GetLabel())[0]
                 + TEXT_SLACK * 2
@@ -5193,7 +5195,7 @@ class _KeyButton(wx.Control, _Interactive):
                     palette.primary if self._hovered else palette.outline_variant,
                 )
             tokens.draw_round_rect(dc, rect, radius, fill, border)
-            dc.SetFont(tokens.font(self, point_size(13)))
+            dc.SetFont(tokens.font_px(self, point_size(13)))
             dc.SetTextForeground(ink)
             label = self.GetLabel() + (" · held" if self.held else "")
             text = elide(dc, label, width - tokens.scaled(16))

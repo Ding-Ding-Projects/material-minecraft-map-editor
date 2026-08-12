@@ -587,7 +587,7 @@ class ColourPreview(PaintedControl):
         dc.SetBrush(wx.Brush(_wx_colour(self.current)))
         dc.DrawRectangle(right)
         tokens.draw_round_rect(dc, rect, tokens.scaled(3), None, palette.outline)
-        dc.SetFont(tokens.font(self, widgets.point_size(10)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(10)))
         dc.SetTextForeground(legible_ink(self.original))
         dc.DrawText("was", left.x + tokens.scaled(6), left.y + tokens.scaled(5))
         dc.SetTextForeground(legible_ink(self.current))
@@ -694,12 +694,12 @@ class Note(PaintedControl):
             self.GetSize().width or tokens.scaled(self.natural_width),
         )
         with widgets.measuring(self) as dc:
-            dc.SetFont(tokens.font(self, widgets.point_size(self.size_px)))
+            dc.SetFont(tokens.font_px(self, widgets.point_size(self.size_px)))
             lines = widgets.wrap_text(dc, self.text or " ", width, max_lines=6)
             return wx.Size(width, max(1, len(lines)) * dc.GetCharHeight())
 
     def draw(self, dc: wx.DC, rect: wx.Rect) -> None:
-        dc.SetFont(tokens.font(self, widgets.point_size(self.size_px)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(self.size_px)))
         dc.SetTextForeground(self.palette().role(self.role))
         y = rect.y
         for line in widgets.wrap_text(dc, self.text, rect.width, max_lines=6):

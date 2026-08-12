@@ -350,14 +350,14 @@ class LoadingView(wx.Panel, _Themed):
         )
 
         dc.SetTextForeground(palette.on_surface)
-        dc.SetFont(tokens.font(self, 20, wx.FONTWEIGHT_NORMAL))
+        dc.SetFont(tokens.font_px(self, 20, wx.FONTWEIGHT_NORMAL))
         dc.DrawText(
             elide(dc, self.model.title, column - mark - 16), left + mark + 16, top + 2
         )
 
         if self.model.subtitle:
             dc.SetTextForeground(palette.on_surface_variant)
-            dc.SetFont(tokens.font(self, 10))
+            dc.SetFont(tokens.font_px(self, 10))
             dc.DrawText(
                 elide(dc, self.model.subtitle, column - mark - 16),
                 left + mark + 16,
@@ -373,7 +373,7 @@ class LoadingView(wx.Panel, _Themed):
         )
 
         row_top = bar_top + tokens.scaled(30)
-        dc.SetFont(tokens.font(self, 10))
+        dc.SetFont(tokens.font_px(self, 10))
         for stage in self.model.stages:
             self._draw_stage(dc, stage, left, row_top, column, palette)
             row_top += tokens.scaled(self.ROW_HEIGHT)
@@ -381,7 +381,7 @@ class LoadingView(wx.Panel, _Themed):
         failures = self.model.failed()
         if failures:
             dc.SetTextForeground(palette.error)
-            dc.SetFont(tokens.font(self, 10))
+            dc.SetFont(tokens.font_px(self, 10))
             message = studio_text(
                 failures[0].error or "A loading stage failed.",
                 "有一個載入步驟失敗咗。",
@@ -402,13 +402,13 @@ class LoadingView(wx.Panel, _Themed):
         }
         glyph, colour = marks.get(stage.state, marks[PENDING])
         dc.SetTextForeground(colour)
-        dc.SetFont(tokens.font(self, 11))
+        dc.SetFont(tokens.font_px(self, 11))
         dc.DrawText(glyph, left, top + tokens.scaled(2))
 
         dc.SetTextForeground(
             palette.on_surface if stage.state != PENDING else palette.on_surface_variant
         )
-        dc.SetFont(tokens.font(self, 11))
+        dc.SetFont(tokens.font_px(self, 11))
         dc.DrawText(
             elide(dc, stage.label, column - tokens.scaled(24)),
             left + tokens.scaled(22),
@@ -420,7 +420,7 @@ class LoadingView(wx.Panel, _Themed):
             dc.SetTextForeground(
                 palette.error if stage.error else palette.on_surface_variant
             )
-            dc.SetFont(tokens.font(self, 9))
+            dc.SetFont(tokens.font_px(self, 9))
             dc.DrawText(
                 elide(dc, detail, column - tokens.scaled(24)),
                 left + tokens.scaled(22),

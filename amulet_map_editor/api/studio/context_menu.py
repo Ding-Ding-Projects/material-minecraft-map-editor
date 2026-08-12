@@ -1062,7 +1062,7 @@ class _MenuRow(wx.Control, widgets._Interactive):
         inner = tokens.scaled(self.PADDING)
         accel_width = 0
         if self.accel:
-            gcdc.SetFont(tokens.mono_font(self, widgets.point_size(10)))
+            gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(10)))
             gcdc.SetTextForeground(accel_ink)
             accel_width = gcdc.GetTextExtent(self.accel)[0]
             accel_height = gcdc.GetCharHeight()
@@ -1072,7 +1072,7 @@ class _MenuRow(wx.Control, widgets._Interactive):
                 (height - accel_height) // 2,
             )
             accel_width += tokens.scaled(12)
-        gcdc.SetFont(tokens.font(self, widgets.point_size(12)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(12)))
         gcdc.SetTextForeground(label_ink)
         available = max(0, width - inner * 2 - accel_width)
         label = widgets.elide(gcdc, self.item.label, available)
@@ -1571,7 +1571,7 @@ class _GroupRow(wx.Control, widgets._Interactive):
             palette.outline_variant,
         )
         text_left = inner + swatch + tokens.scaled(10)
-        detail_font = tokens.mono_font(self, widgets.point_size(11))
+        detail_font = tokens.mono_font_px(self, widgets.point_size(11))
         gcdc.SetFont(detail_font)
         detail_width = gcdc.GetTextExtent(self.group.detail)[0]
         gcdc.SetTextForeground(detail_ink)
@@ -1580,7 +1580,7 @@ class _GroupRow(wx.Control, widgets._Interactive):
             max(text_left, width - inner - detail_width),
             (height - gcdc.GetCharHeight()) // 2,
         )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         gcdc.SetTextForeground(label_ink)
         available = max(0, width - text_left - inner - detail_width - tokens.scaled(10))
         gcdc.DrawText(

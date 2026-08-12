@@ -1162,7 +1162,7 @@ class _Eyebrow(wx.Control):
         return False
 
     def _font(self) -> wx.Font:
-        return tokens.font(self, widgets.point_size(self.SIZE_PX), _MEDIUM)
+        return tokens.font_px(self, widgets.point_size(self.SIZE_PX), _MEDIUM)
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         """Return the width this eyebrow needs, measured the way it is drawn.
@@ -1538,12 +1538,12 @@ class PaletteRow(wx.Control):
         trailing = self._trailing_text()
         trailing_width = 0
         if trailing:
-            gcdc.SetFont(tokens.mono_font(self, widgets.point_size(self.ACCEL_PX)))
+            gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(self.ACCEL_PX)))
             trailing_width = gcdc.GetTextExtent(trailing)[0] + tokens.scaled(10)
         limit = max(tokens.scaled(40), self._text_limit() - trailing_width)
 
-        label_font = tokens.font(self, widgets.point_size(self.LABEL_PX), _MEDIUM)
-        group_font = tokens.font(self, widgets.point_size(self.GROUP_PX))
+        label_font = tokens.font_px(self, widgets.point_size(self.LABEL_PX), _MEDIUM)
+        group_font = tokens.font_px(self, widgets.point_size(self.GROUP_PX))
         gcdc.SetFont(label_font)
         label = widgets.elide(gcdc, self._display, limit)
         label_height = gcdc.GetCharHeight()
@@ -1561,7 +1561,7 @@ class PaletteRow(wx.Control):
         gcdc.DrawText(group, left, top + label_height)
 
         if trailing:
-            gcdc.SetFont(tokens.mono_font(self, widgets.point_size(self.ACCEL_PX)))
+            gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(self.ACCEL_PX)))
             gcdc.SetTextForeground(palette.primary)
             text_width, text_height = gcdc.GetTextExtent(trailing)
             if self.control is None:

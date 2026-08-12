@@ -83,7 +83,7 @@ class _TabButton(wx.Control, _Interactive):
     # -- geometry ------------------------------------------------------------
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         with measuring(self) as dc:
-            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(13), _MEDIUM))
             width = dc.GetTextExtent(self.tab.title or " ")[0]
         padding = tokens.scaled(self.PADDING)
         return wx.Size(
@@ -163,7 +163,7 @@ class _TabButton(wx.Control, _Interactive):
                 dc.SetPen(wx.TRANSPARENT_PEN)
                 dc.DrawEllipse(left - pin // 2, (rect.height - pin) // 2, pin, pin)
                 left += pin + tokens.scaled(4)
-            dc.SetFont(tokens.font(self, point_size(13), _MEDIUM))
+            dc.SetFont(tokens.font_px(self, point_size(13), _MEDIUM))
             dc.SetTextForeground(ink)
             title = elide(
                 dc, self.tab.title, max(0, rect.width - left - tokens.scaled(8))

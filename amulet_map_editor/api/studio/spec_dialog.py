@@ -192,7 +192,7 @@ class _Paragraph(_Painted):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(self.size_px)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(self.size_px)))
         width = self.GetSize().width or tokens.scaled(560)
         lines = self._lines(dc, width)
         return wx.Size(width, int(dc.GetCharHeight() * 1.55 * len(lines)) + 2)
@@ -208,7 +208,7 @@ class _Paragraph(_Painted):
         palette = tokens.palette()
         dc, gcdc = widgets.paint_context(self, self._backdrop(palette))
         width, _height = self.GetClientSize()
-        gcdc.SetFont(tokens.font(self, widgets.point_size(self.size_px)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(self.size_px)))
         gcdc.SetTextForeground(palette.role(self.role))
         line_height = int(gcdc.GetCharHeight() * 1.55)
         y = 0
@@ -228,7 +228,7 @@ class _Eyebrow(_Painted):
         self.text = str(text)
 
     def _font(self) -> wx.Font:
-        return tokens.font(self, widgets.point_size(11), wx.FONTWEIGHT_BOLD)
+        return tokens.font_px(self, widgets.point_size(11), wx.FONTWEIGHT_BOLD)
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         """Measure with the device context this control actually paints with.
@@ -295,7 +295,7 @@ class _NoteBlock(_Painted):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(13)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         lines = self._lines(dc)
         height = int(dc.GetCharHeight() * 1.55 * len(lines)) + tokens.scaled(24)
         return wx.Size(self.GetSize().width or tokens.scaled(560), height)
@@ -314,7 +314,7 @@ class _NoteBlock(_Painted):
         gcdc.DrawRectangle(
             wx.Rect(0, tokens.scaled(4), edge, height - tokens.scaled(8))
         )
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         gcdc.SetTextForeground(palette.on_surface)
         line_height = int(gcdc.GetCharHeight() * 1.55)
         y = tokens.scaled(12)
@@ -334,7 +334,7 @@ class _KeyRow(_Painted):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.font(self, widgets.point_size(13)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         height = dc.GetCharHeight() + tokens.scaled(18)
         return wx.Size(tokens.scaled(240), max(height, tokens.scaled(38)))
 
@@ -350,7 +350,7 @@ class _KeyRow(_Painted):
             palette.surface_container,
             palette.outline_variant,
         )
-        gcdc.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        gcdc.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         cap_width = gcdc.GetTextExtent(self.binding)[0] + tokens.scaled(16)
         cap_height = gcdc.GetCharHeight() + tokens.scaled(6)
         cap = wx.Rect(
@@ -364,7 +364,7 @@ class _KeyRow(_Painted):
         )
         gcdc.SetTextForeground(palette.primary)
         gcdc.DrawText(self.binding, cap.x + tokens.scaled(8), cap.y + tokens.scaled(3))
-        gcdc.SetFont(tokens.font(self, widgets.point_size(13)))
+        gcdc.SetFont(tokens.font_px(self, widgets.point_size(13)))
         gcdc.SetTextForeground(palette.on_surface)
         available = max(0, cap.x - tokens.scaled(22))
         gcdc.DrawText(
@@ -588,7 +588,7 @@ class _CodeBlock(wx.Panel):
         control scrolls past it.
         """
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, widgets.point_size(12)))
+        dc.SetFont(tokens.mono_font_px(self, widgets.point_size(12)))
         widest = max(
             (dc.GetTextExtent(line)[0] for line in self.code.split("\n")), default=0
         )
@@ -606,7 +606,7 @@ class _CodeBlock(wx.Panel):
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
         self.text.SetBackgroundColour(palette.surface_container_high)
         self.text.SetForegroundColour(palette.on_surface_variant)
-        self.text.SetFont(tokens.mono_font(self, widgets.point_size(12)))
+        self.text.SetFont(tokens.mono_font_px(self, widgets.point_size(12)))
         self.Refresh()
 
     def _on_paint(self, _event: wx.PaintEvent) -> None:
@@ -699,9 +699,9 @@ class _CommitRow(wx.Panel):
         backdrop = parent.GetBackgroundColour() if parent else palette.surface
         self.SetBackgroundColour(backdrop if backdrop.IsOk() else palette.surface)
         self.title.SetForegroundColour(palette.on_surface)
-        self.title.SetFont(tokens.font(self, widgets.point_size(13), _MEDIUM))
+        self.title.SetFont(tokens.font_px(self, widgets.point_size(13), _MEDIUM))
         self.detail.SetForegroundColour(palette.on_surface_variant)
-        self.detail.SetFont(tokens.mono_font(self, widgets.point_size(11)))
+        self.detail.SetFont(tokens.mono_font_px(self, widgets.point_size(11)))
         for button in (self.diff, self.restore):
             button.refresh_theme()
         self.Refresh()

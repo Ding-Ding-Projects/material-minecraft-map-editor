@@ -391,7 +391,7 @@ class OutlinePill(wx.Control):
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
-        dc.SetFont(tokens.mono_font(self, point_size(11)))
+        dc.SetFont(tokens.mono_font_px(self, point_size(11)))
         width = dc.GetTextExtent(self._text or " ")[0]
         return wx.Size(
             width + tokens.scaled(self.PADDING) * 2, tokens.scaled(self.HEIGHT)
@@ -416,7 +416,7 @@ class OutlinePill(wx.Control):
             None,
             palette.outline_variant,
         )
-        gcdc.SetFont(tokens.mono_font(self, point_size(11)))
+        gcdc.SetFont(tokens.mono_font_px(self, point_size(11)))
         gcdc.SetTextForeground(palette.on_surface_variant)
         inset = tokens.scaled(self.PADDING)
         text = elide(gcdc, self._text, max(0, width - inset * 2))

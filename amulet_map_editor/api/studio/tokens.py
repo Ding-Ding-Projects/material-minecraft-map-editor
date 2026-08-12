@@ -773,6 +773,47 @@ def mono_font(
     return font(window, point_size, weight, mono=True)
 
 
+#: Points per design pixel at the 96 DPI baseline every pixel constant in this
+#: module is written against (1 point == 1/72in, 96px == 1in at that
+#: baseline).  This is a fixed conversion, never the live device DPI: the
+#: toolkit itself converts a point size into physical pixels using the real
+#: device DPI once the process is DPI-aware, so applying the device DPI here
+#: too would scale the result twice -- exactly the doubled-scaling failure
+#: :func:`scaled` already warns about for spacing tokens.
+_POINTS_PER_PIXEL: float = 72.0 / 96.0
+
+
+def font_px(
+    window: Optional[wx.Window],
+    pixels: float,
+    weight: int = wx.FONTWEIGHT_NORMAL,
+    mono: bool = False,
+) -> wx.Font:
+    """Return the interface font at a design pixel size, scaled and weighted.
+
+    The Studio stylesheet specifies every size in pixels, but :func:`font`
+    hands its number straight to ``wx.Font.SetPointSize`` -- so a design
+    value of ``13`` was being rendered as 13 points, roughly a third larger
+    than the 13 pixels the design actually asked for.  This is the entry
+    point every call site whose number came from the design should use
+    instead: it converts the pixel value to points at the fixed 96 DPI
+    baseline and lets the toolkit's own device-DPI conversion (and the
+    persisted interface scale, applied once inside :func:`font`) take it the
+    rest of the way to a physical size.
+    """
+    point_size = max(1, round(float(pixels) * _POINTS_PER_PIXEL))
+    return font(window, point_size, weight, mono)
+
+
+def mono_font_px(
+    window: Optional[wx.Window],
+    pixels: float,
+    weight: int = wx.FONTWEIGHT_NORMAL,
+) -> wx.Font:
+    """Return the monospaced font at a design pixel size."""
+    return font_px(window, pixels, weight, mono=True)
+
+
 def emoji(glyph: str) -> str:
     """Return a decorative glyph, or "" when the user has turned them off.
 
@@ -1044,9 +1085,11 @@ __all__ = [
     "draw_round_rect",
     "emoji",
     "font",
+    "font_px",
     "is_dark",
     "load_bundled_fonts",
     "mono_font",
+    "mono_font_px",
     "notify_theme_changed",
     "on_colour",
     "palette",

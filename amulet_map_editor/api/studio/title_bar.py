@@ -402,7 +402,7 @@ class _GlyphButton(_BarControl):
     ) -> None:
         if not self.glyph:
             return
-        dc.SetFont(tokens.font(self, widgets.point_size(self.glyph_px)))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(self.glyph_px)))
         dc.SetTextForeground(ink)
         glyph_width, glyph_height = dc.GetTextExtent(self.glyph)
         dc.DrawText(
@@ -477,7 +477,7 @@ class _NotificationButton(_GlyphButton):
         text = self.badge_text()
         if not text:
             return
-        dc.SetFont(tokens.font(self, widgets.point_size(9), _MEDIUM))
+        dc.SetFont(tokens.font_px(self, widgets.point_size(9), _MEDIUM))
         text_width, text_height = dc.GetTextExtent(text)
         diameter = max(tokens.scaled(BADGE_SIZE), text_width + tokens.scaled(6))
         badge = wx.Rect(
@@ -541,8 +541,8 @@ class _ShortcutPill(_BarControl):
 
     def _fonts(self) -> Tuple[wx.Font, wx.Font]:
         return (
-            tokens.font(self, widgets.point_size(self.LABEL_PX)),
-            tokens.mono_font(self, widgets.point_size(self.ACCEL_PX)),
+            tokens.font_px(self, widgets.point_size(self.LABEL_PX)),
+            tokens.mono_font_px(self, widgets.point_size(self.ACCEL_PX)),
         )
 
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
