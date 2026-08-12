@@ -171,4 +171,51 @@ def _one_wx_app_for_the_whole_session():
         app = wx.App.Get() or wx.App(False)
     except Exception:  # pragma: no cover - platform boundary, e.g. no display
         return None
+    _keep_test_windows_off_the_users_screen(wx)
     return app
+
+
+def _keep_test_windows_off_the_users_screen(wx) -> None:
+    """Stop the suite stealing the keyboard and the foreground window.
+
+    A run builds thousands of real top-level windows.  Almost all of them are
+    only asked to draw themselves and are never shown -- but a test that calls
+    ``Show()``, ``Raise()`` or ``SetFocus()`` on a frame or dialog takes the
+    foreground away from whatever the person at the keyboard was actually
+    doing, and gives it back when it feels like it.  With several capture
+    lanes running at once that is not an occasional flicker; it is a machine
+    nobody can type on.
+
+    The suite's own captures never needed a visible window: they ask each
+    widget to render into a bitmap, which works perfectly on a window that was
+    never shown.  So a shown window here is a side effect, not a requirement,
+    and this pushes every one of them far off-screen and declines to activate
+    it -- the window still exists, still lays out, still draws, and still
+    reports honest sizes, which is everything a test reads.
+
+    This is deliberately a test-time measure and nothing the product ships:
+    the real application must show its windows where the user can see them.
+    """
+    if getattr(wx, "_amulet_windows_are_offscreen", False):
+        return
+    wx._amulet_windows_are_offscreen = True
+
+    # Far enough out that no plausible monitor arrangement contains it, but
+    # not so far that a toolkit clamps the coordinate back onto the desktop.
+    exile = wx.Point(-32000, -32000)
+    original_show = wx.TopLevelWindow.Show
+
+    def show(self, show=True):  # noqa: FBT002 - matching wx's own signature
+        if show:
+            try:
+                self.SetPosition(exile)
+            except Exception:  # pragma: no cover - destroyed mid-call
+                pass
+        return original_show(self, show)
+
+    wx.TopLevelWindow.Show = show
+    # Raise() and SetFocus() on a top-level window are pure foreground grabs;
+    # neither changes anything a test can read, so both become no-ops rather
+    # than a fight over the active window.
+    wx.TopLevelWindow.Raise = lambda self: None
+    wx.TopLevelWindow.SetFocus = lambda self: None
