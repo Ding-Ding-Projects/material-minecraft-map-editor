@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -52,6 +53,7 @@ from amulet_map_editor.api.studio.status_bar import (
     clear_container,
     invalidate_project_history,
     open_studio_menu,
+    project_history_cached,
     project_history_events,
     project_key_for,
     restore_history_event,
@@ -435,6 +437,15 @@ NO_HISTORY_AVAILABLE = studio_text(
 NO_PROJECT_HISTORY = studio_text(
     "No world is open, so there is no project history to show.",
     "而家未開世界，所以冇項目歷史可以睇。",
+)
+
+#: What the History tab says while the first read of a large history is still
+#: running on a background thread.  An empty list that later fills in would be
+#: indistinguishable from a project that genuinely has no history, so this
+#: state is said out loud rather than left implicit.
+READING_HISTORY = studio_text(
+    "Reading the project history...",
+    "讀緊項目歷史...",
 )
 
 #: What the Properties tab says with no world open.
@@ -1105,6 +1116,8 @@ class PropertiesPane(wx.Panel):
         self._note_key = self.active_project_key()
         self._live_revisions: List[ProjectRevision] = []
         self._history_available = True
+        self._history_loading = False
+        self._history_generation = 0
         #: The tool this pane is showing the options for, and what activating
         #: it actually did.  ``None`` means no tool has been started.
         self.activation: Optional[editor_tools.Activation] = None
@@ -1340,12 +1353,71 @@ class PropertiesPane(wx.Panel):
         self.rebuild()
 
     def refresh_history(self, *, reread: bool = False) -> None:
-        """Re-read the project's revisions from its own local history."""
-        revisions, available = load_project_revisions(
-            self.active_project_key(), refresh=reread
-        )
+        """Re-read the project's revisions from its own local history.
+
+        A first read of a large history walks every event file the profile
+        holds, which is slow enough to freeze the UI thread noticeably on a
+        real project.  When the read is not already sitting in the cache this
+        runs on a background thread instead, and the History tab shows an
+        honest "reading history" state until the result lands rather than an
+        empty list that would be indistinguishable from a project with no
+        history at all. A generation counter guards against a second world
+        (or a second refresh of the same one) landing its result after this
+        one's -- only the most recent request is ever applied.
+        """
+        key = self.active_project_key()
+        self._history_generation += 1
+        generation = self._history_generation
+        if not reread and project_history_cached(key):
+            revisions, available = load_project_revisions(key, refresh=False)
+            self._live_revisions = list(revisions)
+            self._history_available = bool(available)
+            self._history_loading = False
+            return
+        self._history_loading = True
+
+        def worker() -> None:
+            try:
+                revisions, available = load_project_revisions(key, refresh=reread)
+            except Exception:  # noqa: BLE001 - reported, never crashes the pane
+                log.exception("Could not read the local history for project %r", key)
+                revisions, available = (), False
+            wx.CallAfter(
+                self._apply_history_result, generation, key, revisions, available
+            )
+
+        threading.Thread(
+            target=worker, name="properties-pane-history", daemon=True
+        ).start()
+
+    def _apply_history_result(
+        self,
+        generation: int,
+        key: str,
+        revisions: Tuple[ProjectRevision, ...],
+        available: bool,
+    ) -> None:
+        """Apply a background history read, unless it has since gone stale.
+
+        Nothing here touches wx from the worker thread -- this method only
+        ever runs on the main thread, called through ``wx.CallAfter``.
+        """
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        if generation != self._history_generation:
+            # A newer refresh -- of this project or another one -- has since
+            # started, so this result belongs to a request nobody wants.
+            return
+        if key != self.active_project_key():
+            return
         self._live_revisions = list(revisions)
         self._history_available = bool(available)
+        self._history_loading = False
+        if self.tab == "history":
+            self.rebuild()
 
     def _on_destroy(self, event: wx.WindowDestroyEvent) -> None:
         if event.GetEventObject() is self:
@@ -1585,6 +1657,8 @@ class PropertiesPane(wx.Panel):
 
     def _history_note(self) -> str:
         """Return why the History tab has nothing to list."""
+        if self._history_loading:
+            return READING_HISTORY
         if not self._history_available:
             return NO_HISTORY_AVAILABLE
         if not self.active_project_key():
@@ -2753,6 +2827,7 @@ __all__ = [
     "NO_REVISIONS_YET",
     "NO_TOOL_ACTIVE",
     "NO_WORLD_PROPERTIES",
+    "READING_HISTORY",
     "PANEL_WIDTH",
     "PANE_TABS",
     "TAB_LABELS",

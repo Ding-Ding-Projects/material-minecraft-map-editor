@@ -177,3 +177,119 @@ def test_recording_a_recent_project_does_not_block_the_caller(monkeypatch) -> No
         f"RecentStore.add took {elapsed * 1000:.0f} ms while its history "
         "commit was blocked; the commit must run off the caller's thread"
     )
+
+
+def test_refresh_history_does_not_block_on_a_slow_events_read(
+    shell: "StudioShell", monkeypatch
+) -> None:
+    """``PropertiesPane.refresh_history`` used to read the whole event store
+    synchronously on the UI thread every time a world opened. On a profile
+    with 1000+ recorded events that first read cost real, measurable wall
+    time inside ``properties_pane.refresh_history()``. This pins the fix down:
+    a deliberately slow ``load_project_revisions`` must not be able to make
+    ``refresh_history`` itself slow, because the read now happens on a
+    background thread and lands through ``wx.CallAfter``.
+    """
+    from amulet_map_editor.api.studio import properties_pane as pane_module
+
+    released = threading.Event()
+    called = threading.Event()
+
+    def _slow_load_project_revisions(project_key, *, refresh=False):
+        called.set()
+        released.wait(timeout=2.0)
+        return (), True
+
+    monkeypatch.setattr(
+        pane_module, "load_project_revisions", _slow_load_project_revisions
+    )
+    # Force the cold path: refresh_history takes a fast synchronous shortcut
+    # when the project's history is already sitting in the module cache.
+    monkeypatch.setattr(pane_module, "project_history_cached", lambda key: False)
+
+    shell.attach_project("Slow History World", "C:/fake/slow-history", "java")
+    pane = shell.workspace.properties
+
+    t0 = time.perf_counter()
+    pane.refresh_history()
+    elapsed = time.perf_counter() - t0
+
+    assert called.wait(timeout=1.0), "refresh_history never reached the slow read"
+    assert elapsed < 0.5, (
+        f"PropertiesPane.refresh_history took {elapsed * 1000:.0f} ms while "
+        "its event read was blocked; the read must run off the caller's thread"
+    )
+    # While the background read is still running, the pane must say so rather
+    # than showing an empty list that looks identical to "no history at all".
+    assert pane._history_loading is True
+    assert pane._history_note() == pane_module.READING_HISTORY
+
+    released.set()
+    for _ in range(200):
+        wx.Yield()
+        if not pane._history_loading:
+            break
+        time.sleep(0.01)
+    assert not pane._history_loading, "the background history read never landed"
+
+
+def test_a_stale_history_read_never_overwrites_a_newer_one(
+    shell: "StudioShell", monkeypatch
+) -> None:
+    """Two overlapping reads must not race their results into the pane.
+
+    Opening a second world while the first world's history read is still in
+    flight must not let that first, now-stale, read land its result over the
+    second world's -- a generation counter (or equivalent guard) must reject
+    it.
+    """
+    from amulet_map_editor.api.studio import properties_pane as pane_module
+
+    first_released = threading.Event()
+    calls = []
+
+    def _load(project_key, *, refresh=False):
+        calls.append(project_key)
+        if project_key == "slow-first":
+            first_released.wait(timeout=2.0)
+            return (
+                (
+                    pane_module.ProjectRevision(
+                        commit="stale",
+                        message="a stale first-world revision",
+                        meta="",
+                    ),
+                ),
+                True,
+            )
+        return ((), True)
+
+    monkeypatch.setattr(pane_module, "load_project_revisions", _load)
+    monkeypatch.setattr(pane_module, "project_history_cached", lambda key: False)
+
+    shell.attach_project("First Slow World", "C:/fake/slow-first", "java")
+    pane = shell.workspace.properties
+    monkeypatch.setattr(pane, "active_project_key", lambda: "slow-first")
+    pane.refresh_history()
+
+    # Before the slow first read has returned, point the pane at a second
+    # project and refresh again -- this is the newer, wanted request.
+    monkeypatch.setattr(pane, "active_project_key", lambda: "second")
+    pane.refresh_history()
+    for _ in range(200):
+        wx.Yield()
+        if not pane._history_loading:
+            break
+        time.sleep(0.01)
+    assert not pane._history_loading
+
+    # Now let the stale first read return. Its result must be discarded
+    # because a newer refresh has since started.
+    first_released.set()
+    for _ in range(200):
+        wx.Yield()
+        time.sleep(0.005)
+
+    assert not any(
+        revision.commit == "stale" for revision in pane._live_revisions
+    ), "a stale, superseded history read overwrote the newer one's result"

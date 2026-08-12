@@ -163,6 +163,18 @@ def invalidate_project_history(project_key: str = "") -> None:
     _history_available.clear()
 
 
+def project_history_cached(project_key: str) -> bool:
+    """Return whether a project's history is already sitting in the cache.
+
+    A caller that only wants to know whether a read would be free -- no disk,
+    no repository walk -- asks this rather than calling
+    :func:`project_history_events` and throwing the answer away, which would
+    do the very read it was trying to avoid.
+    """
+    key = str(project_key)
+    return bool(key) and key in _history_cache
+
+
 def project_history_events(
     project_key: str, *, refresh: bool = False
 ) -> Tuple[Tuple[Any, ...], bool]:
