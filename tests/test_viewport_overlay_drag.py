@@ -42,8 +42,18 @@ BIG = wx.Size(900, 640)
 def app():
     """A live wx.App on an isolated profile, so a run cannot touch real settings."""
     os.environ["CONFIG_DIR"] = tempfile.mkdtemp(prefix="amulet-overlay-drag-")
-    application = wx.App()
-    yield application
+    # Reuse a live ``wx.App`` when the session already has one, and only
+    # create -- and later destroy -- a fresh instance when it does not.
+    # Unconditionally creating a second ``wx.App`` while one is already
+    # current silently orphans it, and destroying that second instance then
+    # clears wx's notion of "the current app" out from under every other
+    # test module -- the exact sequence that corrupts wxPython's SIP class
+    # table for platform-native widgets such as ``wx.PopupTransientWindow``.
+    existing = wx.App.Get()
+    created = existing is None and wx.App()
+    yield existing or created
+    if created:
+        created.Destroy()
 
 
 @pytest.fixture

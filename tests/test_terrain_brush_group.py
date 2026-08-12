@@ -163,7 +163,12 @@ def app() -> Any:
 
     wx = pytest.importorskip("wx", reason="wxPython is not installed")
     os.environ.setdefault("CONFIG_DIR", tempfile.mkdtemp(prefix="amulet-terrain-"))
-    yield wx.App()
+    # Reuse a live ``wx.App`` when the session already has one, rather than
+    # unconditionally creating a second instance -- that silently orphans
+    # the existing app and, once garbage-collected, can corrupt wxPython's
+    # SIP class table for platform-native widgets such as
+    # ``wx.PopupTransientWindow`` in every module that runs afterward.
+    yield wx.App.Get() or wx.App()
 
 
 @pytest.fixture()

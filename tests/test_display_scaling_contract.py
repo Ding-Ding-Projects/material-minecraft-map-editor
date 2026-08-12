@@ -104,7 +104,13 @@ class TestScalingDoesNotDouble:
         """
         wx = pytest.importorskip("wx")
         tokens = pytest.importorskip("amulet_map_editor.api.studio.tokens")
-        app = wx.App()  # noqa: F841 - a wx.Font needs a live app
+        # Reuse a live ``wx.App`` when the session already has one, rather
+        # than unconditionally creating a second instance -- that silently
+        # orphans the existing app and, once this local reference drops, can
+        # corrupt wxPython's SIP class table for platform-native widgets
+        # such as ``wx.PopupTransientWindow`` in every module that runs
+        # afterward.
+        app = wx.App.Get() or wx.App()  # noqa: F841 - a wx.Font needs a live app
         frame = wx.Frame(None)
         try:
             tokens._dpi_factor = 1.0

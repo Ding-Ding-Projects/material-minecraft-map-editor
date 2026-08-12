@@ -409,6 +409,25 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
         )
         self._settings_panel.Raise()
 
+        # A ScrolledPanel's scrollable (virtual) area is computed once, from
+        # whatever the sizer held the moment scrolling was set up -- it is not
+        # kept in step with later content by ``Layout()`` alone.  Every stock
+        # operation past the first one replaces this panel's children in
+        # ``_setup_operation``, so without recomputing it here the scroll
+        # region stays sized for whichever operation built it first (Clone,
+        # alphabetically) and ``ScrollChildIntoView`` can never reach a Run
+        # button that a taller operation -- Fill, Replace, Set Biome,
+        # Waterlog -- laid out past that stale boundary.
+        #
+        # Set directly rather than through another ``SetupScrolling()`` call:
+        # that helper's own ``wx.CallAfter(self._SetupAfter, ...)`` overwrites
+        # whatever virtual size is set here with ``GetBestVirtualSize()`` the
+        # next time the event loop turns -- which is exactly the width-cap
+        # fix below, undone a moment after being applied.  The scroll rate it
+        # would also set is already fixed once, at construction, and does not
+        # need revisiting.
+        sizer_min = self._operation_sizer.CalcMin()
+        self._operation_panel.SetVirtualSize(sizer_min)
         self._operation_panel.Layout()
         panel_size = self._operation_panel.GetBestSize()
         canvas_height = self.canvas.GetSize().GetHeight()
@@ -419,4 +438,25 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
         self._operation_panel.SetSize(
             wx.Rect(0, 30 + settings_panel_size.GetHeight(), panel_width, panel_height)
         )
+        # A panel short enough to need vertical scrolling grows a scrollbar,
+        # which eats into its *client* width -- narrower than the
+        # ``panel_width`` just set above, which came from the sizer's natural
+        # (scrollbar-free) minimum size, and than the virtual width just set
+        # for the sizer to lay children out against.  Horizontal scrolling is
+        # deliberately off (``scroll_x=False`` at construction), so that gap
+        # is not a pannable margin -- it is a strip along the right edge of
+        # every full-width ``wx.EXPAND`` child (Fill's, Replace's, Set
+        # Biome's and Waterlog's Run button all included) that sits past the
+        # client area and is not inside the panel, whatever ``IsShown`` says.
+        # Capping the virtual width to the real client width and laying out
+        # once more against that narrower target shrinks those children to
+        # fit inside the scrollbar instead of behind it.
+        self._operation_panel.Layout()
+        client_size = self._operation_panel.GetClientSize()
+        virtual_size = self._operation_panel.GetVirtualSize()
+        if virtual_size.GetWidth() > client_size.GetWidth():
+            self._operation_panel.SetVirtualSize(
+                wx.Size(client_size.GetWidth(), virtual_size.GetHeight())
+            )
+            self._operation_panel.Layout()
         self._operation_panel.Raise()

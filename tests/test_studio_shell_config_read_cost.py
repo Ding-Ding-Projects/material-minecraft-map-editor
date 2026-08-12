@@ -50,10 +50,21 @@ class ShellConstructionConfigReadCostTestCase(unittest.TestCase):
         cls.config = config
         cls.tokens = tokens
         cls.StudioShell = StudioShell
-        cls.app = wx.App(False)
+        # Reuse a live ``wx.App`` when the session already has one, and only
+        # create -- and later destroy -- a fresh instance when it does not.
+        # Unconditionally creating a second ``wx.App`` silently orphans an
+        # existing one and, if later destroyed, clears wx's notion of "the
+        # current app" for every other test module -- the exact sequence
+        # that corrupts wxPython's SIP class table for platform-native
+        # widgets such as ``wx.PopupTransientWindow``.
+        existing = wx.App.Get()
+        cls._created_app = existing is None and wx.App(False)
+        cls.app = existing or cls._created_app
 
     @classmethod
     def tearDownClass(cls):
+        if cls._created_app:
+            cls._created_app.Destroy()
         cls.config.invalidate()
         cls._dir.cleanup()
 
