@@ -30,6 +30,7 @@ from amulet_map_editor.api import docs_browser as DOCS_BROWSER
 from amulet_map_editor.api import lang as LANG
 from amulet_map_editor.api import preferences as PREFERENCES
 from amulet_map_editor.api.converter import registry as CONVERTER_REGISTRY
+from amulet_map_editor.api.sidecar.edit_methods import EDIT_METHODS
 from amulet_map_editor.api.sidecar.mesh_methods import MESH_METHODS
 from amulet_map_editor.api.sidecar.protocol import ERR_INVALID_PARAMS, ProtocolError
 from amulet_map_editor.api.sidecar.world_methods import WORLD_METHODS
@@ -332,4 +333,5 @@ METHODS: Dict[str, MethodHandler] = {
     "dimsum.draw": _dimsum_draw,
     **WORLD_METHODS,
     **MESH_METHODS,
+    **EDIT_METHODS,
 }
