@@ -58,7 +58,11 @@ squirrelWindows:
   # Squirrel packaging is unsigned by construction once win.forceCodeSigning
   # and win.signAndEditExecutable above are both false, which validateConfig
   # actually enforces (a bad key here fails packaging outright, see below).
-  artifactName: "${productName}-Setup-${version}.${ext}"
+  # Setup.exe, exactly. The release workflow looks for that name, Squirrel's
+  # own updater expects the installer to sit beside RELEASES, and a name
+  # carrying a version means every release ships a differently-named installer
+  # -- which breaks a download link the moment a new version lands.
+  artifactName: "Setup.${ext}"
   msi: false
   # No iconUrl is set: electron-builder requires it to be a public HTTPS
   # asset for the Squirrel update feed, and no such asset has been verified

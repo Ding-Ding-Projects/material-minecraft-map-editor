@@ -9,8 +9,9 @@
     "electron:dev": "electron .",
     "electron:start": "electron .",
     "electron:capture": "node scripts/capture_electron_shell.js",
-    "electron:pack": "electron-builder --config electron/electron-builder.yml --dir",
-    "electron:dist": "electron-builder --config electron/electron-builder.yml"
+    "electron:pack": "npm run electron:clean && electron-builder --config electron/electron-builder.yml --dir",
+    "electron:dist": "npm run electron:clean && electron-builder --config electron/electron-builder.yml",
+    "electron:clean": "node -e \"require('fs').rmSync('dist/electron',{recursive:true,force:true})\""
   },
   "devDependencies": {
     "electron": "^32.0.0",
