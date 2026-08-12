@@ -30,7 +30,7 @@ instead of silently passing.
 | personal-vocabulary | `amulet_map_editor/api/text_overlay.py` (bounded overlay mechanism), `amulet_map_editor/api/lang.py` (substitution wired into the shared translation boundary) | `docs/features/personal-vocabulary/README.md` | `amulet_map_editor/api/lang.py` (the overlay's own substitution point) | cached in the profile directory via `amulet_map_editor/api/config.py` | `tests/test_text_overlay.py`, `tests/test_display_text_overlay_ui_contract.py`, `tests/test_personal_vocabulary.py` | `tests/test_display_text_overlay_ui_contract.py` (Preferences upload row) | `tests/test_display_text_overlay_ui_contract.py` (capture_composite) | complete |
 | regex-builder | `amulet_map_editor/api/wx/ui/regex_dialog.py`, `amulet_map_editor/api/wx/ui/base_select.py`, `docs/site/regex-builder.js` | `docs/features/search-and-regex/README.md` | `amulet_map_editor/api/lang.py` | n/a (stateless per search field) | `tests/test_studio_regex_builder_coverage.py` + 33 more regex-builder tests | `tests/test_base_select_ui_contract.py` | `tests/test_base_select_ui_contract.py` (capture_composite) | complete |
 | rich-controls | `docs/site/palette.js` (site), command-palette inline controls in `amulet_map_editor/api/studio/palette_dialog.py` | `docs/features/command-palette/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/palette.js` | n/a | `tests/test_site_palette_inventory_contract.py`, `tests/test_rich_controls_beyond_palette.py` | `tests/test_rich_controls_beyond_palette.py` (hand-written non-palette surface inventory: drives the recents pin star and the NBT editor's boolean-row toggle switch, and records the notification history list's documented escape clause) | none | complete |
-| super-confirmation | `docs/site/confirm-gate.js` (site), `amulet_map_editor/api/studio/widgets.py` (destructive gate widgets, undocumented class) | `docs/features/destructive-gate/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/confirm-gate.js` | n/a | none dedicated (only indirectly touched by `tests/test_editor_confirm_outcome.py`) | none | none | incomplete — no dedicated desktop test exercising the two-key + slider gate end to end, and no capture of the gate mid-animation |
+| super-confirmation | `docs/site/confirm-gate.js` (site), `amulet_map_editor/api/studio/widgets.py` (`KeyGate`/`_KeyButton`, documented classes) | `docs/features/destructive-gate/README.md` | `amulet_map_editor/api/studio/copy.py` (`studio_text`/`studio_label`, wired into `KeyGate`), inline `t(en, yue)` in `docs/site/confirm-gate.js` | n/a | `tests/test_material_confirmation_contract.py`, `tests/test_destructive_gate_end_to_end.py` | `tests/test_destructive_gate_end_to_end.py` (real `EVT_SLIDER`/`EVT_SCROLL_THUMBRELEASE`/`EVT_KEY_DOWN`/`EVT_CHAR_HOOK` dispatch; asserts partial travel never fires the guarded callback) | `tests/test_destructive_gate_end_to_end.py` (capture_composite, mid-flourish) | complete |
 | tab-navigation | `amulet_map_editor/api/tab_groups.py`, `amulet_map_editor/api/wx/ui/material_tabs.py`, `amulet_map_editor/api/wx/ui/tab_manager.py`, `docs/site/tabs.js` | `docs/features/tab-groups/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/tabs.js` | `amulet_map_editor/api/tab_groups.py` (order/pin/group persistence) | `tests/test_terrain_brush_group.py`, plus tab-groups tests | `tests/test_selection_menu_rows_run.py` | none dedicated | incomplete — missing a dedicated built-artifact capture of the tab strip at every dock edge (left/right/top/bottom) |
 | tab-navigation-runtime | `amulet_map_editor/api/framework/base_tab.py` | `docs/features/base-tab-runtime/README.md` | `amulet_map_editor/api/lang.py` | n/a | `tests/test_base_tab_runtime_contract.py` (dedicated), `tests/test_studio_runtime_render_contract.py` (indirect render path) | `tests/test_studio_runtime_render_contract.py` | `tests/test_studio_runtime_render_contract.py` (capture_composite) | complete |
 | two-factor-authenticator | `amulet_map_editor/api/authenticator.py`, `amulet_map_editor/api/wx/ui/authenticator_dialog.py`, `docs/site/totp.js`, `docs/site/authenticator.js` | `docs/features/authenticator/README.md` | `amulet_map_editor/api/lang.py`, `t(en, yue)` inline in `docs/site/authenticator.js` | metadata in the config record, secret in the OS vault only | `tests/test_authenticator.py`, `tests/test_authenticator_entries.py`, `tests/test_site_totp_contract.py` | `tests/test_authenticator_ui_contract.py` | `tests/test_authenticator_ui_contract.py` (capture_composite) | complete |
@@ -38,9 +38,9 @@ instead of silently passing.
 
 ## Honest summary
 
-Of the 19 tracked rows, **14 are complete** with implementation, article, localized
+Of the 19 tracked rows, **16 are complete** with implementation, article, localized
 copy, persistence where relevant, tests, an interaction proof and capture
-evidence all present and verified by the test below. **5 are recorded
+evidence all present and verified by the test below. **3 are recorded
 incomplete**, each with the exact missing item named in the table rather than
 silently omitted:
 
@@ -55,9 +55,15 @@ surface to reach it from.
 
 - `auto-updates` — missing capture evidence for the ready-to-restart banner.
 - `pages-site-parity` — no headless-browser capture harness for the deployed site.
-- `rich-controls` — no desktop-side proof that non-palette lists render live inline controls.
-- `super-confirmation` — no dedicated desktop test for the two-key/slider gate, no capture.
 - `tab-navigation` — no capture of the tab strip at every dock edge.
+
+`super-confirmation` moved from incomplete to complete in this pass: `KeyGate`
+and `_KeyButton` gained docstrings, their status copy, key labels, slider name,
+progress-row title, and exit button were wired through `copy.studio_text`/
+`copy.studio_label` so the gate honours the active language mode instead of
+being hard-coded English, and `tests/test_destructive_gate_end_to_end.py` now
+drives the real widget through real wx events and asserts the one fact the
+whole gate exists for — a partial slider never fires the guarded action.
 
 This file is updated whenever a row's evidence changes; the test below fails
 closed if a row claims "complete" but any of its declared paths does not

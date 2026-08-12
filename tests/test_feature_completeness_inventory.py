@@ -170,16 +170,18 @@ INVENTORY = {
         [
             "docs/site/palette.js",
             "amulet_map_editor/api/studio/palette_dialog.py",
+            "docs/features/command-palette/README.md",
             "tests/test_site_palette_inventory_contract.py",
             "tests/test_rich_controls_beyond_palette.py",
         ],
     ),
     "super-confirmation": (
-        "incomplete",
+        "complete",
         [
             "docs/site/confirm-gate.js",
             "amulet_map_editor/api/studio/widgets.py",
             "docs/features/destructive-gate/README.md",
+            "tests/test_destructive_gate_end_to_end.py",
         ],
     ),
     "tab-navigation": (
