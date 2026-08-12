@@ -799,6 +799,14 @@ _CHUNKS = RibbonTab(
     "Chunks",
     (
         RibbonGroup(
+            "Draw range",
+            fields=(
+                RibbonField("Min Y", "-64"),
+                RibbonField("Max Y", "320"),
+            ),
+            launcher="heightLimits",
+        ),
+        RibbonGroup(
             "Chunks",
             buttons=(
                 _button(

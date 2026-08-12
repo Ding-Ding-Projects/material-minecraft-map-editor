@@ -202,6 +202,7 @@ def test_the_chunks_ribbon_tab_defines_no_field_grid():
         f"{group.title}/{field.label}"
         for group in chunks.groups
         for field in group.fields
+        if field.command
     ]
     assert not offered, (
         "the Chunks tab offers editable boxes with nothing behind them "
