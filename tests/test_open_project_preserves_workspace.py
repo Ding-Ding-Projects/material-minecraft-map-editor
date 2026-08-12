@@ -293,3 +293,103 @@ def test_a_stale_history_read_never_overwrites_a_newer_one(
     assert not any(
         revision.commit == "stale" for revision in pane._live_revisions
     ), "a stale, superseded history read overwrote the newer one's result"
+
+
+def test_refresh_revision_does_not_block_on_a_slow_events_read(
+    shell: "StudioShell", monkeypatch
+) -> None:
+    """The status bar's revision pill has the same defect shape as the
+    Properties pane's history did: ``StatusBar.refresh_revision`` read the
+    whole event store synchronously, and ``apply_context`` reaches it on the
+    thread wx paints on while a project is being attached. A deliberately slow
+    ``project_history_events`` must not be able to make ``refresh_revision``
+    itself slow, and while the read is in flight the pill must say it is
+    reading rather than claiming the project has no revisions.
+    """
+    from amulet_map_editor.api.studio import status_bar as bar_module
+
+    released = threading.Event()
+    called = threading.Event()
+
+    def _slow_events(project_key, *, refresh=False):
+        called.set()
+        released.wait(timeout=2.0)
+        return (), True
+
+    monkeypatch.setattr(bar_module, "project_history_events", _slow_events)
+    # Force the cold path: a cached history is answered synchronously, which is
+    # the fast case this test is deliberately not measuring.
+    monkeypatch.setattr(bar_module, "project_history_cached", lambda key: False)
+    monkeypatch.setattr(bar_module, "project_key_for", lambda ctx=None: "slow-world")
+
+    shell.attach_project("Slow Revision World", "C:/fake/slow-revision", "java")
+    bar = shell.workspace.status
+
+    t0 = time.perf_counter()
+    bar.refresh_revision()
+    elapsed = time.perf_counter() - t0
+
+    assert called.wait(timeout=1.0), "refresh_revision never reached the slow read"
+    assert elapsed < 0.5, (
+        f"StatusBar.refresh_revision took {elapsed * 1000:.0f} ms while its "
+        "event read was blocked; the read must run off the caller's thread"
+    )
+    # "No revisions yet" during the wait would be a claim the bar has not yet
+    # earned, and looks identical to the finished answer.
+    assert bar.revision.loading is True
+    assert bar.revision.GetLabel() == bar_module.READING_REVISIONS
+
+    released.set()
+    for _ in range(200):
+        wx.Yield()
+        if not bar.revision.loading:
+            break
+        time.sleep(0.01)
+    assert not bar.revision.loading, "the background revision read never landed"
+
+
+def test_a_stale_revision_read_never_overwrites_a_newer_one(
+    shell: "StudioShell", monkeypatch
+) -> None:
+    """A slow first read must not land its answer over a newer world's."""
+    from amulet_map_editor.api.studio import status_bar as bar_module
+
+    class _Event:
+        def __init__(self, event_id: str) -> None:
+            self.event_id = event_id
+
+    first_released = threading.Event()
+    keys = {"current": "slow-first"}
+
+    def _events(project_key, *, refresh=False):
+        if project_key == "slow-first":
+            first_released.wait(timeout=2.0)
+            return (_Event("stale123"),), True
+        return (), True
+
+    monkeypatch.setattr(bar_module, "project_history_events", _events)
+    monkeypatch.setattr(bar_module, "project_history_cached", lambda key: False)
+    monkeypatch.setattr(bar_module, "project_key_for", lambda ctx=None: keys["current"])
+
+    shell.attach_project("First Slow World", "C:/fake/slow-first", "java")
+    bar = shell.workspace.status
+    bar.refresh_revision()
+
+    # A second world arrives before the first read has returned.
+    keys["current"] = "second"
+    bar.refresh_revision()
+    for _ in range(200):
+        wx.Yield()
+        if not bar.revision.loading:
+            break
+        time.sleep(0.01)
+    assert not bar.revision.loading
+
+    first_released.set()
+    for _ in range(200):
+        wx.Yield()
+        time.sleep(0.005)
+
+    assert (
+        bar.revision.commit != "stale12"
+    ), "a stale, superseded revision read overwrote the newer one's result"

@@ -27,6 +27,7 @@ fact.
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 import wx
@@ -589,6 +590,12 @@ NO_REVISIONS = "No revisions yet"
 #: What it says when the profile could not hold a history repository at all.
 NO_HISTORY_STORE = "History unavailable"
 
+#: What it says while the first read of a project's history is still running.
+#: The read walks every event file the profile holds, so on a large history it
+#: takes real time -- and "No revisions yet" said during that wait would be a
+#: statement the bar has not yet earned, indistinguishable from the answer.
+READING_REVISIONS = "Reading history…"
+
 
 class RevisionPill(StudioButton):
     """The tinted monospaced button that names the head revision.
@@ -617,6 +624,7 @@ class RevisionPill(StudioButton):
         self.count = int(count)
         self.suffix = str(suffix)
         self.available = True
+        self.loading = False
         super().__init__(
             parent,
             self._compose(),
@@ -635,6 +643,8 @@ class RevisionPill(StudioButton):
         self._rename()
 
     def _compose(self) -> str:
+        if self.loading:
+            return READING_REVISIONS
         if not self.available:
             return NO_HISTORY_STORE
         if not self.commit or self.count <= 0:
@@ -643,6 +653,9 @@ class RevisionPill(StudioButton):
         return f"{label} {self.suffix}".rstrip() if self.suffix else label
 
     def _rename(self) -> None:
+        if self.loading:
+            self.SetName("Reading this project's history. Opens the project history.")
+            return
         if not self.available:
             self.SetName(
                 "The project history could not be read from this profile. "
@@ -671,6 +684,13 @@ class RevisionPill(StudioButton):
         self.commit = str(commit)
         self.count = int(count)
         self.available = bool(available)
+        self.loading = False
+        self.SetLabel(self._compose())
+        self._rename()
+
+    def set_loading(self) -> None:
+        """Say that the history is being read, rather than that it is empty."""
+        self.loading = True
         self.SetLabel(self._compose())
         self._rename()
 
@@ -852,6 +872,9 @@ class StatusBar(wx.Panel):
         self.on_projection = on_projection
         self.on_surface = on_surface
         self.on_command = on_command
+        # Bumped by every revision refresh, so a slow background read can tell
+        # whether the bar still wants the answer it went away to fetch.
+        self._revision_generation = 0
         self.SetName("Workspace status bar")
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
 
@@ -976,13 +999,60 @@ class StatusBar(wx.Panel):
         self.Layout()
 
     def refresh_revision(self, ctx: Optional[context.WorldContext] = None) -> None:
-        """Re-read the head revision and revision count from the project."""
+        """Re-read the head revision and revision count from the project.
+
+        A first read walks every event file the profile holds, which on a real
+        history is slow enough to stall the thread wx paints on -- and this is
+        called from :meth:`apply_context`, which the shell reaches synchronously
+        while a project is being attached.  So an uncached read runs on a
+        background thread and the pill says it is reading until the answer
+        lands, rather than showing "no revisions yet", which is a different
+        fact.  The generation counter is what stops a slow read landing its
+        answer into a bar that has since moved on to another world.
+        """
         key = project_key_for(ctx)
+        self._revision_generation += 1
+        generation = self._revision_generation
         if not key:
             self.revision.set_revision("", 0)
             self.revision.Enable(False)
             return
-        events, available = project_history_events(key)
+        if project_history_cached(key):
+            self._apply_revision(generation, *project_history_events(key))
+            return
+        self.revision.Enable(True)
+        self.revision.set_loading()
+
+        def worker() -> None:
+            try:
+                events, available = project_history_events(key)
+            except Exception:  # noqa: BLE001 - reported, never breaks the bar
+                log.exception("Could not read the local history for project %r", key)
+                events, available = (), False
+            wx.CallAfter(self._apply_revision, generation, events, available)
+
+        threading.Thread(target=worker, name="status-bar-revision", daemon=True).start()
+
+    def _apply_revision(
+        self,
+        generation: int,
+        events: Sequence[Any],
+        available: bool,
+    ) -> None:
+        """Show a finished revision read, unless it has since gone stale.
+
+        Only ever runs on the main thread -- the worker reaches it through
+        ``wx.CallAfter`` and touches no wx object itself.
+        """
+        try:
+            if self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            return
+        if generation != self._revision_generation:
+            # A newer refresh has started since, so this answer describes a
+            # world the bar is no longer showing.
+            return
         self.revision.Enable(True)
         self.revision.set_revision(
             events[0].event_id[:7] if events else "",
