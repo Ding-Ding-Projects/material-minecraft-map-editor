@@ -279,3 +279,75 @@ class TheTicketListIsAList(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheDestructiveGateActuallyGates(unittest.TestCase):
+    """Two keys and a slider only mean something if each is genuinely load
+    bearing. A gate that fires on one click looks identical in a screenshot to
+    one that does not."""
+
+    SETUP = (
+        "let fired = 0;"
+        "window.AmuletConfirm.destructive({title:'T', detail:'D',"
+        "  onConfirm(){ fired++; }});"
+        "const gate = q('.gate');"
+        "const keys = [...gate.querySelectorAll('input[type=checkbox]')];"
+        "const slider = gate.querySelector('input[type=range]');"
+        "const fire = () => {"
+        "  slider.value = '100';"
+        "  slider.dispatchEvent(new window.Event('input', {bubbles:true}));"
+        "};"
+    )
+
+    def test_the_slider_is_dead_until_both_keys_turn(self) -> None:
+        got = render(
+            self.SETUP
+            + "const before = slider.disabled;"
+            + "keys[0].checked = true;"
+            + "keys[0].dispatchEvent(new window.Event('change', {bubbles:true}));"
+            + "const afterOne = slider.disabled;"
+            + "keys[1].checked = true;"
+            + "keys[1].dispatchEvent(new window.Event('change', {bubbles:true}));"
+            + "const afterBoth = slider.disabled;"
+            + "return {before: before, afterOne: afterOne, afterBoth: afterBoth};"
+        )
+        self.assertTrue(got["before"], "the slider was live before any key turned")
+        self.assertTrue(got["afterOne"], "one key was enough to arm the slider")
+        self.assertFalse(got["afterBoth"], "both keys did not arm the slider")
+
+    def test_a_partial_slider_springs_back_and_fires_nothing(self) -> None:
+        got = render(
+            self.SETUP
+            + "keys.forEach(k => { k.checked = true;"
+            + "  k.dispatchEvent(new window.Event('change', {bubbles:true})); });"
+            + "slider.value = '60';"
+            + "slider.dispatchEvent(new window.Event('input', {bubbles:true}));"
+            + "slider.dispatchEvent(new window.Event('change', {bubbles:true}));"
+            + "return {fired: fired, value: slider.value};"
+        )
+        self.assertEqual(got["fired"], 0, "a half-drag confirmed the action")
+        self.assertEqual(got["value"], "0", "a released partial drag did not reset")
+
+    def test_the_full_journey_confirms_exactly_once(self) -> None:
+        got = render(
+            self.SETUP
+            + "keys.forEach(k => { k.checked = true;"
+            + "  k.dispatchEvent(new window.Event('change', {bubbles:true})); });"
+            + "fire(); fire(); fire();"
+            + "return {armedFired: fired, disabled: slider.disabled};"
+        )
+        self.assertLessEqual(
+            got["armedFired"], 1, "the gate fired more than once for one journey"
+        )
+        self.assertTrue(got["disabled"], "the slider stayed live after completing")
+
+    def test_the_facts_are_present_and_unstyled(self) -> None:
+        got = render(
+            "window.AmuletConfirm.destructive({title:'T',"
+            "  detail:'This deletes 41 files and cannot be undone.'});"
+            "return {detail: (q('#gate-detail')||{}).textContent || '',"
+            "        exit: !!q('#gate-exit')};"
+        )
+        self.assertIn("cannot be undone", got["detail"])
+        self.assertIn("41 files", got["detail"])
+        self.assertTrue(got["exit"], "there is no emergency exit")

@@ -186,16 +186,27 @@
     if (lock) record("unlocked-permanently", target, lock.label);
   }
 
+  /* The history contract on this site is site.history.record({action, label,
+   * detail, undo}). An earlier version of this file called a
+   * window.AmuletHistory that does not exist, behind a typeof guard - so every
+   * lock change went unrecorded and nothing ever reported a problem. A guard
+   * that silently swallows a wrong API is worse than no guard, so this one
+   * returns whether it actually recorded. */
   function record(action, target, label) {
-    if (window.AmuletHistory && typeof window.AmuletHistory.record === "function") {
-      try {
-        window.AmuletHistory.record({
-          action: action,
-          summary: t("Lock on ", "鎖 ") + (label || target),
-        });
-      } catch (error) {
-        /* history is a convenience here, never a precondition */
-      }
+    if (!site.history || typeof site.history.record !== "function") return false;
+    try {
+      site.history.record({
+        action: action,
+        label: t("Lock on ", "鎖 ") + (label || target),
+        detail: t(
+          "Lock configuration changed. The credential itself is never written " +
+            "to history.",
+          "改咗個鎖嘅設定。憑證本身唔會寫入歷史。"
+        ),
+      });
+      return true;
+    } catch (error) {
+      return false;
     }
   }
 
