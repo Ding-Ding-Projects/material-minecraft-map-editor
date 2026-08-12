@@ -195,8 +195,41 @@
       }
     }
 
+    // The overlay module draws the selection box, its handles and the
+    // reference grid. It deliberately builds no camera of its own: it is handed
+    // the same view-projection the chunks were drawn with, so the box and the
+    // terrain cannot drift apart.
+    //
+    // It is created lazily, on the first frame that has a GL context, because
+    // the viewport itself is only constructed once a world is open.
+    var overlay = null;
+
+    function ensureOverlay() {
+      if (overlay || !viewport || !viewport.gl) return overlay;
+      var factory = window.AmuletViewportOverlays;
+      if (!factory || typeof factory.SelectionOverlay !== "function") return null;
+      overlay = new factory.SelectionOverlay(viewport.gl);
+      overlay.setGrid({ y: 0 });
+      viewport.afterRender = function (transform, cameraPosition) {
+        overlay.render(transform, cameraPosition);
+      };
+      return overlay;
+    }
+
+    /** Set or clear the selection the viewport draws. */
+    function setSelection(pointOne, pointTwo) {
+      var current = ensureOverlay();
+      if (!current) return false;
+      if (!pointOne || !pointTwo) current.clearSelection();
+      else current.setSelection(pointOne, pointTwo);
+      return true;
+    }
+
     function renderLoop() {
-      if (viewport) viewport.render();
+      if (viewport) {
+        ensureOverlay();
+        viewport.render();
+      }
       rafHandle = requestAnimationFrame(renderLoop);
     }
 
@@ -255,6 +288,14 @@
       },
       isStreaming: function () {
         return streaming;
+      },
+      // Set or clear the drawn selection. Exposed rather than left internal
+      // because an overlay nothing can reach is the same defect this project
+      // has now hit three times: a component fully built, fully tested, and
+      // wired to nothing.
+      setSelection: setSelection,
+      hasOverlay: function () {
+        return Boolean(overlay);
       },
     };
 

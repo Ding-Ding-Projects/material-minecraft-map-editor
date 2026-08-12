@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "3a5230431ce27cdd5ced2fa2ed3477125998ad4f",
+  "source_revision": "5004952fe83dfeac23b3eb53cde1727b06a59e63",
   "entries": [
+    {
+      "version": "0.10.0-dev.830",
+      "released_on": "2026-08-12",
+      "commit_sha": "860cdb8dbb1506d2315a243f993bb7507a92cf5a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw a selection box the viewport can finally show, not just render terrain around",
+          "commit_sha": "860cdb8dbb1506d2315a243f993bb7507a92cf5a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.828",
+      "released_on": "2026-08-12",
+      "commit_sha": "07550ca5ac615b0973b07d1621135ea3df5e4760",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wait for the sidecar instead of judging it once, and stop dropping every preference write",
+          "commit_sha": "07550ca5ac615b0973b07d1621135ea3df5e4760"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.826",
+      "released_on": "2026-08-12",
+      "commit_sha": "3a5230431ce27cdd5ced2fa2ed3477125998ad4f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Bring the 3D viewport's first real chunk into the Electron renderer via WebGL2",
+          "commit_sha": "3a5230431ce27cdd5ced2fa2ed3477125998ad4f"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.824",
       "released_on": "2026-08-12",

@@ -346,11 +346,28 @@
     gl.clearColor(this.clearColor[0], this.clearColor[1], this.clearColor[2], this.clearColor[3]);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    if (this.vertexCount <= 0 && this.chunkCount <= 0) return;
-
     var projection = mat4Perspective(this.fovYRadians, width / height, this.near, this.far);
     var view = mat4View(this.camera.position, this.camera.yaw, this.camera.pitch);
     var viewProjection = mat4Multiply(projection, view);
+
+    // Anything drawn on top of the terrain -- the selection box, its handles,
+    // the reference grid -- runs through this hook with the SAME
+    // view-projection the chunks were drawn with. Handing the matrix over
+    // rather than letting an overlay build its own camera is what stops the two
+    // drifting apart: a box that is one frame or one convention behind the
+    // terrain sits visibly in the wrong place, and nothing in either module
+    // would be wrong on its own.
+    var afterRender = this.afterRender;
+
+    // The early return used to happen here, before any of this, so a world with
+    // no chunks loaded yet drew nothing at all. That is also the exact moment a
+    // grid is most useful -- placing a selection in empty space with no
+    // reference is guesswork -- so the overlay hook runs whether or not there is
+    // terrain to draw, and only the chunk drawing below is skipped.
+    if (this.vertexCount <= 0 && this.chunkCount <= 0) {
+      if (afterRender) afterRender(viewProjection, this.camera.position);
+      return;
+    }
 
     gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE0);
@@ -375,6 +392,9 @@
       gl.drawArrays(gl.TRIANGLES, 0, entry.vertexCount);
       gl.bindVertexArray(null);
     }
+
+    // Overlays last, so they draw over the terrain rather than under it.
+    if (afterRender) afterRender(viewProjection, this.camera.position);
   };
 
   // --- Camera input. Conventions match amulet_map_editor.api.opengl.camera.
