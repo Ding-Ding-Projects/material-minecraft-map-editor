@@ -103,3 +103,7 @@ If you are new to the interface, start with
   artifacts rather than claimed from source
 - [Amulet Studio backstage (Electron)](electron-studio-backstage/README.md) —
   the desktop shell's start screen, mounted against the real sidecar
+- [Amulet Studio workspace (Electron)](electron-studio-workspace/README.md) —
+  the ribbon, breadcrumb, navigator, properties pane and status bar around
+  the working 3D viewport, with every ribbon command either wired to the
+  real sidecar write path or disabled with an explicit reason

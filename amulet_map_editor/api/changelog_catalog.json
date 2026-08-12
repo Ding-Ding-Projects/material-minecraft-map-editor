@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "ece3dd7be52a42647aa7a0c41940a030c6b8fd12",
+  "source_revision": "2ab2c553b33b2bef553d45b2e14f414e2a8ef708",
   "entries": [
+    {
+      "version": "0.10.0-dev.851",
+      "released_on": "2026-08-12",
+      "commit_sha": "b01e8316ddbfd4f161d185d9606cb88727c6ae1b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Catch the changelog catalog up to the write path",
+          "commit_sha": "b01e8316ddbfd4f161d185d9606cb88727c6ae1b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.849",
+      "released_on": "2026-08-12",
+      "commit_sha": "ece3dd7be52a42647aa7a0c41940a030c6b8fd12",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wire fill/replace/undo/redo/save into the viewport panel, not just the sidecar",
+          "commit_sha": "ece3dd7be52a42647aa7a0c41940a030c6b8fd12"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.848",
+      "released_on": "2026-08-12",
+      "commit_sha": "5535e6548a5b942b23e5c17afe68f85885b04e57",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Give the sidecar a write path: fill, replace, undo, redo, save",
+          "commit_sha": "5535e6548a5b942b23e5c17afe68f85885b04e57"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.845",
       "released_on": "2026-08-12",
