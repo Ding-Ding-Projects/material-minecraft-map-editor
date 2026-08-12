@@ -171,7 +171,22 @@ about the source, since the source says this should already be correct.
 ## Converting to an Electron application, piece by piece
 
 The decision is to migrate rather than rewrite. What follows is the order that
-keeps a working application at every step; nothing here is started yet.
+keeps a working application at every step.
+
+**Real status, verified against running artifacts (see
+`docs/features/electron-migration/README.md` for the full evidence):** the
+wxPython application is still the shipping product. Phase 0 and Phase 1 are
+done. Phase 2 is half done — the Python sidecar is real and was driven end to
+end (`protocol.ping`, `preferences.read`/`write`, `language.get`/`set`/`list`,
+`converter.formats`, and its structured error path all answered correctly
+from a real child process) — but `electron/main.js` does not spawn it and
+`electron/preload.js` exposes no bridge to it, so nothing in the shipped
+Electron shell can reach it yet. The Electron shell itself launches
+headlessly and renders the real `docs/site/` interface
+(`docs/huishots/electron/electron-shell-home.png`), which is genuine progress
+independent of the sidecar wiring. Phase 3 (porting a real user-facing
+surface) has not started. Phase 4 (the viewport) is explicitly untouched.
+Phase 5 (packaging) has config but no built release.
 
 **Why it is tractable at all:** the renderer already exists. `docs/site/` is a
 complete Material 3 web application carrying the tabs, the command palette, the

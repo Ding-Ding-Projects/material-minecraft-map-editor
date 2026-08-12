@@ -98,3 +98,6 @@ If you are new to the interface, start with
   portable off wxPython, and how that feeds the Electron migration
 - [The Python sidecar](sidecar/README.md) — the versioned stdio protocol that
   lets a non-wx host (Electron's main process, or a test) drive the core
+- [The Electron migration](electron-migration/README.md) — what has actually
+  moved off wxPython so far (not much yet), verified against real running
+  artifacts rather than claimed from source

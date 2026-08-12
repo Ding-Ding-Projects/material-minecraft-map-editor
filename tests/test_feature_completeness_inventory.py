@@ -92,6 +92,20 @@ INVENTORY = {
             "tests/test_dim_sum_surprise.py",
         ],
     ),
+    "electron-migration": (
+        "incomplete",
+        [
+            "electron/main.js",
+            "electron/preload.js",
+            "electron/electron-builder.yml",
+            "electron/README.md",
+            "amulet_map_editor/api/sidecar/server.py",
+            "amulet_map_editor/api/sidecar/protocol.py",
+            "scripts/capture_electron_shell.js",
+            "docs/huishots/electron/electron-shell-home.png",
+            "docs/features/electron-migration/README.md",
+        ],
+    ),
     "file-converter": (
         "complete",
         [
@@ -243,6 +257,7 @@ CANONICAL_FEATURES = frozenset(
         "command-palette",
         "control-plane-runtime",
         "dim-sum-catalog",
+        "electron-migration",
         "file-converter",
         "localization",
         "locked-surfaces",

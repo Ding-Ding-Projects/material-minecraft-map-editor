@@ -181,6 +181,11 @@ Relevant source and contracts:
 - **Learn the workflows:** follow the [open-world guide](amulet_map_editor/readme.md), [3D editor guide](amulet_map_editor/programs/edit/readme.md), and [conversion guide](amulet_map_editor/programs/convert/readme.md).
 - **Explore the site:** open the dependency-free [Material 3 site source](docs/site/index.html), or visit the [official Amulet website](https://www.amuletmc.com/).
 - **Track the modernization:** see the factual [roadmap](ROADMAP.md) and [handoff](HANDOFF.md).
+- **Track the Electron migration:** see
+  [docs/features/electron-migration/README.md](docs/features/electron-migration/README.md)
+  for the honest status — the wxPython app is still the shipping product; an
+  Electron shell renders the real interface and a Python sidecar answers
+  real calls, but the two are not yet wired together.
 - **Contribute:** read [Development and contribution](#development-and-contribution), then use [Issues](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues) or [Discussions](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions).
 
 ## What Amulet can do
