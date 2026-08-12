@@ -12,10 +12,13 @@ still the wxPython app would be a false report.
 **The wxPython desktop application remains the shipping product.** An
 Electron shell exists, launches, and renders the real interface. A Python
 sidecar process exists and answers real requests over its versioned stdio
-protocol. **The two are not yet connected to each other.** Nothing a user
-does in the Electron shell today reaches the sidecar, and nothing the wx app
-does today goes through the sidecar either — the wx app still talks to its
-core modules in-process, exactly as before this migration started.
+protocol. **The two are now connected**: `electron/main.js` spawns and
+supervises the sidecar, `electron/preload.js` exposes a narrow
+`window.mmweDesktop.sidecar.call(method, params)` bridge, and the site's own
+`theme` setting round-trips through it for real (`docs/site/electron-bridge.js`).
+Nothing else the Electron shell does reaches the sidecar yet, and the wx app
+still talks to its core modules in-process exactly as before — this lane
+connected one process pair and one real setting, not the whole surface.
 
 ## What has moved (Phases 0–2, partially)
 
@@ -47,14 +50,59 @@ core modules in-process, exactly as before this migration started.
   - an unrecognised method name → a structured `unknown_method` error, not a
     crash
   - See `docs/features/sidecar/README.md` for the protocol itself.
-  - **The Electron side of this boundary does not exist yet.** `electron/main.js`
-    does not spawn the sidecar, `electron/preload.js` exposes no sidecar
-    bridge, and `docs/site/` never calls one. The verification above was run
-    directly against the Python process, from a standalone script, because
-    there is no Electron-side caller to drive it through yet. This is the
-    single largest gap between "phase 2 is done" and where the migration
-    actually stands: the protocol works, but nothing in the shipped app uses
-    it.
+  - **The Electron side of this boundary now exists.** `electron/main.js`
+    spawns `python -m amulet_map_editor.api.sidecar` (trying `py -3.11`,
+    `py -3`, `python3.11`, `python3`, then `python` in order), restarts it if
+    it dies while the app is running, and kills it from
+    `app.on("before-quit")` so nothing is orphaned. `electron/preload.js`
+    exposes exactly `window.mmweDesktop.sidecar.call(method, params)` —
+    never `ipcRenderer` itself, never a filesystem or child-process escape
+    hatch — which forwards over one IPC handle
+    (`ipcMain.handle("sidecar:call", ...)`) to `electron/sidecar-client.js`,
+    the module that owns request/response correlation, per-call timeouts,
+    and the "unavailable" error a caller gets instead of a hang when the
+    child is not running. `docs/site/electron-bridge.js` is the first real
+    call site: when the page is running inside Electron, the site's own
+    `theme` setting reads from `preferences.read` on load and writes through
+    `preferences.write` on every change, through the *exact* `settings.set()`
+    the settings-panel UI itself calls — not a bypassed direct call.
+
+    Verified for this update, against the real artifacts and a throwaway
+    `CONFIG_DIR`, never a stub:
+    - `node scripts/verify_sidecar_client.js` spawns the real Python child
+      through `electron/sidecar-client.js` (no Electron involved) and
+      round-trips `protocol.ping`, `preferences.write`/`preferences.read`
+      (`theme: "dark"` written and read back), an unknown method reporting
+      `unknown_method` rather than throwing, and a call after `stop()`
+      reporting `sidecar_unavailable` rather than hanging.
+    - `node scripts/capture_electron_sidecar_roundtrip.js` launches the real
+      built Electron shell headlessly with `--remote-debugging-port`, drives
+      it over the Chrome DevTools protocol, and proves the *whole* chain in
+      two passes: (1) calling `window.AmuletSite.settings.set('theme', 'dark')`
+      in the renderer, then reading `preferences.read` directly through the
+      bridge and confirming Python's own preferences file shows
+      `theme: "dark"` — the renderer's setting change genuinely reached the
+      Python process; (2) killing that Electron instance and launching a
+      *second* one against the same `CONFIG_DIR`, confirming
+      `window.AmuletSite.settings.get('theme')` reads back `"dark"` on
+      startup — the value survived a real restart of both processes, not an
+      in-memory variable. A screenshot after the write
+      (`docs/huishots/electron/electron-sidecar-roundtrip-dark.png`,
+      129,300 bytes, read back and confirmed a real PNG) is the visual
+      evidence for pass 1.
+    - `tests/test_electron_sidecar_bridge.py` runs the first script from
+      pytest and adds static wiring guards (main.js actually calls
+      `sidecar.start()`/`sidecar.stop()` and registers the IPC handle;
+      preload.js exposes no wider surface; the site actually includes and
+      calls the bridge script).
+
+    What is still missing: only `theme` is wired end to end. The other
+    ten writable preference fields (`display_name`, `language_mode`,
+    `funny_level_english`, `funny_level_cantonese`, `show_dialog_emojis`,
+    `density`, `accent`, `ui_font`, `ui_scale`, `external_editor_path`,
+    `auto_stage_updates`) and the `language.*`/`converter.formats` methods
+    have no site-side call site yet — the bridge and the sidecar can already
+    carry them, but nothing in `docs/site/` asks them to.
 
 ## What exists but is not wired to anything (the shell)
 
@@ -129,37 +177,47 @@ the interface was not drawn twice.
 
 ```sh
 npm install            # once, from the repository root
-npm run electron:dev   # launches the shell (visible window)
-node scripts/capture_electron_shell.js   # headless verification + screenshot
+npm run electron:dev   # launches the shell (visible window), spawns the sidecar
+node scripts/capture_electron_shell.js              # headless shell verification + screenshot
+node scripts/verify_sidecar_client.js                # sidecar-client.js vs the real Python process
+node scripts/capture_electron_sidecar_roundtrip.js   # full renderer -> sidecar -> restart round trip
 ```
 
-This shows the real `docs/site/` renderer inside a frameless Electron
-window. It does not yet open worlds, read preferences, or do anything the
-sidecar can do — there is no wire between them.
+The shell shows the real `docs/site/` renderer inside a frameless Electron
+window, and now spawns and talks to the Python sidecar too: opening the app
+starts the sidecar, and the site's `theme` setting reads and writes through
+it for real.
 
 ## How the two processes talk (today, and what remains)
 
-**Today:** they do not talk to each other in the shipped configuration. Each
-runs and can be exercised independently:
+**Today**, on every launch: `electron/main.js` spawns
+`python -m amulet_map_editor.api.sidecar` as a child process and owns its
+whole lifetime (restart on crash, kill on quit). The renderer never talks to
+that child directly — it calls `window.mmweDesktop.sidecar.call(method, params)`
+(from `electron/preload.js`), which goes over one IPC handle to
+`electron/sidecar-client.js` in the main process, which writes one JSON line
+to the child's stdin and resolves the matching line back off its stdout,
+timing the call out rather than hanging if the sidecar never answers.
+`docs/site/electron-bridge.js` is the one real caller today: it reads the
+sidecar's `theme` preference on load and applies it locally, and writes the
+site's `theme` setting back to the sidecar on every change — the same
+`settings.set()` call the settings-panel UI itself makes, not a bypassed
+direct write.
 
-- The wx application talks to the core modules in-process, as it always has.
-- The Electron shell hosts `docs/site/` and answers window-chrome IPC calls
-  only.
-- The sidecar (`python -m amulet_map_editor.api.sidecar`) is a standalone
-  stdio server that anything speaking its newline-delimited JSON protocol
-  can drive — proven in this article by driving it directly from a
-  standalone Python script, not from Electron.
+- The wx application still talks to the core modules in-process, exactly as
+  before this migration started — nothing here changed that.
+- The sidecar remains a standalone stdio server: anything speaking its
+  newline-delimited JSON protocol can drive it, and the wx app does not use
+  this path.
 
-**What remains before "the two processes talk" is a true sentence about the
-shipped app:** `electron/main.js` needs to spawn the sidecar as a child
-process, `electron/preload.js` needs a bridge method (something like
-`window.mmweDesktop.sidecar.call(method, params)`) that forwards to it over
-IPC without exposing raw process or filesystem access to the page, and
-`docs/site/` needs at least one real call site — for example, driving
-`preferences.read`/`preferences.write` from the site's own settings surface
-instead of (or in addition to) its current local-storage-only behaviour.
-None of that exists yet; it is the next piece of Phase 2 and the
-precondition for Phase 3 to begin honestly.
+**What remains:** ten more writable preference fields have no site-side call
+site yet (`display_name`, `language_mode`, `funny_level_english`,
+`funny_level_cantonese`, `show_dialog_emojis`, `density`, `accent`,
+`ui_font`, `ui_scale`, `external_editor_path`, `auto_stage_updates`), and
+`language.*`/`converter.formats` are callable but unused by the site. Wiring
+those in is the rest of Phase 2; porting a real user-facing surface
+(Backstage, the properties pane, the dialogs) onto this same bridge is
+Phase 3, and has not started.
 
 ## Related reading
 

@@ -19,9 +19,18 @@ const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
+const { SidecarClient } = require("./sidecar-client");
+
 const REPO_ROOT = path.resolve(__dirname, "..");
 const SITE_INDEX = path.join(REPO_ROOT, "docs", "site", "index.html");
 const PRELOAD = path.join(__dirname, "preload.js");
+
+// The sidecar client owns spawning/restarting/killing the Python child
+// process (amulet_map_editor.api.sidecar) and the request/response
+// correlation over its stdio protocol. main.js only ever talks to it
+// through this narrow object -- see sidecar-client.js for the process
+// lifecycle and timeout handling.
+const sidecar = new SidecarClient({ repoRoot: REPO_ROOT });
 
 const MIN_WIDTH = 720;
 const MIN_HEIGHT = 480;
@@ -199,7 +208,22 @@ ipcMain.handle("window:isMaximized", () => {
 
 ipcMain.handle("app:getVersion", () => app.getVersion());
 
+// --- The sidecar bridge. Exactly one handle, forwarding a bounded
+// {method, params} to the SidecarClient and returning its structured
+// {ok, result} / {ok:false, error} shape -- never a raw ipcRenderer escape
+// hatch, never a way to reach the filesystem or a child process directly
+// from the page (see preload.js for the narrow surface this backs).
+ipcMain.handle("sidecar:call", (_event, payload) => {
+  const method = payload && typeof payload.method === "string" ? payload.method : "";
+  const params =
+    payload && typeof payload.params === "object" && payload.params !== null
+      ? payload.params
+      : {};
+  return sidecar.call(method, params);
+});
+
 app.whenReady().then(() => {
+  sidecar.start();
   createWindow();
 
   app.on("activate", () => {
@@ -213,6 +237,12 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+// The sidecar must never outlive the app -- an orphaned Python process is
+// exactly the failure this handler exists to prevent.
+app.on("before-quit", () => {
+  sidecar.stop();
 });
 
 // Never negotiate a permission grant automatically; this app has no need for

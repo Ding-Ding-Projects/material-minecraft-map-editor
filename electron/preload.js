@@ -42,4 +42,31 @@ contextBridge.exposeInMainWorld("mmweDesktop", {
   app: {
     getVersion: () => ipcRenderer.invoke("app:getVersion"),
   },
+
+  /**
+   * The narrow bridge to the Python sidecar (see
+   * amulet_map_editor/api/sidecar/). `call` forwards a method name and a
+   * plain-object params bag to `ipcMain.handle("sidecar:call", ...)` and
+   * always resolves -- it never throws and never hangs the caller past the
+   * main process's own request timeout. The renderer never gets
+   * `ipcRenderer` itself, a raw child process, or filesystem access: this
+   * one method is the entire surface.
+   *
+   * Resolves to either `{ok: true, result}` or
+   * `{ok: false, error: {code, message}}`; the caller branches on `ok`
+   * rather than on a thrown exception.
+   */
+  sidecar: {
+    call: (method, params) => {
+      if (typeof method !== "string" || !method) {
+        return Promise.resolve({
+          ok: false,
+          error: { code: "invalid_params", message: "'method' must be a non-empty string" },
+        });
+      }
+      var safeParams =
+        params && typeof params === "object" && !Array.isArray(params) ? params : {};
+      return ipcRenderer.invoke("sidecar:call", { method: method, params: safeParams });
+    },
+  },
 });
