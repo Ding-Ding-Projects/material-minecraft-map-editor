@@ -25,6 +25,7 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -681,15 +682,29 @@ class RecentStore:
         undoable through the same history panel every other record uses.  A
         history store that cannot be created must never stop the list itself
         from being written, which is why this swallows its own failure.
+
+        The write itself is a Git commit, and on a profile whose local history
+        has grown large that can cost several hundred milliseconds of real
+        subprocess time.  ``add()`` is called synchronously every time a world
+        opens, so running the commit inline froze the whole shell for that long
+        on every open -- the delay a user reading it as "everything reloads".
+        Nothing here touches wx or any widget, so the commit is safe to finish
+        on a background thread instead of on the one the UI is painted from.
         """
-        try:
-            local_history.safe_record(
-                f"studio.recent:{entry.key()}",
-                {"action": action, "entry": entry.to_dict()},
-                record_type=_HISTORY_RECORD_TYPE,
-            )
-        except Exception:  # pragma: no cover - history is best-effort
-            log.debug("Could not record a recent-list change in local history")
+
+        def _commit() -> None:
+            try:
+                local_history.safe_record(
+                    f"studio.recent:{entry.key()}",
+                    {"action": action, "entry": entry.to_dict()},
+                    record_type=_HISTORY_RECORD_TYPE,
+                )
+            except Exception:  # pragma: no cover - history is best-effort
+                log.debug("Could not record a recent-list change in local history")
+
+        threading.Thread(
+            target=_commit, name="recents-history-record", daemon=True
+        ).start()
 
 
 def _escape_cell(value: str) -> str:
