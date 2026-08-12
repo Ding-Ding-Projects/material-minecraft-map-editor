@@ -101,3 +101,5 @@ If you are new to the interface, start with
 - [The Electron migration](electron-migration/README.md) — what has actually
   moved off wxPython so far (not much yet), verified against real running
   artifacts rather than claimed from source
+- [Amulet Studio backstage (Electron)](electron-studio-backstage/README.md) —
+  the desktop shell's start screen, mounted against the real sidecar
