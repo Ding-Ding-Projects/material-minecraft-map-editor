@@ -9,6 +9,7 @@
   <link rel="icon" href="assets/amulet_logo_512.png" sizes="any">
   <link rel="stylesheet" href="studio-tokens.css">
   <link rel="stylesheet" href="studio-backstage.css">
+  <link rel="stylesheet" href="studio-workspace.css">
   <link rel="stylesheet" href="studio-surfaces.css">
   <style>
     /* Shell-only layout rules. Every colour, size, and shadow here reads its
@@ -218,10 +219,7 @@
         </div>
       </section>
       <section id="workspace-view" data-view="workspace" hidden>
-        <div class="studio-view-placeholder" id="workspace-placeholder">
-          Workspace view -- ribbon, breadcrumb context bar, navigator, viewport, properties
-          pane, status bar. Populated by the workspace lane.
-        </div>
+        <div id="studio-workspace" aria-label="Ribbon, breadcrumb context bar, navigator, viewport, properties pane, and status bar"></div>
       </section>
       <section id="surfaces-view" data-view="surfaces" hidden>
         <div id="studio-surfaces" aria-label="Local history, external editor, and Support Tickets"></div>
@@ -281,6 +279,20 @@
   <script src="confirm-gate.js"></script>
   <script src="palette.js"></script>
   <script src="electron-bridge.js"></script>
+  <!-- studio-workspace.js is listed before the viewport-*.js modules on
+       purpose: it builds #viewport-canvas and friends the moment DOM is
+       ready, and viewport-panel.js's own DOMContentLoaded listener (which
+       looks those ids up once and never retries) has to fire after that
+       happens -- listeners run in the order their <script> tags register
+       them, so this one has to register first. -->
+  <script src="studio-appearance.js"></script>
+  <script src="studio-workspace.js"></script>
+  <script src="viewport-webgl.js"></script>
+  <script src="viewport-overlays.js"></script>
+  <script src="viewport-picking.js"></script>
+  <script src="viewport-handles.js"></script>
+  <script src="viewport-occupancy.js"></script>
+  <script src="viewport-panel.js"></script>
   <script src="studio-backstage.js"></script>
   <script src="studio-shell.js"></script>
   <script src="studio-surfaces.js"></script>
