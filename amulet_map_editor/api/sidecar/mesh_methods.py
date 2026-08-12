@@ -468,6 +468,237 @@ def _viewport_chunk_mesh(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _mesh_one_chunk(
+    world, dimension: str, cx: int, cz: int, gl_pack: "OpenGLResourcePack"
+) -> Tuple[bool, "numpy.ndarray", int]:
+    """The pure meshing step ``_viewport_chunk_mesh`` runs for one chunk,
+    pulled out so the batch path below can call it in a loop without paying
+    for a second copy of the same logic. Returns
+    ``(exists, verts, opaque_vertex_count)``.
+    """
+    import numpy
+
+    from amulet.api.errors import ChunkDoesNotExist, ChunkLoadError
+    from amulet_map_editor.api.opengl.mesh.level.chunk.chunk_builder_cy import (
+        create_lod0_chunk,
+    )
+
+    try:
+        chunk = world.get_chunk(cx, cz, dimension)
+    except ChunkDoesNotExist:
+        return False, numpy.zeros(0, dtype=numpy.float32), 0
+    except ChunkLoadError:
+        return False, numpy.zeros(0, dtype=numpy.float32), 0
+
+    vert_len = 12
+    offset = numpy.array([0, 0, 0], dtype=numpy.int_)
+    sub_chunks = _sub_chunks_for(world, dimension, cx, cz, chunk.blocks)
+    opaque_parts, translucent_parts = create_lod0_chunk(
+        gl_pack, offset, sub_chunks, chunk.block_palette, vert_len
+    )
+    if opaque_parts:
+        verts = numpy.concatenate(opaque_parts, None)
+        opaque_count = int(verts.size // vert_len)
+    else:
+        verts = numpy.zeros(0, dtype=numpy.float32)
+        opaque_count = 0
+    if translucent_parts:
+        verts = numpy.concatenate([verts, *translucent_parts], None)
+    return True, verts.astype("<f4", copy=False), opaque_count
+
+
+#: How many chunks a single ``viewport.chunk_mesh_batch`` call accepts. The
+#: benchmark in ``benchmark_mesh.py`` measured a 9x9 (radius 4, 81-chunk)
+#: batch at ~415ms of meshing plus ~155ms of combined-file I/O against a
+#: dense checkerboard world -- real work, but far short of the sidecar's
+#: request timeout. A cap keeps one runaway request from blocking the stdio
+#: loop for an unbounded time; a caller that wants a bigger area sends more
+#: than one batch.
+_MAX_BATCH_CHUNKS = 128
+
+#: Bounds how many *batches'* worth of combined mesh files stay on disk at
+#: once, independent of the per-chunk cache above -- a batch that is
+#: requested and never polled to completion (a stale streaming tick, an
+#: aborted camera move) must not leak a file forever.
+_BATCH_FILE_CACHE_LIMIT = 16
+_batch_lock = threading.Lock()
+_batches: Dict[str, Dict[str, Any]] = {}
+_batch_order: "list[str]" = []
+
+
+def _evict_batches_locked() -> None:
+    while len(_batch_order) > _BATCH_FILE_CACHE_LIMIT:
+        oldest = _batch_order.pop(0)
+        entry = _batches.pop(oldest, None)
+        if entry and entry.get("path") and os.path.exists(entry["path"]):
+            try:
+                os.remove(entry["path"])
+            except OSError:
+                pass
+
+
+def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
+    try:
+        results = []
+        buffers = []
+        cursor = 0
+        gl_pack = _PACKS.get_ready(_batches[batch_id]["world_id"])
+        for cx, cz in chunks:
+            exists, verts, opaque_count = _mesh_one_chunk(world, dimension, cx, cz, gl_pack)
+            vertex_count = int(verts.size // 12)
+            if exists and vertex_count:
+                buffers.append(verts)
+                byte_length = int(verts.nbytes)
+            else:
+                byte_length = 0
+            results.append(
+                {
+                    "cx": cx,
+                    "cz": cz,
+                    "exists": exists,
+                    "vertex_count": vertex_count,
+                    "opaque_vertex_count": opaque_count if exists else 0,
+                    "translucent_vertex_count": (vertex_count - opaque_count) if exists else 0,
+                    "byte_offset": cursor,
+                    "byte_length": byte_length,
+                }
+            )
+            cursor += byte_length
+
+        import numpy
+
+        combined = (
+            numpy.concatenate(buffers) if buffers else numpy.zeros(0, dtype=numpy.float32)
+        )
+        _ensure_temp_root()
+        path = os.path.join(_TEMP_ROOT, f"mesh-batch-{batch_id}.bin")
+        combined.tofile(path)
+
+        with _batch_lock:
+            entry = _batches.get(batch_id)
+            if entry is None:
+                # Released/evicted while we were working -- clean up and stop.
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                return
+            entry["status"] = "ready"
+            entry["path"] = path
+            entry["chunks"] = results
+    except Exception as exc:  # noqa: BLE001 - reported, never raised on this thread
+        with _batch_lock:
+            entry = _batches.get(batch_id)
+            if entry is not None:
+                entry["status"] = "failed"
+                entry["error"] = str(exc)
+
+
+def _viewport_chunk_mesh_batch(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Kick off meshing a batch of chunks in the background and return
+    immediately, following the same "background thread + poll" pattern
+    ``world.open``/``viewport.prepare`` already use -- a batch big enough to
+    be worth batching (see the benchmark) is also big enough to be worth
+    keeping off the synchronous stdio-dispatch path, so it never delays an
+    unrelated ``preferences.*``/``world.fill`` call sitting behind it in the
+    pipe.
+    """
+    _require_backend()
+    handle = _get_ready_world(params.get("world_id"))
+    world = handle.world
+
+    pack_status = _PACKS.ensure_building(handle.world_id, world)
+    if pack_status == "failed":
+        raise ProtocolError(ERR_MESH_BACKEND_UNAVAILABLE, _PACKS.error(handle.world_id))
+    if pack_status != "ready":
+        raise ProtocolError(ERR_NOT_READY, "The resource pack is still building")
+
+    dimension = params.get("dimension")
+    if not isinstance(dimension, str) or not dimension:
+        raise ProtocolError(ERR_INVALID_PARAMS, "'dimension' must be a non-empty string")
+    if dimension not in world.dimensions:
+        raise ProtocolError(ERR_INVALID_PARAMS, f"Unknown dimension: {dimension!r}")
+
+    raw_chunks = params.get("chunks")
+    if not isinstance(raw_chunks, list) or not raw_chunks:
+        raise ProtocolError(ERR_INVALID_PARAMS, "'chunks' must be a non-empty list")
+    if len(raw_chunks) > _MAX_BATCH_CHUNKS:
+        raise ProtocolError(
+            ERR_INVALID_PARAMS,
+            f"'chunks' may contain at most {_MAX_BATCH_CHUNKS} entries per batch, got {len(raw_chunks)}",
+        )
+    chunks = []
+    for entry in raw_chunks:
+        if (
+            not isinstance(entry, (list, tuple))
+            or len(entry) != 2
+            or not isinstance(entry[0], int)
+            or not isinstance(entry[1], int)
+        ):
+            raise ProtocolError(ERR_CHUNK_COORD, "Each entry in 'chunks' must be [cx, cz] integers")
+        chunks.append((entry[0], entry[1]))
+
+    batch_id = uuid.uuid4().hex
+    with _batch_lock:
+        _batches[batch_id] = {
+            "status": "pending",
+            "world_id": handle.world_id,
+            "path": None,
+            "chunks": None,
+            "error": None,
+        }
+        _batch_order.append(batch_id)
+        _evict_batches_locked()
+
+    thread = threading.Thread(
+        target=_run_batch_worker, args=(batch_id, world, dimension, chunks), daemon=True
+    )
+    thread.start()
+    return {"batch_id": batch_id, "status": "pending"}
+
+
+def _viewport_chunk_mesh_batch_status(params: Dict[str, Any]) -> Dict[str, Any]:
+    batch_id = params.get("batch_id")
+    if not isinstance(batch_id, str) or not batch_id:
+        raise ProtocolError(ERR_INVALID_PARAMS, "'batch_id' must be a non-empty string")
+    with _batch_lock:
+        entry = _batches.get(batch_id)
+        if entry is None:
+            raise ProtocolError(ERR_NOT_FOUND, f"No such mesh batch: {batch_id!r}")
+        status = entry["status"]
+        if status == "ready":
+            return {
+                "batch_id": batch_id,
+                "status": "ready",
+                "path": entry["path"],
+                "vertex_stride_floats": 12,
+                "chunks": entry["chunks"],
+            }
+        if status == "failed":
+            return {"batch_id": batch_id, "status": "failed", "error": entry["error"]}
+        return {"batch_id": batch_id, "status": "pending"}
+
+
+def _viewport_chunk_mesh_batch_release(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Free a batch's combined mesh file once the caller has read it, rather
+    than waiting for the LRU cap in :func:`_evict_batches_locked` to get
+    around to it. Idempotent: releasing an unknown/already-released id is
+    not an error, since a caller racing eviction is expected, not a bug."""
+    batch_id = params.get("batch_id")
+    if not isinstance(batch_id, str) or not batch_id:
+        raise ProtocolError(ERR_INVALID_PARAMS, "'batch_id' must be a non-empty string")
+    with _batch_lock:
+        entry = _batches.pop(batch_id, None)
+        if batch_id in _batch_order:
+            _batch_order.remove(batch_id)
+    if entry and entry.get("path") and os.path.exists(entry["path"]):
+        try:
+            os.remove(entry["path"])
+        except OSError:
+            pass
+    return {"batch_id": batch_id, "released": entry is not None}
+
+
 #: Method name -> handler, merged into the sidecar's dispatch table by
 #: :mod:`amulet_map_editor.api.sidecar.methods`.
 MESH_METHODS: Dict[str, Any] = {
@@ -475,4 +706,7 @@ MESH_METHODS: Dict[str, Any] = {
     "viewport.prepare": _viewport_prepare,
     "viewport.atlas": _viewport_atlas,
     "viewport.chunk_mesh": _viewport_chunk_mesh,
+    "viewport.chunk_mesh_batch": _viewport_chunk_mesh_batch,
+    "viewport.chunk_mesh_batch_status": _viewport_chunk_mesh_batch_status,
+    "viewport.chunk_mesh_batch_release": _viewport_chunk_mesh_batch_release,
 }

@@ -11,16 +11,24 @@
  *
  * Streaming design: on an interval, and whenever the camera has moved far
  * enough, compute the set of chunk (cx, cz) coordinates within
- * STREAM_RADIUS of the camera's current chunk. Request every chunk in that
- * set that is not yet loaded (via the sidecar's "viewport.chunk_mesh",
- * exactly the harness's own call), upload it to the GPU as it arrives, and
- * release (unloadChunk) every loaded chunk that has fallen outside
- * STREAM_RADIUS + 1. Requests run one at a time on their own async chain so
- * a burst of camera movement never fires dozens of concurrent sidecar
- * requests -- the sidecar dispatcher is shared with every other panel's
- * calls, and world.open/viewport.prepare already demonstrate the
- * "background thread + poll" pattern this loop follows for its own
- * world.open call.
+ * STREAM_RADIUS of the camera's current chunk. Every chunk in that set that
+ * is not yet loaded goes into ONE "viewport.chunk_mesh_batch" call rather
+ * than one "viewport.chunk_mesh" call per chunk -- amulet_map_editor/api/
+ * sidecar/benchmark_mesh.py measured the per-file write+read round trip at
+ * ~11-14ms/chunk versus ~2ms/chunk once every chunk in a batch shares one
+ * combined file, a >5x difference that has nothing to do with meshing cost
+ * and everything to do with how many times this loop pays for a temp file
+ * and an IPC round trip. The batch call itself follows the same
+ * "background thread + poll" pattern world.open/viewport.prepare already
+ * use (see mesh_methods.py's _viewport_chunk_mesh_batch): it returns
+ * {batch_id, status:"pending"} the instant it is dispatched, so a big batch
+ * meshing for hundreds of milliseconds never blocks an unrelated
+ * preferences/edit call sitting behind it in the sidecar's single stdio
+ * pipe. Once ready, the combined buffer is read ONCE and sliced per chunk
+ * by the byte_offset/byte_length each result entry carries, then the batch
+ * is explicitly released so its temp file does not linger. Batches
+ * themselves still run one at a time -- a burst of camera movement never
+ * fires two overlapping batch requests.
  *
  * The write path: this panel also hosts the plain fill/replace/undo/redo/
  * save controls against the CURRENT selection, calling
@@ -35,7 +43,18 @@
 (function () {
   "use strict";
 
-  var STREAM_RADIUS = 2; // chunks around the camera to keep loaded
+  // amulet_map_editor/api/sidecar/benchmark_mesh.py measured a radius-4
+  // (9x9 = 81 chunk) batch against a dense checkerboard fixture at ~415ms
+  // of meshing plus ~155ms of combined-file I/O -- real cost, but the
+  // batch-per-tick rewrite below (one background-thread request instead of
+  // 81 blocking round trips) is what actually made raising this safe: at
+  // radius 2 the OLD per-chunk-file path measured ~294ms just in per-file
+  // I/O for 25 chunks, more than the new path's meshing+I/O for 81. Radius
+  // 3 (49 chunks, well under the batch endpoint's 128-chunk cap) is the
+  // number this measurement actually supports raising the radius to; a
+  // wider radius still needs a fresh benchmark run before being raised
+  // further, not a guess.
+  var STREAM_RADIUS = 3; // chunks around the camera to keep loaded
   var UNLOAD_MARGIN = 1; // extra chunks of slack before a loaded chunk is dropped
   var CHUNK_SIZE = 16;
   var STREAM_INTERVAL_MS = 400;
@@ -238,6 +257,21 @@
         [x1, y1, z1, x2, y2, z2].forEach(function (f) {
           f.input.addEventListener("input", fn);
         });
+      },
+      // Write a selection into the six number fields -- used by click-to-pick
+      // and by handle dragging, so the pointer and the typed fields are two
+      // ways to set ONE value rather than two values that can disagree. A
+      // real "input" event is dispatched (not just the property set) so
+      // onPointsChanged's listener -- which is what keeps the drawn overlay
+      // in step -- actually fires.
+      setPoints: function (point1, point2) {
+        var fields = [x1, y1, z1, x2, y2, z2];
+        var values = point1 && point2 ? point1.concat(point2) : [];
+        fields.forEach(function (f, index) {
+          f.input.value = index < values.length ? String(Math.round(values[index])) : "";
+        });
+        var event = typeof Event === "function" ? new Event("input", { bubbles: true }) : null;
+        if (event) x1.input.dispatchEvent(event);
       },
     };
   }
@@ -496,6 +530,287 @@
         });
     }
 
+    // ------------------------------------------------------ selection / structures / chunks
+    // Selection.copy/cut/paste/delete and structure/chunk import/export
+    // (amulet_map_editor/api/sidecar/selection_methods.py, exposed via
+    // docs/site/electron-bridge.js). These reuse the same six selection-point
+    // fields runFill/runReplace already read, rather than a second copy of
+    // "what is selected". Paste/import use point 1 as the destination
+    // location, and destination/source paths are gathered with a plain
+    // prompt -- there is no dedicated path field on this panel yet, so a
+    // real (if minimal) prompt is honest where a silently-ignored click
+    // would not be.
+    function runCopySelection() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var eb = sidecarEditBridge();
+      if (!eb || typeof eb.copySelection !== "function") {
+        setStatus("selection.copy is not available yet.");
+        return;
+      }
+      setStatus("Copying selection...");
+      eb.copySelection(worldId, dimension, points.point1, points.point2)
+        .then(function (result) {
+          setStatus(result.blocks_copied + " block(s) copied to the clipboard.");
+        })
+        .catch(function (err) {
+          setStatus("selection.copy failed: " + String(err));
+        });
+    }
+
+    function runCutSelection() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var site = window.AmuletSite;
+      var doCut = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || typeof eb.cutSelection !== "function") {
+          setStatus("selection.cut is not available yet.");
+          return;
+        }
+        setStatus("Cutting selection...");
+        eb.cutSelection(worldId, dimension, points.point1, points.point2, true)
+          .then(function (result) {
+            editState.canUndo = true;
+            editState.canRedo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus(result.blocks_changed + " block(s) cut to the clipboard.");
+          })
+          .catch(function (err) {
+            setStatus("selection.cut failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Cut selection",
+          detail:
+            "This removes every block from " + points.point1.join(",") + " to " +
+            points.point2.join(",") + " after copying it to the clipboard.",
+          confirm: "Cut",
+          onConfirm: doCut,
+        });
+      } else {
+        doCut();
+      }
+    }
+
+    function runPasteSelection() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var site = window.AmuletSite;
+      var doPaste = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || typeof eb.pasteSelection !== "function") {
+          setStatus("selection.paste is not available yet.");
+          return;
+        }
+        setStatus("Pasting clipboard...");
+        eb.pasteSelection(worldId, dimension, points.point1, true)
+          .then(function (result) {
+            editState.canUndo = true;
+            editState.canRedo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus(result.blocks_pasted + " block(s) pasted at " + points.point1.join(",") + ".");
+          })
+          .catch(function (err) {
+            setStatus("selection.paste failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Paste clipboard",
+          detail: "This writes the copied/cut structure into the world at " + points.point1.join(",") + ".",
+          confirm: "Paste",
+          onConfirm: doPaste,
+        });
+      } else {
+        doPaste();
+      }
+    }
+
+    function runDeleteSelection() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var site = window.AmuletSite;
+      var doDelete = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || typeof eb.deleteSelection !== "function") {
+          setStatus("selection.delete is not available yet.");
+          return;
+        }
+        setStatus("Deleting selection...");
+        eb.deleteSelection(worldId, dimension, points.point1, points.point2, true)
+          .then(function (result) {
+            editState.canUndo = true;
+            editState.canRedo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus(result.blocks_changed + " block(s) deleted.");
+          })
+          .catch(function (err) {
+            setStatus("selection.delete failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Delete selection",
+          detail:
+            "This removes every block from " + points.point1.join(",") + " to " + points.point2.join(",") + ".",
+          confirm: "Delete",
+          onConfirm: doDelete,
+        });
+      } else {
+        doDelete();
+      }
+    }
+
+    function runExportStructure() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var eb = sidecarEditBridge();
+      if (!eb || typeof eb.exportStructure !== "function") {
+        setStatus("structure.export is not available yet.");
+        return;
+      }
+      var destination = window.prompt("Save the selection as a .construction file at:");
+      if (!destination) return;
+      setStatus("Exporting structure...");
+      eb.exportStructure(worldId, dimension, points.point1, points.point2, destination, false)
+        .then(function (result) {
+          setStatus(result.chunks_exported + " chunk(s) exported to " + result.destination_path + ".");
+        })
+        .catch(function (err) {
+          setStatus("structure.export failed: " + String(err));
+        });
+    }
+
+    function runImportStructure() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var source = window.prompt("Import a .construction/.mcstructure/.schematic/.schem file from:");
+      if (!source) return;
+      var site = window.AmuletSite;
+      var doImport = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || typeof eb.importStructure !== "function") {
+          setStatus("structure.import is not available yet.");
+          return;
+        }
+        setStatus("Importing structure...");
+        eb.importStructure(worldId, dimension, source, points.point1, true)
+          .then(function () {
+            editState.canUndo = true;
+            editState.canRedo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus("Imported " + source + " at " + points.point1.join(",") + ".");
+          })
+          .catch(function (err) {
+            setStatus("structure.import failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Import structure",
+          detail: "This writes " + source + " into the world at " + points.point1.join(",") + ".",
+          confirm: "Import",
+          onConfirm: doImport,
+        });
+      } else {
+        doImport();
+      }
+    }
+
+    function runCreateChunks() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var eb = sidecarEditBridge();
+      if (!eb || typeof eb.createChunks !== "function") {
+        setStatus("chunk.create is not available yet.");
+        return;
+      }
+      setStatus("Creating chunks...");
+      eb.createChunks(worldId, dimension, points.point1, points.point2)
+        .then(function (result) {
+          editState.unsaved = editState.unsaved || result.chunks_created > 0;
+          refreshEditControls();
+          setStatus(result.chunks_created + " chunk(s) created.");
+        })
+        .catch(function (err) {
+          setStatus("chunk.create failed: " + String(err));
+        });
+    }
+
+    function runDeleteChunks() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var site = window.AmuletSite;
+      var doDelete = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || typeof eb.deleteChunks !== "function") {
+          setStatus("chunk.delete is not available yet.");
+          return;
+        }
+        setStatus("Deleting chunks...");
+        eb.deleteChunks(worldId, dimension, points.point1, points.point2, true)
+          .then(function (result) {
+            editState.canUndo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus(result.chunks_deleted + " chunk(s) deleted.");
+          })
+          .catch(function (err) {
+            setStatus("chunk.delete failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Delete chunks",
+          detail: "This permanently deletes every chunk from " + points.point1.join(",") + " to " + points.point2.join(",") + ".",
+          confirm: "Delete",
+          onConfirm: doDelete,
+        });
+      } else {
+        doDelete();
+      }
+    }
+
+    function runPruneChunks() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var site = window.AmuletSite;
+      var doPrune = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || typeof eb.pruneChunks !== "function") {
+          setStatus("chunk.prune is not available yet.");
+          return;
+        }
+        setStatus("Deleting unselected chunks...");
+        eb.pruneChunks(worldId, dimension, points.point1, points.point2, true)
+          .then(function (result) {
+            editState.canUndo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus(result.chunks_deleted + " unselected chunk(s) deleted; " + result.chunks_kept + " kept.");
+          })
+          .catch(function (err) {
+            setStatus("chunk.prune failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Delete unselected chunks",
+          detail: "This permanently deletes every chunk OUTSIDE " + points.point1.join(",") + " to " + points.point2.join(",") + ".",
+          confirm: "Delete",
+          onConfirm: doPrune,
+        });
+      } else {
+        doPrune();
+      }
+    }
+
     if (edit) {
       edit.onFill(runFill);
       edit.onReplace(runReplace);
@@ -506,10 +821,242 @@
       refreshEditControls();
     }
 
+    // -------------------------------------------------------------- picking
+    // Turns pointerdown-only-rotates-the-camera into an editor: Alt+click
+    // ray-casts into the world (docs/site/viewport-picking.js's DDA march)
+    // and sets a selection point; a second Alt+click completes the box.
+    // Once a selection exists, Alt-pressing one of its grab handles
+    // (docs/site/viewport-handles.js -- the same face/corner handle
+    // geometry and drag constraints as the wx app's
+    // amulet_map_editor/api/opengl/mesh/selection/box/handles.py) resizes it
+    // instead of picking a new point. Plain drag still only rotates the
+    // camera, via the shouldRotate hook passed to attachControls() below --
+    // an Alt+drag, or a drag that starts on a handle, must not also spin the
+    // view underneath it.
+    //
+    // Every one of those has a keyboard equivalent (see onEditorKeyDown
+    // below): a pointer-only editor is a defect here, not a limitation.
+    //
+    // Real block data has no query path yet: the sidecar only ever streams
+    // whole meshed chunks to the GPU
+    // (amulet_map_editor/api/sidecar/mesh_methods.py has no "what block is
+    // at x,y,z" call), so there is nothing today's DDA march can test a hit
+    // against except the reference grid's own y=0 plane. That is what
+    // solidTest does below -- honestly, not a guess at real terrain -- and
+    // window.__AmuletViewportPanel.setSolidTest exists so a later change can
+    // swap in a real per-block query without touching any of this wiring.
+    var solidTest = function (x, y, z) {
+      return y === 0;
+    };
+    var pendingPoint1 = null; // block coords from a first Alt+click, awaiting a second
+    var activeDrag = null; // {drag} while a handle is being dragged
+    var activeFaceIndex = 0; // which FACE_HANDLES entry the keyboard nudges
+
+    function ndcFromEvent(event) {
+      var rect = canvas.getBoundingClientRect();
+      var x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      var y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+      return [x, y];
+    }
+
+    function rayFromEvent(event) {
+      var picking = window.AmuletViewportPicking;
+      if (!picking || !viewport || !canvas.height) return null;
+      var ndc = ndcFromEvent(event);
+      var aspect = canvas.width / canvas.height;
+      return picking.rayFromCamera(viewport.camera, viewport.fovYRadians, aspect, ndc[0], ndc[1]);
+    }
+
+    function pickBlock(event) {
+      var picking = window.AmuletViewportPicking;
+      var ray = rayFromEvent(event);
+      if (!picking || !ray) return null;
+      var hit = picking.voxelRaycast(ray.origin, ray.direction, solidTest, 256);
+      return hit ? hit.block : null;
+    }
+
+    /** The current selection as [min, max] block coordinates (no +1 padding
+     * -- this matches SelectionOverlay's own sortedBounds(), which draws the
+     * box from point1 to point2 exactly as typed), or null. */
+    function currentBounds() {
+      var points = selectionPoints();
+      if (!points) return null;
+      return [
+        [
+          Math.min(points.point1[0], points.point2[0]),
+          Math.min(points.point1[1], points.point2[1]),
+          Math.min(points.point1[2], points.point2[2]),
+        ],
+        [
+          Math.max(points.point1[0], points.point2[0]),
+          Math.max(points.point1[1], points.point2[1]),
+          Math.max(points.point1[2], points.point2[2]),
+        ],
+      ];
+    }
+
+    function applyHandleDrag(ray) {
+      var handlesApi = window.AmuletViewportHandles;
+      if (!handlesApi || !activeDrag) return;
+      var offset = handlesApi.dragBlockOffset(activeDrag.drag, ray.origin, ray.direction);
+      if (!offset) return; // the ray says nothing usable this frame; leave the box where it is
+      var box = handlesApi.applyDragOffset(activeDrag.drag, offset);
+      edit.setPoints(box[0], box[1]);
+    }
+
+    function onPickPointerDown(event) {
+      if (event.button !== 0 || !event.altKey) return;
+      var ray = rayFromEvent(event);
+      if (!ray || !viewport) return;
+
+      var handlesApi = window.AmuletViewportHandles;
+      var bounds = currentBounds();
+      if (bounds && handlesApi) {
+        var visible = handlesApi.visibleHandles(bounds[0], bounds[1], viewport.camera.position);
+        var handle = handlesApi.hitHandle(bounds[0], bounds[1], ray.origin, ray.direction, visible);
+        if (handle) {
+          var drag = handlesApi.beginDrag(handle, bounds[0], bounds[1], ray.origin, ray.direction);
+          if (drag) {
+            activeDrag = { drag: drag };
+            canvas.setPointerCapture && canvas.setPointerCapture(event.pointerId);
+            setStatus("Dragging " + handle.name + "...");
+            event.preventDefault();
+            return;
+          }
+        }
+      }
+
+      var block = pickBlock(event);
+      if (!block) {
+        setStatus("Alt+click did not hit anything within range.");
+        return;
+      }
+      if (!pendingPoint1) {
+        pendingPoint1 = block;
+        edit.setPoints(block, block);
+        setStatus("Point 1 set at " + block.join(",") + ". Alt+click again for point 2.");
+      } else {
+        edit.setPoints(pendingPoint1, block);
+        setStatus("Selection set from " + pendingPoint1.join(",") + " to " + block.join(",") + ".");
+        pendingPoint1 = null;
+      }
+      event.preventDefault();
+    }
+
+    function onPickPointerMove(event) {
+      if (activeDrag) {
+        var dragRay = rayFromEvent(event);
+        if (dragRay) applyHandleDrag(dragRay);
+        return;
+      }
+      // Hovering with a pending first point previews the box as it is
+      // dragged, rather than only showing it on the second click.
+      if (!pendingPoint1 || !event.altKey) return;
+      var block = pickBlock(event);
+      if (block) edit.setPoints(pendingPoint1, block);
+    }
+
+    function onPickPointerUp(event) {
+      if (!activeDrag) return;
+      activeDrag = null;
+      canvas.releasePointerCapture && canvas.releasePointerCapture(event.pointerId);
+      setStatus("Selection updated.");
+    }
+
+    function nudgeActiveFace(delta) {
+      var handlesApi = window.AmuletViewportHandles;
+      var bounds = currentBounds();
+      if (!handlesApi || !bounds) {
+        setStatus("Enter both selection points first to nudge a face.");
+        return;
+      }
+      var handle = handlesApi.FACE_HANDLES[activeFaceIndex];
+      var min = bounds[0].slice();
+      var max = bounds[1].slice();
+      var axis = handle.axis;
+      if (handle.offset[axis] > 0) max[axis] += delta;
+      else min[axis] += delta;
+      edit.setPoints(min, max);
+      setStatus("Nudged " + handle.name + " by " + delta + " block(s).");
+    }
+
+    /** Step the far corner of the selection diagonally -- the keyboard
+     * equivalent of dragging a corner handle, which moves two axes at once. */
+    function stepFarCorner(deltaX, deltaZ) {
+      var bounds = currentBounds();
+      if (!bounds) {
+        setStatus("Enter both selection points first to step a corner.");
+        return;
+      }
+      var max = bounds[1].slice();
+      max[0] += deltaX;
+      max[2] += deltaZ;
+      edit.setPoints(bounds[0], max);
+      setStatus("Stepped the far corner.");
+    }
+
+    function selectChunkUnderCamera() {
+      if (!viewport) return;
+      var pos = viewport.camera.position;
+      var cx = Math.floor(pos[0] / CHUNK_SIZE) * CHUNK_SIZE;
+      var cz = Math.floor(pos[2] / CHUNK_SIZE) * CHUNK_SIZE;
+      edit.setPoints([cx, 0, cz], [cx + CHUNK_SIZE - 1, 255, cz + CHUNK_SIZE - 1]);
+      setStatus("Selected the chunk under the camera (" + cx + "," + cz + ").");
+    }
+
+    /** The full keyboard equivalent for picking and handle-dragging. None of
+     * these keys collide with viewport-webgl.js's own WASD/arrow-key camera
+     * controls, so both can be live on the same focused canvas at once. */
+    function onEditorKeyDown(event) {
+      if (!edit) return;
+      var key = event.key;
+      if (key >= "1" && key <= "6") {
+        activeFaceIndex = Number(key) - 1;
+        var handlesApi = window.AmuletViewportHandles;
+        var name = handlesApi ? handlesApi.FACE_HANDLES[activeFaceIndex].name : key;
+        setStatus("Active face for [ / ] nudging: " + name);
+        event.preventDefault();
+      } else if (key === "[") {
+        nudgeActiveFace(-1);
+        event.preventDefault();
+      } else if (key === "]") {
+        nudgeActiveFace(1);
+        event.preventDefault();
+      } else if (key === "i") {
+        stepFarCorner(0, -1);
+        event.preventDefault();
+      } else if (key === "k") {
+        stepFarCorner(0, 1);
+        event.preventDefault();
+      } else if (key === "j") {
+        stepFarCorner(-1, 0);
+        event.preventDefault();
+      } else if (key === "l") {
+        stepFarCorner(1, 0);
+        event.preventDefault();
+      } else if (key === "c" || key === "C") {
+        selectChunkUnderCamera();
+        event.preventDefault();
+      }
+    }
+
+    canvas.addEventListener("pointerdown", onPickPointerDown);
+    canvas.addEventListener("pointermove", onPickPointerMove);
+    canvas.addEventListener("pointerup", onPickPointerUp);
+    canvas.addEventListener("pointercancel", onPickPointerUp);
+    canvas.addEventListener("keydown", onEditorKeyDown);
+
     function ensureViewport() {
       if (viewport) return viewport;
       viewport = new window.AmuletViewportWebGL.Viewport(canvas);
-      detachControls = viewport.attachControls(canvas);
+      detachControls = viewport.attachControls(canvas, {
+        // A plain drag still only rotates the camera. An Alt+drag, or a
+        // drag that starts on a selection handle, must not also spin the
+        // view -- see the module comment above onPickPointerDown.
+        shouldRotate: function (event) {
+          return !event.altKey && !activeDrag;
+        },
+      });
       return viewport;
     }
 
@@ -544,21 +1091,59 @@
       ensureViewport().loadAtlasImage(bitmap);
     }
 
-    async function requestChunk(cx, cz) {
-      var meta = await sidecarCall("viewport.chunk_mesh", {
+    /**
+     * Request every still-missing chunk in one batch call instead of one
+     * "viewport.chunk_mesh" call per chunk. See the module doc comment for
+     * the measured before/after: batching turns N temp files and N IPC
+     * round trips into one combined buffer read once and sliced per chunk
+     * via each result's byte_offset/byte_length.
+     */
+    async function requestChunks(coords) {
+      if (!coords.length) return;
+      var kicked = await sidecarCall("viewport.chunk_mesh_batch", {
         world_id: worldId,
         dimension: dimension,
-        cx: cx,
-        cz: cz,
+        chunks: coords,
       });
-      if (!meta.ok || !meta.result.exists || meta.result.vertex_count === 0) return;
-      var bytes = await readBinary(meta.result.path);
-      if (!bytes.ok) return;
-      var raw = bytes.result;
-      var arrayBuffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
-      var view = ensureViewport();
-      view.loadChunkMesh(cx, cz, arrayBuffer, meta.result.vertex_count);
-      frameFirstChunk(view, cx, cz);
+      if (!kicked.ok) return;
+      var batchId = kicked.result.batch_id;
+
+      var status = null;
+      for (var i = 0; i < 600 && streaming; i++) {
+        var poll = await sidecarCall("viewport.chunk_mesh_batch_status", { batch_id: batchId });
+        if (!poll.ok) return;
+        if (poll.result.status === "ready") {
+          status = poll.result;
+          break;
+        }
+        if (poll.result.status === "failed") return;
+        await sleep(30);
+      }
+      if (!status) return;
+
+      try {
+        var readyChunks = status.chunks.filter(function (c) {
+          return c.exists && c.vertex_count > 0;
+        });
+        if (!readyChunks.length) return;
+        var bytes = await readBinary(status.path);
+        if (!bytes.ok) return;
+        var raw = bytes.result;
+        var view = ensureViewport();
+        for (var j = 0; j < readyChunks.length; j++) {
+          var entry = readyChunks[j];
+          var arrayBuffer = raw.buffer.slice(
+            raw.byteOffset + entry.byte_offset,
+            raw.byteOffset + entry.byte_offset + entry.byte_length
+          );
+          view.loadChunkMesh(entry.cx, entry.cz, arrayBuffer, entry.vertex_count);
+          frameFirstChunk(view, entry.cx, entry.cz);
+        }
+      } finally {
+        // Always release, even on a mid-loop error above, or the batch's
+        // combined file leaks until the sidecar's own LRU cap catches up.
+        sidecarCall("viewport.chunk_mesh_batch_release", { batch_id: batchId });
+      }
     }
 
     var framed = false;
@@ -625,11 +1210,12 @@
             viewport.unloadChunk(lx, lz);
           }
         }
-        // Request missing chunks one at a time -- never flood the sidecar
-        // dispatcher, which other panels' calls share.
-        for (var j = 0; j < wantedList.length && streaming; j++) {
-          await requestChunk(wantedList[j][0], wantedList[j][1]);
-        }
+        // Request every missing chunk in ONE batch call rather than one
+        // call per chunk -- see requestChunks()'s doc comment. A single
+        // outstanding batch at a time still holds: streamTick itself is
+        // re-entrancy-guarded by streamBusy above, so a burst of camera
+        // movement never fires two overlapping batch requests.
+        await requestChunks(wantedList);
       } catch (err) {
         setStatus("Streaming error: " + String(err));
       } finally {
@@ -736,6 +1322,12 @@
       isStreaming: function () {
         return streaming;
       },
+      // Test-only: construct the Viewport (and wire attachControls'
+      // shouldRotate hook) without going through openWorld()'s sidecar
+      // calls, so the picking/handle-drag wiring above can be exercised in
+      // a jsdom runtime contract with a fake AmuletViewportWebGL.Viewport
+      // standing in for a real GPU context.
+      _ensureViewportForTest: ensureViewport,
       // Set or clear the drawn selection. Exposed rather than left internal
       // because an overlay nothing can reach is the same defect this project
       // has now hit three times: a component fully built, fully tested, and
@@ -743,6 +1335,24 @@
       setSelection: setSelection,
       hasOverlay: function () {
         return Boolean(overlay);
+      },
+      // Picking/handle-dragging hooks, exposed for the same reason as
+      // setSelection above -- and so a later change that adds a real
+      // per-block sidecar query can swap the ground-plane placeholder out
+      // without touching the pointer/keyboard wiring itself.
+      setSolidTest: function (fn) {
+        if (typeof fn === "function") solidTest = fn;
+      },
+      pickBlock: pickBlock,
+      rayFromEvent: rayFromEvent,
+      nudgeActiveFace: nudgeActiveFace,
+      stepFarCorner: stepFarCorner,
+      selectChunkUnderCamera: selectChunkUnderCamera,
+      getActiveFaceIndex: function () {
+        return activeFaceIndex;
+      },
+      isDraggingHandle: function () {
+        return Boolean(activeDrag);
       },
       // Exposed for tests: the edit controls, without reaching into closure
       // state.
@@ -752,6 +1362,15 @@
       runUndo: runUndo,
       runRedo: runRedo,
       runSave: runSave,
+      runCopySelection: runCopySelection,
+      runCutSelection: runCutSelection,
+      runPasteSelection: runPasteSelection,
+      runDeleteSelection: runDeleteSelection,
+      runExportStructure: runExportStructure,
+      runImportStructure: runImportStructure,
+      runCreateChunks: runCreateChunks,
+      runDeleteChunks: runDeleteChunks,
+      runPruneChunks: runPruneChunks,
     };
 
     window.addEventListener("beforeunload", function () {
