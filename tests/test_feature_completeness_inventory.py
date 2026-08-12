@@ -109,9 +109,13 @@ INVENTORY = {
         ],
     ),
     "locked-surfaces": (
-        "incomplete",
+        "complete",
         [
+            "amulet_map_editor/api/item_locks.py",
+            "amulet_map_editor/api/wx/ui/item_locks.py",
             "docs/site/locks.js",
+            "tests/test_item_locks.py",
+            "tests/test_item_lock_ui_contract.py",
             "tests/test_site_runtime_render_contract.py",
         ],
     ),
@@ -184,11 +188,16 @@ INVENTORY = {
         ],
     ),
     "two-factor-authenticator": (
-        "incomplete",
+        "complete",
         [
             "docs/site/totp.js",
             "docs/site/authenticator.js",
             "tests/test_site_totp_contract.py",
+            "amulet_map_editor/api/authenticator.py",
+            "amulet_map_editor/api/wx/ui/authenticator_dialog.py",
+            "tests/test_authenticator.py",
+            "tests/test_authenticator_entries.py",
+            "tests/test_authenticator_ui_contract.py",
         ],
     ),
     "universal-feature-delivery": (
