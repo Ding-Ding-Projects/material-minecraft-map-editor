@@ -204,16 +204,16 @@
           btn("Raise", "▲", "Raise the heightmap under the brush.", null, { primary: true }),
           btn("Lower", "▼", "Lower the heightmap under the brush."),
           btn("Smooth", "≈", "Average neighbouring heights."),
-          btn("Flatten", "▬", "Flatten to a target height."),
+          btn("Flatten", "▬", "Flatten the selection to its own top Y with the fill-block field's block.", actions.terrainFlatten, { requiresSidecar: true, requiresWorld: true }),
           btn("Erode", "◠", "Hydraulic and thermal erosion passes."),
         ]),
         group("Generate", [
           btn("Noise", "⁘", "Fill the selection from a seeded noise field.", null, { primary: true }),
-          btn("Sea level", "≡", "Set or drain the water level in the selection."),
+          btn("Sea level", "≡", "Raise the water table to the selection's midpoint Y.", actions.terrainSeaLevel, { requiresSidecar: true, requiresWorld: true }),
           btn("Regenerate", "↻", "Regenerate chunks from the world seed."),
         ]),
         group("Surface", [
-          btn("Repaint", "▨", "Repaint the surface layer by biome or block."),
+          btn("Repaint", "▨", "Repaint the topmost block of every column in the selection with the fill-block field's block.", actions.terrainRepaint, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Snow line", "❄", "Apply snow and ice above a height."),
           btn("Grass fix", "❋", "Restore grass, dirt, and stone banding."),
         ]),
@@ -222,7 +222,7 @@
         group("Shapes", [
           btn("Sphere", "◉", "Draw a filled or hollow sphere.", null, { primary: true }),
           btn("Cylinder", "◍", "Draw a cylinder along an axis."),
-          btn("Cuboid", "▢", "Fill the selection as a box."),
+          btn("Cuboid", "▢", "Fill the selection as a box, using the fill-block field's block.", actions.buildCuboid, { requiresSidecar: true, requiresWorld: true }),
           btn("Line", "／", "Draw a line between the two points."),
           btn("Path", "〜", "Draw a path through waypoints."),
         ]),
@@ -244,14 +244,14 @@
       ],
       entities: [
         group("Browse", [
-          btn("Entities", "☰", "Every entity in the selection, searchable.", null, { primary: true }),
+          btn("Entities", "☰", "Every entity in the selection.", actions.entitiesList, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Block entities", "▤", "Chests, signs, spawners, and other NBT blocks."),
           btn("Players", "☺", "Player data, inventory, and position."),
         ]),
         group("Edit", [
           btn("Edit entity", "✎", "Edit the selected entity's NBT.", null, { primary: true }),
-          btn("Place", "＋", "Place an entity at the cursor."),
-          btn("Remove", "⌫", "Remove entities matching a filter."),
+          btn("Place", "＋", "Place an entity at the cursor. Backend real (entities.place) but this build's edit panel has no position/type fields to drive it yet."),
+          btn("Remove", "⌫", "Remove entities matching a filter. Backend real (entities.remove) but this build's edit panel has no filter field to drive it yet."),
         ]),
         group("Spawners", [
           btn("Spawner", "◈", "Edit spawner type, delay, and range."),
@@ -265,8 +265,8 @@
           btn("Commands", "⌘", "Find command blocks and their commands."),
         ]),
         group("World data", [
-          btn("level.dat", "▣", "Edit level.dat safely with validation.", null, { primary: true }),
-          btn("Game rules", "⚖", "Every game rule with its current value."),
+          btn("level.dat", "▣", "Read the world's real level.dat fields.", actions.dataLevelRead, { primary: true, requiresSidecar: true, requiresWorld: true }),
+          btn("Game rules", "⚖", "Every game rule with its current value.", actions.dataGameRulesRead, { requiresSidecar: true, requiresWorld: true }),
           btn("Scoreboard", "▧", "Objectives, teams, and scores."),
           btn("Maps", "◫", "Map items and their stored images."),
         ]),
@@ -475,6 +475,13 @@
       analyzeRunning: false,
       analyzeError: null,
       analyzeResult: null, // { command, summary, rows: [[label, value], ...] }
+      // Shared result bucket for the Terrain/Entities/Data ribbon tabs' own
+      // sidecar calls (terrain.*, entities.list, data.*) -- same shape as
+      // the Analyze tab's own state above, rendered in its own pane section
+      // so a Terrain result and an Analyze result never overwrite each other.
+      workshopRunning: false,
+      workshopError: null,
+      workshopResult: null, // { command, rows: [[label, value], ...] }
     };
 
     root.setAttribute("data-studio-workspace", "1");
@@ -601,14 +608,16 @@
         var edit = vp && vp.edit;
         var points = edit && typeof edit.readPoints === "function" ? edit.readPoints() : null;
         var eb = window.AmuletSite && window.AmuletSite.electronSidecar;
+        var worldId = vp && typeof vp.getWorldId === "function" ? vp.getWorldId() : null;
+        var dimension = vp && typeof vp.getDimension === "function" ? vp.getDimension() : null;
         if (!points) {
           state.analyzeError = label + ": set point 1 and point 2 in the viewport's edit panel first.";
           state.analyzeResult = null;
           render();
           return;
         }
-        if (!eb || typeof eb.analyze !== "object" || state.worldId === null || !state.navSelected) {
-          state.analyzeError = label + ": no world open in the Analyze tab yet.";
+        if (!eb || typeof eb.analyze !== "object" || worldId === null || !dimension) {
+          state.analyzeError = label + ": no world open in the viewport yet.";
           state.analyzeResult = null;
           render();
           return;
@@ -616,7 +625,7 @@
         state.analyzeRunning = true;
         state.analyzeError = null;
         render();
-        callBridge(eb.analyze, state.worldId, state.navSelected, points.point1, points.point2)
+        callBridge(eb.analyze, worldId, dimension, points.point1, points.point2)
           .then(function (result) {
             state.analyzeRunning = false;
             state.analyzeError = null;
@@ -690,6 +699,260 @@
             });
             if (!result.flagged_count) rows.push(["Result", "No non-universal blocks found in the selection."]);
             return rows;
+          }
+        );
+      },
+
+      // ------------------------------------------ Terrain/Entities/Data
+      // Shared preconditions for every command below: a real selection from
+      // the viewport's own edit panel, a sidecar, and a streaming world --
+      // the exact same three checks runAnalyzeCommand makes above. Returns
+      // null (having already recorded the honest reason and re-rendered)
+      // when a precondition is missing, so a caller can just return early.
+      workshopContext: function (label) {
+        var vp = viewportPanel();
+        var edit = vp && vp.edit;
+        var points = edit && typeof edit.readPoints === "function" ? edit.readPoints() : null;
+        var eb = window.AmuletSite && window.AmuletSite.electronSidecar;
+        var worldId = vp && typeof vp.getWorldId === "function" ? vp.getWorldId() : null;
+        var dimension = vp && typeof vp.getDimension === "function" ? vp.getDimension() : null;
+        if (!points) {
+          state.workshopError = label + ": set point 1 and point 2 in the viewport's edit panel first.";
+          state.workshopResult = null;
+          render();
+          return null;
+        }
+        if (!eb || worldId === null || !dimension) {
+          state.workshopError = label + ": no world open in the viewport yet.";
+          state.workshopResult = null;
+          render();
+          return null;
+        }
+        return { eb: eb, worldId: worldId, dimension: dimension, points: points, edit: edit };
+      },
+
+      runWorkshopCommand: function (label, call, summarize) {
+        state.workshopRunning = true;
+        state.workshopError = null;
+        render();
+        call()
+          .then(function (result) {
+            state.workshopRunning = false;
+            state.workshopError = null;
+            state.workshopResult = { command: label, rows: summarize(result) };
+            render();
+          })
+          .catch(function (err) {
+            state.workshopRunning = false;
+            state.workshopResult = null;
+            state.workshopError = label + ": " + (err && err.message ? err.message : String(err));
+            render();
+          });
+      },
+
+      // "Flatten" flattens the current selection to its own top Y (the
+      // higher of the two selected points' Y) using the fill-block field's
+      // block -- no separate height field exists in this build's edit
+      // panel, so the selection's own extent is the honest, real value used
+      // rather than an invented default.
+      terrainFlatten: function () {
+        var ctx = actions.workshopContext("Flatten");
+        if (!ctx) return;
+        var block = ctx.edit.blockValue();
+        if (!block) {
+          state.workshopError = "Flatten: enter a block ID in the fill-block field first.";
+          state.workshopResult = null;
+          render();
+          return;
+        }
+        var height = Math.max(ctx.points.point1[1], ctx.points.point2[1]);
+        var run = function () {
+          actions.runWorkshopCommand(
+            "Flatten",
+            function () {
+              return ctx.eb.terrain.flatten(ctx.worldId, ctx.dimension, ctx.points.point1, ctx.points.point2, height, block, true);
+            },
+            function (result) {
+              return [
+                ["Blocks changed", String(result.blocks_changed)],
+                ["Height", String(result.height)],
+              ];
+            }
+          );
+        };
+        var site = window.AmuletSite;
+        if (site && typeof site.confirmDestructive === "function") {
+          site.confirmDestructive({
+            title: "Flatten selection",
+            detail: "Flattens the selection to Y=" + height + " with " + block + ".",
+            confirm: "Flatten",
+            onConfirm: run,
+          });
+        } else {
+          run();
+        }
+      },
+
+      // "Sea level" raises the water table: every air block at or below the
+      // selection's own midpoint Y becomes water. There is no dedicated sea
+      // level field in this build's edit panel, so the selection's vertical
+      // midpoint is the real, computed value used, and this build only ever
+      // raises (draining is real in the sidecar -- see terrain.sea_level's
+      // "drain" mode -- but has no ribbon command yet).
+      terrainSeaLevel: function () {
+        var ctx = actions.workshopContext("Sea level");
+        if (!ctx) return;
+        var seaLevel = Math.round((ctx.points.point1[1] + ctx.points.point2[1]) / 2);
+        var run = function () {
+          actions.runWorkshopCommand(
+            "Sea level",
+            function () {
+              return ctx.eb.terrain.seaLevel(ctx.worldId, ctx.dimension, ctx.points.point1, ctx.points.point2, seaLevel, "raise", true);
+            },
+            function (result) {
+              return [
+                ["Blocks changed", String(result.blocks_changed)],
+                ["Sea level", String(result.sea_level)],
+                ["Mode", result.mode],
+              ];
+            }
+          );
+        };
+        var site = window.AmuletSite;
+        if (site && typeof site.confirmDestructive === "function") {
+          site.confirmDestructive({
+            title: "Raise sea level",
+            detail: "Fills air at or below Y=" + seaLevel + " in the selection with water.",
+            confirm: "Raise",
+            onConfirm: run,
+          });
+        } else {
+          run();
+        }
+      },
+
+      // "Repaint" repaints the topmost non-air block of every column in the
+      // selection with the fill-block field's block.
+      terrainRepaint: function () {
+        var ctx = actions.workshopContext("Repaint");
+        if (!ctx) return;
+        var block = ctx.edit.blockValue();
+        if (!block) {
+          state.workshopError = "Repaint: enter a block ID in the fill-block field first.";
+          state.workshopResult = null;
+          render();
+          return;
+        }
+        var run = function () {
+          actions.runWorkshopCommand(
+            "Repaint",
+            function () {
+              return ctx.eb.terrain.repaint(ctx.worldId, ctx.dimension, ctx.points.point1, ctx.points.point2, block, true);
+            },
+            function (result) {
+              return [["Blocks changed", String(result.blocks_changed)]];
+            }
+          );
+        };
+        var site = window.AmuletSite;
+        if (site && typeof site.confirmDestructive === "function") {
+          site.confirmDestructive({
+            title: "Repaint surface",
+            detail: "Repaints the topmost block of every column in the selection with " + block + ".",
+            confirm: "Repaint",
+            onConfirm: run,
+          });
+        } else {
+          run();
+        }
+      },
+
+      // "Cuboid" (Build tab) is literally world.fill with the fill-block
+      // field's block -- "Fill the selection as a box" is exactly what
+      // world.fill already does, so this reuses the same wired write path
+      // as the Operations tab's own Fill command rather than a second copy.
+      buildCuboid: function () {
+        actions.fill();
+      },
+
+      // "Entities" (Entities tab) lists every entity in the selection --
+      // strictly read-only, same shape as the Analyze tab's own commands.
+      entitiesList: function () {
+        var ctx = actions.workshopContext("Entities");
+        if (!ctx) return;
+        actions.runWorkshopCommand(
+          "Entities",
+          function () {
+            return ctx.eb.entities.list(ctx.worldId, ctx.dimension, ctx.points.point1, ctx.points.point2);
+          },
+          function (result) {
+            var rows = [["Count", String(result.count)]];
+            (result.entities || []).slice(0, 12).forEach(function (entity) {
+              rows.push([
+                entity.namespace + ":" + entity.base_name,
+                "(" + entity.x + ", " + entity.y + ", " + entity.z + ")",
+              ]);
+            });
+            if (!result.count) rows.push(["Result", "No entities in the selection."]);
+            return rows;
+          }
+        );
+      },
+
+      // "level.dat" (Data tab) reads the world's real level.dat fields --
+      // read-only; no selection is required.
+      dataLevelRead: function () {
+        var vp = viewportPanel();
+        var eb = window.AmuletSite && window.AmuletSite.electronSidecar;
+        var worldId = vp && typeof vp.getWorldId === "function" ? vp.getWorldId() : null;
+        if (!eb || worldId === null) {
+          state.workshopError = "level.dat: no world open in the viewport yet.";
+          state.workshopResult = null;
+          render();
+          return;
+        }
+        actions.runWorkshopCommand(
+          "level.dat",
+          function () {
+            return eb.data.readLevel(worldId);
+          },
+          function (result) {
+            return [
+              ["Level name", String(result.level_name)],
+              ["Data version", String(result.data_version)],
+              ["Difficulty", String(result.difficulty)],
+              ["Hardcore", String(result.hardcore)],
+              ["Raining", String(result.raining)],
+              ["Thundering", String(result.thundering)],
+            ];
+          }
+        );
+      },
+
+      // "Game rules" (Data tab) reads the world's real GameRules compound --
+      // read-only; no selection is required.
+      dataGameRulesRead: function () {
+        var vp = viewportPanel();
+        var eb = window.AmuletSite && window.AmuletSite.electronSidecar;
+        var worldId = vp && typeof vp.getWorldId === "function" ? vp.getWorldId() : null;
+        if (!eb || worldId === null) {
+          state.workshopError = "Game rules: no world open in the viewport yet.";
+          state.workshopResult = null;
+          render();
+          return;
+        }
+        actions.runWorkshopCommand(
+          "Game rules",
+          function () {
+            return eb.data.readGameRules(worldId);
+          },
+          function (result) {
+            var rules = result.game_rules || {};
+            var names = Object.keys(rules).sort();
+            if (!names.length) return [["Result", "This world has no GameRules recorded yet."]];
+            return names.map(function (name) {
+              return [name, rules[name]];
+            });
           }
         );
       },
@@ -1217,6 +1480,18 @@
           sections.push({
             title: "Analysis · " + state.analyzeResult.command,
             rows: state.analyzeResult.rows.map(function (row) {
+              return { label: row[0], value: row[1] };
+            }),
+          });
+        }
+        if (state.workshopRunning) {
+          sections.push({ title: "Workshop", rows: [{ label: "Status", value: "Running…" }] });
+        } else if (state.workshopError) {
+          sections.push({ title: "Workshop", rows: [{ label: "Error", value: state.workshopError }] });
+        } else if (state.workshopResult) {
+          sections.push({
+            title: "Workshop · " + state.workshopResult.command,
+            rows: state.workshopResult.rows.map(function (row) {
               return { label: row[0], value: row[1] };
             }),
           });

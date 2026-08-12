@@ -265,5 +265,88 @@ class ThePropertiesPaneAndStatusBarRender(unittest.TestCase):
         ]))
 
 
+class TheAnalyzeTabCallsTheRealBridge(unittest.TestCase):
+    """Histogram/Chunk inspector/Validate must call
+    Site.electronSidecar.analyze.*, never a dead ``run: null`` -- and the
+    still-unbuilt commands (Biome map, Relight, Compare, Measure, Slice)
+    must keep their honest disabled-with-reason state."""
+
+    ANALYZE_FIXTURE = """
+    window.AmuletSite = { electronSidecar: { analyze: {
+      blockHistogram: function () {
+        window.__analyzeCalledWith = Array.prototype.slice.call(arguments);
+        return Promise.resolve({
+          blocks_scanned: 10, distinct_blocks: 2,
+          histogram: [{ block: 'universal_minecraft:stone', count: 8, percentage: 80 }],
+        });
+      },
+      chunkInventory: function () { return Promise.resolve({ chunks_in_range: 1, chunks_present: 1, chunks: [] }); },
+      blockAudit: function () { return Promise.resolve({ blocks_scanned: 10, flagged_count: 0, flagged_blocks: [] }); },
+    } } };
+    window.__AmuletViewportPanel = {
+      isStreaming: () => true,
+      getWorldId: () => "fixture-world-id",
+      getDimension: () => "minecraft:overworld",
+      edit: { readPoints: () => ({ point1: [0, 0, 0], point2: [3, 3, 3] }) },
+    };
+    """
+
+    def test_histogram_is_enabled_and_calls_the_bridge(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.ANALYZE_FIXTURE,
+            "const tabs = all('.sw-ribbon-tab');"
+            "tabs.find(b => b.textContent === 'Analyze').click();"
+            "const histo = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Histogram') !== -1);"
+            "const wasDisabled = histo.disabled;"
+            "histo.click();"
+            "await new Promise(r => setTimeout(r, 20));"
+            "const section = [...all('.sw-pane-section-title')].map(e => e.textContent).join('|');"
+            "return { wasDisabled, calledWith: window.__analyzeCalledWith, section };",
+        )
+        self.assertFalse(got["wasDisabled"], "Histogram must render enabled with a sidecar, a streaming world, and a selection")
+        self.assertIsNotNone(got["calledWith"], "clicking Histogram must call Site.electronSidecar.analyze.blockHistogram")
+        self.assertIn("Analysis", got["section"])
+
+    def test_chunk_inspector_and_validate_are_also_wired(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.ANALYZE_FIXTURE,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Analyze').click();"
+            "const inspector = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Chunk inspector') !== -1);"
+            "const validate = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Validate') !== -1);"
+            "return { foundInspector: !!inspector, foundValidate: !!validate, inspectorDisabled: !!(inspector && inspector.disabled), validateDisabled: !!(validate && validate.disabled) };",
+        )
+        self.assertTrue(got["foundInspector"])
+        self.assertTrue(got["foundValidate"])
+        self.assertFalse(got["inspectorDisabled"])
+        self.assertFalse(got["validateDisabled"])
+
+    def test_analyze_without_a_selection_reports_an_honest_error_not_a_crash(self) -> None:
+        got = render(
+            FAKE_SIDECAR
+            + """
+            window.AmuletSite = { electronSidecar: { analyze: {
+              blockHistogram: function () { return Promise.resolve({ blocks_scanned: 0, distinct_blocks: 0, histogram: [] }); },
+            } } };
+            window.__AmuletViewportPanel = { isStreaming: () => true, edit: { readPoints: () => null } };
+            """,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Analyze').click();"
+            "const histo = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Histogram') !== -1);"
+            "histo.click();"
+            "const errorRow = [...all('.sw-pane-row-value')].map(e => e.textContent).find(t => t.indexOf('point 1') !== -1);"
+            "return { errorRow, threw: !!errorRow === false };",
+        )
+        self.assertIsNotNone(got["errorRow"], "clicking Histogram with no selection must report an honest error, not silently do nothing")
+
+    def test_biome_map_is_still_honestly_unwired(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.ANALYZE_FIXTURE,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Analyze').click();"
+            "const biome = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Biome map') !== -1);"
+            "return { disabled: biome.disabled, title: biome.title };",
+        )
+        self.assertTrue(got["disabled"])
+        self.assertIn("Not yet wired to the desktop sidecar", got["title"])
+
+
 if __name__ == "__main__":
     unittest.main()

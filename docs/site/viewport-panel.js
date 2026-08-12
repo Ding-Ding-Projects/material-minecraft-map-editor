@@ -1322,6 +1322,17 @@
       isStreaming: function () {
         return streaming;
       },
+      // Read-only access to the world this panel already has open, for a
+      // caller (the Analyze ribbon tab in docs/site/studio-workspace.js)
+      // that needs the same world_id/dimension fill/replace already use
+      // internally, without a second "which world is open" tracked
+      // separately and risking disagreeing with this one.
+      getWorldId: function () {
+        return worldId;
+      },
+      getDimension: function () {
+        return dimension;
+      },
       // Test-only: construct the Viewport (and wire attachControls'
       // shouldRotate hook) without going through openWorld()'s sidecar
       // calls, so the picking/handle-drag wiring above can be exercised in

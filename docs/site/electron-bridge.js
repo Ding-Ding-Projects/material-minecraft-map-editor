@@ -298,6 +298,104 @@
         });
       },
     },
+    // The Terrain ribbon tab's column-shaping commands --
+    // amulet_map_editor/api/sidecar/terrain_methods.py. Every one of these
+    // writes to the world and follows the same `confirm` rule as
+    // fillSelection/replaceInSelection above -- a real user decision, never
+    // a default this bridge supplies.
+    terrain: {
+      flatten: function (worldId, dimension, min, max, height, block, confirmed) {
+        return callWorldMethod("terrain.flatten", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+          height: height,
+          block: block,
+          confirm: Boolean(confirmed),
+        });
+      },
+      seaLevel: function (worldId, dimension, min, max, seaLevel, mode, confirmed) {
+        return callWorldMethod("terrain.sea_level", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+          sea_level: seaLevel,
+          mode: mode,
+          confirm: Boolean(confirmed),
+        });
+      },
+      repaint: function (worldId, dimension, min, max, block, confirmed) {
+        return callWorldMethod("terrain.repaint", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+          block: block,
+          confirm: Boolean(confirmed),
+        });
+      },
+    },
+    // The Entities ribbon tab -- amulet_map_editor/api/sidecar/entity_methods.py.
+    // `list` is read-only; `remove` and `place` write and require `confirm`.
+    entities: {
+      list: function (worldId, dimension, min, max) {
+        return callWorldMethod("entities.list", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+        });
+      },
+      remove: function (worldId, dimension, min, max, namespace, baseName, confirmed) {
+        return callWorldMethod("entities.remove", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+          namespace: namespace || undefined,
+          base_name: baseName || undefined,
+          confirm: Boolean(confirmed),
+        });
+      },
+      place: function (worldId, dimension, position, namespace, baseName, confirmed) {
+        return callWorldMethod("entities.place", {
+          world_id: worldId,
+          dimension: dimension,
+          position: position,
+          namespace: namespace,
+          base_name: baseName,
+          confirm: Boolean(confirmed),
+        });
+      },
+    },
+    // The Data ribbon tab's level.dat and game-rule surfaces --
+    // amulet_map_editor/api/sidecar/entity_methods.py. Reads never require
+    // `confirm`; writes always do, and only ever mutate the in-memory NBT
+    // tag until a subsequent `saveWorld` writes it to disk.
+    data: {
+      readLevel: function (worldId) {
+        return callWorldMethod("data.level_read", { world_id: worldId });
+      },
+      writeLevel: function (worldId, fields, confirmed) {
+        return callWorldMethod("data.level_write", {
+          world_id: worldId,
+          fields: fields,
+          confirm: Boolean(confirmed),
+        });
+      },
+      readGameRules: function (worldId) {
+        return callWorldMethod("data.game_rules_read", { world_id: worldId });
+      },
+      writeGameRules: function (worldId, rules, confirmed) {
+        return callWorldMethod("data.game_rules_write", {
+          world_id: worldId,
+          rules: rules,
+          confirm: Boolean(confirmed),
+        });
+      },
+    },
   };
 
   /** Thin wrapper shared by the School-mode and narrator calls above: run a
