@@ -48,7 +48,7 @@ from amulet_map_editor.api.tab_groups import TabDock, TabWorkspace
 from amulet_map_editor.api.wx.ui.dim_sum_surprise import DimSumSurpriseToast
 from amulet_map_editor.api.wx.ui.notification_toast import NotificationToast, wrap_lines
 from amulet_map_editor.api.wx.nonblocking import notify, notify_exception
-from amulet_map_editor.api.progress import FAILED, ProgressTask
+from amulet_map_editor.api.progress import FAILED, RUNNING, ProgressTask
 from .squirrel_update import (
     build_restart_command,
     check_for_update,
@@ -67,6 +67,9 @@ NOTEBOOK_MENU_STYLE = (
 )
 NOTEBOOK_STYLE = NOTEBOOK_MENU_STYLE | flatnotebook.FNB_X_ON_TAB
 UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+#: How long to wait before retrying automatic staging when a long operation
+#: was already running and staging deliberately stood aside for it.
+AUTO_STAGE_RETRY_MS = 60 * 1000
 #: How long an informational toast stays before retiring itself.
 #: Warnings and errors are exempt: they persist until dismissed.
 NOTIFICATION_DISMISS_MS = 8000
@@ -116,6 +119,42 @@ class SideTabRail(wx.Panel):
 wx.Image.SetDefaultLoadFlags(0)
 
 
+def _clamp_window_metrics(
+    default_w: int, default_h: int, min_w: int, min_h: int
+) -> tuple[int, int, int, int]:
+    """Clamp a desired default/minimum window size to the usable screen area.
+
+    A scaled minimum size that exceeds what the display can physically show
+    makes the window impossible to fit -- it gets forced past the screen
+    edges, content overflows, and the whole interface reads as "oversized".
+    This clamps both the default and the minimum to (at most) 95% of the
+    usable client area of the display the window is about to open on, so a
+    laptop running at a high display scale still gets a window it can
+    actually see and resize.
+    """
+    try:
+        display_index = wx.Display.GetFromPoint(wx.GetMousePosition())
+        if display_index == wx.NOT_FOUND:
+            display_index = 0
+        client = wx.Display(display_index).GetClientArea()
+        usable_w, usable_h = client.width, client.height
+    except Exception:
+        rect = wx.GetClientDisplayRect()
+        usable_w, usable_h = rect.width, rect.height
+    # Leave real margin: 95% of usable area, not 100%, so the window is not
+    # flush against the taskbar and the title bar stays grabbable.
+    usable_w = max(1, int(usable_w * 0.95))
+    usable_h = max(1, int(usable_h * 0.95))
+    clamped_min_w = min(min_w, usable_w)
+    clamped_min_h = min(min_h, usable_h)
+    clamped_default_w = min(default_w, usable_w)
+    clamped_default_h = min(default_h, usable_h)
+    # The default may never be smaller than the (already clamped) minimum.
+    clamped_default_w = max(clamped_default_w, clamped_min_w)
+    clamped_default_h = max(clamped_default_h, clamped_min_h)
+    return clamped_default_w, clamped_default_h, clamped_min_w, clamped_min_h
+
+
 class AmuletUI(wx.Frame):
     """This is the top level frame that Amulet exists within.
 
@@ -142,13 +181,19 @@ class AmuletUI(wx.Frame):
 
     def __init__(self, parent):
         title = self._format_display_title()
+        default_w, default_h, min_w, min_h = _clamp_window_metrics(
+            tokens.scaled(1000),
+            tokens.scaled(620),
+            tokens.scaled(570),
+            tokens.scaled(620),
+        )
         wx.Frame.__init__(
             self,
             parent,
             id=wx.ID_ANY,
             title=title,
             pos=wx.DefaultPosition,
-            size=wx.Size(tokens.scaled(1000), tokens.scaled(620)),
+            size=wx.Size(default_w, default_h),
             style=wx.NO_BORDER | wx.TAB_TRAVERSAL | wx.CLIP_CHILDREN | wx.RESIZE_BORDER,
         )
         # Scaled, because this is the size below which the layout stops fitting
@@ -156,7 +201,10 @@ class AmuletUI(wx.Frame):
         # in. A fixed floor here lets the window be dragged to a size where
         # every scaled child inside it is clipped, which reads as a broken
         # interface rather than as a window that is simply too small.
-        self.SetMinSize(wx.Size(tokens.scaled(570), tokens.scaled(620)))
+        # Both the default and the minimum are clamped above to the usable
+        # screen area, so a small/high-DPI laptop display never receives a
+        # minimum size larger than the screen itself.
+        self.SetMinSize(wx.Size(min_w, min_h))
         icon = wx.Icon()
         icon.CopyFromBitmap(image.logo.amulet_logo.bitmap())
         self.SetIcon(icon)
@@ -287,6 +335,10 @@ class AmuletUI(wx.Frame):
         self._update_state_generation = 0
         self._update_restart_generation: int | None = None
         self._update_restart_process: subprocess.Popen | None = None
+        # Automatic staging retries when a long operation is already running
+        # rather than competing with it, so it needs its own bounded timer
+        # distinct from the six-hour feed-check cadence.
+        self._auto_stage_retry_timer: wx.CallLater | None = None
         # The narrator is opt-in and defaults to a no-op backend, so wiring the
         # event boundary never makes startup depend on an installed voice.
         self._narrator = tts_narrator.Narrator()
@@ -1585,6 +1637,11 @@ class AmuletUI(wx.Frame):
         self._cancel_canvas_host_retry()
         if self._update_timer is not None and self._update_timer.IsRunning():
             self._update_timer.Stop()
+        if (
+            self._auto_stage_retry_timer is not None
+            and self._auto_stage_retry_timer.IsRunning()
+        ):
+            self._auto_stage_retry_timer.Stop()
         if self._scheduled_timer is not None and self._scheduled_timer.IsRunning():
             self._scheduled_timer.Stop()
         self._scheduled_runtime.stop()
@@ -1682,7 +1739,18 @@ class AmuletUI(wx.Frame):
             self._studio.set_update_state(
                 state.status, state.version or "", state.detail or ""
             )
-        if state.status in {"available", "ready_to_restart", "failed"}:
+        # With automatic staging on, "available" is not a user-facing moment --
+        # it silently becomes a staging attempt below, so it earns neither a
+        # banner ("press this to stage") nor a notification/narration nobody
+        # needs to act on. The banner reappears once staging actually resolves
+        # to "ready_to_restart" or "failed".
+        auto_staging_now = (
+            state.status == "available" and preferences.load().auto_stage_updates
+        )
+        if (
+            state.status in {"available", "ready_to_restart", "failed"}
+            and not auto_staging_now
+        ):
             self._render_update_banner(state)
             title, body = update_copy.update_copy(
                 state.status, version=state.version, detail=state.detail
@@ -1718,7 +1786,11 @@ class AmuletUI(wx.Frame):
                 self._last_update_notification_key = notification_key
         elif state.status in {"up_to_date", "not_installed"}:
             self._hide_update_banner()
-        if state.status == "available":
+        if auto_staging_now:
+            self.SetStatusText(
+                f"Update {state.version or 'new version'} found — staging automatically…"
+            )
+        elif state.status == "available":
             self.SetStatusText(
                 f"Update available: {state.version or 'new version'} (unsigned) — choose Stage available update"
             )
@@ -1732,6 +1804,50 @@ class AmuletUI(wx.Frame):
             self.SetStatusText("Updates unavailable in this installation")
         else:
             self.SetStatusText(f"{preferences.load().display_name} is up to date")
+        if auto_staging_now:
+            self._maybe_auto_stage_update(
+                generation if generation is not None else self._update_state_generation
+            )
+
+    def _progress_overlay_busy(self) -> bool:
+        """Report whether a long operation is running that staging should avoid.
+
+        Automatic staging must never compete with active editing, so it treats
+        any currently-running progress row -- world load/save, export, and the
+        rest -- as a reason to stand aside and retry rather than download now.
+        """
+        overlay = self._progress_overlay
+        if overlay is None:
+            return False
+        return any(task.state == RUNNING for task in overlay.tasks())
+
+    def _maybe_auto_stage_update(self, generation: int) -> None:
+        """Stage a discovered update by itself, deferring around busy work.
+
+        This is the automatic-staging counterpart to the banner's manual
+        "Stage available update" button: it runs the exact same worker, so a
+        validated feed, a hash mismatch, and every other outcome are reported
+        identically whichever route reached them.
+        """
+        if self._is_closing or self.IsBeingDeleted():
+            return
+        if not preferences.load().auto_stage_updates:
+            return
+        if self._update_state.status != "available":
+            return
+        if not self._update_generation_is_active(generation):
+            return
+        if self._progress_overlay_busy():
+            if (
+                self._auto_stage_retry_timer is not None
+                and self._auto_stage_retry_timer.IsRunning()
+            ):
+                self._auto_stage_retry_timer.Stop()
+            self._auto_stage_retry_timer = wx.CallLater(
+                AUTO_STAGE_RETRY_MS, self._maybe_auto_stage_update, generation
+            )
+            return
+        self._stage_update_async()
 
 
 class AmuletLevelNotebook(flatnotebook.FlatNotebook):

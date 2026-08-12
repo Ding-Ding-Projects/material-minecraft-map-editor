@@ -187,6 +187,47 @@ class TestNothingBypassesTheScaling:
         )
 
 
+class TestWindowMetricsFitTheScreen:
+    """A minimum size larger than the screen is a window nobody can fit.
+
+    On a 1366x768 laptop at 150% display scale, the shell's scaled minimum
+    size (855x930) was two hundred pixels taller than the usable screen. The
+    window could not be made to fit, so it read as "oversized" -- exactly
+    the pattern the user reported on a smaller laptop but never saw on a
+    1920x1080 desktop at 100%.
+    """
+
+    def test_clamp_never_exceeds_the_usable_area(self) -> None:
+        wx = pytest.importorskip("wx")
+        from amulet_map_editor.api.framework.amulet_ui import _clamp_window_metrics
+
+        app = wx.App.Get() or wx.App()  # noqa: F841 - wx.Display needs a live app
+
+        # A small, high-scale laptop: 1366x768 logical pixels at 150%, which
+        # is roughly what a 1366x768 physical laptop panel reports.
+        default_w, default_h, min_w, min_h = _clamp_window_metrics(1500, 930, 855, 930)
+        usable = wx.GetClientDisplayRect()
+        assert min_w <= usable.width
+        assert min_h <= usable.height
+        assert default_w <= usable.width
+        assert default_h <= usable.height
+        # The default must never fall below the (already clamped) minimum.
+        assert default_w >= min_w
+        assert default_h >= min_h
+
+    def test_small_values_pass_through_unchanged(self) -> None:
+        wx = pytest.importorskip("wx")
+        from amulet_map_editor.api.framework.amulet_ui import _clamp_window_metrics
+
+        app = wx.App.Get() or wx.App()  # noqa: F841
+
+        default_w, default_h, min_w, min_h = _clamp_window_metrics(1000, 620, 570, 620)
+        usable = wx.GetClientDisplayRect()
+        if usable.width >= 1000 and usable.height >= 620:
+            assert (default_w, default_h) == (1000, 620)
+            assert (min_w, min_h) == (570, 620)
+
+
 class TestRenamingShowsTheChosenName:
     """A rename shows the typed name, not the typed name plus a suffix."""
 
