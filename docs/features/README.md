@@ -96,3 +96,5 @@ If you are new to the interface, start with
 - [Dim-sum surprise](dim-sum-surprise/README.md)
 - [The core/wx boundary](core-boundary/README.md) — which modules are already
   portable off wxPython, and how that feeds the Electron migration
+- [The Python sidecar](sidecar/README.md) — the versioned stdio protocol that
+  lets a non-wx host (Electron's main process, or a test) drive the core
