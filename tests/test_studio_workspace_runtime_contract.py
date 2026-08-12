@@ -348,5 +348,145 @@ class TheAnalyzeTabCallsTheRealBridge(unittest.TestCase):
         self.assertIn("Not yet wired to the desktop sidecar", got["title"])
 
 
+class TheTerrainEntitiesAndDataTabsCallTheRealBridge(unittest.TestCase):
+    """Flatten/Sea level/Repaint/Cuboid/Entities/level.dat/Game rules must call
+    Site.electronSidecar.terrain.*/entities.*/data.*, never a dead
+    ``run: null`` -- and the commands amulet-core genuinely cannot perform
+    (Raise, Noise, Sphere, Place, Remove, ...) must keep their honest
+    disabled-with-reason state."""
+
+    WORKSHOP_FIXTURE = """
+    window.AmuletSite = { electronSidecar: {
+      terrain: {
+        flatten: function () {
+          window.__terrainCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ blocks_changed: 12, height: 5 });
+        },
+        seaLevel: function () {
+          window.__seaLevelCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ blocks_changed: 3, sea_level: 4, mode: "raise" });
+        },
+        repaint: function () {
+          window.__repaintCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ blocks_changed: 1 });
+        },
+      },
+      entities: {
+        list: function () {
+          window.__entitiesListCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ count: 1, entities: [{ namespace: "minecraft", base_name: "cow", x: 1, y: 2, z: 3 }] });
+        },
+      },
+      data: {
+        readLevel: function () {
+          window.__levelReadCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ level_name: "Fixture World", data_version: 1, difficulty: 2, hardcore: false, raining: false, thundering: false });
+        },
+        readGameRules: function () {
+          window.__gameRulesReadCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ game_rules: { doFire: "true" } });
+        },
+      },
+      confirmDestructive: function (opts) { opts.onConfirm(); },
+    } };
+    window.__AmuletViewportPanel = {
+      isStreaming: () => true,
+      getWorldId: () => "fixture-world-id",
+      getDimension: () => "minecraft:overworld",
+      edit: {
+        readPoints: () => ({ point1: [0, 0, 0], point2: [3, 6, 3] }),
+        blockValue: () => "universal_minecraft:stone",
+      },
+    };
+    """
+
+    def test_flatten_is_enabled_and_calls_the_bridge(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.WORKSHOP_FIXTURE,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Terrain').click();"
+            "const flatten = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Flatten') !== -1);"
+            "const wasDisabled = flatten.disabled;"
+            "flatten.click();"
+            "await new Promise(r => setTimeout(r, 20));"
+            "const section = [...all('.sw-pane-section-title')].map(e => e.textContent).join('|');"
+            "return { wasDisabled, calledWith: window.__terrainCalledWith, section };",
+        )
+        self.assertFalse(got["wasDisabled"])
+        self.assertIsNotNone(got["calledWith"])
+        self.assertIn("Workshop", got["section"])
+
+    def test_sea_level_and_repaint_are_also_wired(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.WORKSHOP_FIXTURE,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Terrain').click();"
+            "const seaLevel = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Sea level') !== -1);"
+            "const repaint = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Repaint') !== -1);"
+            "seaLevel.click(); repaint.click();"
+            "await new Promise(r => setTimeout(r, 20));"
+            "return { seaLevel: window.__seaLevelCalledWith, repaint: window.__repaintCalledWith };",
+        )
+        self.assertIsNotNone(got["seaLevel"])
+        self.assertIsNotNone(got["repaint"])
+
+    def test_cuboid_reuses_the_real_fill_write_path(self) -> None:
+        got = render(
+            FAKE_SIDECAR
+            + self.WORKSHOP_FIXTURE
+            + """
+            window.__fillCalled = false;
+            window.__AmuletViewportPanel.runFill = function () { window.__fillCalled = true; };
+            """,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Build').click();"
+            "const cuboid = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Cuboid') !== -1);"
+            "const wasDisabled = cuboid.disabled;"
+            "cuboid.click();"
+            "return { wasDisabled, called: window.__fillCalled };",
+        )
+        self.assertFalse(got["wasDisabled"])
+        self.assertTrue(got["called"], "Cuboid must call the real runFill(), the same write path as Operations > Fill")
+
+    def test_entities_list_is_wired(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.WORKSHOP_FIXTURE,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Entities').click();"
+            "const entities = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Entities') !== -1);"
+            "const wasDisabled = entities.disabled;"
+            "entities.click();"
+            "await new Promise(r => setTimeout(r, 20));"
+            "return { wasDisabled, calledWith: window.__entitiesListCalledWith };",
+        )
+        self.assertFalse(got["wasDisabled"])
+        self.assertIsNotNone(got["calledWith"])
+
+    def test_entities_place_and_remove_stay_honestly_unwired(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.WORKSHOP_FIXTURE,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Entities').click();"
+            "const place = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Place') !== -1);"
+            "const remove = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Remove') !== -1);"
+            "return { placeDisabled: place.disabled, placeTitle: place.title, removeDisabled: remove.disabled, removeTitle: remove.title };",
+        )
+        self.assertTrue(got["placeDisabled"])
+        self.assertIn("Not yet wired to the desktop sidecar", got["placeTitle"])
+        self.assertTrue(got["removeDisabled"])
+        self.assertIn("Not yet wired to the desktop sidecar", got["removeTitle"])
+
+    def test_level_dat_and_game_rules_are_wired(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.WORKSHOP_FIXTURE,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Data').click();"
+            "const level = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('level.dat') !== -1);"
+            "const rules = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Game rules') !== -1);"
+            "const levelDisabled = level.disabled, rulesDisabled = rules.disabled;"
+            "level.click(); rules.click();"
+            "await new Promise(r => setTimeout(r, 20));"
+            "return { levelDisabled, rulesDisabled, levelCalled: window.__levelReadCalledWith, rulesCalled: window.__gameRulesReadCalledWith };",
+        )
+        self.assertFalse(got["levelDisabled"])
+        self.assertFalse(got["rulesDisabled"])
+        self.assertIsNotNone(got["levelCalled"])
+        self.assertIsNotNone(got["rulesCalled"])
+
+
 if __name__ == "__main__":
     unittest.main()
