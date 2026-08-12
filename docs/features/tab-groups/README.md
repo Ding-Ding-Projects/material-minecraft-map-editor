@@ -64,6 +64,9 @@ keyboard navigation without importing wx.
 
 ### Suggested articles
 
+- [Base tab runtime contract](../base-tab-runtime/README.md) — the underlying
+  `BaseTab` lifecycle (`enable`/`disable`/`can_disable`/`can_close`/`close`)
+  that every page projected into this workspace implements.
 - [Appearance presets](../appearance-presets/README.md) — customize tab chrome
   after a surface adopts the contract.
 - [Local history](../local-history/README.md) — record tab and group changes in

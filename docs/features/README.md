@@ -52,6 +52,8 @@ If you are new to the interface, start with
 - [Material command menu contract](material-menu/README.md) — the app-owned
   popup behind the fallback shell's command bar
 - [Tabs and groups](tab-groups/README.md)
+- [Base tab runtime contract](base-tab-runtime/README.md) — the underlying
+  `BaseTab` lifecycle every tab implements
 - [Offline documentation](offline-documentation/README.md)
 - [Memory Console](memory-console/README.md)
 
@@ -74,6 +76,8 @@ If you are new to the interface, start with
 - [Destructive-action gate](destructive-gate/README.md)
 - [Bulk actions](bulk-actions/README.md)
 - [Exports](exports/README.md)
+- [File converter](file-converter/README.md) — a local, sandboxed converter
+  for standalone structures, JSON, and images
 - [External editor](external-editor/README.md)
 - [Notification centre](notification-centre/README.md)
 - [Non-blocking error reporting](non-blocking-error-reporting/README.md)

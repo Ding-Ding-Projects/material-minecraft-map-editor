@@ -166,11 +166,12 @@ INVENTORY = {
         ],
     ),
     "rich-controls": (
-        "incomplete",
+        "complete",
         [
             "docs/site/palette.js",
             "amulet_map_editor/api/studio/palette_dialog.py",
             "tests/test_site_palette_inventory_contract.py",
+            "tests/test_rich_controls_beyond_palette.py",
         ],
     ),
     "super-confirmation": (
