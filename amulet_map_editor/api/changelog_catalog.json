@@ -1,8 +1,32 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "fd677c07c3dd9a43e2e04b18187c021264d670ac",
+  "source_revision": "d744d22951ae9eee4da29fa54fcfaac322e8b8bb",
   "entries": [
+    {
+      "version": "0.10.0-dev.753",
+      "released_on": "2026-08-12",
+      "commit_sha": "e1554414f1c99da327c01beee72ab1d035d70423",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Regenerate the changelog catalog at the tip it actually describes",
+          "commit_sha": "e1554414f1c99da327c01beee72ab1d035d70423"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.750",
+      "released_on": "2026-08-12",
+      "commit_sha": "fd677c07c3dd9a43e2e04b18187c021264d670ac",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Background the Properties pane's first local-history read",
+          "commit_sha": "fd677c07c3dd9a43e2e04b18187c021264d670ac"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.749",
       "released_on": "2026-08-12",
