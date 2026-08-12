@@ -57,7 +57,20 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 #: A throwaway profile, because the anchor this script chooses is persisted and
 #: running a capture must not rewrite the settings of whoever ran it.
-os.environ["CONFIG_DIR"] = tempfile.mkdtemp(prefix="amulet-paste-anchor-")
+_capture_profile = tempfile.mkdtemp(prefix="amulet-capture-profile-")
+# Every store the application reads, not just the settings one -- they are
+# separate on purpose, and a capture that moves only CONFIG_DIR still publishes
+# the real machine's recent worlds with its user directory in every path.
+for _store in (
+    "CONFIG_DIR",
+    "DATA_DIR",
+    "CACHE_DIR",
+    "LOG_DIR",
+    "AMULET_RECENTS_DIR",
+    "AMULET_HISTORY_DIR",
+    "AMULET_LOG_DIR_PATH",
+):
+    os.environ[_store] = _capture_profile
 
 import wx  # noqa: E402
 

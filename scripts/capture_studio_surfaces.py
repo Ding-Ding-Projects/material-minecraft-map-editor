@@ -82,7 +82,23 @@ from typing import Callable, List, Optional
 import os
 import tempfile
 
-os.environ["CONFIG_DIR"] = tempfile.mkdtemp(prefix="amulet-capture-profile-")
+_capture_profile = tempfile.mkdtemp(prefix="amulet-capture-profile-")
+# Every store the application reads, not just the settings one. Redirecting
+# CONFIG_DIR alone removed the renamed title from these captures and left the
+# recent-worlds list still reading the real machine's store -- so the published
+# images kept showing `C:\Users\<name>\...` in every row. The stores are
+# separate on purpose, and a capture has to move all of them or it moves none
+# of the ones that matter.
+for _store in (
+    "CONFIG_DIR",
+    "DATA_DIR",
+    "CACHE_DIR",
+    "LOG_DIR",
+    "AMULET_RECENTS_DIR",
+    "AMULET_HISTORY_DIR",
+    "AMULET_LOG_DIR_PATH",
+):
+    os.environ[_store] = _capture_profile
 
 import wx
 

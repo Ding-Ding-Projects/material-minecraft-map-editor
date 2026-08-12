@@ -62,28 +62,36 @@ def test_the_script_exists(name: str) -> None:
 def test_it_redirects_the_profile_before_the_app_can_read_it(name: str) -> None:
     source = (SCRIPTS / name).read_text(encoding="utf-8")
 
-    assign = re.search(r"""os\.environ(?:\.setdefault\(|\[)['"]CONFIG_DIR['"]""", source)
-    assert assign, (
-        f"{name} never redirects CONFIG_DIR, so it photographs the profile of "
-        "whoever runs it -- their recent worlds, their file paths under their "
-        "own user directory, and whatever they have renamed the application "
-        "to. Those images are published."
+    # Every store the application reads, because they are separate on purpose.
+    # Redirecting CONFIG_DIR alone is what the first fix did: it removed the
+    # renamed title from the captures and left the recent-worlds list still
+    # reading the real machine's store, so every published row still showed a
+    # real user directory. A capture moves all of them or it moves none of the
+    # ones that matter.
+    REQUIRED = ("CONFIG_DIR", "AMULET_RECENTS_DIR", "AMULET_HISTORY_DIR")
+    missing = [store for store in REQUIRED if f'"{store}"' not in source]
+    assert not missing, (
+        f"{name} never redirects {', '.join(missing)}, so it photographs the "
+        "profile of whoever runs it -- their recent worlds, their paths under "
+        "their own user directory, and whatever they have renamed the "
+        "application to. These images are published."
     )
 
-    # Ordering is the whole point. The config module reads the environment when
-    # it is imported, so a redirect placed after the first import of the
-    # application is a redirect that does nothing at all -- and does nothing
-    # silently, which is how this shipped.
+    # Ordering is the other half, and it is the half that hides. The config
+    # module reads the environment when it is imported, so a redirect written
+    # after the first import of the application runs too late and does nothing
+    # at all -- silently, which is how one of these shipped looking protected.
+    first_assignment = re.search(r"os\.environ\[", source)
     first_app_import = re.search(
-        r"^\s*(?:import|from)\s+(?:wx|amulet_map_editor)\b", source, re.MULTILINE
+        r"^\s*(?:import|from)\s+(?:wx|amulet_map_editor)", source, re.MULTILINE
     )
+    assert first_assignment, f"{name} names the stores but never assigns them"
     if first_app_import:
-        assert assign.start() < first_app_import.start(), (
-            f"{name} redirects CONFIG_DIR at character {assign.start()}, after "
-            f"it imports the application at {first_app_import.start()}. The "
-            "config module reads the environment at import time, so this "
-            "redirect runs too late and the real profile is photographed "
-            "anyway -- with nothing failing to say so."
+        assert first_assignment.start() < first_app_import.start(), (
+            f"{name} assigns its environment at character "
+            f"{first_assignment.start()}, after it imports the application at "
+            f"{first_app_import.start()}. That redirect runs too late and the "
+            "real profile is photographed anyway, with nothing failing to say so."
         )
 
 

@@ -2031,3 +2031,20 @@ footer a:hover {
     border-color: CanvasText;
   }
 }
+
+/* The tab label is clipped to its own text box, and the box is rounded down.
+   Measured in the live page, every label reports scrollWidth == clientWidth --
+   so nothing is "too long" and no amount of shrinking, wrapping or ellipsis
+   was ever the answer. What is lost is the sub-pixel overhang of the final
+   glyph against an overflow:hidden edge, which takes the whole last character
+   with it on the two longest words: "Screenshots" rendered as "Screenshot" and
+   "Community" as "Communit".
+
+   An earlier attempt read this as a width problem and added break-word, which
+   shredded every label to about one character per line. It was reverted. The
+   button has 16px of padding either side, so letting the label paint its own
+   last pixel costs nothing and clips nothing else. */
+.tab-label {
+  overflow: visible;
+  padding-right: 1px;
+}

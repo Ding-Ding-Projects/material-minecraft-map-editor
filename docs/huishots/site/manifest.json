@@ -4,185 +4,186 @@
       "surface": "home",
       "viewport": "desktop",
       "filename": "site-home-desktop.png",
-      "bytes": 125300,
+      "bytes": 127441,
       "alt": "The site's home page as it first loads (desktop)"
     },
     {
       "surface": "tab-features",
       "viewport": "desktop",
       "filename": "site-tab-features-desktop.png",
-      "bytes": 114841,
+      "bytes": 117368,
       "alt": "The features tab, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "tab-docs",
       "viewport": "desktop",
       "filename": "site-tab-docs-desktop.png",
-      "bytes": 131772,
+      "bytes": 134109,
       "alt": "The documentation tab with its article index, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "tab-screenshots",
       "viewport": "desktop",
       "filename": "site-tab-screenshots-desktop.png",
-      "bytes": 133366,
+      "bytes": 135096,
       "alt": "The screenshots tab, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "tab-guides",
       "viewport": "desktop",
       "filename": "site-tab-guides-desktop.png",
-      "bytes": 92072,
+      "bytes": 94667,
       "alt": "The guides tab, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "tab-community",
       "viewport": "desktop",
       "filename": "site-tab-community-desktop.png",
-      "bytes": 79489,
+      "bytes": 82287,
       "alt": "The community tab, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "tab-changelog",
       "viewport": "desktop",
       "filename": "site-tab-changelog-desktop.png",
-      "bytes": 105081,
+      "bytes": 107561,
       "alt": "The changelog tab with its date filter and search, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "tab-history",
       "viewport": "desktop",
       "filename": "site-tab-history-desktop.png",
-      "bytes": 95170,
+      "bytes": 97558,
       "alt": "The history tab, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "tab-settings",
       "viewport": "desktop",
       "filename": "site-tab-settings-desktop.png",
-      "bytes": 111552,
+      "bytes": 113336,
       "alt": "The settings tab: its search field and its grid of live controls, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "tab-security",
       "viewport": "desktop",
       "filename": "site-tab-security-desktop.png",
-      "bytes": 104337,
+      "bytes": 106493,
       "alt": "The security tab: the built-in authenticator and the per-surface locks, reached through the site's own tab strip (desktop)"
     },
     {
       "surface": "command-palette",
       "viewport": "desktop",
       "filename": "site-command-palette-desktop.png",
-      "bytes": 109590,
+      "bytes": 111245,
       "alt": "The command palette open over the site, its results carrying live inline controls (desktop)"
     },
     {
       "surface": "regex-builder",
       "viewport": "desktop",
       "filename": "site-regex-builder-desktop.png",
-      "bytes": 122743,
+      "bytes": 125040,
       "alt": "The regex builder anchored beside the settings search field (desktop)"
     },
     {
       "surface": "tab-search-regex-builder",
       "viewport": "desktop",
       "filename": "site-tab-search-regex-builder-desktop.png",
-      "bytes": 131777,
+      "bytes": 146205,
       "alt": "The tab strip's own search field with its anchored regex builder open (desktop)"
     },
     {
       "surface": "home",
       "viewport": "mobile",
       "filename": "site-home-mobile.png",
-      "bytes": 48441,
+      "bytes": 50707,
       "alt": "The site's home page as it first loads (mobile)"
     },
     {
       "surface": "tab-features",
       "viewport": "mobile",
       "filename": "site-tab-features-mobile.png",
-      "bytes": 49029,
+      "bytes": 50261,
       "alt": "The features tab, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "tab-docs",
       "viewport": "mobile",
       "filename": "site-tab-docs-mobile.png",
-      "bytes": 38257,
+      "bytes": 39498,
       "alt": "The documentation tab with its article index, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "tab-screenshots",
       "viewport": "mobile",
       "filename": "site-tab-screenshots-mobile.png",
-      "bytes": 43025,
+      "bytes": 44245,
       "alt": "The screenshots tab, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "tab-guides",
       "viewport": "mobile",
       "filename": "site-tab-guides-mobile.png",
-      "bytes": 40956,
+      "bytes": 42302,
       "alt": "The guides tab, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "tab-community",
       "viewport": "mobile",
       "filename": "site-tab-community-mobile.png",
-      "bytes": 39202,
+      "bytes": 40492,
       "alt": "The community tab, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "tab-changelog",
       "viewport": "mobile",
       "filename": "site-tab-changelog-mobile.png",
-      "bytes": 43869,
+      "bytes": 44924,
       "alt": "The changelog tab with its date filter and search, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "tab-history",
       "viewport": "mobile",
       "filename": "site-tab-history-mobile.png",
-      "bytes": 42277,
+      "bytes": 43441,
       "alt": "The history tab, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "tab-settings",
       "viewport": "mobile",
       "filename": "site-tab-settings-mobile.png",
-      "bytes": 43420,
+      "bytes": 44628,
       "alt": "The settings tab: its search field and its grid of live controls, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "tab-security",
       "viewport": "mobile",
       "filename": "site-tab-security-mobile.png",
-      "bytes": 47891,
+      "bytes": 49155,
       "alt": "The security tab: the built-in authenticator and the per-surface locks, reached through the site's own tab strip (mobile)"
     },
     {
       "surface": "command-palette",
       "viewport": "mobile",
       "filename": "site-command-palette-mobile.png",
-      "bytes": 46740,
+      "bytes": 46723,
       "alt": "The command palette open over the site, its results carrying live inline controls (mobile)"
     },
     {
       "surface": "regex-builder",
       "viewport": "mobile",
       "filename": "site-regex-builder-mobile.png",
-      "bytes": 52815,
+      "bytes": 53946,
       "alt": "The regex builder anchored beside the settings search field (mobile)"
-    }
-  ],
-  "failures": [
+    },
     {
       "surface": "tab-search-regex-builder",
       "viewport": "mobile",
-      "reason": "identical to site-home-mobile.png -- the opener ran without changing anything on screen, so this is the previous surface photographed again rather than a new one"
+      "filename": "site-tab-search-regex-builder-mobile.png",
+      "bytes": 49655,
+      "alt": "The tab strip's own search field with its anchored regex builder open (mobile)"
     }
   ],
+  "failures": [],
   "browser": "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
   "generatedBy": "capture_site_surfaces.js"
 }
