@@ -15,16 +15,19 @@ on:
 permissions:
   contents: read
 
-# This workflow publishes an immutable release, so a run is never cancelled by
-# a newer push: cancelling mid-publish can strand a tag without its installer.
-# Runs on one ref queue instead.
+# build-electron-windows.yml is the only workflow that publishes a GitHub
+# release now -- this workflow still builds and (report-only) tests the
+# wxPython/PyInstaller app so that build does not silently rot, but it no
+# longer creates or uploads a release. Do not "fix" that back.
+#
+# Since this workflow no longer publishes, it is an ordinary push-triggered
+# validation workflow: a newer push may cancel a stale run.
 concurrency:
   group: build-windows-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
-    if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
     outputs:
       build_version: ${{ steps.resolve-version.outputs.build_version }}
       test_verdict: ${{ steps.report-tests.outputs.verdict }}
@@ -391,157 +394,3 @@ jobs:
         if-no-files-found: warn
         retention-days: 7
 
-  publish:
-    name: Publish unsigned Squirrel release
-    needs: deploy
-    # A release created by this job emits a `published` event of its own.  The
-    # marker in our notes prevents that event from trying to upload the same
-    # immutable assets a second time, while still allowing manually published
-    # releases to use this path.
-    if: ${{ needs.deploy.result == 'success' && (github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->')) }}
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - name: Checkout release commit
-        uses: actions/checkout@v4
-        with:
-          # Surviving-line attribution needs the historical commits and blobs
-          # that own the checked-out lines; a depth-one clone cannot prove it.
-          fetch-depth: 0
-      - name: Download x64 Squirrel artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: Amulet-${{ needs.deploy.outputs.build_version }}-Windows-x64
-          path: release-assets
-          merge-multiple: true
-
-      - name: Publish release assets
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
-          RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || inputs.release_tag || '' }}
-          RELEASE_TAG_FALLBACK: ${{ needs.deploy.outputs.source_tag }}
-          RELEASE_TAG_EXPECTED_SOURCE: ${{ needs.deploy.outputs.source_tag }}
-          RELEASE_TAG_EXPECTED_VERSION: ${{ needs.deploy.outputs.build_version }}
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_SHA: ${{ github.sha }}
-          TEST_VERDICT: ${{ needs.deploy.outputs.test_verdict }}
-          TEST_SUMMARY: ${{ needs.deploy.outputs.test_summary }}
-          EXAMPLE_WORLD_VERDICT: ${{ needs.deploy.outputs.example_world_verdict }}
-          EXAMPLE_WORLD_SUMMARY: ${{ needs.deploy.outputs.example_world_summary }}
-          EXAMPLE_WORLD_SEED: ${{ needs.deploy.outputs.example_world_seed }}
-          EXAMPLE_WORLD_SIZE: ${{ needs.deploy.outputs.example_world_size }}
-        run: |
-          set -euo pipefail
-          setup_path="$(find release-assets -type f -name 'Setup.exe' -print -quit)"
-          releases_path="$(find release-assets -type f -name 'RELEASES' -print -quit)"
-          nupkg_path="$(find release-assets -type f -name '*-full.nupkg' -print -quit)"
-          test -n "$setup_path" || { echo 'Setup.exe was not found in the downloaded artifact'; exit 1; }
-          test -n "$releases_path" || { echo 'RELEASES was not found in the downloaded artifact'; exit 1; }
-          test -n "$nupkg_path" || { echo 'full Squirrel package was not found in the downloaded artifact'; exit 1; }
-          if [[ "$setup_path" != "release-assets/Setup.exe" ]]; then cp -- "$setup_path" release-assets/Setup.exe; fi
-          if [[ "$releases_path" != "release-assets/RELEASES" ]]; then cp -- "$releases_path" release-assets/RELEASES; fi
-          nupkg_name="$(basename -- "$nupkg_path")"
-          if [[ "$nupkg_path" != "release-assets/$nupkg_name" ]]; then cp -- "$nupkg_path" "release-assets/$nupkg_name"; fi
-          # Both event data and the fallback stay in environment variables;
-          # the helper validates them before the value reaches the release API.
-          tag="$(python3 scripts/normalize_release_tag.py)"
-          started="$(gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name | startswith("deploy")) | .started_at' | sed -n '1p')"
-          test -n "$started" || { echo 'Could not resolve the deploy job start time for release timing notes'; exit 1; }
-          line_table="$(python3 scripts/count_lines.py)"
-          while IFS='=' read -r key value; do
-            case "$key" in
-              DIM_SUM_CODE_NAME) DIM_SUM_CODE_NAME="$value" ;;
-              DIM_SUM_PHOTO_URL) DIM_SUM_PHOTO_URL="$value" ;;
-            esac
-          done < <(python3 scripts/resolve_dim_sum_code_name.py)
-          test -n "${DIM_SUM_CODE_NAME:-}" || { echo 'Dim-sum code name was not resolved'; exit 1; }
-          test -n "${DIM_SUM_PHOTO_URL:-}" || { echo 'Dim-sum public photo URL was not resolved'; exit 1; }
-          notes_file="$(mktemp)"
-          trap 'rm -f "$notes_file"' EXIT
-          write_notes() {
-            local completed="$1"
-            local duration="$2"
-            {
-              printf '%s\n' '<!-- amulet-auto-release -->'
-              printf '%s\n' "Unsigned Squirrel.Windows release. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
-              printf '%s\n' "Workflow started: $started"
-              printf '%s\n' "Workflow completed: $completed"
-              printf '%s\n\n' "Workflow duration: $duration"
-              printf '%s\n' "Line count and surviving attribution (CI, scripts/count_lines.py):"
-              printf '%s\n' '```csv'
-              printf '%s\n' "$line_table"
-              printf '%s\n\n' '```'
-              printf '%s\n' "Generated text and deliberately excluded text are separate rows; repository-grand-total is every tracked line-oriented text file counted. Binary assets are not line-counted."
-              printf '%s\n' "Agent attribution uses surviving git-blame lines whose commit author or Co-Authored-By trailer identifies an automation agent; person and unattributed lines are reported separately."
-              printf '%s\n' "Test suite: ${TEST_VERDICT:-not run} -- ${TEST_SUMMARY:-no summary was produced}"
-              if [ "${TEST_VERDICT:-}" != "passed" ]; then
-                printf '%s\n' "> [!WARNING]"
-                printf '%s\n' "> This build shipped without a passing test suite. Tests do not gate the installer; the verdict above is the measured result, not an expectation."
-              fi
-              # An absent example world is stated, never omitted: a missing
-              # line reads as an oversight, and the world never gates a build.
-              # "Failed" and "never reported" are different facts, so they get
-              # different sentences rather than one that guesses.
-              case "${EXAMPLE_WORLD_VERDICT:-}" in
-                generated)
-                  printf '%s\n' "Example world: \`example-world.zip\` -- seed ${EXAMPLE_WORLD_SEED:-unknown}, ${EXAMPLE_WORLD_SIZE:-unknown} x ${EXAMPLE_WORLD_SIZE:-unknown} blocks, Java Edition 1.12.2 (${EXAMPLE_WORLD_SUMMARY:-no summary was produced})."
-                  ;;
-                FAILED)
-                  printf '%s\n' "Example world: generation FAILED for seed ${EXAMPLE_WORLD_SEED:-unknown} at ${EXAMPLE_WORLD_SIZE:-unknown} x ${EXAMPLE_WORLD_SIZE:-unknown} blocks (${EXAMPLE_WORLD_SUMMARY:-no summary was produced}). No \`example-world.zip\` is attached to this release; the installer is unaffected."
-                  ;;
-                *)
-                  printf '%s\n' "Example world: the generation step reported no verdict, so no \`example-world.zip\` is attached to this release. The installer is unaffected."
-                  ;;
-              esac
-              printf '%s\n' "Dim-sum code name: $DIM_SUM_CODE_NAME"
-              printf '%s\n' "Dim-sum public photo: $DIM_SUM_PHOTO_URL"
-            } > "$notes_file"
-          }
-          upload_paths=("release-assets/Setup.exe" "release-assets/RELEASES" "release-assets/$nupkg_name")
-          while IFS= read -r path; do
-            case "$(basename -- "$path")" in
-              Setup.exe|RELEASES|"$nupkg_name") ;;
-              *) upload_paths+=("$path") ;;
-            esac
-          done < <(find release-assets -type f -print)
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            while IFS= read -r existing; do
-              for path in "${upload_paths[@]}"; do
-                if [[ "$existing" == "$(basename -- "$path")" ]]; then
-                  echo "Refusing to replace immutable release asset: $existing"
-                  exit 1
-                fi
-              done
-            done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-            gh release upload "$tag" "${upload_paths[@]}" --repo "$GITHUB_REPOSITORY"
-            # A manually published release already exists.  Its workflow
-            # completion is the point at which this run finishes attaching
-            # the verified assets, not a timestamp sampled before the upload.
-            completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          else
-            # Keep the marker in draft notes so the published event generated
-            # below cannot start a duplicate packaging run.  Timing stays
-            # explicitly pending until GitHub confirms actual publication.
-            write_notes 'publication-pending' 'publication-pending'
-            gh release create "$tag" "${upload_paths[@]}" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "Amulet Map Editor $tag" \
-              --notes-file "$notes_file" \
-              --target "$RUN_SHA" \
-              --draft
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
-            completed="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq '.publishedAt')"
-            test -n "$completed" || { echo 'GitHub did not report a publication completion timestamp'; exit 1; }
-          fi
-          duration="$(python3 scripts/release_timing.py --started "$started" --completed "$completed")"
-          write_notes "$completed" "$duration"
-          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
-
-          is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
-          test "$is_draft" = 'false' || { echo 'Release remained a draft after publication'; exit 1; }
-          final_body="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')"
-          grep -Fqx "Workflow completed: $completed" <<< "$final_body"
-          grep -Fqx "Workflow duration: $duration" <<< "$final_body"

@@ -1,0 +1,249 @@
+name: Build Electron Windows
+
+# This workflow is the ONLY thing that publishes a GitHub release for this
+# project. build-windows.yml still builds and (report-only) tests the
+# wxPython/PyInstaller app -- that remains the shipping product for the 3D
+# viewport -- but it no longer creates or uploads a release. Do not "fix"
+# that back: the Electron Squirrel.Windows installer built here is what
+# users are meant to download.
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional canonical major.minor.patch or major.minor.0-dev.run tag
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# This workflow publishes an immutable release, so a run is never cancelled
+# by a newer push: cancelling mid-publish can strand a tag without its
+# installer. Runs on one ref queue instead, same as build-windows.yml.
+concurrency:
+  group: build-electron-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    outputs:
+      build_version: ${{ steps.resolve-version.outputs.build_version }}
+      build_channel: ${{ steps.resolve-version.outputs.build_channel }}
+      source_tag: ${{ steps.resolve-version.outputs.source_tag }}
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          # Changelog generation, the line count and the release notes inspect
+          # every reachable tag; a shallow checkout makes the catalog empty.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # The wxPython/PyInstaller lane resolves versions in the 0.10.x line
+      # (see build-windows.yml). Electron builds resolve in the 0.11.x line
+      # so the two lanes can never mint the same tag from an unrelated
+      # coincidence of run numbers, even though each workflow counts its own
+      # run number independently.
+      - name: Resolve build version
+        id: resolve-version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || '' }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          $raw = $env:RELEASE_TAG
+          $fallback = "0.11.0-dev.$env:RUN_NUMBER"
+          if ([string]::IsNullOrWhiteSpace($raw)) { $raw = $fallback }
+          $resolutionJson = (python scripts/normalize_squirrel_version.py --raw $raw --fallback $fallback --json).Trim()
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolutionJson)) {
+            throw "Could not normalize Squirrel version from '$raw' with fallback '$fallback'."
+          }
+          $resolution = $resolutionJson | ConvertFrom-Json
+          $version = [string]$resolution.version
+          $channel = [string]$resolution.channel
+          $source = [string]$resolution.source
+          if ([string]::IsNullOrWhiteSpace($version) -or
+              $channel -notin @('automated', 'stable') -or
+              [string]::IsNullOrWhiteSpace($source)) {
+            throw "Squirrel version resolution returned an unsupported channel or empty value: $resolutionJson"
+          }
+          "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "build_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "build_channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "source_tag=$source" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Stamp package.json with the resolved version
+        shell: pwsh
+        run: |
+          npm pkg set version="$env:BUILD_VERSION"
+
+      - name: Build the unsigned Squirrel.Windows Electron installer
+        run: npm run electron:dist
+
+      - name: Verify unsigned installer contract
+        shell: pwsh
+        run: |
+          $distDir = Join-Path $PWD 'dist\electron'
+          if (-not (Test-Path -LiteralPath $distDir)) { throw "Expected output directory was not produced: $distDir" }
+
+          $setupExe = Get-ChildItem -LiteralPath $distDir -Recurse -File -Filter 'Setup.exe' | Select-Object -First 1
+          if (-not $setupExe) { throw "No Setup.exe was produced under $distDir" }
+          $releasesFile = Get-ChildItem -LiteralPath $distDir -Recurse -File -Filter 'RELEASES' | Select-Object -First 1
+          if (-not $releasesFile) { throw "No RELEASES index was produced under $distDir" }
+          $nupkg = Get-ChildItem -LiteralPath $distDir -Recurse -File -Filter '*-full.nupkg' | Select-Object -First 1
+          if (-not $nupkg) { throw "No full .nupkg was produced under $distDir" }
+
+          $releaseIndex = Get-Content -LiteralPath $releasesFile.FullName -Raw
+          if ($releaseIndex -notmatch [regex]::Escape($nupkg.Name)) {
+            throw "RELEASES does not reference the full package $($nupkg.Name)"
+          }
+
+          Get-ChildItem -LiteralPath (Split-Path $setupExe.FullName -Parent) -File -Include '*.exe', '*.dll' -Recurse | ForEach-Object {
+            $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName
+            if ($signature.Status -ne 'NotSigned') { throw "Unsigned policy violated for $($_.Name): $($signature.Status)" }
+          }
+
+          "SETUP_EXE_PATH=$($setupExe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASES_FILE_PATH=$($releasesFile.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "NUPKG_PATH=$($nupkg.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Unsigned Squirrel.Windows Electron artifacts verified: $($setupExe.DirectoryName)"
+
+      - name: Stage release assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force 'release-assets' | Out-Null
+          Copy-Item -LiteralPath $env:SETUP_EXE_PATH -Destination 'release-assets\Setup.exe'
+          Copy-Item -LiteralPath $env:RELEASES_FILE_PATH -Destination 'release-assets\RELEASES'
+          Copy-Item -LiteralPath $env:NUPKG_PATH -Destination (Join-Path 'release-assets' (Split-Path $env:NUPKG_PATH -Leaf))
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v6
+        with:
+          name: electron-squirrel-${{ steps.resolve-version.outputs.build_version }}
+          path: release-assets
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish unsigned Squirrel Electron release
+    needs: deploy
+    if: ${{ needs.deploy.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          # Surviving-line attribution needs the historical commits and blobs
+          # that own the checked-out lines; a depth-one clone cannot prove it.
+          fetch-depth: 0
+
+      - name: Download Squirrel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: electron-squirrel-${{ needs.deploy.outputs.build_version }}
+          path: release-assets
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_INPUT: ${{ inputs.release_tag || '' }}
+          RELEASE_TAG_FALLBACK: ${{ needs.deploy.outputs.source_tag }}
+          RELEASE_TAG_EXPECTED_SOURCE: ${{ needs.deploy.outputs.source_tag }}
+          RELEASE_TAG_EXPECTED_VERSION: ${{ needs.deploy.outputs.build_version }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          setup_path="$(find release-assets -type f -name 'Setup.exe' -print -quit)"
+          releases_path="$(find release-assets -type f -name 'RELEASES' -print -quit)"
+          nupkg_path="$(find release-assets -type f -name '*-full.nupkg' -print -quit)"
+          test -n "$setup_path" || { echo 'Setup.exe was not found in the downloaded artifact'; exit 1; }
+          test -n "$releases_path" || { echo 'RELEASES was not found in the downloaded artifact'; exit 1; }
+          test -n "$nupkg_path" || { echo 'full Squirrel package was not found in the downloaded artifact'; exit 1; }
+          nupkg_name="$(basename -- "$nupkg_path")"
+
+          tag="$(python3 scripts/normalize_release_tag.py)"
+          started="$(gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name | startswith("deploy")) | .started_at' | sed -n '1p')"
+          test -n "$started" || { echo 'Could not resolve the deploy job start time for release timing notes'; exit 1; }
+          line_table="$(python3 scripts/count_lines.py)"
+          while IFS='=' read -r key value; do
+            case "$key" in
+              DIM_SUM_CODE_NAME) DIM_SUM_CODE_NAME="$value" ;;
+              DIM_SUM_PHOTO_URL) DIM_SUM_PHOTO_URL="$value" ;;
+            esac
+          done < <(python3 scripts/resolve_dim_sum_code_name.py)
+          test -n "${DIM_SUM_CODE_NAME:-}" || { echo 'Dim-sum code name was not resolved'; exit 1; }
+          test -n "${DIM_SUM_PHOTO_URL:-}" || { echo 'Dim-sum public photo URL was not resolved'; exit 1; }
+
+          dim_sum_asset_name="$(basename -- "$DIM_SUM_PHOTO_URL")"
+          dim_sum_asset_path="release-assets/$dim_sum_asset_name"
+          curl -fsSL --retry 3 -o "$dim_sum_asset_path" "$DIM_SUM_PHOTO_URL"
+          test -s "$dim_sum_asset_path" || { echo 'Downloaded dim-sum photo asset was empty'; exit 1; }
+
+          notes_file="$(mktemp)"
+          trap 'rm -f "$notes_file"' EXIT
+          write_notes() {
+            local completed="$1"
+            local duration="$2"
+            {
+              printf '%s\n' "Unsigned Squirrel.Windows Electron release. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
+              printf '%s\n' "This is the Electron desktop shell build. build-windows.yml still builds the wxPython/PyInstaller app for the 3D viewport, but this workflow is the only one that publishes a GitHub release."
+              printf '%s\n' "Commit: $RUN_SHA"
+              printf '%s\n' "Workflow started: $started"
+              printf '%s\n' "Workflow completed: $completed"
+              printf '%s\n\n' "Workflow duration: $duration"
+              printf '%s\n' "Line count and surviving attribution (CI, scripts/count_lines.py):"
+              printf '%s\n' '```csv'
+              printf '%s\n' "$line_table"
+              printf '%s\n\n' '```'
+              printf '%s\n' "Generated text and deliberately excluded text are separate rows; repository-grand-total is every tracked line-oriented text file counted. Binary assets are not line-counted."
+              printf '%s\n' "Agent attribution uses surviving git-blame lines whose commit author or Co-Authored-By trailer identifies an automation agent; person and unattributed lines are reported separately."
+              printf '%s\n' "Dim-sum code name: $DIM_SUM_CODE_NAME"
+              printf '%s\n' "Dim-sum photo: attached as \`$dim_sum_asset_name\` (source: $DIM_SUM_PHOTO_URL)"
+            } > "$notes_file"
+          }
+
+          upload_paths=("release-assets/Setup.exe" "release-assets/RELEASES" "release-assets/$nupkg_name" "$dim_sum_asset_path")
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refusing to reuse an existing release tag: $tag"
+            exit 1
+          fi
+          write_notes 'publication-pending' 'publication-pending'
+          gh release create "$tag" "${upload_paths[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Material Minecraft Map Editor $tag" \
+            --notes-file "$notes_file" \
+            --target "$RUN_SHA" \
+            --draft
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
+          completed="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq '.publishedAt')"
+          test -n "$completed" || { echo 'GitHub did not report a publication completion timestamp'; exit 1; }
+
+          duration="$(python3 scripts/release_timing.py --started "$started" --completed "$completed")"
+          write_notes "$completed" "$duration"
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
+
+          is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+          test "$is_draft" = 'false' || { echo 'Release remained a draft after publication'; exit 1; }
+          final_body="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')"
+          grep -Fqx "Workflow completed: $completed" <<< "$final_body"
+          grep -Fqx "Workflow duration: $duration" <<< "$final_body"
