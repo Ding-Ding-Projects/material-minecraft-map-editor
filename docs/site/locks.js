@@ -31,7 +31,56 @@
   };
 
   var locks = {};
+
+  /* Unlock grants live in memory only, which is what makes locked-on-launch
+   * the default: a reload starts with everything locked again, and no code had
+   * to be written to make that happen. A grant is {until: epoch-ms}, where null
+   * means "until this page goes away" and 0 means a single use. */
   var unlocked = {};
+
+  var DURATIONS = [
+    { id: "surface", minutes: 0, en: "This surface only", yue: "淨係今次" },
+    { id: "5", minutes: 5, en: "For 5 minutes", yue: "5 分鐘" },
+    { id: "30", minutes: 30, en: "For 30 minutes", yue: "30 分鐘" },
+    {
+      id: "session",
+      minutes: -1,
+      en: "Until this page is closed",
+      yue: "直到閂咗呢版",
+    },
+  ];
+
+  var chosenDuration = "surface";
+
+  function grant(target, duration) {
+    var spec =
+      DURATIONS.filter(function (row) {
+        return row.id === duration;
+      })[0] || DURATIONS[0];
+    if (spec.minutes === 0) unlocked[target] = { until: 0 };
+    else if (spec.minutes < 0) unlocked[target] = { until: null };
+    else unlocked[target] = { until: Date.now() + spec.minutes * 60000 };
+  }
+
+  function granted(target) {
+    var held = unlocked[target];
+    if (!held) return false;
+    if (held.until === null) return true;
+    if (held.until === 0) {
+      delete unlocked[target]; // one-shot: spend it so the next attempt asks
+      return true;
+    }
+    if (Date.now() > held.until) {
+      delete unlocked[target];
+      return false;
+    }
+    return true;
+  }
+
+  function relock(target) {
+    if (target) delete unlocked[target];
+    else unlocked = {};
+  }
 
   function load() {
     var raw = site.store.get(LOCKS_KEY, {});
@@ -83,7 +132,7 @@
   }
 
   function isLocked(target) {
-    return !!locks[target] && !unlocked[target];
+    return !!locks[target] && !granted(target);
   }
 
   function lockWithPassword(target, label, password) {
@@ -197,6 +246,36 @@
         text: lock.kind === "password" ? t("Password", "密碼") : t("Code", "驗證碼"),
       })),
       input,
+      el(
+        "p",
+        { class: "field" },
+        el("label", { for: "lock-duration", text: t("Stay unlocked", "解鎖幾耐") }),
+        (function () {
+          var choose = el("select", {
+            id: "lock-duration",
+            onChange: function (e) {
+              chosenDuration = e.target.value;
+            },
+          });
+          DURATIONS.forEach(function (row) {
+            choose.appendChild(
+              el("option", {
+                value: row.id,
+                selected: row.id === chosenDuration,
+                text: t(row.en, row.yue),
+              })
+            );
+          });
+          return choose;
+        })()
+      ),
+      el("p", {
+        class: "muted",
+        text: t(
+          "Reloading this page locks everything again, whichever you pick.",
+          "無論揀邊個，重新載入呢版之後全部都會鎖返。"
+        ),
+      }),
       error,
       el(
         "div",
@@ -208,7 +287,7 @@
           onClick: function () {
             attempts++;
             if (unlock(target, input.value)) {
-              unlocked[target] = true;
+              grant(target, chosenDuration);
               closePrompt();
               onSuccess();
               return;
@@ -566,7 +645,30 @@
         ),
       })
     );
-    host.appendChild(nodes.count);
+    host.appendChild(
+      el(
+        "div",
+        { class: "row-actions" },
+        nodes.count,
+        el("button", {
+          class: "button button-text",
+          type: "button",
+          id: "locks-relock",
+          text: t("Lock everything again now", "而家全部鎖返"),
+          onClick: function () {
+            relock();
+            renderList();
+            site.notify(
+              site.lang.emoji("🔒") + t("Locked again", "已鎖返"),
+              t(
+                "Every unlock granted on this page has been given back.",
+                "呢一版攞過嘅解鎖全部收返。"
+              )
+            );
+          },
+        })
+      )
+    );
     host.appendChild(nodes.list);
     host.appendChild(
       el("p", {
@@ -620,9 +722,33 @@
   window.AmuletLocks = {
     isLocked: isLocked,
     promptFor: promptFor,
+    relock: relock,
     get: get,
     targets: lockableTargets,
     _digest: digest,
     _unlock: unlock,
+    /* Exercises the grant bookkeeping for the test suite. A grant that never
+     * expires is indistinguishable from no lock at all, and reading the code
+     * cannot tell you which you have - only running the clock can. The expired
+     * case moves the deadline into the past rather than sleeping, so the test
+     * stays fast and does not depend on wall-clock timing. */
+    _grantProbe: function (kind) {
+      var target = "__probe__";
+      delete unlocked[target];
+      var first;
+      var second;
+      if (kind === "expired") {
+        grant(target, "5");
+        first = granted(target);
+        if (unlocked[target]) unlocked[target].until = Date.now() - 1;
+        second = granted(target);
+      } else {
+        grant(target, kind === "session" ? "session" : "surface");
+        first = granted(target);
+        second = granted(target);
+      }
+      delete unlocked[target];
+      return { first: first, second: second };
+    },
   };
 })();

@@ -214,10 +214,6 @@ class TheHonestyLinesAreExact(unittest.TestCase):
         self.assertIn("clear", got["text"].lower())
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TheSourceIsPlainText(unittest.TestCase):
     """A raw control byte in a source file makes it binary to every tool that
     reads it: grep stops reporting matches, diffs collapse to "binary files
@@ -241,3 +237,45 @@ class TheSourceIsPlainText(unittest.TestCase):
             [],
             "write the character as an escape (\u0000) instead of embedding it",
         )
+
+
+class UnlockGrantsExpire(unittest.TestCase):
+    """A grant that never expires is the same as no lock. These run the real
+    grant bookkeeping rather than reading it."""
+
+    def test_a_one_shot_grant_is_spent_after_a_single_use(self) -> None:
+        got = render("const L = window.AmuletLocks;" "return L._grantProbe('surface');")
+        self.assertTrue(got["first"], "the one-shot grant did not apply at all")
+        self.assertFalse(
+            got["second"], "a 'this surface only' grant survived its single use"
+        )
+
+    def test_an_expired_timed_grant_stops_counting(self) -> None:
+        got = render("const L = window.AmuletLocks; return L._grantProbe('expired');")
+        self.assertTrue(got["first"])
+        self.assertFalse(got["second"], "an expired grant still counted as unlocked")
+
+    def test_a_session_grant_survives_repeated_checks(self) -> None:
+        got = render("const L = window.AmuletLocks; return L._grantProbe('session');")
+        self.assertTrue(got["first"])
+        self.assertTrue(got["second"], "a session grant was spent like a one-shot")
+
+
+class TheTicketListIsAList(unittest.TestCase):
+    """Every other list on this site has a search wired to the regex builder,
+    bulk selection and an export. A log is still a list."""
+
+    def test_the_ticket_search_has_its_anchored_builder(self) -> None:
+        got = render(
+            "return {controls: !!q('[data-regex-controls=\"support\"]'),"
+            "        open: !!q('#support-regex-open'),"
+            "        field: !!q('#support-search'),"
+            "        bulk: !!q('#support-bulk')};"
+        )
+        for key in ("controls", "open", "field", "bulk"):
+            with self.subTest(control=key):
+                self.assertTrue(got[key], f"the ticket list is missing {key}")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -547,6 +547,30 @@
         el("button", {
           class: "button button-text",
           type: "button",
+          text: t("Move up", "上移"),
+          "aria-label": t(
+            "Move " + (entry.account || entry.issuer) + " earlier",
+            "將 " + (entry.account || entry.issuer) + " 移前"
+          ),
+          onClick: function () {
+            reorder(entry.id, -1);
+          },
+        }),
+        el("button", {
+          class: "button button-text",
+          type: "button",
+          text: t("Move down", "下移"),
+          "aria-label": t(
+            "Move " + (entry.account || entry.issuer) + " later",
+            "將 " + (entry.account || entry.issuer) + " 移後"
+          ),
+          onClick: function () {
+            reorder(entry.id, 1);
+          },
+        }),
+        el("button", {
+          class: "button button-text",
+          type: "button",
           text: t("Remove", "刪除"),
           onClick: function () {
             removeEntries([entry.id]);
@@ -593,6 +617,21 @@
         t("Select the digits and copy them by hand.", "自己揀住啲數字複製啦。")
       );
     }
+  }
+
+  /* Reordering moves the entry within the real list, not within the filtered
+   * view: moving something "up" past a row that a search is currently hiding
+   * would otherwise look like nothing happened. */
+  function reorder(id, direction) {
+    var index = state.entries.findIndex(function (entry) {
+      return entry.id === id;
+    });
+    var target = index + direction;
+    if (index < 0 || target < 0 || target >= state.entries.length) return;
+    var moved = state.entries.splice(index, 1)[0];
+    state.entries.splice(target, 0, moved);
+    save();
+    renderList();
   }
 
   function removeEntries(ids) {
@@ -733,6 +772,76 @@
     return typeof window.BarcodeDetector === "function";
   }
 
+  /* Camera scanning, where the platform actually has both a camera and a
+   * decoder. Everything stays on the device: the video never leaves the page
+   * and the stream is stopped the moment a code is read or the user cancels. */
+  function scanCamera(report, host) {
+    if (!scanSupported() || !navigator.mediaDevices) {
+      report(
+        t(
+          "This browser has no built-in QR reader or no camera access, so " +
+            "scanning is unavailable. Paste the otpauth:// URI instead.",
+          "呢個瀏覽器冇內建 QR 讀取或者攞唔到鏡頭，掃唔到。改為貼 URI 啦。"
+        )
+      );
+      return;
+    }
+    var video = el("video", {
+      autoplay: true,
+      playsinline: true,
+      "aria-label": t("Camera preview", "鏡頭預覽"),
+    });
+    video.style.maxWidth = "320px";
+    var stop = el("button", {
+      class: "button button-text",
+      type: "button",
+      text: t("Stop the camera", "熄鏡頭"),
+    });
+    host.appendChild(video);
+    host.appendChild(stop);
+
+    var stream = null;
+    var timer = null;
+    function shutdown() {
+      if (timer) clearInterval(timer);
+      if (stream) {
+        stream.getTracks().forEach(function (track) {
+          track.stop();
+        });
+      }
+      if (video.parentNode) video.parentNode.removeChild(video);
+      if (stop.parentNode) stop.parentNode.removeChild(stop);
+    }
+    stop.addEventListener("click", shutdown);
+
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment" } })
+      .then(function (got) {
+        stream = got;
+        video.srcObject = stream;
+        var detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        timer = setInterval(function () {
+          detector
+            .detect(video)
+            .then(function (found) {
+              if (found && found.length) {
+                importUri(found[0].rawValue, report);
+                shutdown();
+              }
+            })
+            .catch(function () {
+              /* a frame that cannot be read is normal; keep looking */
+            });
+        }, 400);
+      })
+      .catch(function (error) {
+        shutdown();
+        report(
+          t("The camera could not be opened: ", "開唔到鏡頭：") + error.message
+        );
+      });
+  }
+
   function scanImage(file, report) {
     if (!scanSupported()) {
       report(
@@ -861,6 +970,16 @@
           el("label", { for: "auth-file", text: t("…or read a QR from an image", "…或者由圖片讀二維碼") })
         ),
         fileInput,
+        el("button", {
+          class: "button button-tonal",
+          type: "button",
+          text: t("…or scan with the camera", "…或者用鏡頭掃"),
+          onClick: function (event) {
+            scanCamera(function (message) {
+              importError.textContent = message;
+            }, event.target.parentNode);
+          },
+        }),
         el("p", {
           class: "muted",
           text: scanSupported()

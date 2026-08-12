@@ -275,6 +275,14 @@
       <div id="locks-root" aria-labelledby="locks-title"></div>
 
       <h2 id="support-title">Support Tickets</h2>
+      <div class="search-stack">
+        <label class="search-field" for="support-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="support-search" type="search" placeholder="Search tickets" aria-label="Search support tickets" autocomplete="off" maxlength="256">
+          <button class="regex-open" type="button" id="support-regex-open" aria-label="Regex builder for the ticket search" aria-expanded="false" aria-controls="support-regex">.*</button>
+        </label>
+      </div>
+      <details class="regex-builder" id="support-regex" data-search="support"><summary>Regex builder · ticket search</summary><div class="regex-controls" data-regex-controls="support"></div></details>
       <div id="support-root" aria-labelledby="support-title"></div>
     </section>
   </main>

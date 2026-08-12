@@ -192,28 +192,152 @@
     document.head.appendChild(el("style", { id: "support-style", text: css }));
   }
 
+  var selected = {};
+
+  /* A ticket list is a list, so it carries what every other list here does:
+   * its own search wired to the regex builder, bulk selection, and an export
+   * that honours the current filter rather than dumping everything. */
+  function visible() {
+    var query = nodes.search ? nodes.search.value : "";
+    if (!query) return tickets.slice();
+    var matcher;
+    try {
+      matcher = site.matcher(query, false, "i");
+    } catch (error) {
+      return tickets.slice();
+    }
+    return tickets.filter(function (ticket) {
+      matcher.lastIndex = 0;
+      return matcher.test(
+        [ticket.number, ticket.category, ticket.severity, ticket.description,
+         ticket.about, ticket.status].join(" ")
+      );
+    });
+  }
+
   function render() {
     var host = nodes.list;
     if (!host) return;
     host.textContent = "";
+    var shown = visible();
+    var query = nodes.search ? nodes.search.value : "";
     if (nodes.count) {
-      nodes.count.textContent = t(
-        tickets.length + " ticket" + (tickets.length === 1 ? "" : "s"),
-        tickets.length + " 張飛"
-      );
+      nodes.count.textContent = query
+        ? site.describe(shown.length, "ticket", query)
+        : t(
+            tickets.length + " ticket" + (tickets.length === 1 ? "" : "s"),
+            tickets.length + " 張飛"
+          );
     }
-    if (!tickets.length) {
+    renderBulk(shown);
+    if (!shown.length) {
       host.appendChild(
         el("p", {
           class: "empty-state",
-          text: t("No tickets yet.", "重未有飛。"),
+          text: tickets.length
+            ? t("No ticket matches that search.", "冇飛啱呢個搜尋。")
+            : t("No tickets yet.", "重未有飛。"),
         })
       );
       return;
     }
-    tickets.forEach(function (ticket) {
+    shown.forEach(function (ticket) {
       host.appendChild(renderTicket(ticket));
     });
+  }
+
+  function renderBulk(shown) {
+    var host = nodes.bulk;
+    if (!host) return;
+    host.textContent = "";
+    var chosen = Object.keys(selected).filter(function (n) {
+      return selected[n];
+    });
+    host.appendChild(
+      el("span", {
+        class: "muted",
+        text: t(chosen.length + " selected", "揀咗 " + chosen.length + " 張"),
+      })
+    );
+    host.appendChild(
+      el("button", {
+        class: "button button-text",
+        type: "button",
+        text: t("Select all shown", "全選"),
+        onClick: function () {
+          shown.forEach(function (ticket) {
+            selected[ticket.number] = true;
+          });
+          render();
+        },
+      })
+    );
+    host.appendChild(
+      el("button", {
+        class: "button button-text",
+        type: "button",
+        text: t("Clear selection", "取消揀選"),
+        onClick: function () {
+          selected = {};
+          render();
+        },
+      })
+    );
+    host.appendChild(
+      el("button", {
+        class: "button button-text",
+        type: "button",
+        disabled: !chosen.length,
+        text: t("Close selected", "關閉已揀"),
+        onClick: function () {
+          tickets = tickets.filter(function (ticket) {
+            return chosen.indexOf(ticket.number) < 0;
+          });
+          selected = {};
+          save();
+          render();
+        },
+      })
+    );
+    host.appendChild(
+      el("button", {
+        class: "button button-text",
+        type: "button",
+        text: t("Export what is shown", "匯出顯示緊嘅"),
+        onClick: function () {
+          exportTickets(shown);
+        },
+      })
+    );
+  }
+
+  function exportTickets(rows) {
+    var payload = {
+      exported: new Date().toISOString(),
+      note:
+        "These tickets only ever existed in this browser. Nothing was sent " +
+        "anywhere and nobody read them.",
+      filtered: nodes.search ? nodes.search.value : "",
+      tickets: rows,
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    var url = URL.createObjectURL(blob);
+    var link = el("a", { href: url, download: "support-tickets.json" });
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 1000);
+    site.notify(
+      site.lang.emoji("📤") + t("Tickets exported", "飛已匯出"),
+      t(
+        rows.length + " exported, matching what is on screen.",
+        "匯出咗 " + rows.length + " 張，同螢幕上面一樣。"
+      )
+    );
   }
 
   function renderTicket(ticket) {
@@ -223,7 +347,20 @@
       el(
         "div",
         { class: "row-between" },
-        el("span", { class: "ticket-number", text: ticket.number }),
+        el(
+          "span",
+          null,
+          el("input", {
+            type: "checkbox",
+            "aria-label": t("Select ", "揀 ") + ticket.number,
+            checked: !!selected[ticket.number],
+            onChange: function (e) {
+              selected[ticket.number] = e.target.checked;
+              renderBulk(visible());
+            },
+          }),
+          el("span", { class: "ticket-number", text: ticket.number })
+        ),
         el("span", {
           class: "ticket-status",
           text:
@@ -330,6 +467,8 @@
 
     nodes.count = el("p", { class: "muted", role: "status" });
     nodes.list = el("div", { id: "support-list" });
+    nodes.bulk = el("div", { class: "row-actions", id: "support-bulk" });
+    nodes.search = document.getElementById("support-search");
 
     host.appendChild(
       el("p", {
@@ -403,7 +542,19 @@
       )
     );
     host.appendChild(nodes.count);
+    host.appendChild(nodes.bulk);
     host.appendChild(nodes.list);
+
+    if (nodes.search) {
+      site.regex.attach({
+        name: "support",
+        input: nodes.search,
+        panel: document.getElementById("support-regex"),
+        openButton: document.getElementById("support-regex-open"),
+        onChange: render,
+      });
+      nodes.search.addEventListener("input", render);
+    }
 
     render();
 
