@@ -152,7 +152,22 @@ function createWindow() {
     mainWindow.maximize();
   }
 
+  // A verification run must never take the foreground window from whoever is
+  // using this machine. The window is still created, still loads, still lays
+  // out and is still fully drivable over the DevTools protocol -- it simply is
+  // never shown, which is everything an automated check reads and nothing a
+  // person would notice.
+  //
+  // This exists because the alternative was discovered the hard way: a verifier
+  // that launches the packaged application with only --remote-debugging-port
+  // pops a real window onto the user's desktop every time it runs.
+  const headless =
+    process.env.AMULET_HEADLESS === "1" ||
+    process.argv.includes("--headless") ||
+    process.argv.some((arg) => arg.startsWith("--remote-debugging-port"));
+
   mainWindow.once("ready-to-show", () => {
+    if (headless) return;
     mainWindow.show();
   });
 

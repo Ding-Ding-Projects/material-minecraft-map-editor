@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "9fc88fda8bc9c94185145a75bdfd10c2c569efe5",
+  "source_revision": "be3216dcc4526d80ac714361e1ffd6a92cd814e5",
   "entries": [
+    {
+      "version": "0.10.0-dev.817",
+      "released_on": "2026-08-12",
+      "commit_sha": "9fc88fda8bc9c94185145a75bdfd10c2c569efe5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Package the Electron installer for real: bundle sidecar-client.js so the packaged app can actually start",
+          "commit_sha": "9fc88fda8bc9c94185145a75bdfd10c2c569efe5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.814",
+      "released_on": "2026-08-12",
+      "commit_sha": "738c2e80fb8302102c75ac7d42b2a5940486cf0e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Let the tab label paint its last pixel, and redirect every profile store a capture reads",
+          "commit_sha": "738c2e80fb8302102c75ac7d42b2a5940486cf0e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.812",
+      "released_on": "2026-08-12",
+      "commit_sha": "a5eeb6366be085c98c56e38de5b339c375a3a184",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Connect the Electron shell to the Python sidecar for real, wire theme through it end to end",
+          "commit_sha": "a5eeb6366be085c98c56e38de5b339c375a3a184"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.811",
       "released_on": "2026-08-12",
