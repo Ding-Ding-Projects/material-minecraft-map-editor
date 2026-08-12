@@ -62,6 +62,28 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, List, Optional
 
+# --------------------------------------------------------------------------
+# Photograph a FRESH profile, never the profile of whoever runs this.
+#
+# This is not tidiness, it is a disclosure boundary, and it was crossed. This
+# script published 270 images to the site taken against a real profile, so
+# every one of them showed that machine's recent worlds -- complete with
+# `C:\Users\<name>\...` paths -- and every one showed the application under a
+# display name the user had renamed it to, rather than the name this product
+# actually ships as. Both were on the public documentation site.
+#
+# Four sibling capture scripts in this directory already set CONFIG_DIR to a
+# temporary directory. This one, the one whose output is published, did not.
+#
+# It must run before anything imports the config module, which reads the
+# environment at import time -- hence the placement above `import wx` rather
+# than beside the other setup below.
+# --------------------------------------------------------------------------
+import os
+import tempfile
+
+os.environ["CONFIG_DIR"] = tempfile.mkdtemp(prefix="amulet-capture-profile-")
+
 import wx
 
 _SCRIPTS = Path(__file__).resolve().parent

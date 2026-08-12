@@ -1,8 +1,68 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "d916d18a4ebeba2d083e1af9956cab6cb34ad89d",
+  "source_revision": "76c292b247fa5d617f5e622669956c3b66be376d",
   "entries": [
+    {
+      "version": "0.10.0-dev.804",
+      "released_on": "2026-08-12",
+      "commit_sha": "3e5ae91c55f32acd6de519c30da0d65315cceb04",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add Electron packaging scripts and fix the Squirrel config's escaped paths",
+          "commit_sha": "3e5ae91c55f32acd6de519c30da0d65315cceb04"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.801",
+      "released_on": "2026-08-12",
+      "commit_sha": "7a98d6be94a8b8859dedb8b8b3bab0d74aef2fc4",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add the Electron desktop shell: frameless window hosting the existing site",
+          "commit_sha": "7a98d6be94a8b8859dedb8b8b3bab0d74aef2fc4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.800",
+      "released_on": "2026-08-12",
+      "commit_sha": "78adad9c3d5d88c8f646566f00678693735f1833",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw the line between what already runs without wx and what still needs it",
+          "commit_sha": "78adad9c3d5d88c8f646566f00678693735f1833"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.798",
+      "released_on": "2026-08-12",
+      "commit_sha": "df239bd04c2a98e2a5bb595e4c9286a9ff7c632e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Photograph the site from a real browser, and find two defects in the first look",
+          "commit_sha": "df239bd04c2a98e2a5bb595e4c9286a9ff7c632e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.796",
+      "released_on": "2026-08-12",
+      "commit_sha": "d916d18a4ebeba2d083e1af9956cab6cb34ad89d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Write the Electron migration into the handoff, and stop describing captures that now exist",
+          "commit_sha": "d916d18a4ebeba2d083e1af9956cab6cb34ad89d"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.793",
       "released_on": "2026-08-12",

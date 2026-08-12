@@ -31,6 +31,17 @@ import json
 import sys
 from pathlib import Path
 
+# Photograph a fresh profile, never the profile of whoever runs this. These
+# images are published, and a real profile puts that machine's recent worlds --
+# with its user directory in every path -- and any display name the user has
+# renamed the application to onto the documentation site. It must run before
+# the config module is imported, because that module reads the environment at
+# import time and a later redirect silently does nothing.
+import os
+import tempfile
+
+os.environ["CONFIG_DIR"] = tempfile.mkdtemp(prefix="amulet-capture-profile-")
+
 import wx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))

@@ -38,9 +38,19 @@ that reports success over a blank rectangle is worse than no harness.
 
 from __future__ import annotations
 
+# Photograph a fresh profile, never the profile of whoever runs this. These
+# images are published, and a real profile puts that machine's recent worlds --
+# with its user directory in every path -- and any display name the user has
+# renamed the application to onto the documentation site. It must run before
+# the config module is imported, because that module reads the environment at
+# import time and a later redirect silently does nothing.
+import os
+import tempfile
+
+os.environ["CONFIG_DIR"] = tempfile.mkdtemp(prefix="amulet-capture-profile-")
+
 import argparse
 import math
-import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -486,5 +496,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    os.environ.setdefault("CONFIG_DIR", str(REPO_ROOT / "build" / "capture-config"))
     raise SystemExit(main())
