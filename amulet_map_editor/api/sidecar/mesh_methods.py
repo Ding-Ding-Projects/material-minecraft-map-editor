@@ -271,6 +271,37 @@ class _ResourcePackCache:
 
 _PACKS = _ResourcePackCache()
 
+#: Bounds how many mesh files a single world's chunk streaming keeps on disk
+#: at once. The WebGL2 viewport streams chunks around a moving camera (see
+#: docs/site/viewport-panel.js) and re-requests "viewport.chunk_mesh" as the
+#: camera roams, each call writing a fresh temp file -- without a cap those
+#: files would accumulate for the lifetime of the sidecar process. Keyed
+#: per-world so two open worlds don't evict each other's chunks.
+_MESH_FILE_CACHE_LIMIT = 256
+_mesh_file_lock = threading.Lock()
+_mesh_files_by_world: Dict[str, "OrderedDict[Tuple[int, int], str]"] = {}
+
+
+def _remember_mesh_file(world_id: str, cx: int, cz: int, path: str) -> None:
+    from collections import OrderedDict
+
+    with _mesh_file_lock:
+        files = _mesh_files_by_world.setdefault(world_id, OrderedDict())
+        key = (cx, cz)
+        old_path = files.pop(key, None)
+        files[key] = path
+        if old_path and old_path != path and os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except OSError:
+                pass
+        while len(files) > _MESH_FILE_CACHE_LIMIT:
+            _, evicted_path = files.popitem(last=False)
+            try:
+                os.remove(evicted_path)
+            except OSError:
+                pass
+
 
 def _viewport_temp_root(_params: Dict[str, Any]) -> Dict[str, Any]:
     """The one directory this process will ever write mesh/atlas files
@@ -422,6 +453,7 @@ def _viewport_chunk_mesh(params: Dict[str, Any]) -> Dict[str, Any]:
     mesh_id = uuid.uuid4().hex
     path = os.path.join(_TEMP_ROOT, f"mesh-{mesh_id}.bin")
     verts.tofile(path)
+    _remember_mesh_file(handle.world_id, cx, cz, path)
 
     vertex_count = int(verts.size // vert_len)
     return {

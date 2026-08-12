@@ -157,11 +157,16 @@
     // wants for bufferData.
     var raw = meshBytes.result;
     var arrayBuffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
-    viewport.loadMesh(arrayBuffer, meshMeta.result.vertex_count);
+    viewport.loadChunkMesh(0, 0, arrayBuffer, meshMeta.result.vertex_count);
+
+    // Render at one camera position, then move the camera with the same
+    // moveLocal()/rotateDegrees() API real user input drives, and render
+    // again. Two captures from an unmoved camera would be pixel-identical
+    // and would prove nothing about camera input actually working -- this
+    // is the whole reason two positions are captured rather than one.
     viewport.camera.position = [8, 24, 40];
     viewport.camera.pitch = 0.5;
     viewport.render();
-
     // Read the actual drawn pixels straight out of the canvas rather than
     // relying on the DevTools Page.captureScreenshot compositor pipeline --
     // that pipeline hung indefinitely against this WebGL2 canvas under a
@@ -170,7 +175,12 @@
     // backing store synchronously and needs no compositor at all.
     window.__viewportHarnessPNGDataURL = canvas.toDataURL("image/png");
 
-    log("RENDERED " + meshMeta.result.vertex_count + " vertices");
+    viewport.moveLocal(-14, 6, 3);
+    viewport.rotateDegrees(35, -8);
+    viewport.render();
+    window.__viewportHarnessPNGDataURL2 = canvas.toDataURL("image/png");
+
+    log("RENDERED " + meshMeta.result.vertex_count + " vertices at two camera positions");
     window.__viewportHarnessDone = true;
   }
 

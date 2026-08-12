@@ -223,24 +223,44 @@ async function main() {
     assert(done, "viewport harness never signaled completion (timed out)");
     assert(/RENDERED \d+ vertices/.test(lastStatus), "harness status does not confirm a real render: " + lastStatus);
 
-    console.log("step: reading canvas pixels via toDataURL()...");
-    const dataUrl = await evalJSON(client, "window.__viewportHarnessPNGDataURL");
-    assert(typeof dataUrl === "string" && dataUrl.indexOf("data:image/png;base64,") === 0, "harness did not produce a PNG data URL: " + String(dataUrl).slice(0, 80));
-    const base64 = dataUrl.slice("data:image/png;base64,".length);
-    console.log("step: got data URL, base64 length=", base64.length);
-    const pngBuffer = Buffer.from(base64, "base64");
-    const outPath = path.join(outDir, "viewport-webgl2-chunk-render.png");
-    fs.writeFileSync(outPath, pngBuffer);
-    console.log("Wrote", outPath, pngBuffer.length, "bytes");
+    console.log("step: reading canvas pixels via toDataURL() at two camera positions...");
+    const dataUrl1 = await evalJSON(client, "window.__viewportHarnessPNGDataURL");
+    const dataUrl2 = await evalJSON(client, "window.__viewportHarnessPNGDataURL2");
+    assert(typeof dataUrl1 === "string" && dataUrl1.indexOf("data:image/png;base64,") === 0, "harness did not produce a first PNG data URL: " + String(dataUrl1).slice(0, 80));
+    assert(typeof dataUrl2 === "string" && dataUrl2.indexOf("data:image/png;base64,") === 0, "harness did not produce a second (moved-camera) PNG data URL: " + String(dataUrl2).slice(0, 80));
 
-    // Read the PNG back and confirm it is not a flat clear-colour rectangle.
-    const readBack = fs.readFileSync(outPath);
-    const stats = pngHasVariance(readBack);
-    console.log("Pixel stats:", stats);
-    assert(stats.width > 0 && stats.height > 0, "captured PNG has zero dimensions");
-    assert(stats.range > 20, "captured PNG has almost no pixel variance (min=" + stats.min + " max=" + stats.max + ") -- looks like an empty/cleared canvas, not real geometry");
+    const pngBuffer1 = Buffer.from(dataUrl1.slice("data:image/png;base64,".length), "base64");
+    const pngBuffer2 = Buffer.from(dataUrl2.slice("data:image/png;base64,".length), "base64");
+    const outPath1 = path.join(outDir, "viewport-webgl2-chunk-render.png");
+    const outPath2 = path.join(outDir, "viewport-webgl2-chunk-render-moved-camera.png");
+    fs.writeFileSync(outPath1, pngBuffer1);
+    fs.writeFileSync(outPath2, pngBuffer2);
+    console.log("Wrote", outPath1, pngBuffer1.length, "bytes");
+    console.log("Wrote", outPath2, pngBuffer2.length, "bytes");
 
-    console.log("\nWebGL2 viewport PROOF: a real chunk, meshed by the real Python mesher, rendered by real GL2 draw calls, captured with visible geometry.");
+    // Read both PNGs back and confirm neither is a flat clear-colour
+    // rectangle -- a capture is not proof until you have looked at what is
+    // actually in it.
+    const readBack1 = fs.readFileSync(outPath1);
+    const readBack2 = fs.readFileSync(outPath2);
+    const stats1 = pngHasVariance(readBack1);
+    const stats2 = pngHasVariance(readBack2);
+    console.log("Pixel stats (camera A):", stats1);
+    console.log("Pixel stats (camera B, after moveLocal()/rotateDegrees()):", stats2);
+    assert(stats1.width > 0 && stats1.height > 0, "first captured PNG has zero dimensions");
+    assert(stats2.width > 0 && stats2.height > 0, "second captured PNG has zero dimensions");
+    assert(stats1.range > 20, "first captured PNG has almost no pixel variance (min=" + stats1.min + " max=" + stats1.max + ") -- looks like an empty/cleared canvas, not real geometry");
+    assert(stats2.range > 20, "second captured PNG has almost no pixel variance (min=" + stats2.min + " max=" + stats2.max + ") -- looks like an empty/cleared canvas, not real geometry");
+
+    // A camera that did not actually move would render pixel-identical
+    // frames. Compare the raw PNG bytes directly: same dimensions, same
+    // codec, same content -- if the camera moved, the encoded bytes differ.
+    assert(
+      !pngBuffer1.equals(pngBuffer2),
+      "the two camera positions produced byte-identical PNGs -- the camera did not actually move between renders"
+    );
+
+    console.log("\nWebGL2 viewport PROOF: a real chunk, meshed by the real Python mesher, rendered by real GL2 draw calls, captured with visible geometry at two different camera positions that produced two different images.");
   } finally {
     if (client) client.close();
     child.kill();

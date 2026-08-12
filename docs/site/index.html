@@ -8,6 +8,11 @@
   <title>Material Minecraft World Editor · Shape worlds, keep the wonder</title>
   <link rel="icon" href="assets/amulet_logo_512.png" sizes="any">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    .viewport-host{position:relative;max-width:100%;overflow:auto}
+    #viewport-canvas{display:block;max-width:100%;height:auto;background:#111;border-radius:8px}
+    .viewport-hint{opacity:.8}
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -248,6 +253,29 @@
       <div id="schedule-root" aria-labelledby="schedule-title"></div>
     </section>
 
+    <section id="viewport" class="page-section" role="tabpanel" aria-labelledby="tab-viewport" data-page="viewport" tabindex="-1" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">REAL WORLD, REAL CAMERA</p>
+          <h1>The WebGL2 viewport.</h1>
+          <p id="viewport-copy">A live, streaming render of the currently open world: the Python mesher builds real chunk geometry, this page's own WebGL2 renderer draws it, and the camera below is yours to move.</p>
+        </div>
+      </div>
+      <div class="search-stack" id="viewport-open-row">
+        <label class="search-field" for="viewport-world-path">
+          <span aria-hidden="true">⌕</span>
+          <input id="viewport-world-path" type="text" placeholder="Absolute path to a world folder" aria-label="World path to open in the viewport" autocomplete="off" maxlength="1024">
+        </label>
+        <button class="button button-tonal" type="button" id="viewport-open-button">Open world</button>
+      </div>
+      <div class="viewport-host" id="viewport-host">
+        <canvas id="viewport-canvas" width="1024" height="640" tabindex="0" aria-label="3D world viewport. Drag to look around, scroll to move forward and back, WASD or arrow keys to move and look."></canvas>
+        <p id="viewport-empty" class="empty-state">Desktop only: this tab renders live chunk geometry through the desktop app's sidecar. Open the app and enter a world path above to see it here.</p>
+        <p id="viewport-status" class="tab-note" role="status"></p>
+      </div>
+      <p class="viewport-hint">Drag with the mouse to look around. Scroll to move forward and back. WASD moves, arrow keys move and look, Q/E move down and up — every mouse action has a keyboard equivalent.</p>
+    </section>
+
     <section id="security" class="page-section" role="tabpanel" aria-labelledby="tab-security" data-page="security" tabindex="-1" hidden>
       <div class="section-heading">
         <div>
@@ -367,6 +395,8 @@
   <script src="scheduled-settings.js"></script>
   <script src="palette.js"></script>
   <script src="electron-bridge.js"></script>
+  <script src="viewport-webgl.js"></script>
+  <script src="viewport-panel.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

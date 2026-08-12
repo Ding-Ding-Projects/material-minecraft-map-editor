@@ -38,6 +38,7 @@
     { id: "community", en: "Community", yue: "社群" },
     { id: "changelog", en: "Changelog", yue: "變更記錄" },
     { id: "history", en: "History", yue: "歷史" },
+    { id: "viewport", en: "Viewport", yue: "視角" },
     { id: "settings", en: "Settings", yue: "設定" },
     { id: "security", en: "Security", yue: "保安" }
   ];
