@@ -88,12 +88,24 @@ def stock_asides() -> Tuple[str, ...]:
     found: List[str] = []
     for language in ("english", "cantonese"):
         for level in range(1, 6):
+            # Ask for the whole pool. Styling a single sentinel returns only
+            # the one aside that sentinel hashes to, so the other members would
+            # read here as "no tone applied" -- which is a guard reporting a
+            # defect that is really its own blind spot.
+            for aside in tts_narrator.asides(language, level):
+                aside = aside.strip()
+                if aside and aside not in found:
+                    found.append(aside)
+            # Keep the sentinel round trip as a cross-check: whatever style_text
+            # actually appends must be in the pool it just declared.
             styled = tts_narrator.style_text(SENTINEL, language, level)
-            if styled == SENTINEL or not styled.startswith(SENTINEL):
-                continue
-            aside = styled[len(SENTINEL) :].strip()
-            if aside and aside not in found:
-                found.append(aside)
+            if styled != SENTINEL and styled.startswith(SENTINEL):
+                actual = styled[len(SENTINEL) :].strip()
+                assert actual in found, (
+                    f"style_text appended {actual!r} at {language} level {level}, "
+                    "which asides() does not list -- the pool and the styler "
+                    "have drifted apart"
+                )
     return tuple(found)
 
 
@@ -234,12 +246,21 @@ def test_the_asides_were_actually_found():
 
 
 def test_the_asides_are_read_from_the_narrator_rather_than_copied():
-    """Every aside this file checks must be one the narrator really produces."""
-    produced = {
-        tts_narrator.style_text(SENTINEL, language, level)
-        for language in ("english", "cantonese")
-        for level in range(3, 6)
-    }
+    """Every aside this file checks must be one the narrator really produces.
+
+    One sentinel is not enough to prove that any more.  Each level offers a
+    pool and ``style_text`` picks from it by hashing the sentence, so a single
+    input exercises exactly one member and the rest would look unproducible.
+    Vary the input until every declared aside has actually been emitted -- that
+    proves the pool and the styler agree, which is the thing this guard is for,
+    rather than proving one sentinel still works.
+    """
+    produced: set[str] = set()
+    for language in ("english", "cantonese"):
+        for level in range(3, 6):
+            for n in range(200):
+                styled = tts_narrator.style_text(f"{SENTINEL} {n}", language, level)
+                produced.add(styled)
     for aside in ASIDES:
         assert any(
             aside in styled for styled in produced

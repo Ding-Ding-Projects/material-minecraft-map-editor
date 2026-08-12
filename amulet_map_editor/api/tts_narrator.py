@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 import logging
 import threading
+import hashlib
 import time
 from typing import Callable, Dict, Optional, Protocol, Tuple
 
@@ -112,29 +113,105 @@ def default_backend() -> SpeechBackend:
     return NullSpeechBackend()
 
 
+#: Asides by language and level.  Several per level, deliberately.
+#:
+#: This was one fixed string per level, and that is not humour -- it is a tag.
+#: At level five every message in the application ended with the identical
+#: seven words, so a window carrying six sentences said "the code is dancing;
+#: the facts stay put" six times.  Repetition turns a joke into a rendering
+#: fault: a reader stops seeing it as voice and starts seeing it as something
+#: the application is stuck on.  It also added roughly forty characters to
+#: every string at once, which is a large part of why so much of this interface
+#: was overflowing its controls.
+#:
+#: Each pool keeps the same promise the single line made: the aside comments on
+#: the telling and never on the facts, and it is short enough that the sentence
+#: it follows is still the thing being read.
+_ASIDES: Dict[str, Dict[int, Tuple[str, ...]]] = {
+    "english": {
+        3: (
+            " (small flourish, same facts)",
+            " (lightly said, unchanged)",
+            " (a little polish, nothing moved)",
+        ),
+        4: (
+            " (the code is doing a tiny victory lap)",
+            " (said with a small flourish)",
+            " (the numbers are unimpressed)",
+            " (delivered with feeling)",
+        ),
+        5: (
+            " (the code is dancing; the facts stay put)",
+            " (said with jazz hands; the facts did not join in)",
+            " (announced with confetti, meaning unchanged)",
+            " (the facts are wearing a party hat and nothing else changed)",
+            " (delivered enthusiastically by a program with no stake in it)",
+        ),
+    },
+    "cantonese": {
+        3: (
+            "（輕輕講，件事仍然係呢件事。）",
+            "（講得鬆啲,內容一樣。）",
+            "（順口講講,冇變過。）",
+        ),
+        4: (
+            "（個程式行緊小小花式，但資料冇變。）",
+            "（講得誇少少,數字照舊。）",
+            "（語氣加咗料,事實冇加。）",
+            "（有啲得戚,不過講嘅嘢一樣。）",
+        ),
+        5: (
+            "（程式扭兩扭，事實照樣企喺度。）",
+            "（又唱又跳咁報,件事一個字都冇改。）",
+            "（撒花咁講,內容原封不動。）",
+            "（好興奮咁講,雖然佢自己都冇份。）",
+            "（戴住派對帽讀出嚟,數據依然係數據。）",
+        ),
+    },
+}
+
+
+def asides(language: str, funny_level: int) -> Tuple[str, ...]:
+    """Return every aside :func:`style_text` may append at this level.
+
+    Public so a guard can enumerate the whole pool instead of transcribing it.
+    A test that styles one sentinel discovers only the single aside that
+    sentinel happens to hash to, and would then read the other four as "no
+    tone applied" -- which is exactly what happened when the pools replaced the
+    one fixed string per level.
+    """
+    level = min(5, max(1, int(funny_level)))
+    pool = _ASIDES.get(
+        "cantonese" if language == "cantonese" else "english", _ASIDES["english"]
+    )
+    return pool.get(level, ())
+
+
 def style_text(text: str, language: str, funny_level: int) -> str:
     """Style voice without changing the facts in the event text.
 
     Levels 1 and 2 remain professional.  Higher levels add a short, bounded
     aside after the supplied factual sentence; callers own the actual facts.
+
+    The aside is chosen from the level's pool by hashing the sentence, which
+    matters for two reasons.  It VARIES, so a window full of messages does not
+    read as one phrase stuck on repeat.  And it is STABLE: the same sentence
+    always draws the same aside, so a repaint, a resize or a re-render cannot
+    change the words on screen underneath the reader -- a random choice here
+    would make text shimmer on every mouse-move in an owner-drawn interface
+    that repaints constantly.
     """
     text = str(text).strip()
     level = min(5, max(1, int(funny_level)))
     if level <= 2 or not text:
         return text
-    if language == "cantonese":
-        aside = {
-            3: "（輕輕講，件事仍然係呢件事。）",
-            4: "（個程式行緊小小花式，但資料冇變。）",
-            5: "（程式扭兩扭，事實照樣企喺度。）",
-        }[level]
-    else:
-        aside = {
-            3: " (small flourish, same facts)",
-            4: " (the code is doing a tiny victory lap)",
-            5: " (the code is dancing; the facts stay put)",
-        }[level]
-    return text + aside
+    pool = _ASIDES.get(
+        "cantonese" if language == "cantonese" else "english", _ASIDES["english"]
+    )[level]
+    # blake2b rather than hash(): the built-in is salted per process, so the
+    # same sentence would draw a different aside on every launch.
+    digest = hashlib.blake2b(text.encode("utf-8"), digest_size=8).digest()
+    return text + pool[int.from_bytes(digest, "big") % len(pool)]
 
 
 @dataclass
