@@ -94,3 +94,5 @@ If you are new to the interface, start with
 - [Updater](updater/README.md)
 - [Changelog](changelog/README.md)
 - [Dim-sum surprise](dim-sum-surprise/README.md)
+- [The core/wx boundary](core-boundary/README.md) — which modules are already
+  portable off wxPython, and how that feeds the Electron migration
