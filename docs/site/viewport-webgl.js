@@ -231,7 +231,25 @@
 
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // World vertical bounds used only for frustum-culling chunk AABBs (the
+    // mesher does not hand this renderer per-chunk height data). Overridable
+    // via setWorldHeightBounds() when a real level's bounds are known.
+    this.worldMinY = DEFAULT_WORLD_MIN_Y;
+    this.worldMaxY = DEFAULT_WORLD_MAX_Y;
+
+    // Frustum culling is opt-in (default on) so the camera-only unit tests
+    // and the single-chunk proof harness keep working unchanged.
+    this.frustumCullingEnabled = true;
   }
+
+  /** Override the vertical span used for chunk frustum-culling AABBs. */
+  Viewport.prototype.setWorldHeightBounds = function (minY, maxY) {
+    this.worldMinY = minY;
+    this.worldMaxY = maxY;
+  };
 
   /** Upload one chunk's interleaved float32 vertex buffer (legacy single-chunk API). */
   Viewport.prototype.loadMesh = function (arrayBuffer, vertexCount) {
@@ -329,6 +347,120 @@
     gl.bindTexture(gl.TEXTURE_2D, null);
   };
 
+  // --- Frustum culling. Pure functions, no GL: given a 4x4 view-projection
+  // (the same column-major layout mat4Multiply/mat4Perspective produce),
+  // extract the six clip planes (Gribb/Hartmann method) and test an
+  // axis-aligned box against them. A plane is {a,b,c,d} with ax+by+cz+d>=0
+  // meaning "inside" that plane's half-space; a box is outside the frustum
+  // the moment it is fully behind any one plane.
+
+  function normalizePlane(p) {
+    var len = Math.sqrt(p.a * p.a + p.b * p.b + p.c * p.c);
+    if (len === 0) return p;
+    return { a: p.a / len, b: p.b / len, c: p.c / len, d: p.d / len };
+  }
+
+  /** Extract the six view-frustum planes [left, right, bottom, top, near, far]
+   * from a column-major view-projection matrix M (Float32Array/Array(16),
+   * M[col*4+row]). Each plane satisfies ax+by+cz+d >= 0 for points inside. */
+  function frustumPlanesFromViewProjection(m) {
+    // Row i of M as (M[i], M[4+i], M[8+i], M[12+i]) since storage is
+    // column-major: element [col*4+row].
+    function row(i) {
+      return [m[i], m[4 + i], m[8 + i], m[12 + i]];
+    }
+    var r0 = row(0);
+    var r1 = row(1);
+    var r2 = row(2);
+    var r3 = row(3);
+
+    function combine(ra, sign, rb) {
+      return {
+        a: ra[0] + sign * rb[0],
+        b: ra[1] + sign * rb[1],
+        c: ra[2] + sign * rb[2],
+        d: ra[3] + sign * rb[3],
+      };
+    }
+
+    return [
+      normalizePlane(combine(r3, 1, r0)), // left
+      normalizePlane(combine(r3, -1, r0)), // right
+      normalizePlane(combine(r3, 1, r1)), // bottom
+      normalizePlane(combine(r3, -1, r1)), // top
+      normalizePlane(combine(r3, 1, r2)), // near
+      normalizePlane(combine(r3, -1, r2)), // far
+    ];
+  }
+
+  /** True if the axis-aligned box [min,max] (each a 3-array) is at least
+   * partially inside every frustum plane -- the standard "positive vertex"
+   * test: for each plane, pick the box corner farthest along the plane
+   * normal and reject only if even that corner is behind the plane. A box
+   * straddling a plane is therefore kept (never falsely culled), which is
+   * what makes this safe to use for culling rather than exact containment. */
+  function boxIntersectsFrustum(planes, boxMin, boxMax) {
+    for (var i = 0; i < planes.length; i++) {
+      var p = planes[i];
+      var px = p.a >= 0 ? boxMax[0] : boxMin[0];
+      var py = p.b >= 0 ? boxMax[1] : boxMin[1];
+      var pz = p.c >= 0 ? boxMax[2] : boxMin[2];
+      if (p.a * px + p.b * py + p.c * pz + p.d < 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** The world-space AABB of chunk (cx, cz): 16x16 in X/Z, and a fixed
+   * vertical span covering the whole build height so culling never depends
+   * on per-chunk height data it does not have. */
+  function chunkWorldBounds(cx, cz, minY, maxY) {
+    var x0 = cx * CHUNK_SIZE;
+    var z0 = cz * CHUNK_SIZE;
+    return {
+      min: [x0, minY, z0],
+      max: [x0 + CHUNK_SIZE, maxY, z0 + CHUNK_SIZE],
+    };
+  }
+
+  var DEFAULT_WORLD_MIN_Y = -64;
+  var DEFAULT_WORLD_MAX_Y = 320;
+
+  // --- Back-to-front draw ordering, for translucent content (water, glass,
+  // leaves-with-alpha) drawn with depth writes disabled: with no ordering,
+  // two overlapping translucent chunks composite in whatever order the
+  // streaming cache happens to iterate, which is a different, wrong picture
+  // every time a chunk streams in or out. This is a pure function over
+  // {cx, cz, distance} so the ordering itself is testable with no GPU.
+
+  /** Sort chunk coordinate entries [{cx, cz}, ...] back-to-front (farthest
+   * first) by squared distance from `cameraPosition` to each chunk's
+   * horizontal centre. Returns a NEW array; does not mutate the input. Squared
+   * distance is used (never sqrt) so ties and ordering are exact, not subject
+   * to floating-point sqrt rounding. */
+  function sortChunksBackToFront(entries, cameraPosition) {
+    var cx0 = cameraPosition[0];
+    var cz0 = cameraPosition[2];
+    var withDistance = entries.map(function (entry) {
+      var centreX = entry.cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+      var centreZ = entry.cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+      var dx = centreX - cx0;
+      var dz = centreZ - cz0;
+      return { entry: entry, distanceSquared: dx * dx + dz * dz };
+    });
+    // Stable sort descending by distance (farthest drawn first). Array.sort
+    // is stable per spec in every runtime this project targets (Node 24,
+    // Chromium/V8 in Electron), so equal-distance chunks keep their
+    // original relative order rather than flickering between frames.
+    withDistance.sort(function (a, b) {
+      return b.distanceSquared - a.distanceSquared;
+    });
+    return withDistance.map(function (w) {
+      return w.entry;
+    });
+  }
+
   function mat4Translation(x, y, z) {
     var m = mat4Identity();
     m[12] = x;
@@ -381,10 +513,31 @@
       gl.bindVertexArray(null);
     }
 
+    // Cull chunks whose AABB the camera cannot see at all, then draw the
+    // survivors back-to-front. Draw order matters even though every chunk is
+    // a single opaque+translucent buffer: with BLEND enabled (see the
+    // constructor) any translucent quads in a chunk composite correctly
+    // against chunks already drawn behind them only if farther chunks go
+    // first. This is chunk-granularity ordering, not a true opaque/
+    // translucent pass split -- the mesher hands this renderer one
+    // interleaved buffer per chunk with no per-quad alpha classification, so
+    // two translucent surfaces inside the SAME chunk are not sorted against
+    // each other. See docs/articles/webgl2-viewport.md for the limitation.
+    var planes = this.frustumCullingEnabled ? frustumPlanesFromViewProjection(viewProjection) : null;
+    var visible = [];
     for (var key in this.chunks) {
       if (!Object.prototype.hasOwnProperty.call(this.chunks, key)) continue;
-      var entry = this.chunks[key];
-      if (entry.vertexCount <= 0) continue;
+      var candidate = this.chunks[key];
+      if (candidate.vertexCount <= 0) continue;
+      if (planes) {
+        var bounds = chunkWorldBounds(candidate.cx, candidate.cz, this.worldMinY, this.worldMaxY);
+        if (!boxIntersectsFrustum(planes, bounds.min, bounds.max)) continue;
+      }
+      visible.push(candidate);
+    }
+    var ordered = sortChunksBackToFront(visible, this.camera.position);
+    for (var i = 0; i < ordered.length; i++) {
+      var entry = ordered[i];
       var model = mat4Translation(entry.cx * CHUNK_SIZE, 0, entry.cz * CHUNK_SIZE);
       var transform = mat4Multiply(viewProjection, model);
       gl.uniformMatrix4fv(this.transformLocation, false, transform);
@@ -554,6 +707,12 @@
     _mat4View: mat4View,
     _mat4Multiply: mat4Multiply,
     _mat4Identity: mat4Identity,
+    frustumPlanesFromViewProjection: frustumPlanesFromViewProjection,
+    boxIntersectsFrustum: boxIntersectsFrustum,
+    chunkWorldBounds: chunkWorldBounds,
+    sortChunksBackToFront: sortChunksBackToFront,
+    DEFAULT_WORLD_MIN_Y: DEFAULT_WORLD_MIN_Y,
+    DEFAULT_WORLD_MAX_Y: DEFAULT_WORLD_MAX_Y,
   };
 
   if (typeof module !== "undefined" && module.exports) {
