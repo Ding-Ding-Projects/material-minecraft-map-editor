@@ -361,6 +361,20 @@ async function main() {
         detail8 = `identity=${JSON.stringify(identity)} dimensions=${JSON.stringify(dims.result)}`;
       } catch (err) {
         detail8 = String(err);
+      } finally {
+        // The world backend holds a real file lock on level.dat while a
+        // handle is open. Leaving this handle open made check 9's later
+        // world.open of the SAME fixture path (through the viewport panel)
+        // block forever waiting for a lock this process itself was still
+        // holding -- world.open_status genuinely never left "pending". Close
+        // it before moving on, exactly as a real caller would between two
+        // separate opens of the same world.
+        if (worldId) {
+          try {
+            await evalJSON(client, "window.mmweDesktop.sidecar.call('world.close', {world_id: " + JSON.stringify(worldId) + "}).then(JSON.stringify)");
+            await sleep(500);
+          } catch {}
+        }
       }
       record("8. world.open reports real identity and dimensions", ok8, detail8);
 

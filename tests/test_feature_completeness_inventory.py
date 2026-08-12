@@ -109,6 +109,8 @@ INVENTORY = {
             "docs/huishots/electron/electron-shell-home.png",
             "tests/test_electron_sidecar_bridge.py",
             "docs/features/electron-migration/README.md",
+            "scripts/accept_electron_app.js",
+            "docs/features/electron-acceptance/README.md",
         ],
     ),
     "file-converter": (
