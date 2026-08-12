@@ -55,13 +55,15 @@ INVENTORY = {
         ],
     ),
     "auto-updates": (
-        "incomplete",
+        "complete",
         [
             "amulet_map_editor/api/framework/squirrel_update.py",
             "amulet_map_editor/api/framework/update_copy.py",
             "docs/features/updater/README.md",
             "tests/api/framework/test_squirrel_update.py",
             "tests/api/framework/test_update_copy.py",
+            "tests/test_update_banner_capture_contract.py",
+            "scripts/capture_update_banner.py",
         ],
     ),
     "command-palette": (
@@ -185,13 +187,14 @@ INVENTORY = {
         ],
     ),
     "tab-navigation": (
-        "incomplete",
+        "complete",
         [
             "amulet_map_editor/api/tab_groups.py",
             "amulet_map_editor/api/wx/ui/material_tabs.py",
             "amulet_map_editor/api/wx/ui/tab_manager.py",
             "docs/site/tabs.js",
             "docs/features/tab-groups/README.md",
+            "tests/test_material_tabs_dock_capture.py",
         ],
     ),
     "tab-navigation-runtime": (

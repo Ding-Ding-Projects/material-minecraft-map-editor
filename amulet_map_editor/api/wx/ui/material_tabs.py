@@ -275,6 +275,19 @@ class _Strip(wx.Panel, _Themed):
     def _backdrop(self) -> wx.Colour:
         return self.palette().surface_container
 
+    def apply_orientation(self, dock: tab_groups.TabDock) -> None:
+        """Project the strip's role and orientation, matching the docs site.
+
+        wx has no ARIA layer of its own, so the vertical/horizontal fact this
+        carries is recorded in the accessible name and help text -- the same
+        best-effort projection :func:`tab_groups.apply_wx_tab_accessibility`
+        already uses for one tab.  A screen reader is told the same thing the
+        HTML tab strip tells one: ``tablist``, and which axis it moves on.
+        """
+        aria = tab_groups.tab_strip_aria(dock)
+        self.SetName(f"Tab strip, {aria['aria-orientation']}")
+        self.SetHelpText(f"role: {aria['role']}; {aria['aria-orientation']} tab strip")
+
     def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
         """Fill the band and rule it off from the content beside it."""
         palette = self.palette()
@@ -329,6 +342,7 @@ class MaterialTabs(wx.Panel, _Themed):
 
         self.strip = _Strip(self)
         self.strip.vertical = self.vertical
+        self.strip.apply_orientation(self.dock)
         self.strip.choose = self.select_tab  # type: ignore[attr-defined]
         self.strip.move_focus = self._move_focus  # type: ignore[attr-defined]
         self.strip.open_tab_menu = self.open_tab_menu  # type: ignore[attr-defined]
@@ -388,6 +402,7 @@ class MaterialTabs(wx.Panel, _Themed):
         for button in self._buttons.values():
             button.vertical = self.vertical
         self.strip.vertical = self.vertical
+        self.strip.apply_orientation(self.dock)
         self._layout_root()
         self._relayout()
 

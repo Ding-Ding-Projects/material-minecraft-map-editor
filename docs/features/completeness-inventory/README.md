@@ -18,7 +18,7 @@ instead of silently passing.
 |---|---|---|---|---|---|---|---|---|
 | app-logo-customization | `amulet_map_editor/api/app_logo.py` | `docs/features/appearance/README.md` | `amulet_map_editor/api/lang.py` | `amulet_map_editor/api/framework/app.py` (renamed logo persisted to disk) | `tests/test_app_logo.py` | `tests/test_app_logo.py::test_app_logo_widget_renders` | `tests/test_app_logo.py` (capture_composite) | complete |
 | appearance-editors | `amulet_map_editor/api/appearance_editor.py`, `amulet_map_editor/api/wx/ui/element_appearance.py` | `docs/features/appearance/README.md` | `amulet_map_editor/api/lang.py` | `amulet_map_editor/api/appearance_presets.py` | `tests/test_appearance_presets.py`, `tests/test_appearance_token_cost.py` | `tests/test_material_text_and_checkbox_contract.py` | `tests/test_appearance_token_cost.py` (capture_composite) | complete |
-| auto-updates | `amulet_map_editor/api/framework/squirrel_update.py`, `amulet_map_editor/api/framework/update_copy.py` | `docs/features/updater/README.md` | `amulet_map_editor/api/framework/update_copy.py` | update-ready state persisted via `squirrel_update.py` | `tests/api/framework/test_squirrel_update.py`, `tests/api/framework/test_update_copy.py` | `tests/api/framework/test_squirrel_update.py` | none (headless artifact update flow, no visible surface capture yet) | incomplete — missing capture evidence for the ready-banner UI |
+| auto-updates | `amulet_map_editor/api/framework/squirrel_update.py`, `amulet_map_editor/api/framework/update_copy.py` | `docs/features/updater/README.md` | `amulet_map_editor/api/framework/update_copy.py` | update-ready state persisted via `squirrel_update.py` | `tests/api/framework/test_squirrel_update.py`, `tests/api/framework/test_update_copy.py`, `tests/test_update_banner_capture_contract.py` | `tests/api/framework/test_squirrel_update.py` | `scripts/capture_update_banner.py` building the real `AmuletUI` frame and photographing `available`/`downloading`/`ready_to_restart`/`failed`, guarded by `tests/test_update_banner_capture_contract.py` (capture_composite) | complete |
 | command-palette | `amulet_map_editor/api/framework/amulet_ui.py` (palette wiring), `amulet_map_editor/api/studio/palette_dialog.py` | `docs/features/command-palette/README.md` | `amulet_map_editor/api/lang.py` | palette size/mode preference in `amulet_ui.py` | `tests/test_studio_shell_config_read_cost.py`, plus 6 more palette contract tests | `tests/test_studio_runtime_render_contract.py` | `tests/test_site_palette_inventory_contract.py` (site parity) | complete |
 | control-plane-runtime | `amulet_map_editor/api/studio/memory_console.py` ("Canonical guidance control plane") | `docs/features/memory-console/README.md` | `amulet_map_editor/api/lang.py` | `amulet_map_editor/api/studio/recents.py` | `tests/test_studio_accessibility_contract.py`, `tests/test_studio_regex_builder_coverage.py` | `tests/test_studio_runtime_render_contract.py` | `tests/test_studio_runtime_render_contract.py` (capture_composite) | complete |
 | dim-sum-catalog | `amulet_map_editor/api/dim_sum_surprise.py` | `docs/features/dim-sum-surprise/README.md` | `amulet_map_editor/api/lang.py` | non-optable, no persisted disable flag by design | `tests/test_dim_sum_surprise.py` | `tests/test_dim_sum_surprise.py` | `tests/test_dim_sum_surprise.py` (capture_composite) | complete |
@@ -31,33 +31,48 @@ instead of silently passing.
 | regex-builder | `amulet_map_editor/api/wx/ui/regex_dialog.py`, `amulet_map_editor/api/wx/ui/base_select.py`, `docs/site/regex-builder.js` | `docs/features/search-and-regex/README.md` | `amulet_map_editor/api/lang.py` | n/a (stateless per search field) | `tests/test_studio_regex_builder_coverage.py` + 33 more regex-builder tests | `tests/test_base_select_ui_contract.py` | `tests/test_base_select_ui_contract.py` (capture_composite) | complete |
 | rich-controls | `docs/site/palette.js` (site), command-palette inline controls in `amulet_map_editor/api/studio/palette_dialog.py` | `docs/features/command-palette/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/palette.js` | n/a | `tests/test_site_palette_inventory_contract.py`, `tests/test_rich_controls_beyond_palette.py` | `tests/test_rich_controls_beyond_palette.py` (hand-written non-palette surface inventory: drives the recents pin star and the NBT editor's boolean-row toggle switch, and records the notification history list's documented escape clause) | none | complete |
 | super-confirmation | `docs/site/confirm-gate.js` (site), `amulet_map_editor/api/studio/widgets.py` (`KeyGate`/`_KeyButton`, documented classes) | `docs/features/destructive-gate/README.md` | `amulet_map_editor/api/studio/copy.py` (`studio_text`/`studio_label`, wired into `KeyGate`), inline `t(en, yue)` in `docs/site/confirm-gate.js` | n/a | `tests/test_material_confirmation_contract.py`, `tests/test_destructive_gate_end_to_end.py` | `tests/test_destructive_gate_end_to_end.py` (real `EVT_SLIDER`/`EVT_SCROLL_THUMBRELEASE`/`EVT_KEY_DOWN`/`EVT_CHAR_HOOK` dispatch; asserts partial travel never fires the guarded callback) | `tests/test_destructive_gate_end_to_end.py` (capture_composite, mid-flourish) | complete |
-| tab-navigation | `amulet_map_editor/api/tab_groups.py`, `amulet_map_editor/api/wx/ui/material_tabs.py`, `amulet_map_editor/api/wx/ui/tab_manager.py`, `docs/site/tabs.js` | `docs/features/tab-groups/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/tabs.js` | `amulet_map_editor/api/tab_groups.py` (order/pin/group persistence) | `tests/test_terrain_brush_group.py`, plus tab-groups tests | `tests/test_selection_menu_rows_run.py` | none dedicated | incomplete — missing a dedicated built-artifact capture of the tab strip at every dock edge (left/right/top/bottom) |
+| tab-navigation | `amulet_map_editor/api/tab_groups.py`, `amulet_map_editor/api/wx/ui/material_tabs.py`, `amulet_map_editor/api/wx/ui/tab_manager.py`, `docs/site/tabs.js` | `docs/features/tab-groups/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/tabs.js` | `amulet_map_editor/api/tab_groups.py` (order/pin/group persistence) | `tests/test_terrain_brush_group.py`, plus tab-groups tests | `tests/test_selection_menu_rows_run.py` | `tests/test_material_tabs_dock_capture.py` (capture_composite at all four dock edges) | complete |
 | tab-navigation-runtime | `amulet_map_editor/api/framework/base_tab.py` | `docs/features/base-tab-runtime/README.md` | `amulet_map_editor/api/lang.py` | n/a | `tests/test_base_tab_runtime_contract.py` (dedicated), `tests/test_studio_runtime_render_contract.py` (indirect render path) | `tests/test_studio_runtime_render_contract.py` | `tests/test_studio_runtime_render_contract.py` (capture_composite) | complete |
 | two-factor-authenticator | `amulet_map_editor/api/authenticator.py`, `amulet_map_editor/api/wx/ui/authenticator_dialog.py`, `docs/site/totp.js`, `docs/site/authenticator.js` | `docs/features/authenticator/README.md` | `amulet_map_editor/api/lang.py`, `t(en, yue)` inline in `docs/site/authenticator.js` | metadata in the config record, secret in the OS vault only | `tests/test_authenticator.py`, `tests/test_authenticator_entries.py`, `tests/test_site_totp_contract.py` | `tests/test_authenticator_ui_contract.py` | `tests/test_authenticator_ui_contract.py` (capture_composite) | complete |
 | universal-feature-delivery | this inventory itself, plus `tests/test_feature_completeness_inventory.py` | `docs/features/completeness-inventory/README.md` (this file) | n/a (governance artifact, not user-facing copy) | n/a | `tests/test_feature_completeness_inventory.py` | n/a | n/a | complete — the inventory and its fail-closed negative-regression test are the deliverable required by this contract |
 
 ## Honest summary
 
-Of the 19 tracked rows, **16 are complete** with implementation, article, localized
+Of the 19 tracked rows, **18 are complete** with implementation, article, localized
 copy, persistence where relevant, tests, an interaction proof and capture
-evidence all present and verified by the test below. **3 are recorded
-incomplete**, each with the exact missing item named in the table rather than
+evidence all present and verified by the test below. **1 is recorded
+incomplete**, with the exact missing item named in the table rather than
 silently omitted:
 
-Three rows moved from incomplete to complete after this inventory was first
+Four rows moved from incomplete to complete after this inventory was first
 written, and they moved because the inventory named the gap: `locked-surfaces`
 and `two-factor-authenticator` existed **only on the Pages site** with no
 desktop implementation at all, which is precisely the silent delegation the
 universal-delivery contract forbids and precisely what a tree-scan cannot
 see — grep found the feature's name in a dozen files, every one of them a
 generated catalog. `app-logo-customization` had a complete engine and no
-surface to reach it from.
+surface to reach it from. `auto-updates` had the engine and the copy, but
+nobody had ever constructed the real `AmuletUI` frame off-screen and
+photographed its ready banner; the banner's own `MaterialButton` also could
+not be captured correctly off-screen until `render_to` was added to it, and
+`scripts/capture_surface.py` was fixed to try `WM_PRINTCLIENT` before
+`PrintWindow` on native child controls, which is what let the banner's title
+and body text render at all.
 
-- `auto-updates` — missing capture evidence for the ready-to-restart banner.
 - `pages-site-parity` — no headless-browser capture harness for the deployed site.
-- `tab-navigation` — no capture of the tab strip at every dock edge.
 
-`super-confirmation` moved from incomplete to complete in this pass: `KeyGate`
+`tab-navigation` moved from incomplete to complete in this pass:
+`tests/test_material_tabs_dock_capture.py` builds the real `MaterialTabs`
+strip on a real `wx.Frame`, docks it to all four edges in turn, and reads
+each composited PNG back to confirm drawn tab rows rather than an empty
+strip. The pass also wired the strip's ARIA role and orientation
+(`tab_groups.tab_strip_aria`) into a real wx projection via
+`MaterialTabs.strip.apply_orientation`, which had been computed by the model
+but never actually applied to the wx control, and added tests that press the
+real Up/Down/Left/Right keys through `_TabButton._on_key_down` to confirm the
+strip moves on its own axis and not the other one.
+
+`super-confirmation` moved from incomplete to complete in an earlier pass: `KeyGate`
 and `_KeyButton` gained docstrings, their status copy, key labels, slider name,
 progress-row title, and exit button were wired through `copy.studio_text`/
 `copy.studio_label` so the gate honours the active language mode instead of
