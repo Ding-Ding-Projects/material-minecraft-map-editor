@@ -31,7 +31,8 @@ from amulet_map_editor.api.wx.ui.base_select import EVT_PICK
 from amulet_map_editor.api.wx.nonblocking import notify
 from amulet_map_editor.api.wx.ui.block_select import BlockDefine
 from amulet_map_editor.programs.edit.api.operations import DefaultOperationUI
-from amulet_map_editor.api import image
+from amulet_map_editor.api.studio.widgets import StudioButton
+from amulet_map_editor.api.wx.ui.material_forms import MaterialChoice, MaterialTextField
 
 if TYPE_CHECKING:
     from amulet.api.level import BaseLevel
@@ -69,8 +70,12 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         top_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self._sizer.Add(top_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
-        help_button = wx.BitmapButton(
-            self, bitmap=image.icon.tablericons.help.bitmap(22, 22)
+        help_button = StudioButton(
+            self,
+            variant="icon",
+            glyph="?",
+            hint="Extra block help",
+            name="Extra block help",
         )
         top_sizer.Add(help_button)
 
@@ -93,14 +98,17 @@ class Waterlog(wx.Panel, DefaultOperationUI):
 
         help_button.Bind(wx.EVT_BUTTON, on_button)
 
-        self._mode = wx.Choice(self, choices=list(MODES.keys()))
+        self._mode = MaterialChoice(
+            self, choices=list(MODES.keys()), name="Waterlog mode"
+        )
         self._mode.SetSelection(0)
         top_sizer.Add(self._mode, 1, wx.EXPAND | wx.LEFT, 5)
         self._mode.Bind(wx.EVT_CHOICE, self._on_mode_change)
 
-        self._mode_description = wx.TextCtrl(
-            self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_BESTWRAP
+        self._mode_description = MaterialTextField(
+            self, multiline=True, name="Mode description"
         )
+        self._mode_description.SetEditable(False)
         self._sizer.Add(self._mode_description, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
 
         # ChangeValue rather than SetLabel: a wx.TextCtrl asserts on SetLabel
@@ -112,7 +120,6 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         self._mode_description.ChangeValue(
             MODES[self._mode.GetString(self._mode.GetSelection())]
         )
-        self._mode_description.Fit()
 
         self._block_define = BlockDefine(
             self,
@@ -124,7 +131,9 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         self._block_define.Bind(EVT_PICK, self._on_pick_block_button)
         self._sizer.Add(self._block_define, 1, wx.ALL | wx.ALIGN_CENTRE_HORIZONTAL, 5)
 
-        self._run_button = wx.Button(self, label="Run Operation")
+        self._run_button = StudioButton(
+            self, "Run Operation", variant="filled", name="Run Operation"
+        )
         self._run_button.Bind(wx.EVT_BUTTON, self._run_operation)
         self._sizer.Add(
             self._run_button, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 5
@@ -141,7 +150,6 @@ class Waterlog(wx.Panel, DefaultOperationUI):
         self._mode_description.ChangeValue(
             MODES[self._mode.GetString(self._mode.GetSelection())]
         )
-        self._mode_description.Fit()
         self.Layout()
         evt.Skip()
 
