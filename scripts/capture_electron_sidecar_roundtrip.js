@@ -82,7 +82,7 @@ async function launchAndConnect(port, userData, configDir) {
   const client = await cdp(target.webSocketDebuggerUrl);
   await client.send("Page.enable");
   await client.send("Runtime.enable");
-  await sleep(1200); // let site-config.json fetch and settings wiring settle
+  await sleep(2500); // let site-config.json fetch, sidecar spawn/interpreter probing, and settings wiring settle
 
   return { child, client };
 }
@@ -126,7 +126,7 @@ async function main() {
 
     // Wait for electron-bridge.js's own startup ping/read to settle so our
     // write isn't racing its initial preferences.read.
-    await sleep(500);
+    await sleep(1200);
 
     const pingResult = await evalJSON(client, "window.mmweDesktop.sidecar.call('protocol.ping', {}).then(JSON.stringify)");
     const ping = JSON.parse(pingResult);
@@ -135,17 +135,23 @@ async function main() {
 
     // Drive it exactly the way a user clicking the theme control would:
     // through the site's own settings.set(), not a bypassed direct call.
+    // Also drive density and scale -- the two fields this lane widened the
+    // bridge to cover beyond theme -- so this proves more than a
+    // single-field special case still works.
     const setResult = await evalJSON(
       client,
-      "window.AmuletSite.settings.set('theme', 'dark'); 'ok'"
+      "window.AmuletSite.settings.set('theme', 'dark');" +
+        "window.AmuletSite.settings.set('density', 'spacious');" +
+        "window.AmuletSite.settings.set('scale', 125);" +
+        "'ok'"
     );
-    assert(setResult === "ok", "settings.set('theme', 'dark') should run without throwing");
+    assert(setResult === "ok", "settings.set() for theme/density/scale should run without throwing");
 
     // electron-bridge.js's onChange listener fires the sidecar write
     // asynchronously; give it a moment then confirm via a DIRECT sidecar
     // read (bypassing the site's own cached settings) that Python's
-    // preferences file actually has the new value.
-    await sleep(700);
+    // preferences file actually has the new values.
+    await sleep(1500);
     const confirmResult = await evalJSON(
       client,
       "window.mmweDesktop.sidecar.call('preferences.read', {}).then(JSON.stringify)"
@@ -156,8 +162,29 @@ async function main() {
       confirm.result.theme === "dark",
       "the sidecar's own preferences file must show theme=dark after settings.set() -- got " + JSON.stringify(confirm.result)
     );
-    manifest.steps.push({ step: "renderer_write_reaches_python", ok: true, theme: confirm.result.theme });
-    console.log("Renderer settings.set('theme','dark') -> sidecar preferences.theme =", confirm.result.theme);
+    assert(
+      confirm.result.density === "spacious",
+      "the sidecar's own preferences file must show density=spacious after settings.set() -- got " + JSON.stringify(confirm.result)
+    );
+    assert(
+      Math.abs(confirm.result.ui_scale - 1.25) < 1e-6,
+      "the sidecar's own preferences file must show ui_scale=1.25 (site scale 125) after settings.set() -- got " + JSON.stringify(confirm.result)
+    );
+    manifest.steps.push({
+      step: "renderer_write_reaches_python",
+      ok: true,
+      theme: confirm.result.theme,
+      density: confirm.result.density,
+      ui_scale: confirm.result.ui_scale,
+    });
+    console.log(
+      "Renderer settings.set() -> sidecar preferences: theme=",
+      confirm.result.theme,
+      "density=",
+      confirm.result.density,
+      "ui_scale=",
+      confirm.result.ui_scale
+    );
 
     const shot = await client.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
     const bytes = Buffer.from(shot.data, "base64");
@@ -182,19 +209,41 @@ async function main() {
   try {
     session2 = await launchAndConnect(9335, userData2, configDir);
     const { client } = session2;
-    await sleep(2000); // let electron-bridge.js's startup read+apply run
+    // Poll rather than a fixed sleep: sidecar interpreter probing/spawn time
+    // is not bounded tightly enough for a fixed delay to be reliable.
+    let ready = false;
+    for (let attempt = 0; attempt < 30 && !ready; attempt++) {
+      await sleep(500);
+      const s = JSON.parse(await evalJSON(client, "JSON.stringify(window.AmuletSite.electronSidecar)"));
+      if (s.available && s.lastSyncedAt) ready = true;
+    }
 
     const debugStatus = await evalJSON(client, "JSON.stringify(window.AmuletSite.electronSidecar)");
     console.log("electronSidecar status on restart:", debugStatus);
 
-    const themeAfterRestart = await evalJSON(client, "window.AmuletSite.settings.get('theme')");
-    assert(
-      themeAfterRestart === "dark",
-      "after restarting the app against the same CONFIG_DIR, the site's theme setting must be 'dark' (read from the sidecar on startup), got " +
-        JSON.stringify(themeAfterRestart)
+    const afterRestart = JSON.parse(
+      await evalJSON(
+        client,
+        "JSON.stringify({theme: window.AmuletSite.settings.get('theme'), density: window.AmuletSite.settings.get('density'), scale: window.AmuletSite.settings.get('scale')})"
+      )
     );
-    manifest.steps.push({ step: "theme_survives_restart", ok: true, theme: themeAfterRestart });
-    console.log("After restart, window.AmuletSite.settings.get('theme') =", themeAfterRestart);
+    assert(
+      afterRestart.theme === "dark",
+      "after restarting the app against the same CONFIG_DIR, the site's theme setting must be 'dark' (read from the sidecar on startup), got " +
+        JSON.stringify(afterRestart)
+    );
+    assert(
+      afterRestart.density === "spacious",
+      "after restarting the app, the site's density setting must be 'spacious' (read from the sidecar on startup), got " +
+        JSON.stringify(afterRestart)
+    );
+    assert(
+      afterRestart.scale === 125,
+      "after restarting the app, the site's scale setting must be 125 (read from the sidecar's ui_scale on startup), got " +
+        JSON.stringify(afterRestart)
+    );
+    manifest.steps.push({ step: "preferences_survive_restart", ok: true, ...afterRestart });
+    console.log("After restart, site settings =", afterRestart);
 
     client.close();
   } finally {

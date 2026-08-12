@@ -17,17 +17,21 @@
     {
       "step": "renderer_write_reaches_python",
       "ok": true,
-      "theme": "dark"
+      "theme": "dark",
+      "density": "spacious",
+      "ui_scale": 1.25
     },
     {
       "step": "capture_after_write",
       "ok": true,
-      "bytes": 129300
+      "bytes": 134863
     },
     {
-      "step": "theme_survives_restart",
+      "step": "preferences_survive_restart",
       "ok": true,
-      "theme": "dark"
+      "theme": "dark",
+      "density": "spacious",
+      "scale": 125
     }
   ],
   "failures": []

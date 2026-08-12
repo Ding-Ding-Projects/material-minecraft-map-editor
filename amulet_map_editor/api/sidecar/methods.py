@@ -22,6 +22,7 @@ from amulet_map_editor.api import lang as LANG
 from amulet_map_editor.api import preferences as PREFERENCES
 from amulet_map_editor.api.converter import registry as CONVERTER_REGISTRY
 from amulet_map_editor.api.sidecar.protocol import ERR_INVALID_PARAMS, ProtocolError
+from amulet_map_editor.api.sidecar.world_methods import WORLD_METHODS
 
 MethodHandler = Callable[[Dict[str, Any]], Any]
 
@@ -116,4 +117,5 @@ METHODS: Dict[str, MethodHandler] = {
     "language.set": _language_set,
     "language.list": _language_list,
     "converter.formats": _converter_formats,
+    **WORLD_METHODS,
 }

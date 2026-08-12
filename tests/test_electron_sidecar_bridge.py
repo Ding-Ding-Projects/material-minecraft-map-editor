@@ -22,12 +22,15 @@ most recently.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from amulet_map_editor.api.sidecar.methods import _WRITABLE_PREFERENCE_FIELDS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -89,3 +92,27 @@ def test_site_settings_surface_has_a_real_sidecar_call_site() -> None:
     assert "preferences.read" in bridge_js
     assert "preferences.write" in bridge_js
     assert "settings.onChange" in bridge_js
+
+
+def test_bridge_maps_every_writable_preference_field_but_theme_is_no_longer_alone() -> None:
+    """A regression guard for the original gap this lane exists to close:
+    only ``preferences.theme`` was wired end to end and every other field was
+    still browser-local state pretending to be the application. This does
+    not assert 1:1 coverage of every dataclass field (``display_name`` has
+    no site setting equivalent that matches the same semantics), but it does
+    assert the bridge is no longer a single-field special case: every site
+    setting FIELD_MAP entry must reference an actually-writable sidecar
+    preference field, and there must be more than one of them."""
+    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(encoding="utf-8")
+    mapped_prefs = set(re.findall(r'pref:\s*"([a-z_]+)"', bridge_js))
+    assert len(mapped_prefs) > 1, (
+        "electron-bridge.js must map more than just theme -- got " + repr(mapped_prefs)
+    )
+    unknown = mapped_prefs - _WRITABLE_PREFERENCE_FIELDS
+    assert not unknown, (
+        "electron-bridge.js maps a site setting to a preference field the "
+        f"sidecar will not accept: {sorted(unknown)}"
+    )
+    # The fields this lane was explicitly asked to widen beyond theme.
+    for expected in ("density", "accent", "ui_font", "language_mode", "ui_scale"):
+        assert expected in mapped_prefs, f"electron-bridge.js no longer maps {expected!r}"

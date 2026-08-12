@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "a5eeb6366be085c98c56e38de5b339c375a3a184",
+  "source_revision": "9fc88fda8bc9c94185145a75bdfd10c2c569efe5",
   "entries": [
+    {
+      "version": "0.10.0-dev.811",
+      "released_on": "2026-08-12",
+      "commit_sha": "0b47fc96e253f1d8dd0f364667cfd3cb8cb3e96d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Record the idle-redraw fix for the continuous-repaint/3fps viewport defect",
+          "commit_sha": "0b47fc96e253f1d8dd0f364667cfd3cb8cb3e96d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.808",
+      "released_on": "2026-08-12",
+      "commit_sha": "3703effa668c31f8dac7da430681696d006bec99",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop the capture harness photographing the real profile, and guard the three that did",
+          "commit_sha": "3703effa668c31f8dac7da430681696d006bec99"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.807",
+      "released_on": "2026-08-12",
+      "commit_sha": "76c292b247fa5d617f5e622669956c3b66be376d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Prove the Electron migration works, and write down that it is not connected yet",
+          "commit_sha": "76c292b247fa5d617f5e622669956c3b66be376d"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.804",
       "released_on": "2026-08-12",
