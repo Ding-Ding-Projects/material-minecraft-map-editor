@@ -26,6 +26,21 @@ files:
   - "!docs/site/package-lock.json"
   - "!docs/site/Dockerfile"
   - "!docs/site/docker-compose.yml"
+# The Python sidecar (amulet_map_editor/) cannot live inside app.asar: it is
+# a real source tree that "python -m amulet_map_editor.api.sidecar" needs to
+# read from a genuine on-disk cwd, and app.asar is a virtual archive with no
+# such path -- packaging it via `files` above shipped an app whose sidecar
+# was unreachable from the moment it was installed (see main.js's
+# PY_SIDECAR_CWD comment). extraResources copies it to
+# <resources>/amulet_map_editor, outside the asar, where a real interpreter
+# can actually cd into it.
+extraResources:
+  - from: amulet_map_editor
+    to: amulet_map_editor
+    filter:
+      - "**/*"
+      - "!**/__pycache__/**"
+      - "!**/*.pyc"
 extraMetadata:
   main: electron/main.js
 win:

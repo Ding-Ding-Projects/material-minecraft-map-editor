@@ -270,10 +270,21 @@
    * arguments / call clearGrid() to hide it. */
   SelectionOverlay.prototype.setGrid = function (options) {
     options = options || {};
+    // Chunk spacing, not block spacing.
+    //
+    // The default was one line per block over 64 blocks either way: 258 lines,
+    // which from any normal camera angle is seen nearly edge-on and collapses
+    // into a moire of dense horizontal stripes filling half the viewport. It
+    // read as a rendering fault rather than as a reference plane, and it hid
+    // the terrain behind it.
+    //
+    // Sixteen is also the more useful number in a Minecraft editor: chunk
+    // boundaries are a thing the user acts on, and a line per block is
+    // information nobody asked for at a density nobody can read.
     this._grid = {
       y: typeof options.y === "number" ? options.y : 0,
-      halfExtent: typeof options.halfExtent === "number" ? options.halfExtent : 64,
-      spacing: typeof options.spacing === "number" ? options.spacing : 1,
+      halfExtent: typeof options.halfExtent === "number" ? options.halfExtent : 128,
+      spacing: typeof options.spacing === "number" ? options.spacing : 16,
     };
   };
 

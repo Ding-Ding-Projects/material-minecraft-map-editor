@@ -152,7 +152,45 @@
       if (!bytes.ok) return;
       var raw = bytes.result;
       var arrayBuffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
-      ensureViewport().loadChunkMesh(cx, cz, arrayBuffer, meta.result.vertex_count);
+      var view = ensureViewport();
+      view.loadChunkMesh(cx, cz, arrayBuffer, meta.result.vertex_count);
+      frameFirstChunk(view, cx, cz);
+    }
+
+    var framed = false;
+
+    /**
+     * Point the camera at the world the moment there is a world to point at.
+     *
+     * The camera starts at a fixed spot chosen before any world is open, which
+     * is the only sensible default when nothing is loaded and the wrong place
+     * to leave it once something is. A user who opens a world and sees empty
+     * sky concludes it failed to load -- the terrain was below and behind them
+     * the whole time.
+     *
+     * Only the FIRST chunk does this. Re-framing on every chunk that streams
+     * in would drag the camera around under someone who is already looking
+     * where they want to look, which is worse than never framing at all.
+     */
+    function frameFirstChunk(view, cx, cz) {
+      if (framed) return;
+      framed = true;
+      var centreX = cx * 16 + 8;
+      var centreZ = cz * 16 + 8;
+      // Back off along +Z and up, then look down at the chunk's middle. The
+      // fixture's terrain tops out around y=10 and a real world's surface is
+      // near y=64; 40 blocks up and 40 back frames either without clipping in.
+      view.camera.position = [centreX, 40, centreZ + 40];
+      if (typeof view.setRotationDegrees === "function") {
+        // Positive pitch is DOWN here, and the sign is worth stating because
+        // getting it backwards aims the camera at empty sky and looks exactly
+        // like a world that failed to load. From mat4View:
+        //   forward = [sin(yaw)*cos(pitch), -sin(pitch), -cos(yaw)*cos(pitch)]
+        // so yaw 0 looks toward -Z -- which is why the camera is placed at
+        // +40 on Z, in front of the chunk rather than behind it -- and a
+        // positive pitch drives forward.y negative, i.e. downward.
+        view.setRotationDegrees(0, 30);
+      }
     }
 
     async function streamTick() {

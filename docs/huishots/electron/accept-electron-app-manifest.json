@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-08-12T21:28:39.866Z",
+  "results": [
+    {
+      "name": "1. window created and interface loads",
+      "ok": true,
+      "detail": "url=file:///C:/Users/cntow/Documents/GitHub/material-minecraft-map-editor/dist/electron/win-unpacked/resources/app.asar/docs/site/index.html#home bodyTextLength=4816"
+    },
+    {
+      "name": "2. preload bridge exposes only the narrow surface",
+      "ok": true,
+      "detail": "{\"hasBridge\":true,\"isElectron\":true,\"keys\":[\"app\",\"isElectron\",\"sidecar\",\"window\"],\"hasIpcRenderer\":false,\"hasRequire\":false}"
+    },
+    {
+      "name": "3. sidecar starts and protocol.ping answers",
+      "ok": true,
+      "detail": "{\"ok\":true,\"result\":{\"ok\":true}}"
+    },
+    {
+      "name": "4a. renderer setting -> sidecar -> preferences file",
+      "ok": true,
+      "detail": "{\"ok\":true,\"result\":{\"version\":3,\"display_name\":\"Amulet\",\"language_mode\":\"english\",\"funny_level_english\":1,\"funny_level_cantonese\":1,\"show_dialog_emojis\":true,\"theme\":\"dark\",\"density\":\"spacious\",\"accent\":\"#6750A4\",\"ui_font\":\"\",\"ui_scale\":1.25,\"external_editor_path\":\"\",\"auto_stage_updates\":true}}"
+    },
+    {
+      "name": "5. language.get/set/list against lang.py",
+      "ok": true,
+      "detail": "languages=18 set={\"language_id\":\"en\"} get={\"language_id\":\"en\"}"
+    },
+    {
+      "name": "6. changelog.entries / docs.articles return real catalogs",
+      "ok": true,
+      "detail": "changelog entries=351 docs articles=62"
+    },
+    {
+      "name": "7. converter.formats + a real nbt->json conversion",
+      "ok": true,
+      "detail": "adapters=16 real-conversion(nbt->json, run via core.convert_one, NOT via IPC -- no converter.convert method exists yet)={\"ok\":true,\"outcome\":\"converted\",\"body_has_name\":true}"
+    },
+    {
+      "name": "8. world.open reports real identity and dimensions",
+      "ok": true,
+      "detail": "identity={\"status\":\"ready\",\"world_id\":\"6406bb2c-cba8-400f-a8b1-dedd56d954c7\",\"path\":\"C:\\\\Users\\\\cntow\\\\AppData\\\\Local\\\\Temp\\\\mmwe-accept-fixture-OUju0D\\\\world\",\"name\":\"World Created By Amulet\",\"platform\":\"java\",\"version\":3700,\"dimensions\":[\"minecraft:overworld\",\"minecraft:the_nether\",\"minecraft:the_end\"]} dimensions={\"world_id\":\"6406bb2c-cba8-400f-a8b1-dedd56d954c7\",\"dimensions\":[{\"dimension\":\"minecraft:overworld\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_nether\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_end\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}}]}"
+    },
+    {
+      "name": "9. viewport streams and draws at least one chunk",
+      "ok": false,
+      "detail": "chunkCount signal=0"
+    },
+    {
+      "name": "10. selection overlay draws (with vs without differ)",
+      "ok": false,
+      "detail": "skipped: viewport never streamed a chunk to compare against"
+    },
+    {
+      "name": "11. app quits cleanly, no orphaned sidecar process",
+      "ok": true,
+      "detail": "no python sidecar process found after quit"
+    }
+  ]
+}

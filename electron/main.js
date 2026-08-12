@@ -25,12 +25,26 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 const SITE_INDEX = path.join(REPO_ROOT, "docs", "site", "index.html");
 const PRELOAD = path.join(__dirname, "preload.js");
 
+// The sidecar is a real Python source tree (amulet_map_editor/), not
+// something that can live inside app.asar: `python -m amulet_map_editor.api
+// .sidecar` needs a real on-disk cwd it can add to sys.path, and app.asar is
+// a virtual archive with no such path. In a dev run REPO_ROOT already
+// contains amulet_map_editor/ and works as that cwd unchanged. In a packaged
+// build electron-builder.yml copies amulet_map_editor/ via `extraResources`
+// to `<resources>/amulet_map_editor` (outside app.asar entirely), so the
+// correct cwd there is process.resourcesPath, one level above it -- using
+// REPO_ROOT (which resolves *inside* app.asar once packaged) here was
+// exactly the defect that left the packaged app's sidecar permanently
+// unavailable: every preference, language, changelog, docs, converter and
+// world call failed with "sidecar_unavailable" from the moment it shipped.
+const PY_SIDECAR_CWD = app.isPackaged ? process.resourcesPath : REPO_ROOT;
+
 // The sidecar client owns spawning/restarting/killing the Python child
 // process (amulet_map_editor.api.sidecar) and the request/response
 // correlation over its stdio protocol. main.js only ever talks to it
 // through this narrow object -- see sidecar-client.js for the process
 // lifecycle and timeout handling.
-const sidecar = new SidecarClient({ repoRoot: REPO_ROOT });
+const sidecar = new SidecarClient({ repoRoot: PY_SIDECAR_CWD });
 
 const MIN_WIDTH = 720;
 const MIN_HEIGHT = 480;

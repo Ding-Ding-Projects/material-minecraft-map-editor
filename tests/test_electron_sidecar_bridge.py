@@ -57,6 +57,46 @@ def test_sidecar_client_round_trips_against_the_real_python_sidecar() -> None:
     assert "All sidecar-client.js round-trip checks passed" in result.stdout
 
 
+def _electron_binary_present() -> bool:
+    return (ROOT / "node_modules" / "electron" / "dist" / "electron.exe").exists()
+
+
+@pytest.mark.skipif(_node() is None, reason="Node is not on PATH")
+@pytest.mark.skipif(not _electron_binary_present(), reason="Electron binary not installed (run npm install)")
+def test_sidecar_process_never_outlives_its_electron_parent() -> None:
+    """The orphan check: launches the REAL packaged app headlessly (never a
+    visible window -- AMULET_HEADLESS=1, per this repository's never-steal-
+    focus rule), resolves the Python sidecar's actual OS PID as a child of
+    the Electron main process, then proves it in two scenarios:
+
+    1. a graceful quit through the same window.mmweDesktop.window.close()
+       IPC path a real titlebar click uses, which must reach
+       before-quit -> sidecar.stop();
+    2. a hard `taskkill /F` of ONLY the Electron main process (no /T, so
+       nothing artificially takes the sidecar down with it) -- the crash /
+       "End Task" case, which gives main.js's own quit handlers no chance
+       to run at all.
+
+    Both must leave no Python sidecar process behind. See
+    scripts/verify_sidecar_orphan.js for the full script; this wrapper
+    mirrors test_sidecar_client_round_trips_against_the_real_python_sidecar
+    above."""
+    node = _node()
+    assert node is not None
+    result = subprocess.run(
+        [node, str(ROOT / "scripts" / "verify_sidecar_orphan.js")],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (
+        "The Python sidecar outlived its Electron parent in at least one "
+        f"scenario.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+    assert "ALL SIDECAR ORPHAN CHECKS PASSED" in result.stdout
+
+
 def test_main_js_owns_the_sidecar_process_lifetime() -> None:
     """Static wiring guard: main.js must actually spawn, forward to, and
     kill the sidecar -- not merely import the client module and never call

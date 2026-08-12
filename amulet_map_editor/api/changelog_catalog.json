@@ -1,8 +1,32 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "5004952fe83dfeac23b3eb53cde1727b06a59e63",
+  "source_revision": "f34332b857592c254dd954652713a5a0ba21f709",
   "entries": [
+    {
+      "version": "0.10.0-dev.834",
+      "released_on": "2026-08-12",
+      "commit_sha": "a5ad95dd61b28e919bac4c82c5355c4388da7021",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Connect the selection overlay to the viewport, because nothing was calling it",
+          "commit_sha": "a5ad95dd61b28e919bac4c82c5355c4388da7021"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.832",
+      "released_on": "2026-08-12",
+      "commit_sha": "5004952fe83dfeac23b3eb53cde1727b06a59e63",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Move the WebGL2 viewport out of its harness and into the app: real camera, real chunk streaming",
+          "commit_sha": "5004952fe83dfeac23b3eb53cde1727b06a59e63"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.830",
       "released_on": "2026-08-12",
