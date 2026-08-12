@@ -168,30 +168,75 @@ def remember_section(key: str, expanded: bool) -> None:
 # ----------------------------------------------------------------------------
 
 
+class _WidestTextDC:
+    """A measuring facade that never under-reports how wide text will draw.
+
+    ``render_to`` is not always handed a ``wx.GCDC``: the ordinary screen
+    paints through one (:func:`paint_context` wraps it around the buffered
+    paint context), but :func:`elide` and every button's own drawing accept
+    *whatever* ``dc`` the caller passes -- and a capture taken on a machine
+    with nothing composited, or the plain-device-context fallback
+    :func:`paint_context` itself documents, hands over a bare
+    ``wx.ClientDC``/``wx.MemoryDC`` instead.  The two backends do not report
+    the same width for the same string, and -- unlike the historical "Confirm
+    clone" case this class replaced a flat GCDC-only measurement for -- the
+    *wider* one is not reliably the same backend from one label to the next.
+    "Delete Unselected Chunks" measured six pixels wider through a plain
+    ``wx.MemoryDC`` than through the GCDC this used to measure with alone; a
+    button sized to the narrower of the two clipped its own label the moment
+    something painted it with the other.
+
+    Reporting the larger of the two extents removes the direction dependency
+    entirely: a control sized from this can never be a hair narrower than
+    either backend actually needs to draw it.
+    """
+
+    def __init__(self, primary: wx.DC, secondary: Optional[wx.DC]) -> None:
+        self._primary = primary
+        self._secondary = secondary
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._primary, name)
+
+    def SetFont(self, font: wx.Font) -> None:  # noqa: N802 - wx API spelling
+        self._primary.SetFont(font)
+        if self._secondary is not None:
+            self._secondary.SetFont(font)
+
+    def GetTextExtent(self, text: str) -> wx.Size:  # noqa: N802 - wx API spelling
+        primary = self._primary.GetTextExtent(text)
+        if self._secondary is None:
+            return primary
+        secondary = self._secondary.GetTextExtent(text)
+        return wx.Size(max(primary[0], secondary[0]), max(primary[1], secondary[1]))
+
+    def GetCharHeight(self) -> int:  # noqa: N802 - wx API spelling
+        primary = self._primary.GetCharHeight()
+        if self._secondary is None:
+            return primary
+        return max(primary, self._secondary.GetCharHeight())
+
+
 @contextlib.contextmanager
 def measuring(window: wx.Window) -> Iterator[wx.DC]:
-    """Yield a device context that measures text the way painting draws it.
+    """Yield a device context that measures text at least as wide as it draws.
 
-    Every Studio surface paints through a ``wx.GCDC``: :func:`paint_context`
-    wraps one around the buffered paint context, and a capture wraps one around
-    its own bitmap.  A plain ``wx.ClientDC`` measures through GDI instead, and
-    the two do not agree.  On wxPython 4.3.1 / wxWidgets 3.3.3 the design's
-    filled button face reports ``"Confirm clone"`` as 81 pixels wide through the
-    client context and 83 through the graphics one.
+    Every Studio surface *usually* paints through a ``wx.GCDC``:
+    :func:`paint_context` wraps one around the buffered paint context, and a
+    capture wraps one around its own bitmap.  A plain ``wx.ClientDC`` measures
+    through GDI instead, and the two do not agree -- and either can be the
+    wider one, depending on the label and font, so favouring one backend over
+    the other is never safe.  On wxPython 4.3.1 / wxWidgets 3.3.3 the design's
+    filled button face reports ``"Confirm clone"`` as 81 pixels wide through
+    the client context and 83 through the graphics one, while
+    ``"Delete Unselected Chunks"`` reports 123 through the graphics context and
+    129 through a plain device context -- the opposite direction.
 
-    Two pixels is enough to break every label in the shell.  A control sized
-    from the narrower measurement is *always* a hair narrower than the text it
-    then has to draw, so the ellipsis in :func:`elide` fires on labels that were
-    meant to fit exactly: "Confirm clone" became "Confirm clo…", "Cancel clone"
-    became "Cancel clo…", and "Apply" -- five characters on a button with
-    twenty-four pixels of padding either side -- became "Ap…".  It looks like a
-    layout that ran out of room and it is really a measurement taken with the
-    wrong ruler.
-
-    Measuring through the same wrapper that draws is what makes "a control is
-    sized to its own text" true rather than nearly true.  The client context is
-    kept alive for as long as the wrapper, because a ``wx.GCDC`` over a released
-    device context measures nothing.
+    A control sized from the narrower of the two measurements is *always* a
+    hair narrower than the text some backend then has to draw, so the
+    ellipsis in :func:`elide` fires on labels that were meant to fit exactly.
+    :class:`_WidestTextDC` reports whichever extent is larger, so this always
+    returns the size that fits both.
     """
     source = wx.ClientDC(window)
     try:
@@ -202,7 +247,7 @@ def measuring(window: wx.Window) -> Iterator[wx.DC]:
         yield source
         return
     try:
-        yield wrapper
+        yield _WidestTextDC(wrapper, source)
     finally:
         del wrapper
 
