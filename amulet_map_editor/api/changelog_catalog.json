@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "be3216dcc4526d80ac714361e1ffd6a92cd814e5",
+  "source_revision": "3a5230431ce27cdd5ced2fa2ed3477125998ad4f",
   "entries": [
+    {
+      "version": "0.10.0-dev.824",
+      "released_on": "2026-08-12",
+      "commit_sha": "4a492140865493b8ce66f964b8bb477d5f036f06",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wire changelog, docs and dim-sum sidecar methods so the renderer stops faking Python's data",
+          "commit_sha": "4a492140865493b8ce66f964b8bb477d5f036f06"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.821",
+      "released_on": "2026-08-12",
+      "commit_sha": "08ebb7eb2326f91f66c5bc5bf3d2ec82adba3afe",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Never show the window when the app is launched for verification",
+          "commit_sha": "08ebb7eb2326f91f66c5bc5bf3d2ec82adba3afe"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.818",
+      "released_on": "2026-08-12",
+      "commit_sha": "0d44d8475a074d186c31598ad96b3b714df3fbcd",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Widen the Electron settings bridge past theme, and prove it against the real sidecar",
+          "commit_sha": "0d44d8475a074d186c31598ad96b3b714df3fbcd"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.817",
       "released_on": "2026-08-12",

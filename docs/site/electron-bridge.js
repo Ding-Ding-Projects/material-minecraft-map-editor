@@ -100,9 +100,27 @@
       var prefValue = preferences[mapping.pref];
 
       if (siteKey === "theme") {
-        // "system" and anything unrecognised: leave the local theme in charge.
         var theme = THEME_VALUES[prefValue];
-        if (!theme) return;
+        if (!theme) {
+          // Python holds a value this renderer has no way to show -- "system"
+          // is a real third state here and the site only has light and dark.
+          //
+          // Leaving the local theme in charge, which is what this did, opens a
+          // hole that stays open: the two stores sit permanently divergent,
+          // and because Site.settings.set() returns early when the value is
+          // unchanged, a later set() to the value the site ALREADY holds fires
+          // no listener and never reaches Python at all. The renderer then
+          // looks right, the write looks accepted, and the preferences file
+          // never moves.
+          //
+          // So the explicit local choice is pushed up instead. A value the user
+          // actually chose outranks a default the other store happens to be
+          // sitting on, and afterwards the two agree, which is the property
+          // that makes every later write behave.
+          var local = Site.settings.get("theme");
+          if (local && THEME_VALUES[local]) writeRemotePreference("theme", local);
+          return;
+        }
         if (Site.settings.get("theme") !== theme) Site.settings.set("theme", theme);
         return;
       }
@@ -210,8 +228,38 @@
       });
   }
 
-  bridge
-    .call("protocol.ping", {})
+  /**
+   * Ping until the sidecar answers, rather than judging it once.
+   *
+   * The renderer finishes loading before the Python child process has finished
+   * starting, so a single ping at page load routinely arrives too early. The
+   * bridge then recorded "the sidecar process is not running", set
+   * `available` to false, and never asked again -- and because every write is
+   * gated on that flag, EVERY preference change for the rest of the session was
+   * silently dropped. Nothing reported an error: the renderer applied the
+   * change, the interface updated, the value persisted in browser storage, and
+   * Python simply never heard about any of it.
+   *
+   * It was not that the sidecar was missing. Calling it directly from the same
+   * page a second later worked perfectly. The bridge had only asked at the one
+   * moment the answer was no.
+   *
+   * Bounded on purpose: a sidecar that genuinely never starts must end up
+   * reported as unavailable rather than retried forever behind a spinner.
+   */
+  function pingUntilReady(attemptsLeft, delayMs) {
+    return bridge.call("protocol.ping", {}).then(function (response) {
+      if (response && response.ok) return response;
+      if (attemptsLeft <= 0) return response;
+      return new Promise(function (resolve) {
+        setTimeout(resolve, delayMs);
+      }).then(function () {
+        return pingUntilReady(attemptsLeft - 1, Math.min(delayMs * 2, 2000));
+      });
+    });
+  }
+
+  pingUntilReady(8, 250)
     .then(function (pingResponse) {
       if (!pingResponse || !pingResponse.ok) {
         status.available = false;
