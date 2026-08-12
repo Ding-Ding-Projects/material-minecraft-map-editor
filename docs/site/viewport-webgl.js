@@ -611,6 +611,13 @@
     var moveSpeed = options.moveSpeed || 12; // world units per second
     var keyLookSpeed = options.keyLookSpeed || 90; // degrees per second
     var wheelMoveScale = options.wheelMoveScale || 0.03;
+    // Called before a left-button drag is allowed to start rotating the
+    // camera. Lets a caller that also wires selection picking/handle-dragging
+    // onto the same canvas (see viewport-panel.js) claim a press for itself
+    // -- e.g. an Alt+click, or a press that landed on a selection handle --
+    // without the camera spinning underneath it. Defaults to "always rotate",
+    // so every existing caller is unaffected.
+    var shouldRotate = options.shouldRotate || function () { return true; };
 
     var dragging = false;
     var lastX = 0;
@@ -621,6 +628,7 @@
 
     function onPointerDown(event) {
       if (event.button !== 0) return;
+      if (!shouldRotate(event)) return;
       dragging = true;
       lastX = event.clientX;
       lastY = event.clientY;

@@ -269,7 +269,7 @@
         <button class="button button-tonal" type="button" id="viewport-open-button">Open world</button>
       </div>
       <div class="viewport-host" id="viewport-host">
-        <canvas id="viewport-canvas" width="1024" height="640" tabindex="0" aria-label="3D world viewport. Drag to look around, scroll to move forward and back, WASD or arrow keys to move and look."></canvas>
+        <canvas id="viewport-canvas" width="1024" height="640" tabindex="0" aria-label="3D world viewport. Drag to look around, scroll to move forward and back, WASD or arrow keys to move and look. Alt+click to pick a selection point or drag a selection handle. Keyboard: digits 1 to 6 choose a selection face, [ and ] nudge it, I J K L step the far corner, C selects the chunk under the camera."></canvas>
         <p id="viewport-empty" class="empty-state">Desktop only: this tab renders live chunk geometry through the desktop app's sidecar. Open the app and enter a world path above to see it here.</p>
         <p id="viewport-status" class="tab-note" role="status"></p>
       </div>
@@ -397,6 +397,8 @@
   <script src="electron-bridge.js"></script>
   <script src="viewport-webgl.js"></script>
   <script src="viewport-overlays.js"></script>
+  <script src="viewport-picking.js"></script>
+  <script src="viewport-handles.js"></script>
   <script src="viewport-panel.js"></script>
   <script src="app.js"></script>
 </body>
