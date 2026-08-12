@@ -130,10 +130,10 @@
     return {
       home: [
         group("Clipboard", [
-          btn("Paste", "⎘", "Paste a previously copied or cut area into the world."),
-          btn("Copy", "⧉", "Copy the selected area to paste later."),
-          btn("Cut", "✂", "Copy the selected area to paste later and delete."),
-          btn("Delete", "⌫", "Delete the blocks in the selected area."),
+          btn("Paste", "⎘", "Paste a previously copied or cut area into the world.", actions.pasteSelection, { requiresSidecar: true, requiresWorld: true }),
+          btn("Copy", "⧉", "Copy the selected area to paste later.", actions.copySelection, { requiresSidecar: true, requiresWorld: true }),
+          btn("Cut", "✂", "Copy the selected area to paste later and delete.", actions.cutSelection, { requiresSidecar: true, requiresWorld: true }),
+          btn("Delete", "⌫", "Delete the blocks in the selected area.", actions.deleteSelection, { requiresSidecar: true, requiresWorld: true }),
           btn("Clone", "⁙", "Clone the selection with repeatable copies."),
           btn("Move", "⤥", "Lift the selection into a pending import."),
         ]),
@@ -182,21 +182,21 @@
       ],
       structures: [
         group("Import", [
-          btn("Import file", "⭳", "Import a supported structure file.", null, { primary: true }),
+          btn("Import file", "⭳", "Import a .construction/.mcstructure/.schematic/.schem file and paste it at point 1.", actions.importStructure, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Import chunks", "▦", "Replace the selected chunks with chunks from another world."),
         ]),
         group("Export", [
-          btn("Export", "⭱", "Export the selection through a format handler."),
+          btn("Export", "⭱", "Export the selection to a .construction file.", actions.exportStructure, { requiresSidecar: true, requiresWorld: true }),
           btn("Open in editor", "▸", "Open the exported folder in Visual Studio Code."),
         ]),
       ],
       chunks: [
         group("Draw range", [], { fields: [{ label: "Min Y", value: "—" }, { label: "Max Y", value: "—" }] }),
         group("Chunks", [
-          btn("Create empty", "▢", "Create all chunks in the selection that do not already exist.", null, { primary: true }),
+          btn("Create empty", "▢", "Create all chunks in the selection that do not already exist.", actions.createChunks, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Import", "▦", "Replace the selected chunks with chunks from another world."),
-          btn("Delete", "⌫", "Delete the selected chunks."),
-          btn("Delete unselected", "⌮", "Delete all chunks that are not selected."),
+          btn("Delete", "⌫", "Delete the selected chunks.", actions.deleteChunks, { requiresSidecar: true, requiresWorld: true }),
+          btn("Delete unselected", "⌮", "Delete all chunks that are not selected.", actions.pruneChunks, { requiresSidecar: true, requiresWorld: true }),
         ]),
       ],
       terrain: [
@@ -277,12 +277,12 @@
       ],
       analyze: [
         group("Counts", [
-          btn("Histogram", "▧", "Block counts and percentages in the selection.", null, { primary: true }),
-          btn("Chunk inspector", "▦", "Per-chunk status, size, and timestamps."),
+          btn("Histogram", "▧", "Block counts and percentages in the selection.", actions.analyzeBlockHistogram, { primary: true, requiresSidecar: true, requiresWorld: true }),
+          btn("Chunk inspector", "▦", "Per-chunk status, entity, and block-entity counts in the selection.", actions.analyzeChunkInventory, { requiresSidecar: true, requiresWorld: true }),
           btn("Biome map", "❋", "Biome distribution across the selection."),
         ]),
         group("Integrity", [
-          btn("Validate", "✓", "Validate and repair chunk and region data.", null, { primary: true }),
+          btn("Validate", "✓", "Audit the selection for blocks outside the universal_minecraft namespace (a translation-failure signal); does not repair region data.", actions.analyzeBlockAudit, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Relight", "☀", "Recompute block and sky light."),
           btn("Compare", "⇄", "Diff two worlds chunk by chunk."),
         ]),
@@ -467,6 +467,14 @@
       worldOpenError: null,
       wiredCommandCount: 0,
       unwiredCommandCount: 0,
+      // The Analyze ribbon tab's own world handle, kept here (rather than
+      // read from viewport-panel.js's private closure state, which does not
+      // expose it) because analyze.* calls need a world_id the same way
+      // fill/replace do. Set once loadDimensionsForPath's open+poll finishes.
+      worldId: null,
+      analyzeRunning: false,
+      analyzeError: null,
+      analyzeResult: null, // { command, summary, rows: [[label, value], ...] }
     };
 
     root.setAttribute("data-studio-workspace", "1");
@@ -497,6 +505,42 @@
       save: function () {
         var vp = viewportPanel();
         if (vp && typeof vp.runSave === "function") vp.runSave();
+      },
+      copySelection: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runCopySelection === "function") vp.runCopySelection();
+      },
+      cutSelection: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runCutSelection === "function") vp.runCutSelection();
+      },
+      pasteSelection: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runPasteSelection === "function") vp.runPasteSelection();
+      },
+      deleteSelection: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runDeleteSelection === "function") vp.runDeleteSelection();
+      },
+      exportStructure: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runExportStructure === "function") vp.runExportStructure();
+      },
+      importStructure: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runImportStructure === "function") vp.runImportStructure();
+      },
+      createChunks: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runCreateChunks === "function") vp.runCreateChunks();
+      },
+      deleteChunks: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runDeleteChunks === "function") vp.runDeleteChunks();
+      },
+      pruneChunks: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runPruneChunks === "function") vp.runPruneChunks();
       },
       fill: function () {
         var vp = viewportPanel();
@@ -546,6 +590,109 @@
         },
       },
       selectionFields: null, // filled in per-render from the live edit panel
+
+      // -------------------------------------------------- Analyze tab
+      // Every analyze.* call is strictly read-only (see
+      // amulet_map_editor/api/sidecar/analyze_methods.py's module docstring)
+      // so unlike fill/replace there is no confirm gate to thread through
+      // here -- running one of these never touches undo/redo or disk.
+      runAnalyzeCommand: function (label, callBridge, summarize) {
+        var vp = viewportPanel();
+        var edit = vp && vp.edit;
+        var points = edit && typeof edit.readPoints === "function" ? edit.readPoints() : null;
+        var eb = window.AmuletSite && window.AmuletSite.electronSidecar;
+        if (!points) {
+          state.analyzeError = label + ": set point 1 and point 2 in the viewport's edit panel first.";
+          state.analyzeResult = null;
+          render();
+          return;
+        }
+        if (!eb || typeof eb.analyze !== "object" || state.worldId === null || !state.navSelected) {
+          state.analyzeError = label + ": no world open in the Analyze tab yet.";
+          state.analyzeResult = null;
+          render();
+          return;
+        }
+        state.analyzeRunning = true;
+        state.analyzeError = null;
+        render();
+        callBridge(eb.analyze, state.worldId, state.navSelected, points.point1, points.point2)
+          .then(function (result) {
+            state.analyzeRunning = false;
+            state.analyzeError = null;
+            state.analyzeResult = { command: label, rows: summarize(result) };
+            render();
+          })
+          .catch(function (err) {
+            state.analyzeRunning = false;
+            state.analyzeResult = null;
+            state.analyzeError = label + ": " + (err && err.message ? err.message : String(err));
+            render();
+          });
+      },
+      analyzeBlockHistogram: function () {
+        actions.runAnalyzeCommand(
+          "Histogram",
+          function (analyze, worldId, dimension, min, max) {
+            return analyze.blockHistogram(worldId, dimension, min, max);
+          },
+          function (result) {
+            var rows = [
+              ["Blocks scanned", String(result.blocks_scanned)],
+              ["Distinct blocks", String(result.distinct_blocks)],
+            ];
+            (result.histogram || []).slice(0, 8).forEach(function (entry) {
+              rows.push([entry.block, entry.count + " (" + entry.percentage + "%)"]);
+            });
+            return rows;
+          }
+        );
+      },
+      analyzeChunkInventory: function () {
+        actions.runAnalyzeCommand(
+          "Chunk inspector",
+          function (analyze, worldId, dimension, min, max) {
+            return analyze.chunkInventory(worldId, dimension, min, max);
+          },
+          function (result) {
+            var rows = [
+              ["Chunks in range", String(result.chunks_in_range)],
+              ["Chunks present", String(result.chunks_present)],
+            ];
+            (result.chunks || []).slice(0, 8).forEach(function (chunk) {
+              rows.push([
+                "chunk " + chunk.cx + "," + chunk.cz,
+                (chunk.changed ? "changed" : "unchanged") +
+                  " · " +
+                  chunk.entity_count +
+                  " entities · " +
+                  chunk.block_entity_count +
+                  " block entities",
+              ]);
+            });
+            return rows;
+          }
+        );
+      },
+      analyzeBlockAudit: function () {
+        actions.runAnalyzeCommand(
+          "Validate (block audit)",
+          function (analyze, worldId, dimension, min, max) {
+            return analyze.blockAudit(worldId, dimension, min, max);
+          },
+          function (result) {
+            var rows = [
+              ["Blocks scanned", String(result.blocks_scanned)],
+              ["Flagged blocks", String(result.flagged_count)],
+            ];
+            (result.flagged_blocks || []).slice(0, 8).forEach(function (entry) {
+              rows.push([entry.block, String(entry.count)]);
+            });
+            if (!result.flagged_count) rows.push(["Result", "No non-universal blocks found in the selection."]);
+            return rows;
+          }
+        );
+      },
     };
 
     // -------------------------------------------------------------- DOM
@@ -679,6 +826,7 @@
           renderNavigator();
           return;
         }
+        state.worldId = worldId;
         sidecarCall("world.dimensions", { world_id: worldId }).then(function (dimResp) {
           if (!dimResp.ok) {
             state.worldOpenError = "world.dimensions failed.";
@@ -941,12 +1089,58 @@
       });
     }
 
+    /**
+     * Opens the real per-element appearance editor (docs/site/
+     * studio-appearance.js) anchored in a lightweight overlay, rather than a
+     * button that only announces it is unwired. Lazily built and reused
+     * across opens so repeated clicks do not accumulate detached overlays.
+     */
+    var appearanceOverlay = null;
+    function openAppearanceEditorOverlay() {
+      if (!window.AmuletStudioAppearance) return;
+      if (!appearanceOverlay) {
+        appearanceOverlay = el("div", { className: "sw-appearance-overlay", role: "dialog", "aria-label": "Edit appearance" });
+        var panelHost = el("div", { className: "sw-appearance-overlay-panel" });
+        var closeBtn = el(
+          "button",
+          {
+            type: "button",
+            className: "sw-pane-icon-btn",
+            title: "Close the appearance editor",
+            onClick: function () {
+              appearanceOverlay.hidden = true;
+            },
+          },
+          ["×"]
+        );
+        appearanceOverlay.appendChild(closeBtn);
+        appearanceOverlay.appendChild(panelHost);
+        document.body.appendChild(appearanceOverlay);
+        window.AmuletStudioAppearance.mount(panelHost);
+      }
+      appearanceOverlay.hidden = false;
+    }
+
     function renderPane() {
       paneEl.innerHTML = "";
       if (!state.paneOpen) return;
       var header = el("div", { className: "sw-pane-header" }, [
         el("span", { className: "sw-pane-title" }, ["Properties"]),
-        el("button", { type: "button", className: "sw-pane-icon-btn", title: "Edit appearance for this pane (" + UNWIRED_REASON + ")", disabled: true }, ["✎"]),
+        el(
+          "button",
+          {
+            type: "button",
+            className: "sw-pane-icon-btn",
+            title: window.AmuletStudioAppearance
+              ? "Edit appearance for this pane"
+              : "Edit appearance for this pane (" + UNWIRED_REASON + ")",
+            disabled: !window.AmuletStudioAppearance,
+            onClick: function () {
+              openAppearanceEditorOverlay();
+            },
+          },
+          ["✎"]
+        ),
         el(
           "button",
           {
@@ -1015,6 +1209,18 @@
             { label: "Streaming", value: worldStreaming() ? "yes" : "no" },
           ],
         });
+        if (state.analyzeRunning) {
+          sections.push({ title: "Analysis", rows: [{ label: "Status", value: "Running…" }] });
+        } else if (state.analyzeError) {
+          sections.push({ title: "Analysis", rows: [{ label: "Error", value: state.analyzeError }] });
+        } else if (state.analyzeResult) {
+          sections.push({
+            title: "Analysis · " + state.analyzeResult.command,
+            rows: state.analyzeResult.rows.map(function (row) {
+              return { label: row[0], value: row[1] };
+            }),
+          });
+        }
         appendSections(body, sections);
       } else if (state.paneTab === "layers") {
         body.appendChild(

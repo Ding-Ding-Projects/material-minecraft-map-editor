@@ -258,6 +258,46 @@
         return schoolCall("auth.clock_warning", { assumed_offset_seconds: assumedOffsetSeconds || 0 });
       },
     },
+    // The Analyze ribbon tab's read-only reporting path --
+    // amulet_map_editor/api/sidecar/analyze_methods.py. Every one of these
+    // is strictly read-only (never writes, never touches undo/redo), so
+    // unlike fillSelection/replaceInSelection above there is no `confirm`
+    // flag to thread through here. See docs/site/studio-workspace.js's
+    // "analyze" ribbon tab for the caller.
+    analyze: {
+      blockHistogram: function (worldId, dimension, min, max) {
+        return callWorldMethod("analyze.block_histogram", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+        });
+      },
+      chunkInventory: function (worldId, dimension, min, max) {
+        return callWorldMethod("analyze.chunk_inventory", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+        });
+      },
+      entityCounts: function (worldId, dimension, min, max) {
+        return callWorldMethod("analyze.entity_counts", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+        });
+      },
+      blockAudit: function (worldId, dimension, min, max) {
+        return callWorldMethod("analyze.block_audit", {
+          world_id: worldId,
+          dimension: dimension,
+          min: min,
+          max: max,
+        });
+      },
+    },
   };
 
   /** Thin wrapper shared by the School-mode and narrator calls above: run a

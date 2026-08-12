@@ -157,8 +157,11 @@ class DisabledCommandsAlwaysCarryAReason(unittest.TestCase):
     def test_unwired_commands_are_disabled_with_a_reason_in_their_title(self) -> None:
         got = render(
             FAKE_SIDECAR,
-            "const paste = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Paste') !== -1);"
-            "return { disabled: paste.disabled, title: paste.title };",
+            # 'Clone' is still genuinely unwired -- unlike 'Paste', which the
+            # selection.paste sidecar lane wired for real (it is disabled
+            # here only because this fixture has no world open).
+            "const clone = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Clone') !== -1);"
+            "return { disabled: clone.disabled, title: clone.title };",
         )
         self.assertTrue(got["disabled"])
         self.assertIn("Not yet wired to the desktop sidecar", got["title"])
