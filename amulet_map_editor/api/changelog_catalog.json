@@ -1,8 +1,332 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "b8bcedbb706eaefc52ee4a7a37553f687e7e082d",
+  "source_revision": "a27bd86e0d0f8e6cbeede0ead5d01bebe0c74ff9",
   "entries": [
+    {
+      "version": "0.10.0-dev.742",
+      "released_on": "2026-08-12",
+      "commit_sha": "639bc685d1b3f2cf62514e4e347f516ea192424c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Teach the Copy-button probe to find and press a StudioButton, not a wx.Button",
+          "commit_sha": "639bc685d1b3f2cf62514e4e347f516ea192424c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.739",
+      "released_on": "2026-08-12",
+      "commit_sha": "26e017d8e7f2fcb6a765cf765ffae029e3c1dc39",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add a regression test and a measurement script for the idle-redraw gate",
+          "commit_sha": "26e017d8e7f2fcb6a765cf765ffae029e3c1dc39"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.738",
+      "released_on": "2026-08-12",
+      "commit_sha": "ce79dbc2de9034b4685ee7e8d2a5c909ea04b221",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Route the startup diagnostics' git lookup through the no-console-window helper",
+          "commit_sha": "ce79dbc2de9034b4685ee7e8d2a5c909ea04b221"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.736",
+      "released_on": "2026-08-12",
+      "commit_sha": "b65d6887797aedb106db52933c2743733ec3e8d5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Update the banner-wrap test to check the resize call that actually ships",
+          "commit_sha": "b65d6887797aedb106db52933c2743733ec3e8d5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.731",
+      "released_on": "2026-08-11",
+      "commit_sha": "7be417bf23c649eeb3e94f9b882b1b0b6b8130b1",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop opening a world from freezing on a synchronous Git commit",
+          "commit_sha": "7be417bf23c649eeb3e94f9b882b1b0b6b8130b1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.729",
+      "released_on": "2026-08-11",
+      "commit_sha": "8d5e3062bcf0802984a610c0cbfb57f25d81b9d3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop every message in the application ending with the same seven words",
+          "commit_sha": "8d5e3062bcf0802984a610c0cbfb57f25d81b9d3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.727",
+      "released_on": "2026-08-11",
+      "commit_sha": "7550c526fea0f5ec3c1c722aaa2ebc8ad87a2a7f",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add an idle-loop profiler and a regression guard proving the shell holds still",
+          "commit_sha": "7550c526fea0f5ec3c1c722aaa2ebc8ad87a2a7f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.724",
+      "released_on": "2026-08-11",
+      "commit_sha": "9ae5d39f7ac7b898f7d84c20930e7f2028171779",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Dismiss the ribbon's stray tooltip when a resize hides the control it belongs to",
+          "commit_sha": "9ae5d39f7ac7b898f7d84c20930e7f2028171779"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.722",
+      "released_on": "2026-08-11",
+      "commit_sha": "534d03436898986ed7cb7b2602f8b564dc64ca11",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop the Properties pane forcing rows wider than the pane, and stop the search feedback line printing over its own field",
+          "commit_sha": "534d03436898986ed7cb7b2602f8b564dc64ca11"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.719",
+      "released_on": "2026-08-11",
+      "commit_sha": "23e9debd39345004c91ba6ce2cb8d02c4cd2b9b1",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add the Preferences toggle for the auto-stage updater the runtime already wires",
+          "commit_sha": "23e9debd39345004c91ba6ce2cb8d02c4cd2b9b1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.717",
+      "released_on": "2026-08-11",
+      "commit_sha": "4a0a6b6040c47d7121579d84ff2641600f96c27a",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add startup diagnostics logging and a rotating, findable log file",
+          "commit_sha": "4a0a6b6040c47d7121579d84ff2641600f96c27a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.714",
+      "released_on": "2026-08-11",
+      "commit_sha": "4729b30887d7b76fcd0c496d56584f3ea6bab292",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop the toast stack overlapping, clipping and hanging off the window edge",
+          "commit_sha": "4729b30887d7b76fcd0c496d56584f3ea6bab292"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.713",
+      "released_on": "2026-08-11",
+      "commit_sha": "61e8daafe0f59c5c8adf67ed6226b001835f3931",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Route every design-pixel font size through a real px->pt conversion instead of feeding pixels straight into SetPointSize",
+          "commit_sha": "61e8daafe0f59c5c8adf67ed6226b001835f3931"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.711",
+      "released_on": "2026-08-11",
+      "commit_sha": "35141c4da9cd9316a4bdcfc971288d6744c91f11",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Restore an inherited attribute by deleting it, not by assigning it back",
+          "commit_sha": "35141c4da9cd9316a4bdcfc971288d6744c91f11"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.705",
+      "released_on": "2026-08-11",
+      "commit_sha": "ff29056d690401b6cb7306c25dc04eec7728f50f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main' into site/pages-landing",
+          "commit_sha": "ff29056d690401b6cb7306c25dc04eec7728f50f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.706",
+      "released_on": "2026-08-11",
+      "commit_sha": "ff29056d690401b6cb7306c25dc04eec7728f50f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main' into site/pages-landing",
+          "commit_sha": "ff29056d690401b6cb7306c25dc04eec7728f50f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.704",
+      "released_on": "2026-08-11",
+      "commit_sha": "abdceea6c730dfedd49d85db8472eb3f4f327c9f",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add appearance presets, and document the one contract a static page cannot meet",
+          "commit_sha": "abdceea6c730dfedd49d85db8472eb3f4f327c9f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.703",
+      "released_on": "2026-08-11",
+      "commit_sha": "dc738d6a95ac428459d73843143b7d7d44e6e8f8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Recompute the scroll region when an operation replaces the panel",
+          "commit_sha": "dc738d6a95ac428459d73843143b7d7d44e6e8f8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.699",
+      "released_on": "2026-08-11",
+      "commit_sha": "9e14c72b4b43ef179bab079c964593e838340f24",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add scheduled settings, and an override layer so a schedule cannot eat a choice",
+          "commit_sha": "9e14c72b4b43ef179bab079c964593e838340f24"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.700",
+      "released_on": "2026-08-11",
+      "commit_sha": "9e14c72b4b43ef179bab079c964593e838340f24",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add scheduled settings, and an override layer so a schedule cannot eat a choice",
+          "commit_sha": "9e14c72b4b43ef179bab079c964593e838340f24"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.695",
+      "released_on": "2026-08-11",
+      "commit_sha": "2090e4d702322b36b5a7be74de8e5cfac850b44c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Build the destructive-action gate, and fix a lock history call that never fired",
+          "commit_sha": "2090e4d702322b36b5a7be74de8e5cfac850b44c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.696",
+      "released_on": "2026-08-11",
+      "commit_sha": "2090e4d702322b36b5a7be74de8e5cfac850b44c",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Build the destructive-action gate, and fix a lock history call that never fired",
+          "commit_sha": "2090e4d702322b36b5a7be74de8e5cfac850b44c"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.691",
+      "released_on": "2026-08-11",
+      "commit_sha": "38b84b5ec375ff5f0542ab1e0d93761c83778fc8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Finish the three security features instead of leaving them half-built",
+          "commit_sha": "38b84b5ec375ff5f0542ab1e0d93761c83778fc8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.692",
+      "released_on": "2026-08-11",
+      "commit_sha": "38b84b5ec375ff5f0542ab1e0d93761c83778fc8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Finish the three security features instead of leaving them half-built",
+          "commit_sha": "38b84b5ec375ff5f0542ab1e0d93761c83778fc8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.687",
+      "released_on": "2026-08-11",
+      "commit_sha": "822ae5f79a7132b22d620222abb3f93b9387c5f4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main' into site/pages-landing",
+          "commit_sha": "822ae5f79a7132b22d620222abb3f93b9387c5f4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.688",
+      "released_on": "2026-08-11",
+      "commit_sha": "822ae5f79a7132b22d620222abb3f93b9387c5f4",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main' into site/pages-landing",
+          "commit_sha": "822ae5f79a7132b22d620222abb3f93b9387c5f4"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.685",
+      "released_on": "2026-08-11",
+      "commit_sha": "b8bcedbb706eaefc52ee4a7a37553f687e7e082d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop the export-format runtime test hunting a wx.Choice that Material 3 already replaced",
+          "commit_sha": "b8bcedbb706eaefc52ee4a7a37553f687e7e082d"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.681",
       "released_on": "2026-08-11",
