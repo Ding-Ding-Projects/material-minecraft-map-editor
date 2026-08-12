@@ -67,6 +67,45 @@ except Exception as exc:  # noqa: BLE001 - any import-time failure degrades
 ERR_MESH_BACKEND_UNAVAILABLE = "mesh_backend_unavailable"
 ERR_CHUNK_COORD = "invalid_chunk_coord"
 
+#: Base names (namespace stripped) that a picking ray must pass THROUGH
+#: rather than stop at. Air is the obvious one; water and lava are the less
+#: obvious ones -- a picker that treats a lake's surface as solid can never
+#: select the lakebed under it, which is exactly as wrong as a picker that
+#: treats air as ground. Anything else in a palette (stone, logs, leaves,
+#: fences, torches, ...) is treated as solid. This is a coarse per-block-type
+#: rule, not a per-voxel collision shape -- a torch occupies its whole voxel
+#: for picking purposes even though its visual model does not, which matches
+#: how the wx app's own selection tools already treat blocks.
+_NON_SOLID_BASE_NAMES = frozenset(
+    {
+        "air",
+        "cave_air",
+        "void_air",
+        "water",
+        "flowing_water",
+        "lava",
+        "flowing_lava",
+        "bubble_column",
+    }
+)
+
+#: Occupancy is packed one bit per block, 16(x) x 16(y) x 16(z) = 4096 bits
+#: = 512 bytes per sub-chunk. Documented once, here, because an off-by-one
+#: in bit order makes picking miss by one block everywhere -- it reads as
+#: "the ray is slightly wrong" rather than as a packing bug, and costs a day
+#: to find if it is not written down.
+#:
+#: For local (in-sub-chunk) coordinates lx, ly, lz each in [0, 16):
+#:     bit_index = (ly * 16 + lz) * 16 + lx
+#:     byte_index = bit_index // 8
+#:     bit_in_byte = bit_index % 8          (bit 0 = least-significant bit)
+#:     solid = (byte[byte_index] >> bit_in_byte) & 1 == 1
+#: i.e. numpy.packbits(bits, bitorder="little") over a (16, 16, 16) boolean
+#: array whose axes are (y, z, x) in that order, C-contiguous, flattened.
+OCCUPANCY_DIM = 16
+OCCUPANCY_BITS_PER_SUB_CHUNK = OCCUPANCY_DIM * OCCUPANCY_DIM * OCCUPANCY_DIM
+OCCUPANCY_BYTES_PER_SUB_CHUNK = OCCUPANCY_BITS_PER_SUB_CHUNK // 8
+
 #: The one directory this sidecar process will ever write mesh/atlas binary
 #: files into, and the one directory Electron's main process will ever read
 #: a "sidecar:readBinary" path from. Namespaced by pid so two concurrent
@@ -388,6 +427,46 @@ def _sub_chunks_for(world, dimension: str, cx: int, cz: int, blocks):
     return sub_chunks
 
 
+def _occupancy_for_chunk(world, dimension: str, cx: int, cz: int):
+    """Compute the per-sub-chunk solid/non-solid occupancy bitset for one
+    chunk, entirely from the block palette this chunk already carries --
+    no neighbour chunks needed (unlike meshing, occupancy for picking never
+    looks across a chunk boundary; a ray that crosses one just asks again).
+
+    Returns ``(exists, sub_chunks)`` where ``sub_chunks`` is a list of
+    ``{"cy": int, "bytes": bytes}`` in ascending ``cy`` order, one entry per
+    sub-chunk that actually exists in this chunk (an entirely-air column has
+    no sub-chunks at all, and that is a valid, common answer: it means
+    "nothing here is solid", not "unknown").
+    """
+    import numpy
+    from amulet.api.errors import ChunkDoesNotExist, ChunkLoadError
+
+    try:
+        chunk = world.get_chunk(cx, cz, dimension)
+    except (ChunkDoesNotExist, ChunkLoadError):
+        return False, []
+
+    palette = chunk.block_palette
+    solid_lut = numpy.ones(len(palette), dtype=bool)
+    for index, block in enumerate(palette):
+        base_name = getattr(block, "base_name", None)
+        if base_name in _NON_SOLID_BASE_NAMES:
+            solid_lut[index] = False
+
+    sub_chunks = []
+    for cy in sorted(chunk.blocks.sub_chunks):
+        # get_sub_chunk(cy) is (x, y, z)-shaped, values = palette index --
+        # see _sub_chunks_for's neighbour-padding above, which relies on the
+        # exact same axis order.
+        sub = chunk.blocks.get_sub_chunk(cy)
+        solid = solid_lut[sub]
+        ordered = numpy.transpose(solid, (1, 2, 0))  # (x,y,z) -> (y,z,x)
+        packed = numpy.packbits(numpy.ascontiguousarray(ordered).reshape(-1), bitorder="little")
+        sub_chunks.append({"cy": int(cy), "bytes": packed.tobytes()})
+    return True, sub_chunks
+
+
 def _viewport_chunk_mesh(params: Dict[str, Any]) -> Dict[str, Any]:
     _require_backend()
     handle = _get_ready_world(params.get("world_id"))
@@ -530,11 +609,15 @@ def _evict_batches_locked() -> None:
     while len(_batch_order) > _BATCH_FILE_CACHE_LIMIT:
         oldest = _batch_order.pop(0)
         entry = _batches.pop(oldest, None)
-        if entry and entry.get("path") and os.path.exists(entry["path"]):
-            try:
-                os.remove(entry["path"])
-            except OSError:
-                pass
+        if not entry:
+            continue
+        for key in ("path", "occupancy_path"):
+            file_path = entry.get(key)
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
 
 
 def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
@@ -542,6 +625,8 @@ def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
         results = []
         buffers = []
         cursor = 0
+        occ_buffers = []
+        occ_cursor = 0
         gl_pack = _PACKS.get_ready(_batches[batch_id]["world_id"])
         for cx, cz in chunks:
             exists, verts, opaque_count = _mesh_one_chunk(world, dimension, cx, cz, gl_pack)
@@ -551,6 +636,23 @@ def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
                 byte_length = int(verts.nbytes)
             else:
                 byte_length = 0
+
+            # Occupancy rides this same batch/poll/release lifecycle rather
+            # than a second IPC channel -- it is computed alongside the mesh
+            # for every chunk in the batch and shipped in the same response,
+            # just via its own combined buffer (occupancy is orders of
+            # magnitude smaller than the interleaved vertex data, so it is
+            # kept separate rather than interleaved into one file).
+            occ_exists, occ_sub_chunks = _occupancy_for_chunk(world, dimension, cx, cz)
+            occ_meta = []
+            for sub in occ_sub_chunks:
+                data = sub["bytes"]
+                occ_buffers.append(data)
+                occ_meta.append(
+                    {"cy": sub["cy"], "byte_offset": occ_cursor, "byte_length": len(data)}
+                )
+                occ_cursor += len(data)
+
             results.append(
                 {
                     "cx": cx,
@@ -561,6 +663,8 @@ def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
                     "translucent_vertex_count": (vertex_count - opaque_count) if exists else 0,
                     "byte_offset": cursor,
                     "byte_length": byte_length,
+                    "occupancy_exists": occ_exists,
+                    "occupancy_sub_chunks": occ_meta,
                 }
             )
             cursor += byte_length
@@ -574,17 +678,24 @@ def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
         path = os.path.join(_TEMP_ROOT, f"mesh-batch-{batch_id}.bin")
         combined.tofile(path)
 
+        occ_combined = b"".join(occ_buffers)
+        occ_path = os.path.join(_TEMP_ROOT, f"occupancy-batch-{batch_id}.bin")
+        with open(occ_path, "wb") as fh:
+            fh.write(occ_combined)
+
         with _batch_lock:
             entry = _batches.get(batch_id)
             if entry is None:
                 # Released/evicted while we were working -- clean up and stop.
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
+                for stale_path in (path, occ_path):
+                    try:
+                        os.remove(stale_path)
+                    except OSError:
+                        pass
                 return
             entry["status"] = "ready"
             entry["path"] = path
+            entry["occupancy_path"] = occ_path
             entry["chunks"] = results
     except Exception as exc:  # noqa: BLE001 - reported, never raised on this thread
         with _batch_lock:
@@ -644,6 +755,7 @@ def _viewport_chunk_mesh_batch(params: Dict[str, Any]) -> Dict[str, Any]:
             "status": "pending",
             "world_id": handle.world_id,
             "path": None,
+            "occupancy_path": None,
             "chunks": None,
             "error": None,
         }
@@ -672,6 +784,9 @@ def _viewport_chunk_mesh_batch_status(params: Dict[str, Any]) -> Dict[str, Any]:
                 "status": "ready",
                 "path": entry["path"],
                 "vertex_stride_floats": 12,
+                "occupancy_path": entry["occupancy_path"],
+                "occupancy_dim": OCCUPANCY_DIM,
+                "occupancy_bytes_per_sub_chunk": OCCUPANCY_BYTES_PER_SUB_CHUNK,
                 "chunks": entry["chunks"],
             }
         if status == "failed":
@@ -691,11 +806,14 @@ def _viewport_chunk_mesh_batch_release(params: Dict[str, Any]) -> Dict[str, Any]
         entry = _batches.pop(batch_id, None)
         if batch_id in _batch_order:
             _batch_order.remove(batch_id)
-    if entry and entry.get("path") and os.path.exists(entry["path"]):
-        try:
-            os.remove(entry["path"])
-        except OSError:
-            pass
+    if entry:
+        for key in ("path", "occupancy_path"):
+            file_path = entry.get(key)
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
     return {"batch_id": batch_id, "released": entry is not None}
 
 

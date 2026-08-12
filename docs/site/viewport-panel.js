@@ -837,17 +837,23 @@
     // Every one of those has a keyboard equivalent (see onEditorKeyDown
     // below): a pointer-only editor is a defect here, not a limitation.
     //
-    // Real block data has no query path yet: the sidecar only ever streams
-    // whole meshed chunks to the GPU
-    // (amulet_map_editor/api/sidecar/mesh_methods.py has no "what block is
-    // at x,y,z" call), so there is nothing today's DDA march can test a hit
-    // against except the reference grid's own y=0 plane. That is what
-    // solidTest does below -- honestly, not a guess at real terrain -- and
-    // window.__AmuletViewportPanel.setSolidTest exists so a later change can
-    // swap in a real per-block query without touching any of this wiring.
-    var solidTest = function (x, y, z) {
-      return y === 0;
-    };
+    // Real block data: mesh_methods.py's "viewport.chunk_mesh_batch" now
+    // ships a packed occupancy bitset alongside every chunk's mesh (see
+    // docs/site/viewport-occupancy.js for the exact bit layout), and
+    // requestChunks()/unloadChunk() below keep this store's contents in
+    // sync with whatever chunks are actually loaded. solidTest answers from
+    // that store in constant time -- no IPC round trip on the picking ray's
+    // hot path -- and a chunk that has not streamed in yet honestly answers
+    // "not solid" rather than blocking the ray.
+    // window.__AmuletViewportPanel.setSolidTest still exists so tests (and a
+    // future fixture-driven picking test) can override this wholesale.
+    var occupancyApi = window.AmuletViewportOccupancy;
+    var occupancyStore = occupancyApi ? occupancyApi.createOccupancyStore() : null;
+    var solidTest = occupancyStore
+      ? occupancyStore.isSolid
+      : function () {
+          return false;
+        };
     var pendingPoint1 = null; // block coords from a first Alt+click, awaiting a second
     var activeDrag = null; // {drag} while a handle is being dragged
     var activeFaceIndex = 0; // which FACE_HANDLES entry the keyboard nudges
@@ -1122,6 +1128,31 @@
       if (!status) return;
 
       try {
+        // Occupancy is read once here regardless of whether any chunk had a
+        // renderable mesh (a superflat ocean chunk can be "all water, zero
+        // solid faces" for the mesher and still matter for picking -- the
+        // ray needs to know it is water, not treat it as unknown).
+        var occBytes = occupancyStore && status.occupancy_path ? await readBinary(status.occupancy_path) : null;
+        // Normalise to an ArrayBuffer whose byte 0 IS this result's byte 0
+        // -- readBinary's Uint8Array may be a view with a non-zero
+        // byteOffset into a larger buffer, and the "occupancy_sub_chunks"
+        // offsets from the sidecar are relative to the file's own start.
+        var occBuffer =
+          occBytes && occBytes.ok
+            ? occBytes.result.buffer.slice(
+                occBytes.result.byteOffset,
+                occBytes.result.byteOffset + occBytes.result.byteLength
+              )
+            : null;
+        if (occupancyStore && occBuffer) {
+          for (var k = 0; k < status.chunks.length; k++) {
+            var occEntry = status.chunks[k];
+            if (occEntry.occupancy_exists) {
+              occupancyStore.setChunk(occEntry.cx, occEntry.cz, occEntry.occupancy_sub_chunks, occBuffer);
+            }
+          }
+        }
+
         var readyChunks = status.chunks.filter(function (c) {
           return c.exists && c.vertex_count > 0;
         });
@@ -1208,6 +1239,7 @@
           var dcz = Math.abs(lz - center[1]);
           if (dcx > STREAM_RADIUS + UNLOAD_MARGIN || dcz > STREAM_RADIUS + UNLOAD_MARGIN) {
             viewport.unloadChunk(lx, lz);
+            if (occupancyStore) occupancyStore.unloadChunk(lx, lz);
           }
         }
         // Request every missing chunk in ONE batch call rather than one
