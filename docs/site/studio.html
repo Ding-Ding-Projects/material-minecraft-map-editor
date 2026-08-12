@@ -9,6 +9,7 @@
   <link rel="icon" href="assets/amulet_logo_512.png" sizes="any">
   <link rel="stylesheet" href="studio-tokens.css">
   <link rel="stylesheet" href="studio-backstage.css">
+  <link rel="stylesheet" href="studio-surfaces.css">
   <style>
     /* Shell-only layout rules. Every colour, size, and shadow here reads its
        value from a studio-tokens.css custom property -- nothing is
@@ -222,6 +223,12 @@
           pane, status bar. Populated by the workspace lane.
         </div>
       </section>
+      <section id="surfaces-view" data-view="surfaces" hidden>
+        <div id="studio-surfaces" aria-label="Local history, external editor, and Support Tickets"></div>
+      </section>
+      <section id="language-view" data-view="language" hidden>
+        <div id="studio-language" aria-label="Language, funny levels, emojis, School mode, and narrator"></div>
+      </section>
     </div>
 
     <aside id="notifications" class="drawer" aria-labelledby="notif-title" hidden>
@@ -276,5 +283,7 @@
   <script src="electron-bridge.js"></script>
   <script src="studio-backstage.js"></script>
   <script src="studio-shell.js"></script>
+  <script src="studio-surfaces.js"></script>
+  <script src="studio-language.js"></script>
 </body>
 </html>

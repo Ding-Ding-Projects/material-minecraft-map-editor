@@ -1,0 +1,117 @@
+/* Styling for docs/site/studio-surfaces.js: notifications, local history,
+ * external editor, and Support Tickets. Uses the same Material 3 tokens as
+ * the rest of Amulet Studio (studio-tokens.css); no legacy chrome. */
+
+#studio-surfaces {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 16px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+.surf-panel {
+  background: var(--m3-surface, #fff);
+  color: var(--m3-on-surface, #1a1c1e);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.surf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.surf-search {
+  flex: 1 1 220px;
+  min-width: 160px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--m3-outline, #74777f);
+  background: var(--m3-surface, #fff);
+  color: inherit;
+}
+
+.surf-regex-toggle,
+.surf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.surf-btn {
+  padding: 8px 14px;
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--m3-outline, #74777f);
+  background: var(--m3-surface-variant, #e1e2ec);
+  color: inherit;
+  cursor: pointer;
+}
+
+.surf-btn:focus-visible {
+  outline: 2px solid var(--m3-primary, #345fac);
+  outline-offset: 2px;
+}
+
+.surf-btn-destructive {
+  border-color: var(--m3-error, #ba1a1a);
+  color: var(--m3-error, #ba1a1a);
+}
+
+.surf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.surf-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr 2fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.surf-row:hover {
+  background: var(--m3-surface-variant, #e1e2ec);
+}
+
+.surf-row-title {
+  font-weight: 600;
+}
+
+.surf-row-state {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.surf-empty,
+.surf-count,
+.surf-hint {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.surf-disclosure {
+  font-size: 0.85rem;
+  border-left: 3px solid var(--m3-primary, #345fac);
+  padding-left: 10px;
+  margin: 8px 0;
+}
+
+@media (max-width: 640px) {
+  .surf-row {
+    grid-template-columns: 1fr;
+  }
+}

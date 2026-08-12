@@ -29,10 +29,18 @@ from amulet_map_editor.api import dim_sum_surprise as DIM_SUM
 from amulet_map_editor.api import docs_browser as DOCS_BROWSER
 from amulet_map_editor.api import lang as LANG
 from amulet_map_editor.api import preferences as PREFERENCES
+from amulet_map_editor.api import school_mode as SCHOOL_MODE
+from amulet_map_editor.api import tts_narrator as TTS_NARRATOR
 from amulet_map_editor.api.converter import registry as CONVERTER_REGISTRY
+from amulet_map_editor.api.sidecar.analyze_methods import ANALYZE_METHODS
 from amulet_map_editor.api.sidecar.edit_methods import EDIT_METHODS
+from amulet_map_editor.api.sidecar.entity_methods import ENTITY_METHODS
 from amulet_map_editor.api.sidecar.mesh_methods import MESH_METHODS
 from amulet_map_editor.api.sidecar.protocol import ERR_INVALID_PARAMS, ProtocolError
+from amulet_map_editor.api.sidecar.security_methods import SECURITY_METHODS
+from amulet_map_editor.api.sidecar.selection_methods import SELECTION_METHODS
+from amulet_map_editor.api.sidecar.surface_methods import SURFACE_METHODS
+from amulet_map_editor.api.sidecar.terrain_methods import TERRAIN_METHODS
 from amulet_map_editor.api.sidecar.world_methods import WORLD_METHODS
 
 MethodHandler = Callable[[Dict[str, Any]], Any]
@@ -316,6 +324,87 @@ def _dimsum_draw(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _school_status_dict(state: "SCHOOL_MODE.SchoolModeState") -> Dict[str, Any]:
+    # Never return the salt/digest -- an unlock is a yes/no answer, not a
+    # secret an agent or a renderer should ever hold onto.
+    return {
+        "mode_name": state.mode_name,
+        "enabled": state.enabled,
+        "has_unlock_credential": bool(state.credential_salt and state.credential_digest),
+    }
+
+
+def _school_status(_params: Dict[str, Any]) -> Dict[str, Any]:
+    return _school_status_dict(SCHOOL_MODE.load())
+
+
+def _school_set_mode_name(params: Dict[str, Any]) -> Dict[str, Any]:
+    name = params.get("mode_name")
+    if not isinstance(name, str):
+        raise ProtocolError(ERR_INVALID_PARAMS, "'mode_name' must be a string")
+    try:
+        state = SCHOOL_MODE.set_mode_name(name)
+    except ValueError as exc:
+        raise ProtocolError(ERR_INVALID_PARAMS, str(exc))
+    return _school_status_dict(state)
+
+
+def _school_reset_mode_name(_params: Dict[str, Any]) -> Dict[str, Any]:
+    return _school_status_dict(SCHOOL_MODE.reset_name())
+
+
+def _school_set_credential(params: Dict[str, Any]) -> Dict[str, Any]:
+    credential = params.get("credential")
+    if not isinstance(credential, str):
+        raise ProtocolError(ERR_INVALID_PARAMS, "'credential' must be a string")
+    try:
+        state = SCHOOL_MODE.set_unlock_credential(credential)
+    except ValueError as exc:
+        raise ProtocolError(ERR_INVALID_PARAMS, str(exc))
+    return _school_status_dict(state)
+
+
+def _school_enable(_params: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        state = SCHOOL_MODE.enable()
+    except ValueError as exc:
+        raise ProtocolError(ERR_INVALID_PARAMS, str(exc))
+    return _school_status_dict(state)
+
+
+def _school_unlock(params: Dict[str, Any]) -> Dict[str, Any]:
+    credential = params.get("credential")
+    if not isinstance(credential, str):
+        raise ProtocolError(ERR_INVALID_PARAMS, "'credential' must be a string")
+    unlocked = SCHOOL_MODE.unlock(credential)
+    result = _school_status_dict(SCHOOL_MODE.load())
+    result["unlocked"] = unlocked
+    return result
+
+
+_WRITABLE_NARRATOR_FIELDS = frozenset(
+    {"enabled", "language", "category_cooldown_seconds", "debounce_seconds"}
+)
+
+
+def _narrator_read(_params: Dict[str, Any]) -> Dict[str, Any]:
+    return asdict(TTS_NARRATOR.load_settings())
+
+
+def _narrator_write(params: Dict[str, Any]) -> Dict[str, Any]:
+    unknown = set(params) - _WRITABLE_NARRATOR_FIELDS
+    if unknown:
+        raise ProtocolError(
+            ERR_INVALID_PARAMS,
+            f"Unknown or non-writable narrator field(s): {sorted(unknown)}",
+        )
+    try:
+        updated = TTS_NARRATOR.update_settings(**params)
+    except (TypeError, ValueError, KeyError) as exc:
+        raise ProtocolError(ERR_INVALID_PARAMS, str(exc))
+    return asdict(updated)
+
+
 #: method name -> handler. The dispatcher (see :mod:`server`) looks a method
 #: up here and nowhere else, so an unregistered method name is always a
 #: structured "unknown_method" error rather than an ``AttributeError``.
@@ -331,7 +420,21 @@ METHODS: Dict[str, MethodHandler] = {
     "changelog.entries": _changelog_entries,
     "docs.articles": _docs_articles,
     "dimsum.draw": _dimsum_draw,
+    "school.status": _school_status,
+    "school.set_mode_name": _school_set_mode_name,
+    "school.reset_mode_name": _school_reset_mode_name,
+    "school.set_credential": _school_set_credential,
+    "school.enable": _school_enable,
+    "school.unlock": _school_unlock,
+    "narrator.read": _narrator_read,
+    "narrator.write": _narrator_write,
     **WORLD_METHODS,
     **MESH_METHODS,
     **EDIT_METHODS,
+    **ANALYZE_METHODS,
+    **SECURITY_METHODS,
+    **SURFACE_METHODS,
+    **SELECTION_METHODS,
+    **TERRAIN_METHODS,
+    **ENTITY_METHODS,
 }

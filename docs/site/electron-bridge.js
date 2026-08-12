@@ -81,7 +81,201 @@
     undoEdit: undoEdit,
     redoEdit: redoEdit,
     saveWorld: saveWorld,
+    // Selection.copy/cut/paste/delete and the structure/chunk write path --
+    // amulet_map_editor/api/sidecar/selection_methods.py. Same rule as the
+    // edit path above: every "confirmed" flag here comes from a real user
+    // decision made by the caller, never a default this bridge supplies.
+    copySelection: copySelection,
+    cutSelection: cutSelection,
+    pasteSelection: pasteSelection,
+    deleteSelection: deleteSelection,
+    clipboardStatus: clipboardStatus,
+    exportStructure: exportStructure,
+    importStructure: importStructure,
+    createChunks: createChunks,
+    deleteChunks: deleteChunks,
+    pruneChunks: pruneChunks,
+    // Universal surfaces: notifications with history, local Git-backed
+    // version history, and the external-editor handoff. Each is a real
+    // bridge.call() against amulet_map_editor.api.sidecar.surface_methods --
+    // see docs/site/studio-surfaces.js for the panel that drives these.
+    listNotifications: listNotifications,
+    addNotification: addNotification,
+    searchNotifications: searchNotifications,
+    bulkDismissNotifications: bulkDismissNotifications,
+    exportNotifications: exportNotifications,
+    listHistoryEvents: listHistoryEvents,
+    restoreHistoryEvent: restoreHistoryEvent,
+    exportHistory: exportHistory,
+    historyRoot: historyRoot,
+    discoverEditors: discoverEditors,
+    openInExternalEditor: openInExternalEditor,
+    selectExternalEditor: selectExternalEditor,
+    // The shared local School-mode state (amulet_map_editor.api.school_mode)
+    // and the optional, off-by-default TTS narrator
+    // (amulet_map_editor.api.tts_narrator). See docs/site/studio-language.js
+    // for the settings surface that drives these.
+    school: {
+      status: function () {
+        return schoolCall("school.status");
+      },
+      setModeName: function (modeName) {
+        return schoolCall("school.set_mode_name", { mode_name: modeName });
+      },
+      resetModeName: function () {
+        return schoolCall("school.reset_mode_name");
+      },
+      setCredential: function (credential) {
+        return schoolCall("school.set_credential", { credential: credential });
+      },
+      enable: function () {
+        return schoolCall("school.enable");
+      },
+      unlock: function (credential) {
+        return schoolCall("school.unlock", { credential: credential });
+      },
+    },
+    narrator: {
+      read: function () {
+        return schoolCall("narrator.read");
+      },
+      write: function (changes) {
+        return schoolCall("narrator.write", changes || {});
+      },
+    },
+    // Appearance presets, per-surface toy locks, and the built-in
+    // authenticator (amulet_map_editor.api.appearance_presets / item_locks /
+    // authenticator via sidecar/security_methods.py). See docs/site/
+    // studio-appearance.js and docs/site/studio-security.js for the panels.
+    // No function here reads or stores a secret itself -- the OS credential
+    // vault does, on the Python side; a secret crosses this bridge only when
+    // creating a lock/entry, exactly once, because the vault must receive it
+    // from somewhere.
+    appearance: {
+      listPresets: function () {
+        return schoolCall("appearance.presets.list");
+      },
+      savePreset: function (name, values, replace) {
+        return schoolCall("appearance.presets.save", { name: name, values: values, replace: Boolean(replace) });
+      },
+      deletePreset: function (name) {
+        return schoolCall("appearance.presets.delete", { name: name });
+      },
+      applyPreset: function (name) {
+        return schoolCall("appearance.presets.apply", { name: name });
+      },
+      exportPreset: function (name) {
+        return schoolCall("appearance.presets.export", { name: name });
+      },
+      importPreset: function (payload, replace) {
+        return schoolCall("appearance.presets.import", { payload: payload, replace: Boolean(replace) });
+      },
+      resetProperty: function (propertyName) {
+        return schoolCall("appearance.reset_property", { property: propertyName });
+      },
+      resetAll: function () {
+        return schoolCall("appearance.reset_all");
+      },
+    },
+    locks: {
+      list: function () {
+        return schoolCall("locks.list");
+      },
+      create: function (scope, targetId, label, method, credential, options) {
+        var params = {
+          scope: scope,
+          target_id: targetId,
+          label: label,
+          method: method,
+          unlock_duration: (options && options.unlockDuration) || "surface",
+          locked_on_launch: !options || options.lockedOnLaunch !== false,
+        };
+        if (method === "totp") params.totp_secret = credential;
+        else params.password = credential;
+        return schoolCall("locks.create", params);
+      },
+      attemptUnlock: function (lockId, answer) {
+        return schoolCall("locks.attempt_unlock", { lock_id: lockId, answer: answer });
+      },
+      relock: function (lockId) {
+        return schoolCall("locks.relock", { lock_id: lockId });
+      },
+      remove: function (lockId) {
+        return schoolCall("locks.remove", { lock_id: lockId });
+      },
+      changeCredential: function (lockId, method, credential) {
+        var params = { lock_id: lockId };
+        if (method === "totp") params.totp_secret = credential;
+        else params.password = credential;
+        return schoolCall("locks.change_credential", params);
+      },
+      generateTotpSecret: function () {
+        return schoolCall("locks.generate_totp_secret");
+      },
+    },
+    authenticator: {
+      listEntries: function () {
+        return schoolCall("auth.list_entries");
+      },
+      generateSecret: function (length) {
+        return schoolCall("auth.generate_secret", { length: length });
+      },
+      buildUri: function (issuer, account, secret, options) {
+        var params = { issuer: issuer, account: account, secret: secret };
+        if (options) {
+          if (options.algorithm) params.algorithm = options.algorithm;
+          if (options.digits) params.digits = options.digits;
+          if (options.period) params.period = options.period;
+        }
+        return schoolCall("auth.build_uri", params);
+      },
+      addEntry: function (issuer, account, secret, options) {
+        var params = { issuer: issuer, account: account, secret: secret };
+        if (options) {
+          if (options.algorithm) params.algorithm = options.algorithm;
+          if (options.digits) params.digits = options.digits;
+          if (options.period) params.period = options.period;
+        }
+        return schoolCall("auth.add_entry", params);
+      },
+      renameEntry: function (entryId, issuer, account) {
+        return schoolCall("auth.rename_entry", { entry_id: entryId, issuer: issuer, account: account });
+      },
+      deleteEntry: function (entryId) {
+        return schoolCall("auth.delete_entry", { entry_id: entryId });
+      },
+      currentCode: function (entryId) {
+        return schoolCall("auth.current_code", { entry_id: entryId });
+      },
+      // Metadata-only export -- the sidecar's own row omits the secret and
+      // says so. There is deliberately no bridge call for the
+      // secrets-included export; that path belongs behind the
+      // super-confirmation gate in studio-security.js, never a plain call.
+      exportEntries: function () {
+        return schoolCall("auth.export");
+      },
+      clockWarning: function (assumedOffsetSeconds) {
+        return schoolCall("auth.clock_warning", { assumed_offset_seconds: assumedOffsetSeconds || 0 });
+      },
+    },
   };
+
+  /** Thin wrapper shared by the School-mode and narrator calls above: run a
+   * sidecar method that already returns `{ok, result}` / `{ok, error}` and
+   * resolve to just `result`, rejecting with the real message otherwise.
+   * Safe to call before `bridge` is known to exist -- outside Electron it
+   * rejects rather than throwing, matching every other status function here. */
+  function schoolCall(method, params) {
+    if (!bridge || typeof bridge.call !== "function") {
+      return Promise.reject(new Error("sidecar unavailable"));
+    }
+    return bridge.call(method, params || {}).then(function (response) {
+      if (!response || !response.ok) {
+        throw new Error((response && response.error && response.error.message) || method + " failed");
+      }
+      return response.result;
+    });
+  }
 
   Site.electronSidecar = status;
 
@@ -331,6 +525,119 @@
     return callWorldMethod("world.save", { world_id: worldId, confirm: Boolean(confirmed) });
   }
 
+  /** Copy a selection to the sidecar's per-world clipboard. Read-only --
+   * never gated behind confirm, matching selection_methods.py. */
+  function copySelection(worldId, dimension, min, max) {
+    return callWorldMethod("selection.copy", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+    });
+  }
+
+  /** Cut (copy, then delete) a selection. Writes to the world -- confirmed
+   * must come from a real user decision. */
+  function cutSelection(worldId, dimension, min, max, confirmed) {
+    return callWorldMethod("selection.cut", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+      confirm: Boolean(confirmed),
+    });
+  }
+
+  /** Paste whatever was last copied/cut for this world at `location`. */
+  function pasteSelection(worldId, dimension, location, confirmed) {
+    return callWorldMethod("selection.paste", {
+      world_id: worldId,
+      dimension: dimension,
+      location: location,
+      confirm: Boolean(confirmed),
+    });
+  }
+
+  /** Delete (air-fill) a selection without keeping a clipboard copy. */
+  function deleteSelection(worldId, dimension, min, max, confirmed) {
+    return callWorldMethod("selection.delete", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+      confirm: Boolean(confirmed),
+    });
+  }
+
+  /** Whether this world currently has something copied/cut and ready to
+   * paste -- read-only, used to enable/disable the Paste command. */
+  function clipboardStatus(worldId) {
+    return callWorldMethod("selection.clipboard_status", { world_id: worldId });
+  }
+
+  /** Export a selection to a real structure file on disk. Not gated behind
+   * the destructive-edit confirm (it never touches the open world), but a
+   * pre-existing destination file requires its own explicit
+   * overwriteConfirmed, exactly like `convert()` above. */
+  function exportStructure(worldId, dimension, min, max, destinationPath, overwriteConfirmed) {
+    return callWorldMethod("structure.export", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+      destination_path: destinationPath,
+      overwrite_confirmed: Boolean(overwriteConfirmed),
+    });
+  }
+
+  /** Import a structure file and paste it into the open world at
+   * `location`. Writes to the world -- confirmed must come from a real
+   * user decision. */
+  function importStructure(worldId, dimension, sourcePath, location, confirmed) {
+    return callWorldMethod("structure.import", {
+      world_id: worldId,
+      dimension: dimension,
+      source_path: sourcePath,
+      location: location,
+      confirm: Boolean(confirmed),
+    });
+  }
+
+  /** Create every missing chunk in an area. Never overwrites an existing
+   * chunk, so this is not gated behind confirm. */
+  function createChunks(worldId, dimension, min, max) {
+    return callWorldMethod("chunk.create", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+    });
+  }
+
+  /** Delete every chunk within an area. Writes to the world -- confirmed
+   * must come from a real user decision. */
+  function deleteChunks(worldId, dimension, min, max, confirmed) {
+    return callWorldMethod("chunk.delete", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+      confirm: Boolean(confirmed),
+    });
+  }
+
+  /** Delete every chunk OUTSIDE an area ("prune"/"delete unselected").
+   * Writes to the world -- confirmed must come from a real user decision. */
+  function pruneChunks(worldId, dimension, min, max, confirmed) {
+    return callWorldMethod("chunk.prune", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+      confirm: Boolean(confirmed),
+    });
+  }
+
   function drawDimSum(languageMode) {
     if (!status.available) {
       return Promise.reject(new Error("sidecar unavailable"));
@@ -343,6 +650,86 @@
         }
         return response.result;
       });
+  }
+
+  // ------------------------------------------------------------------
+  // Universal surfaces: notifications, local history, external editor.
+  // Every one of these is `callWorldMethod` against a real
+  // surface_methods.py handler -- no generic escape hatch, one function per
+  // wire method, matching the parameter names methods.py actually reads.
+  // ------------------------------------------------------------------
+
+  function listNotifications(includeDismissed) {
+    return callWorldMethod("notifications.list", {
+      include_dismissed: includeDismissed !== false,
+    });
+  }
+
+  function addNotification(severity, title, body, details) {
+    return callWorldMethod("notifications.add", {
+      severity: severity,
+      title: title,
+      body: body,
+      details: details || "",
+    });
+  }
+
+  function searchNotifications(query, regex, includeDismissed) {
+    return callWorldMethod("notifications.search", {
+      query: query || "",
+      regex: Boolean(regex),
+      include_dismissed: includeDismissed !== false,
+    });
+  }
+
+  /** Bulk-dismiss the selected notifications -- honestly scoped to exactly
+   * the ids passed, never "everything currently loaded". */
+  function bulkDismissNotifications(notificationIds) {
+    return callWorldMethod("notifications.bulkDismiss", {
+      notification_ids: notificationIds || [],
+    });
+  }
+
+  /** Export honours the active selection when one is given; omit
+   * `notificationIds` to export every (filtered) notification currently
+   * held. */
+  function exportNotifications(format, notificationIds, includeDismissed) {
+    return callWorldMethod("notifications.export", {
+      format: format || "json",
+      notification_ids: notificationIds || undefined,
+      include_dismissed: includeDismissed !== false,
+    });
+  }
+
+  function listHistoryEvents(filters) {
+    return callWorldMethod("history.events", filters || {});
+  }
+
+  /** Restoring is itself recorded as a NEW history event, never a rewrite --
+   * see amulet_map_editor.api.local_history.LocalHistory.restore. */
+  function restoreHistoryEvent(eventId) {
+    return callWorldMethod("history.restore", { event_id: eventId });
+  }
+
+  function exportHistory(format, filters) {
+    var params = Object.assign({ format: format || "json" }, filters || {});
+    return callWorldMethod("history.export", params);
+  }
+
+  function historyRoot() {
+    return callWorldMethod("history.root", {});
+  }
+
+  function discoverEditors() {
+    return callWorldMethod("editor.discover", {});
+  }
+
+  function openInExternalEditor(path) {
+    return callWorldMethod("editor.open", { path: path });
+  }
+
+  function selectExternalEditor(path) {
+    return callWorldMethod("editor.select", { path: path });
   }
 
   /**
