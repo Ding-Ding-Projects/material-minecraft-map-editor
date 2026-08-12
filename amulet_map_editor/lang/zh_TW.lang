@@ -265,6 +265,8 @@ program_3d_edit.select_tool.scroll_point_z2_tooltip=設置活動框藍色角的z
 program_3d_edit.select_tool.box_size_selector_fstring=dx={x},dy={y},dz={z}
 program_3d_edit.select_tool.box_size_selector_tooltip=使用Minecraft體積選擇器符號表示的作用中的選擇區域的形狀。
 program_3d_edit.select_tool.box_size_tooltip=作用中的選擇框的大小（以方塊為單位）。
+program_3d_edit.select_tool.point1_heading=點1（綠色角）
+program_3d_edit.select_tool.point2_heading=點2（藍色角）
 program_3d_edit.select_tool.button_point1=移動點1
 program_3d_edit.select_tool.button_point1_tooltip=按下並按住此按鈕，然後使用移動控件來移動綠色選擇點。
 program_3d_edit.select_tool.button_point2=移動點2

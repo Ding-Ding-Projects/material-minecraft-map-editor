@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Callable, Tuple, Iterable
+from typing import TYPE_CHECKING, Tuple, Iterable
 import logging
 
 import wx
@@ -10,8 +10,7 @@ from OpenGL.GL import (
 from amulet.api.data_types import BlockCoordinates
 
 from amulet_map_editor import lang
-from amulet_map_editor.api.wx.ui.simple import SimpleScrollablePanel
-from amulet_map_editor.api.wx.util.validators import int_validator
+from amulet_map_editor.api.studio.widgets import Divider, StudioText
 from amulet_map_editor.api.opengl.camera import Projection, Camera
 from amulet_map_editor.programs.edit.api.events import EVT_SELECTION_CHANGE
 from amulet_map_editor.programs.edit.api.behaviour.inspect_block_behaviour import (
@@ -25,10 +24,17 @@ from amulet_map_editor.programs.edit.api.behaviour.block_selection_behaviour imp
     EVT_RENDER_BOX_ENABLE_INPUTS,
 )
 from amulet_map_editor.programs.edit.api.ui.tool import DefaultBaseToolUI
+from amulet_map_editor.programs.edit.api.ui.material_tool_panel import (
+    PANEL_PADDING,
+    ToolPanel,
+    TupleNumberField,
+    section_heading,
+    tool_button,
+)
 from amulet_map_editor.programs.edit.api.key_config import (
     KeybindGroup,
 )
-from amulet_map_editor.programs.edit.api.ui.nudge_button import NudgeButton
+from amulet_map_editor.programs.edit.api.ui.nudge_button import MaterialNudgeButton
 
 if TYPE_CHECKING:
     from amulet_map_editor.programs.edit.api.canvas import EditCanvas
@@ -38,7 +44,7 @@ log = logging.getLogger(__name__)
 paint_log_count = 0
 
 
-class BaseSelectionMoveButton(NudgeButton):
+class BaseSelectionMoveButton(MaterialNudgeButton):
     def __init__(
         self,
         parent: wx.Window,
@@ -78,13 +84,6 @@ class SelectionMoveButton(BaseSelectionMoveButton):
 
 
 class SelectTool(wx.BoxSizer, DefaultBaseToolUI):
-    _x1: wx.SpinCtrl
-    _y1: wx.SpinCtrl
-    _z1: wx.SpinCtrl
-    _x2: wx.SpinCtrl
-    _y2: wx.SpinCtrl
-    _z2: wx.SpinCtrl
-
     def __init__(self, canvas: "EditCanvas"):
         wx.BoxSizer.__init__(self, wx.HORIZONTAL)
         DefaultBaseToolUI.__init__(self, canvas)
@@ -92,97 +91,80 @@ class SelectTool(wx.BoxSizer, DefaultBaseToolUI):
         self._selection = BlockSelectionBehaviour(self.canvas)
         self._inspect_block = InspectBlockBehaviour(self.canvas, self._selection)
 
-        self._button_panel = SimpleScrollablePanel(canvas.Parent)
-        self._button_panel.SetBackgroundColour(
-            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
-        )
-        button_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._button_panel.SetSizer(button_sizer)
+        self._button_panel = ToolPanel(canvas.GetParent(), "Select tool options")
+        button_sizer = self._button_panel.sizer
+        pad = wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND
 
-        def add_button(
-            label: str, tooltip: str, action: Callable[[wx.PyEventBinder], None]
-        ):
-            button = wx.Button(self._button_panel, label=label)
-            button.SetToolTip(tooltip)
-            button_sizer.Add(button, 0, wx.ALL | wx.EXPAND, 5)
-            button.Bind(wx.EVT_BUTTON, action)
+        def add_line():
+            button_sizer.Add(Divider(self._button_panel), 0, pad, PANEL_PADDING)
 
-        add_button(
+        button_sizer.AddSpacer(PANEL_PADDING)
+
+        self._delete_button = tool_button(
+            self._button_panel,
             lang.get("program_3d_edit.select_tool.delete_button"),
-            lang.get("program_3d_edit.select_tool.delete_button_tooltip"),
-            lambda evt: self.canvas.delete(),
+            tooltip=lang.get("program_3d_edit.select_tool.delete_button_tooltip"),
+            variant="danger",
+            on_click=lambda: self.canvas.delete(),
         )
-        add_button(
+        button_sizer.Add(self._delete_button, 0, pad, PANEL_PADDING)
+
+        self._copy_button = tool_button(
+            self._button_panel,
             lang.get("program_3d_edit.select_tool.copy_button"),
-            lang.get("program_3d_edit.select_tool.copy_button_tooltip"),
-            lambda evt: self.canvas.copy(),
+            tooltip=lang.get("program_3d_edit.select_tool.copy_button_tooltip"),
+            variant="tonal",
+            on_click=lambda: self.canvas.copy(),
         )
-        add_button(
+        button_sizer.Add(self._copy_button, 0, pad, PANEL_PADDING)
+
+        self._cut_button = tool_button(
+            self._button_panel,
             lang.get("program_3d_edit.select_tool.cut_button"),
-            lang.get("program_3d_edit.select_tool.cut_button_tooltip"),
-            lambda evt: self.canvas.cut(),
+            tooltip=lang.get("program_3d_edit.select_tool.cut_button_tooltip"),
+            variant="tonal",
+            on_click=lambda: self.canvas.cut(),
         )
-        add_button(
+        button_sizer.Add(self._cut_button, 0, pad, PANEL_PADDING)
+
+        self._paste_button = tool_button(
+            self._button_panel,
             lang.get("program_3d_edit.select_tool.paste_button"),
-            lang.get("program_3d_edit.select_tool.paste_button_tooltip"),
-            lambda evt: self.canvas.paste_from_cache(),
+            tooltip=lang.get("program_3d_edit.select_tool.paste_button_tooltip"),
+            variant="tonal",
+            on_click=lambda: self.canvas.paste_from_cache(),
         )
+        button_sizer.Add(self._paste_button, 0, pad, PANEL_PADDING)
 
-        self._x1 = self._add_spin_ctrl(
-            lang.get("program_3d_edit.select_tool.scroll_point_x1"),
-            lang.get("program_3d_edit.select_tool.scroll_point_x1_tooltip"),
-            (160, 215, 145),
-        )
-        self._y1 = self._add_spin_ctrl(
-            lang.get("program_3d_edit.select_tool.scroll_point_y1"),
-            lang.get("program_3d_edit.select_tool.scroll_point_y1_tooltip"),
-            (160, 215, 145),
-        )
-        self._z1 = self._add_spin_ctrl(
-            lang.get("program_3d_edit.select_tool.scroll_point_z1"),
-            lang.get("program_3d_edit.select_tool.scroll_point_z1_tooltip"),
-            (160, 215, 145),
-        )
-        self._x2 = self._add_spin_ctrl(
-            lang.get("program_3d_edit.select_tool.scroll_point_x2"),
-            lang.get("program_3d_edit.select_tool.scroll_point_x2_tooltip"),
-            (150, 150, 215),
-        )
-        self._y2 = self._add_spin_ctrl(
-            lang.get("program_3d_edit.select_tool.scroll_point_y2"),
-            lang.get("program_3d_edit.select_tool.scroll_point_y2_tooltip"),
-            (150, 150, 215),
-        )
-        self._z2 = self._add_spin_ctrl(
-            lang.get("program_3d_edit.select_tool.scroll_point_z2"),
-            lang.get("program_3d_edit.select_tool.scroll_point_z2_tooltip"),
-            (150, 150, 215),
-        )
+        add_line()
 
-        self._box_size_selector_fstring = lang.get(
-            "program_3d_edit.select_tool.box_size_selector_fstring"
+        # Point 1 -- the box's green corner.  Colour alone never carries the
+        # meaning: the heading names it, the per-axis letter is coloured the
+        # way the viewport's own axis legend is, and the move button beneath
+        # repeats the words "Point 1" so a reader who cannot see colour still
+        # knows which corner each control touches.
+        button_sizer.Add(
+            section_heading(
+                self._button_panel,
+                lang.get("program_3d_edit.select_tool.point1_heading"),
+            ),
+            0,
+            pad,
+            PANEL_PADDING,
         )
-        try:
-            box_size_fstring = self._box_size_selector_fstring.format(x=0, y=0, z=0)
-        except:
-            self._box_size_selector_fstring = "dx={x},dy={y},dz={z}"
-            box_size_fstring = self._box_size_selector_fstring.format(x=0, y=0, z=0)
-        self._box_size_selector_text = wx.StaticText(
-            self._button_panel, label=box_size_fstring, style=wx.ALIGN_CENTER_HORIZONTAL
+        self._point1 = TupleNumberField(
+            self._button_panel,
+            ("X", "Y", "Z"),
+            group="Point 1",
+            tooltips=(
+                lang.get("program_3d_edit.select_tool.scroll_point_x1_tooltip"),
+                lang.get("program_3d_edit.select_tool.scroll_point_y1_tooltip"),
+                lang.get("program_3d_edit.select_tool.scroll_point_z1_tooltip"),
+            ),
+            on_change=lambda _value: self._box_input_change(),
+            on_layout=self._resize,
         )
-        self._box_size_selector_text.SetToolTip(
-            lang.get("program_3d_edit.select_tool.box_size_selector_tooltip")
-        )
-        button_sizer.Add(self._box_size_selector_text, 0, wx.ALL | wx.EXPAND, 5)
-
-        self._box_volume_text = wx.StaticText(
-            self._button_panel, label="0x0x0=0", style=wx.ALIGN_CENTER_HORIZONTAL
-        )
-        button_sizer.Add(self._box_volume_text, 0, wx.ALL | wx.EXPAND, 5)
-        self._box_volume_text.SetToolTip(
-            lang.get("program_3d_edit.select_tool.box_size_tooltip")
-        )
-
+        button_sizer.Add(self._point1, 0, pad, PANEL_PADDING)
         self._point1_move = Point1MoveButton(
             self._button_panel,
             self.canvas.camera,
@@ -191,10 +173,33 @@ class SelectTool(wx.BoxSizer, DefaultBaseToolUI):
             lang.get("program_3d_edit.select_tool.button_point1_tooltip"),
             self._selection,
         )
-        self._point1_move.SetBackgroundColour((160, 215, 145))
         self._point1_move.Disable()
-        button_sizer.Add(self._point1_move, 0, wx.ALL | wx.EXPAND, 5)
+        button_sizer.Add(self._point1_move, 0, pad, PANEL_PADDING)
 
+        add_line()
+
+        button_sizer.Add(
+            section_heading(
+                self._button_panel,
+                lang.get("program_3d_edit.select_tool.point2_heading"),
+            ),
+            0,
+            pad,
+            PANEL_PADDING,
+        )
+        self._point2 = TupleNumberField(
+            self._button_panel,
+            ("X", "Y", "Z"),
+            group="Point 2",
+            tooltips=(
+                lang.get("program_3d_edit.select_tool.scroll_point_x2_tooltip"),
+                lang.get("program_3d_edit.select_tool.scroll_point_y2_tooltip"),
+                lang.get("program_3d_edit.select_tool.scroll_point_z2_tooltip"),
+            ),
+            on_change=lambda _value: self._box_input_change(),
+            on_layout=self._resize,
+        )
+        button_sizer.Add(self._point2, 0, pad, PANEL_PADDING)
         self._point2_move = Point2MoveButton(
             self._button_panel,
             self.canvas.camera,
@@ -203,9 +208,42 @@ class SelectTool(wx.BoxSizer, DefaultBaseToolUI):
             lang.get("program_3d_edit.select_tool.button_point2_tooltip"),
             self._selection,
         )
-        self._point2_move.SetBackgroundColour((150, 150, 215))
         self._point2_move.Disable()
-        button_sizer.Add(self._point2_move, 0, wx.ALL | wx.EXPAND, 5)
+        button_sizer.Add(self._point2_move, 0, pad, PANEL_PADDING)
+
+        add_line()
+
+        self._box_size_selector_fstring = lang.get(
+            "program_3d_edit.select_tool.box_size_selector_fstring"
+        )
+        try:
+            box_size_fstring = self._box_size_selector_fstring.format(x=0, y=0, z=0)
+        except Exception:
+            self._box_size_selector_fstring = "dx={x},dy={y},dz={z}"
+            box_size_fstring = self._box_size_selector_fstring.format(x=0, y=0, z=0)
+        self._box_size_selector_text = StudioText(
+            self._button_panel,
+            box_size_fstring,
+            size_px=12,
+            role="on_surface_variant",
+            name="Selection size",
+        )
+        self._box_size_selector_text.SetToolTip(
+            lang.get("program_3d_edit.select_tool.box_size_selector_tooltip")
+        )
+        button_sizer.Add(self._box_size_selector_text, 0, pad, PANEL_PADDING)
+
+        self._box_volume_text = StudioText(
+            self._button_panel,
+            "0x0x0=0",
+            size_px=12,
+            role="on_surface_variant",
+            name="Selection volume",
+        )
+        self._box_volume_text.SetToolTip(
+            lang.get("program_3d_edit.select_tool.box_size_tooltip")
+        )
+        button_sizer.Add(self._box_volume_text, 0, pad, PANEL_PADDING)
 
         self._selection_move = SelectionMoveButton(
             self._button_panel,
@@ -215,9 +253,8 @@ class SelectTool(wx.BoxSizer, DefaultBaseToolUI):
             lang.get("program_3d_edit.select_tool.button_selection_box_tooltip"),
             self._selection,
         )
-        self._selection_move.SetBackgroundColour((255, 255, 255))
         self._selection_move.Disable()
-        button_sizer.Add(self._selection_move, 0, wx.ALL | wx.EXPAND, 5)
+        button_sizer.Add(self._selection_move, 0, pad, PANEL_PADDING)
 
         self._resize()
 
@@ -252,34 +289,10 @@ class SelectTool(wx.BoxSizer, DefaultBaseToolUI):
         self._selection_move.disable()
         self._button_panel.Hide()
 
-    def _add_spin_ctrl(
-        self, label: str, tooltip: str, colour: Tuple[int, int, int]
-    ) -> wx.SpinCtrl:
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self._button_panel.GetSizer().Add(sizer, 0, wx.EXPAND)
-        name_text = wx.StaticText(self._button_panel, label=label)
-        sizer.Add(name_text, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
-        obj = wx.SpinCtrl(
-            self._button_panel,
-            style=wx.SP_ARROW_KEYS
-            | wx.TE_PROCESS_ENTER
-            | wx.ALIGN_CENTER_VERTICAL
-            | wx.WANTS_CHARS,
-            min=-30000000,
-            max=30000000,
-        )
-        sizer.Add(obj, 1, flag=wx.CENTER | wx.TOP | wx.BOTTOM | wx.RIGHT, border=5)
-        obj.Bind(wx.EVT_SPINCTRL, self._box_input_change)
-        obj.SetValidator(int_validator)
-        obj.Disable()
-        obj.SetToolTip(tooltip)
-        obj.SetBackgroundColour(colour)
-        return obj
-
-    def _box_input_change(self, _):
+    def _box_input_change(self):
         self._selection.active_block_positions = (
-            (self._x1.GetValue(), self._y1.GetValue(), self._z1.GetValue()),
-            (self._x2.GetValue(), self._y2.GetValue(), self._z2.GetValue()),
+            tuple(self._point1.value),
+            tuple(self._point2.value),
         )
 
     def _box_renderer_change(self, evt: RenderBoxChangeEvent):
@@ -297,12 +310,8 @@ class SelectTool(wx.BoxSizer, DefaultBaseToolUI):
         self, point1: BlockCoordinates, point2: BlockCoordinates
     ):
         x1, y1, z1, x2, y2, z2 = map(int, (*point1, *point2))
-        self._x1.SetValue(x1)
-        self._y1.SetValue(y1)
-        self._z1.SetValue(z1)
-        self._x2.SetValue(x2)
-        self._y2.SetValue(y2)
-        self._z2.SetValue(z2)
+        self._point1.value = (x1, y1, z1)
+        self._point2.value = (x2, y2, z2)
         xdim = int(abs(x2 - x1))
         ydim = int(abs(y2 - y1))
         zdim = int(abs(z2 - z1))
@@ -333,25 +342,32 @@ class SelectTool(wx.BoxSizer, DefaultBaseToolUI):
         evt.Skip()
 
     def _set_scroll_state(self, state: bool):
-        for scroll in (self._x1, self._y1, self._z1, self._x2, self._y2, self._z2):
-            scroll.Enable(state)
+        self._point1.Enable(state)
+        self._point2.Enable(state)
 
     def _on_resize(self, evt):
         self._resize()
         evt.Skip()
 
     def _resize(self):
+        # Docked flush against the right edge of the viewport, full height,
+        # rather than centred over the middle of the world -- the raw wx
+        # panel this replaces sat a third of the way down the left edge and
+        # hid whatever the reader was trying to look at underneath it.
         panel_size = self._button_panel.GetBestSize()
-        canvas_height = self.canvas.GetSize().GetHeight()
-        allowed_canvas_height = canvas_height - 60
-        ideal_path_height = panel_size.GetHeight()
-        panel_height = min(ideal_path_height, allowed_canvas_height)
+        canvas_size = self.canvas.GetSize()
+        canvas_width = canvas_size.GetWidth()
+        canvas_height = canvas_size.GetHeight()
         panel_width = panel_size.GetWidth()
-        if allowed_canvas_height < ideal_path_height:
+        panel_height = min(panel_size.GetHeight(), canvas_height)
+        if panel_height < panel_size.GetHeight():
             panel_width += wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
         self._button_panel.SetSize(
             wx.Rect(
-                0, canvas_height // 2 - panel_height // 2, panel_width, panel_height
+                max(0, canvas_width - panel_width),
+                0,
+                panel_width,
+                panel_height,
             )
         )
         self._button_panel.Layout()
