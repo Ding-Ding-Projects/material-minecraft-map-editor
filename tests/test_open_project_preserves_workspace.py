@@ -60,6 +60,37 @@ def app() -> Iterator["wx.App"]:
         created.Destroy()
 
 
+@pytest.fixture(autouse=True)
+def _own_profile(monkeypatch: "pytest.MonkeyPatch") -> Iterator[None]:
+    """Count widgets against a profile no other test has written to.
+
+    This file asserts an exact widget count, which makes it the one file in
+    the suite that cannot tolerate inherited state. It passed alone and failed
+    in the full run at 217 against an expected 216 -- one extra widget,
+    contributed by whatever an earlier test had left in the shared profile
+    (a recent project, a pinned tab, a stored preference). The shell reads
+    those stores when it builds, so its widget count is a function of them.
+
+    An order-dependent failure like that is worse than a plain one: it points
+    at the wrong file, it reproduces only in a twenty-minute run, and the
+    obvious next step is to loosen the assertion -- which would throw away the
+    only check that would notice a widget genuinely leaking on every world
+    open.
+    """
+    import tempfile
+
+    profile = tempfile.mkdtemp(prefix="amulet-workspace-test-")
+    for store in (
+        "CONFIG_DIR",
+        "DATA_DIR",
+        "CACHE_DIR",
+        "AMULET_RECENTS_DIR",
+        "AMULET_HISTORY_DIR",
+    ):
+        monkeypatch.setenv(store, profile)
+    yield
+
+
 @pytest.fixture
 def shell(app: "wx.App") -> Iterator["StudioShell"]:
     frame = wx.Frame(None, size=wx.Size(*FRAME_SIZE))

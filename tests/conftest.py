@@ -200,20 +200,32 @@ def _keep_test_windows_off_the_users_screen(wx) -> None:
         return
     wx._amulet_windows_are_offscreen = True
 
-    # Far enough out that no plausible monitor arrangement contains it, but
-    # not so far that a toolkit clamps the coordinate back onto the desktop.
-    exile = wx.Point(-32000, -32000)
+    # The first version of this parked every window at -32000,-32000, and that
+    # was wrong in a way only the full suite could show: a window with no
+    # on-screen pixels never paints, so the capture-based tests photographed a
+    # single flat colour and correctly reported that the shell was not drawing
+    # its content. It traded one real problem for another.
+    #
+    # Focus is what actually has to be protected, and it is a separate thing
+    # from visibility. ShowWithoutActivating puts the window on screen -- where
+    # it can paint, and where a blit of its client area is real -- while never
+    # taking the foreground or the keyboard from whoever is using the machine.
+    exile = wx.Point(-32000, -32000)  # kept for windows that need no pixels
     original_show = wx.TopLevelWindow.Show
+    show_without_activating = getattr(
+        wx.TopLevelWindow, "ShowWithoutActivating", None
+    )
 
     def show(self, show=True):  # noqa: FBT002 - matching wx's own signature
-        if show:
+        if show and show_without_activating is not None:
             try:
-                self.SetPosition(exile)
-            except Exception:  # pragma: no cover - destroyed mid-call
+                return show_without_activating(self)
+            except Exception:  # pragma: no cover - platform boundary
                 pass
         return original_show(self, show)
 
     wx.TopLevelWindow.Show = show
+    del exile
     # Raise() and SetFocus() on a top-level window are pure foreground grabs;
     # neither changes anything a test can read, so both become no-ops rather
     # than a fight over the active window.

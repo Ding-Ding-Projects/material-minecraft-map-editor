@@ -535,11 +535,28 @@ def test_a_native_slider_photographs_as_nothing(app) -> None:
         window.Destroy()
         wx.Yield()
 
-    assert colours <= 1, (
-        "a native slider now photographs with "
-        f"{colours} distinct colours (routes {routes}). If that is real, the "
-        "slider exemption in native_leaves has stopped costing anything and "
-        "the note above it is out of date."
+    # What "photographs as nothing" means is that no capture route answered --
+    # not that the resulting image has exactly one colour value in it.
+    #
+    # The colour count was the proxy, and it is a brittle one: it moved from 1
+    # to 2 without any route starting to work, which failed this test while the
+    # thing it guards was completely unchanged. A background that renders as
+    # two near-identical values, an anti-aliased edge, or a theme tweak is
+    # enough to shift it. Asserting on the routes measures the actual claim,
+    # and the colour count stays as a loose sanity bound so a slider that
+    # genuinely started drawing still trips this.
+    answered = [name for name, count in routes.items() if count]
+    assert not answered, (
+        f"a native slider now photographs through {answered} (routes {routes}, "
+        f"{colours} distinct colours). If that is real, the slider exemption in "
+        "native_leaves has stopped costing anything and the note above it is "
+        "out of date -- delete the exemption rather than inheriting it."
+    )
+    assert colours <= 4, (
+        f"no capture route answered, yet the slider came back with {colours} "
+        "distinct colours. That is not the flat nothing this exemption is "
+        "documented as costing, so the note above it no longer describes what "
+        "actually happens."
     )
 
 

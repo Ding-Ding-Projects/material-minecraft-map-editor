@@ -1,8 +1,20 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "116c0b150760f5fff90498aa56aa86a0ef0bb635",
+  "source_revision": "1446efdacc929f8d1e44c1fe80615820794a70ce",
   "entries": [
+    {
+      "version": "0.10.0-dev.840",
+      "released_on": "2026-08-12",
+      "commit_sha": "116c0b150760f5fff90498aa56aa86a0ef0bb635",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add one acceptance run that drives the packaged Electron app end to end, and fix the sidecar it exposed as unreachable",
+          "commit_sha": "116c0b150760f5fff90498aa56aa86a0ef0bb635"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.838",
       "released_on": "2026-08-12",
