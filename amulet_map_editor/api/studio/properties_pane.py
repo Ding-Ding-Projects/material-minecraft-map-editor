@@ -1762,6 +1762,19 @@ class PropertiesPane(wx.Panel):
             gap,
             live="state",
         )
+        # The arrow-key sentence, ahead of even the generic activation message
+        # below.  It used to sit under the "Pending object" heading -- directly
+        # under the heading, but still after this tool's own 104px-tall
+        # description -- and that description alone is enough to push it back
+        # below the fold in a scroller whose visible column is a good deal
+        # shorter than the pane's own overall height. A control announces
+        # itself through its accessible name and a key press cannot, so the
+        # keys have to be written down where the pane opens, not wherever is
+        # left once everything above it has had its say.
+        if activation.kind == "pending" and editor_tools.pending_object() is not None:
+            self._tool_note(
+                studio_text(NUDGE_KEY_SENTENCE, NUDGE_KEY_SENTENCE_CANTONESE), gap
+            )
         # ``detail`` is what was true at the moment the tool started, so it is
         # deliberately not shown here: the rows below are re-read live, and a
         # stale sentence beside a live row is the one that gets believed.
@@ -1869,16 +1882,9 @@ class PropertiesPane(wx.Panel):
         # to a sentence that already has one.
         if self._pending_failure:
             self._tool_note(self._pending_failure, gap)
-        # Directly under the heading, ahead of the object's own facts, because
-        # this is the only place in the column it can be read.  A control
-        # announces itself through its accessible name and a key press cannot,
-        # so the keys have to be written down -- and written down where the
-        # pane opens.  Beside the nudge buttons they describe, which is where
-        # they read most naturally, the sentence sat 237px past the bottom of
-        # the visible column: a shortcut told below the fold is not told.
-        self._tool_note(
-            studio_text(NUDGE_KEY_SENTENCE, NUDGE_KEY_SENTENCE_CANTONESE), gap
-        )
+        # The arrow-key sentence itself is added higher up, in
+        # ``_build_tool_tab``, ahead of this tool's own description -- see the
+        # comment there for why.
         if pending.size:
             self._tool_row("Size in blocks", pending.size, gap)
         self._tool_row(
