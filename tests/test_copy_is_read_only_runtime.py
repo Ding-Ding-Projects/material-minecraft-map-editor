@@ -226,13 +226,24 @@ def _since(seen: set) -> List[Dict[str, str]]:
 
 
 def _find_button(window: Any, label: str) -> Any:
-    """Return the first descendant ``wx.Button`` carrying ``label``.
+    """Return the first descendant button carrying ``label``.
 
     The Select tool builds its buttons in a local closure and keeps no
     reference to any of them, so the only way to press the real control is to
     go and find it in the panel it was added to.
+
+    Matched by duck-typed vocabulary rather than ``isinstance(window,
+    wx.Button)``: the Material 3 conversion moved every tool-panel button to
+    ``StudioButton`` -- a ``wx.Control`` that answers ``GetLabel`` and still
+    emits a real ``wx.EVT_BUTTON`` on click, but is not a ``wx.Button`` -- so
+    the old isinstance check silently stopped matching it.  Mirrors the
+    identical fix already made for the Operation tool's chooser in
+    ``tests/test_editor_clone_runtime.py`` and the exporter chooser in
+    ``tests/test_export_format_runtime.py``.
     """
-    if isinstance(window, wx.Button) and window.GetLabel() == label:
+    from amulet_map_editor.api.studio.widgets import StudioButton
+
+    if isinstance(window, (wx.Button, StudioButton)) and window.GetLabel() == label:
         return window
     for child in window.GetChildren():
         found = _find_button(child, label)
@@ -352,9 +363,19 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
         if button is not None:
             seen = _seen()
             before_button = _reading(record.canvas)
-            event = wx.CommandEvent(wx.EVT_BUTTON.typeId, button.GetId())
-            event.SetEventObject(button)
-            button.GetEventHandler().ProcessEvent(event)
+            # ``StudioButton.activate()`` is the real control's own real
+            # interaction path -- what a mouse click or a Space/Enter key
+            # press resolves to -- and it both calls ``on_click`` and emits
+            # ``wx.EVT_BUTTON`` outward.  A synthetic ``wx.EVT_BUTTON`` sent
+            # *into* the control the way a plain ``wx.Button`` would receive
+            # one does nothing here: nothing on a ``StudioButton`` listens for
+            # an incoming ``EVT_BUTTON`` to trigger ``on_click``, so that
+            # route silently pressed nothing.  ``activate()`` is exactly the
+            # method this repository's own Material-button tests already use
+            # to press a real ``StudioButton`` (see
+            # ``tests/test_editor_toolbar_material_contract.py`` and
+            # ``tests/test_material_text_and_checkbox_contract.py``).
+            button.activate()
             _settle(1.0)
             record.button = {
                 "before": before_button,
