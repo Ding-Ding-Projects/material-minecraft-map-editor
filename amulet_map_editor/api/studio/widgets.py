@@ -36,7 +36,7 @@ from typing import (
 import wx
 
 from amulet_map_editor.api import config
-from amulet_map_editor.api.studio import blocks, tokens
+from amulet_map_editor.api.studio import blocks, copy, tokens
 from amulet_map_editor.api.studio.search import MAX_PATTERN_LENGTH, SearchState
 
 log = logging.getLogger(__name__)
@@ -5304,7 +5304,12 @@ class _KeyButton(wx.Control, _Interactive):
     def set_held(self, held: bool, *, notify: bool = True) -> None:
         """Hold or release this key."""
         self.held = bool(held)
-        self.SetName(f"{self.GetLabel()} — {'held' if self.held else 'not held yet'}")
+        state = (
+            copy.studio_label("held", "揸實咗")
+            if self.held
+            else copy.studio_label("not held yet", "重未揸")
+        )
+        self.SetName(f"{self.GetLabel()} — {state}")
         self.Refresh()
         if notify:
             invoke(self.on_change, self.held)
@@ -5333,7 +5338,9 @@ class _KeyButton(wx.Control, _Interactive):
             tokens.draw_round_rect(dc, rect, radius, fill, border)
             dc.SetFont(tokens.font_px(self, point_size(13)))
             dc.SetTextForeground(ink)
-            label = self.GetLabel() + (" · held" if self.held else "")
+            label = self.GetLabel() + (
+                " · " + copy.studio_label("held", "揸實咗") if self.held else ""
+            )
             text = elide(dc, label, width - tokens.scaled(16))
             text_width, text_height = dc.GetTextExtent(text)
             dc.DrawText(text, (width - text_width) // 2, (height - text_height) // 2)
@@ -5363,34 +5370,49 @@ class KeyGate(wx.Panel, _Themed):
         self.on_exit = on_exit
         self.authorized = False
         self._flourish = 0
-        self._install("Two-key authorisation")
+        self._install(copy.studio_label("Two-key authorisation", "雙匙授權"))
         self.status = StudioText(
             self,
-            (
+            copy.studio_text(
                 "Hold both keys, then drag the slider all the way to the right "
-                "to authorise."
+                "to authorise.",
+                "揸實兩條匙，再將滑桿拉到最右先可以授權。",
             ),
             size_px=12,
-            name="Authorisation status",
+            name=copy.studio_label("Authorisation status", "授權狀態"),
         )
         keys = wx.BoxSizer(wx.HORIZONTAL)
-        self.key_a = _KeyButton(self, "Press A", on_change=self._key_changed)
-        self.key_l = _KeyButton(self, "Press L", on_change=self._key_changed)
+        self.key_a = _KeyButton(
+            self, copy.studio_label("Press A", "撳 A"), on_change=self._key_changed
+        )
+        self.key_l = _KeyButton(
+            self, copy.studio_label("Press L", "撳 L"), on_change=self._key_changed
+        )
         keys.Add(self.key_a, 1, wx.RIGHT, tokens.scaled(tokens.SPACE_SM))
         keys.Add(self.key_l, 1)
         self.slider = wx.Slider(
             self, value=0, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL
         )
-        self.slider.SetName("Slide all the way to authorise")
+        self.slider.SetName(
+            copy.studio_label("Slide all the way to authorise", "拉到盡先授權")
+        )
         self.slider.Enable(False)
-        self.progress = ProgressRow(self, "Authorisation progress", 0.0, "0%")
+        self.progress = ProgressRow(
+            self,
+            copy.studio_label("Authorisation progress", "授權進度"),
+            0.0,
+            "0%",
+        )
         self.exit_button = StudioButton(
             self,
-            "Emergency exit",
+            copy.studio_label("Emergency exit", "緊急離開"),
             variant="danger",
             on_click=self.emergency_exit,
-            name="Emergency exit",
-            hint="Cancel immediately and leave everything unchanged",
+            name=copy.studio_label("Emergency exit", "緊急離開"),
+            hint=copy.studio_text(
+                "Cancel immediately and leave everything unchanged",
+                "即刻取消，乜都唔會改",
+            ),
         )
         root = wx.BoxSizer(wx.VERTICAL)
         root.Add(self.status, 0, wx.EXPAND | wx.BOTTOM, tokens.scaled(tokens.SPACE_SM))
@@ -5432,15 +5454,20 @@ class KeyGate(wx.Panel, _Themed):
         self.slider.Enable(False)
         self.progress.set_progress(0.0, "0%")
         self.status.SetLabel(
-            "Hold both keys, then drag the slider all the way to the right to "
-            "authorise."
+            copy.studio_text(
+                "Hold both keys, then drag the slider all the way to the right "
+                "to authorise.",
+                "揸實兩條匙，再將滑桿拉到最右先可以授權。",
+            )
         )
         self.Layout()
 
     def emergency_exit(self) -> None:
         """Abandon the gate at once and report it, whatever state it is in."""
         self.reset()
-        self.status.SetLabel("Cancelled. Nothing was changed.")
+        self.status.SetLabel(
+            copy.studio_text("Cancelled. Nothing was changed.", "取消咗。乜都無改過。")
+        )
         invoke(self.on_exit)
 
     # -- events --------------------------------------------------------------
@@ -5448,9 +5475,19 @@ class KeyGate(wx.Panel, _Themed):
         ready = self.keys_held()
         self.slider.Enable(ready and not self.authorized)
         if ready:
-            self.status.SetLabel("Both keys are held. Drag the slider to the end.")
+            self.status.SetLabel(
+                copy.studio_text(
+                    "Both keys are held. Drag the slider to the end.",
+                    "兩條匙都揸實咗。將滑桿拉到盡。",
+                )
+            )
         else:
-            self.status.SetLabel("Hold both keys before the slider will move.")
+            self.status.SetLabel(
+                copy.studio_text(
+                    "Hold both keys before the slider will move.",
+                    "要兩條匙都揸實，滑桿先郁得。",
+                )
+            )
         if not ready:
             self.slider.SetValue(0)
             self.progress.set_progress(0.0, "0%")
@@ -5466,14 +5503,19 @@ class KeyGate(wx.Panel, _Themed):
         if not self.authorized and self.slider.GetValue() < 100:
             self.slider.SetValue(0)
             self.progress.set_progress(0.0, "0%")
-            self.status.SetLabel("Not authorised — the slider has to reach the end.")
+            self.status.SetLabel(
+                copy.studio_text(
+                    "Not authorised — the slider has to reach the end.",
+                    "未授權——滑桿要拉到盡先得。",
+                )
+            )
         event.Skip()
 
     def _authorize(self) -> None:
         self.authorized = True
         self.slider.Enable(False)
         self.progress.set_progress(1.0, "100%")
-        self.status.SetLabel("Authorised.")
+        self.status.SetLabel(copy.studio_text("Authorised.", "已授權。"))
         self.Layout()
         if reduced_motion():
             self._flourish = 0

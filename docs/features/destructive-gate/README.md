@@ -56,6 +56,18 @@ authorised.
 
 An action that turns out to affect nothing reports that instead of running.
 
+## Localisation
+
+The gate's own copy — the status line at every state, the two key labels, the
+slider's accessible name, the progress row title, and the emergency exit's
+label and hint — is not hard-coded English. It goes through
+`amulet_map_editor.api.studio.copy.studio_text` (the status prose, which the
+funny-level sliders may style) and `copy.studio_label` (the key, slider,
+progress-row, and exit-button names, which stay factual and untouched by tone).
+Switching the active language mode changes what the gate says without a
+restart, in English, playful Hong Kong-style Cantonese, and bilingual mode
+alike, and the fact that will be deleted never changes with it.
+
 ## Security and accessibility
 
 The gate is a safety control, not a security boundary, and it does not pretend
@@ -72,12 +84,29 @@ controls say.
 ## Verification
 
 ```powershell
-py -3 -m pytest tests/test_material_confirmation_contract.py tests/test_studio_spec_registry.py -q
+py -3.11 -m pytest tests/test_material_confirmation_contract.py tests/test_studio_spec_registry.py tests/test_destructive_gate_end_to_end.py -q
 ```
 
-The first covers the gate's own states — untouched, one key, both keys, partial
-slider, full slider, cancel, and the reduced-motion path. The second proves
-every surface that declares a gate section still carries one.
+The first two are source-text contracts and prove every surface that declares
+a gate section still carries one and says the right things. Neither one drives
+a real `wx.Slider` or a real key press, so neither can tell a wired gate from
+one whose handlers were never bound.
+
+`tests/test_destructive_gate_end_to_end.py` is the one that does: it builds a
+real `KeyGate` in a real `wx.Frame` and dispatches real `EVT_SLIDER`,
+`EVT_SCROLL_THUMBRELEASE`, `EVT_KEY_DOWN`, and `EVT_CHAR_HOOK` events through
+it, and asserts on a callback standing in for the destructive action rather
+than on the gate's own `authorized` flag. It covers the untouched state, one
+key held, both keys held, releasing a key mid-authorisation, every partial
+slider position from 1% to 99% (asserting the action never fires), full
+travel (asserting it fires exactly once and cannot fire twice), the emergency
+exit, Escape, focus returning to the control that opened the gate, reduced
+motion skipping the completion flourish, full motion running and finishing a
+timed flourish, Space/Enter arming a focused key, distinct accessible names on
+every control, the accessible name changing with held state, all three
+language modes, a destructive action that raises being isolated rather than
+crashing the gate, and a capture taken mid-flourish that is read back and
+confirmed to be more than a flat colour.
 
 Suggested articles: [per-project version history](../project-history/README.md),
 [bulk actions](../bulk-actions/README.md),
