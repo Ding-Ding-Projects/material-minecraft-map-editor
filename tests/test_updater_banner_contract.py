@@ -15,7 +15,8 @@ def test_update_banner_has_persistent_actions_and_bounded_refresh():
     assert "self._update_banner_sizer = wx.BoxSizer(wx.VERTICAL)" in SOURCE
     assert "self._update_banner_actions_sizer = wx.BoxSizer(wx.VERTICAL)" in SOURCE
     assert (
-        "self._update_banner_text.Wrap(max(240, event.GetSize().width - 48))" in SOURCE
+        "self._rewrap_update_banner_text(max(288, event.GetSize().width - 32))"
+        in SOURCE
     )
     assert "self._update_banner_later.Bind" in SOURCE
     assert "self._update_banner_release_notes.Bind" in SOURCE
