@@ -237,12 +237,20 @@ async function main() {
       let vertices = 0;
       for (let attempt = 0; attempt < 60 && vertices <= 0; attempt++) {
         await sleep(1000);
+        // chunkCount, NOT vertexCount. The streaming path uploads through
+        // loadChunkMesh() into per-chunk buffers and increments chunkCount;
+        // vertexCount belongs to the legacy single-mesh loadMesh() the proof
+        // harness used. Reading the legacy field here reported zero geometry
+        // against an application that was streaming perfectly well -- a check
+        // that was wrong about a thing that was right, which is the worst
+        // direction for a check to fail in.
         const state = await evalJSON(client,
           "(function(){var v=window.__AmuletViewportPanel.getViewport();" +
-          "return v?String(v.vertexCount||0):'0';})()");
+          "if(!v) return '0';" +
+          "return String((v.chunkCount||0) + (v.vertexCount>0?1:0));})()");
         vertices = Number(state) || 0;
       }
-      console.log("  vertices uploaded ->", vertices);
+      console.log("  chunks uploaded ->", vertices);
       if (vertices <= 0) {
         throw new Error("no chunk geometry ever reached the viewport, so this capture would prove nothing");
       }
@@ -252,7 +260,7 @@ async function main() {
       const wired = await evalJSON(client,
         "(function(){var p=window.__AmuletViewportPanel;" +
         "if(!p||typeof p.setSelection!=='function') return 'no-panel-api';" +
-        "var ok=p.setSelection([2,60,2],[12,70,12]);" +
+        "var ok=p.setSelection([2,1,2],[13,12,13]);" +
         "return JSON.stringify({ok:ok,hasOverlay:p.hasOverlay()});})()");
       console.log("  selection set ->", wired);
       if (wired === "no-panel-api") {
@@ -267,8 +275,54 @@ async function main() {
       }
     }
     console.log("step: reading canvas pixels via toDataURL() at two camera positions...");
-    const dataUrl1 = await evalJSON(client, "window.__viewportHarnessPNGDataURL");
-    const dataUrl2 = await evalJSON(client, "window.__viewportHarnessPNGDataURL2");
+    // Read the product page's own canvas rather than a harness global. The
+    // canvas must be read in the SAME frame it was drawn in: a WebGL2
+    // drawing buffer is cleared after compositing unless preserveDrawingBuffer
+    // is set, so a toDataURL() taken a tick later returns a blank image and
+    // reads exactly like a viewport that drew nothing.
+    const grabCanvas =
+      "new Promise(function(resolve){" +
+      "  requestAnimationFrame(function(){" +
+      "    var p=window.__AmuletViewportPanel;" +
+      "    var v=p&&p.getViewport();" +
+      "    if(!v||!v.gl){resolve(null);return;}" +
+      "    v.render();" +
+      "    resolve(v.gl.canvas.toDataURL('image/png'));" +
+      "  });" +
+      "})";
+
+    const withSelection = await evalJSON(client, grabCanvas);
+    await evalJSON(client, "(function(){window.__AmuletViewportPanel.setSelection(null,null);return 'cleared';})()");
+    await sleep(200);
+    const withoutSelection = await evalJSON(client, grabCanvas);
+    await evalJSON(client, "(function(){window.__AmuletViewportPanel.setSelection([2,1,2],[13,12,13]);return 'restored';})()");
+    await sleep(200);
+
+    {
+      // Pixel variance is not enough and the previous run proved it: the grid
+      // plane alone gives a range of 245, so the script printed PROOF over an
+      // image containing no selection box and no terrain. The only honest test
+      // of "the box is drawn" is the same camera with the box and without it.
+      const a = Buffer.from(String(withSelection).split(",")[1] || "", "base64");
+      const b = Buffer.from(String(withoutSelection).split(",")[1] || "", "base64");
+      if (!a.length || !b.length) throw new Error("one of the two comparison captures came back empty");
+      if (a.equals(b)) {
+        throw new Error(
+          "the canvas is byte-identical with the selection set and cleared, so " +
+          "the selection box is not being drawn at all -- setSelection() " +
+          "returned true and changed nothing on screen"
+        );
+      }
+      console.log("  selection changes the image: with=" + a.length + "B without=" + b.length + "B");
+    }
+
+    const dataUrl1 = withSelection;
+    // Move the camera with the panel's real input path, then take the second.
+    await evalJSON(client,
+      "(function(){var v=window.__AmuletViewportPanel.getViewport();" +
+      "v.rotateDegrees(28,-6); v.moveLocal(0,2,-6); return 'moved';})()");
+    await sleep(400);
+    const dataUrl2 = await evalJSON(client, grabCanvas);
     assert(typeof dataUrl1 === "string" && dataUrl1.indexOf("data:image/png;base64,") === 0, "harness did not produce a first PNG data URL: " + String(dataUrl1).slice(0, 80));
     assert(typeof dataUrl2 === "string" && dataUrl2.indexOf("data:image/png;base64,") === 0, "harness did not produce a second (moved-camera) PNG data URL: " + String(dataUrl2).slice(0, 80));
 
