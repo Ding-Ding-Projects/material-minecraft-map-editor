@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Electron desktop shell for the Material Minecraft Map Editor. Hosts the existing docs/site/ Material 3 renderer; the 3D viewport stays on wxPython for now (out of scope, see HANDOFF.md).",
+  "author": "Material Minecraft Map Editor contributors",
   "main": "electron/main.js",
   "scripts": {
     "electron:dev": "electron .",

@@ -7,35 +7,45 @@
 # updater -- see docs/features for the update-feed contract this ships with.
 appId: com.amuletmc.material-minecraft-map-editor
 productName: Material Minecraft Map Editor
+# electron-builder resolves every relative path below -- directories, files,
+# extraMetadata -- against the *project directory* (wherever package.json
+# lives, i.e. the repository root), never against this config file's own
+# folder. Paths written as "../docs/site" here therefore escaped the
+# repository entirely (they resolved one level above the checkout) and the
+# packaged app.asar never contained main.js or the site at all -- packaging
+# failed with "Application entry file main.js ... does not exist" the
+# moment it was actually run end to end. Every path is repo-root-relative.
 directories:
-  output: ../dist/electron
+  output: dist/electron
   buildResources: build
 files:
-  - "main.js"
-  - "preload.js"
-  - "../docs/site/**/*"
-  - "!../docs/site/node_modules/**"
-  - "!../docs/site/package.json"
-  - "!../docs/site/package-lock.json"
-  - "!../docs/site/Dockerfile"
-  - "!../docs/site/docker-compose.yml"
+  - "electron/main.js"
+  - "electron/preload.js"
+  - "docs/site/**/*"
+  - "!docs/site/node_modules/**"
+  - "!docs/site/package.json"
+  - "!docs/site/package-lock.json"
+  - "!docs/site/Dockerfile"
+  - "!docs/site/docker-compose.yml"
 extraMetadata:
-  main: main.js
+  main: electron/main.js
 win:
   target:
     - target: squirrel
-  # No signing input is ever supplied. Do not add certificateFile,
-  # certificatePassword, signtoolOptions, or a signing hook here.
+  # No signing input is ever supplied (no certificateFile, certificatePassword,
+  # cscLink, signtoolOptions, or sign hook). forceCodeSigning:false and
+  # signAndEditExecutable:false are the two win-level controls this
+  # electron-builder version actually validates for "never sign this"; there
+  # is no separate win.signExecutable or win.signDlls key in this schema.
   forceCodeSigning: false
-  signExecutable: false
   signAndEditExecutable: false
-  signDlls: false
 squirrelWindows:
+  # squirrelWindows accepts artifactName/msi/iconUrl/etc, not signing keys --
+  # Squirrel packaging is unsigned by construction once win.forceCodeSigning
+  # and win.signAndEditExecutable above are both false, which validateConfig
+  # actually enforces (a bad key here fails packaging outright, see below).
   artifactName: "${productName}-Setup-${version}.${ext}"
   msi: false
-  forceCodeSigning: false
-  signExecutable: false
-  signAndEditExecutable: false
   # No iconUrl is set: electron-builder requires it to be a public HTTPS
   # asset for the Squirrel update feed, and no such asset has been verified
   # to exist yet. Add it only once a real, published icon URL is confirmed
