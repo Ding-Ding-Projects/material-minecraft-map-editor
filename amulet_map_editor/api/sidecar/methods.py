@@ -20,6 +20,8 @@ from __future__ import annotations
 import random
 import secrets
 from dataclasses import asdict
+import os
+
 from typing import Any, Callable, Dict
 
 from amulet_map_editor.api import changelog as CHANGELOG
@@ -107,6 +109,65 @@ def _converter_formats(_params: Dict[str, Any]) -> Dict[str, Any]:
         for adapter in CONVERTER_REGISTRY.ADAPTERS
     ]
     return {"adapters": adapters}
+
+
+def _converter_convert(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Run one real conversion through the core's own sandboxed path.
+
+    ``converter.formats`` has always listed what the app can convert, and until
+    now nothing could ask it to actually convert anything: the acceptance run
+    had to reach past the bridge and call ``core.convert_one`` in-process to
+    prove conversion worked at all. A catalogue of capabilities the bridge
+    cannot invoke is a menu with no kitchen behind it.
+
+    Paths arrive from the renderer and are therefore untrusted. This validates
+    them and refuses rather than guessing, and it never overwrites anything
+    unless the caller has explicitly said so -- the core already refuses to
+    write over a file without ``overwrite_confirmed``, and that decision stays
+    the caller's to make rather than being defaulted away here.
+    """
+    from amulet_map_editor.api.converter import core as converter_core
+
+    source = params.get("source_path")
+    adapter_id = params.get("adapter_id")
+    destination = params.get("destination_path")
+    for name, value in (
+        ("source_path", source),
+        ("adapter_id", adapter_id),
+        ("destination_path", destination),
+    ):
+        if not isinstance(value, str) or not value.strip():
+            raise ProtocolError(ERR_INVALID_PARAMS, f"'{name}' must be a non-empty string")
+    if "\x00" in source or "\x00" in destination:
+        raise ProtocolError(ERR_INVALID_PARAMS, "a path may not contain a NUL byte")
+    if not os.path.isfile(source):
+        raise ProtocolError(ERR_INVALID_PARAMS, "source_path is not an existing file")
+    if os.path.abspath(source) == os.path.abspath(destination):
+        # The core refuses this too, but saying so here names the actual
+        # mistake instead of returning a generic failure the caller has to
+        # interpret.
+        raise ProtocolError(
+            ERR_INVALID_PARAMS,
+            "source_path and destination_path are the same file; a conversion "
+            "never writes over its own input",
+        )
+
+    result = converter_core.convert_one(
+        source,
+        adapter_id,
+        destination,
+        overwrite_confirmed=bool(params.get("overwrite_confirmed", False)),
+    )
+    return {
+        "outcome": result.outcome.value,
+        "adapter_id": result.adapter_id,
+        "source_path": result.source_path,
+        "destination_path": destination,
+        # Present only when something went wrong, and carried through verbatim:
+        # a caller that cannot see why a conversion was refused will simply try
+        # the same thing again.
+        "reason": getattr(result, "reason", None),
+    }
 
 
 def _protocol_ping(_params: Dict[str, Any]) -> Dict[str, Any]:
@@ -265,6 +326,7 @@ METHODS: Dict[str, MethodHandler] = {
     "language.set": _language_set,
     "language.list": _language_list,
     "converter.formats": _converter_formats,
+    "converter.convert": _converter_convert,
     "changelog.entries": _changelog_entries,
     "docs.articles": _docs_articles,
     "dimsum.draw": _dimsum_draw,

@@ -52,6 +52,11 @@
     changelogEntries: null,
     docsArticles: null,
     drawDimSum: drawDimSum,
+    // The catalogue was reachable and the action was not: converterFormats
+    // listed sixteen adapters while nothing in the renderer could ask for a
+    // single conversion. Exposed here so a converter surface can actually run
+    // one rather than describe one.
+    convert: convertFile,
   };
 
   Site.electronSidecar = status;
@@ -214,6 +219,32 @@
    * never collapsed into a single failure case. Rejects (rather than
    * silently returning null) when the bridge itself is unreachable, so a
    * caller can fall back to the site's own bundled draw. */
+  /**
+   * Run one conversion through the sidecar.
+   *
+   * overwrite_confirmed is deliberately NOT defaulted to true here. Overwriting
+   * a file the user already has is their decision to make in a surface that
+   * tells them, not a default a bridge quietly supplies on their behalf.
+   */
+  function convertFile(sourcePath, adapterId, destinationPath, overwriteConfirmed) {
+    return bridge
+      .call("converter.convert", {
+        source_path: sourcePath,
+        adapter_id: adapterId,
+        destination_path: destinationPath,
+        overwrite_confirmed: Boolean(overwriteConfirmed),
+      })
+      .then(function (response) {
+        if (!response || !response.ok) {
+          throw new Error(
+            (response && response.error && response.error.message) ||
+              "converter.convert failed"
+          );
+        }
+        return response.result;
+      });
+  }
+
   function drawDimSum(languageMode) {
     if (!status.available) {
       return Promise.reject(new Error("sidecar unavailable"));

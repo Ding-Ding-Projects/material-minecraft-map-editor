@@ -1,8 +1,32 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "f34332b857592c254dd954652713a5a0ba21f709",
+  "source_revision": "116c0b150760f5fff90498aa56aa86a0ef0bb635",
   "entries": [
+    {
+      "version": "0.10.0-dev.838",
+      "released_on": "2026-08-12",
+      "commit_sha": "90e0736b0d6567c83f5abb1d6fe5b21538b5f4c5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Frame the world when one opens, and make the grid a reference rather than a moire",
+          "commit_sha": "90e0736b0d6567c83f5abb1d6fe5b21538b5f4c5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.836",
+      "released_on": "2026-08-12",
+      "commit_sha": "f34332b857592c254dd954652713a5a0ba21f709",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Prove terrain and selection draw together in the product, and stop a grid passing as proof",
+          "commit_sha": "f34332b857592c254dd954652713a5a0ba21f709"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.834",
       "released_on": "2026-08-12",

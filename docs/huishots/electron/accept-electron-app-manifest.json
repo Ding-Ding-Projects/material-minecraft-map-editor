@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-08-12T21:34:54.717Z",
+  "generatedAt": "2026-08-12T21:47:20.943Z",
   "results": [
     {
       "name": "1. window created and interface loads",
       "ok": true,
-      "detail": "url=file:///C:/Users/cntow/Documents/GitHub/material-minecraft-map-editor/dist/electron/win-unpacked/resources/app.asar/docs/site/index.html#home bodyTextLength=4866"
+      "detail": "url=file:///C:/Users/cntow/Documents/GitHub/material-minecraft-map-editor/dist/electron/win-unpacked/resources/app.asar/docs/site/index.html#home bodyTextLength=4816"
     },
     {
       "name": "2. preload bridge exposes only the narrow surface",
@@ -29,7 +29,7 @@
     {
       "name": "6. changelog.entries / docs.articles return real catalogs",
       "ok": true,
-      "detail": "changelog entries=351 docs articles=62"
+      "detail": "changelog entries=352 docs articles=62"
     },
     {
       "name": "7. converter.formats + a real nbt->json conversion",
@@ -39,7 +39,7 @@
     {
       "name": "8. world.open reports real identity and dimensions",
       "ok": true,
-      "detail": "identity={\"status\":\"ready\",\"world_id\":\"4bde27a7-b575-4b05-9988-8daf644cd498\",\"path\":\"C:\\\\Users\\\\cntow\\\\AppData\\\\Local\\\\Temp\\\\mmwe-accept-fixture-6pREAD\\\\world\",\"name\":\"World Created By Amulet\",\"platform\":\"java\",\"version\":3700,\"dimensions\":[\"minecraft:overworld\",\"minecraft:the_nether\",\"minecraft:the_end\"]} dimensions={\"world_id\":\"4bde27a7-b575-4b05-9988-8daf644cd498\",\"dimensions\":[{\"dimension\":\"minecraft:overworld\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_nether\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_end\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}}]}"
+      "detail": "identity={\"status\":\"ready\",\"world_id\":\"e2191242-11d5-4862-9308-52d5e460b1a2\",\"path\":\"C:\\\\Users\\\\cntow\\\\AppData\\\\Local\\\\Temp\\\\mmwe-accept-fixture-kZ8tGx\\\\world\",\"name\":\"World Created By Amulet\",\"platform\":\"java\",\"version\":3700,\"dimensions\":[\"minecraft:overworld\",\"minecraft:the_nether\",\"minecraft:the_end\"]} dimensions={\"world_id\":\"e2191242-11d5-4862-9308-52d5e460b1a2\",\"dimensions\":[{\"dimension\":\"minecraft:overworld\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_nether\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_end\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}}]}"
     },
     {
       "name": "9. viewport streams and draws at least one chunk",
