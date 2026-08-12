@@ -1,0 +1,44 @@
+# electron-builder configuration for the Windows desktop shell.
+#
+# Code signing is permanently prohibited for this project. Every signing
+# input below is explicitly disabled rather than merely left unset, so a
+# future edit cannot silently reintroduce it by finding a certificate on the
+# host. Windows installers use Squirrel.Windows, which is also Electron's own
+# updater -- see docs/features for the update-feed contract this ships with.
+appId: com.amuletmc.material-minecraft-map-editor
+productName: Material Minecraft Map Editor
+directories:
+  output: ../dist/electron
+  buildResources: build
+files:
+  - "main.js"
+  - "preload.js"
+  - "../docs/site/**/*"
+  - "!../docs/site/node_modules/**"
+  - "!../docs/site/package.json"
+  - "!../docs/site/package-lock.json"
+  - "!../docs/site/Dockerfile"
+  - "!../docs/site/docker-compose.yml"
+extraMetadata:
+  main: main.js
+win:
+  target:
+    - target: squirrel
+  # No signing input is ever supplied. Do not add certificateFile,
+  # certificatePassword, signtoolOptions, or a signing hook here.
+  forceCodeSigning: false
+  signExecutable: false
+  signAndEditExecutable: false
+  signDlls: false
+squirrelWindows:
+  artifactName: "${productName}-Setup-${version}.${ext}"
+  msi: false
+  forceCodeSigning: false
+  signExecutable: false
+  signAndEditExecutable: false
+  # No iconUrl is set: electron-builder requires it to be a public HTTPS
+  # asset for the Squirrel update feed, and no such asset has been verified
+  # to exist yet. Add it only once a real, published icon URL is confirmed
+  # reachable -- an unreachable iconUrl fails packaging outright.
+publish: null
+

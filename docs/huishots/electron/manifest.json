@@ -1,0 +1,12 @@
+{
+  "captures": [
+    {
+      "file": "electron-shell-home.png",
+      "alt": "The Electron desktop shell's frameless window, loading the existing docs/site/ Material 3 renderer",
+      "bytes": 132066,
+      "url": "file:///C:/Users/cntow/Documents/GitHub/material-minecraft-map-editor/docs/site/index.html#home",
+      "bridgeVerified": true
+    }
+  ],
+  "failures": []
+}
