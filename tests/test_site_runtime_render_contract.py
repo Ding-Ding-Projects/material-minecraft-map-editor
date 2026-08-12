@@ -351,3 +351,115 @@ class TheDestructiveGateActuallyGates(unittest.TestCase):
         self.assertIn("cannot be undone", got["detail"])
         self.assertIn("41 files", got["detail"])
         self.assertTrue(got["exit"], "there is no emergency exit")
+
+
+class ASchedulNeverEatsYourSettings(unittest.TestCase):
+    """The whole point of the override layer: a schedule borrows a value and
+    gives it back. If it wrote through the ordinary setter, the preference the
+    user actually chose would be gone the moment a rule fired."""
+
+    def test_an_override_does_not_become_the_stored_value(self) -> None:
+        got = render(
+            "const S = window.AmuletSite.settings;"
+            "S.set('language', 'cantonese');"
+            "const chosen = S.base('language');"
+            "S.override('language', 'english');"
+            "const during = {effective: S.get('language'), base: S.base('language'),"
+            "                overridden: S.isOverridden('language')};"
+            "S.release('language');"
+            "return {chosen: chosen, during: during, after: S.get('language')};"
+        )
+        self.assertEqual(got["chosen"], "cantonese")
+        self.assertEqual(got["during"]["effective"], "english")
+        self.assertEqual(
+            got["during"]["base"],
+            "cantonese",
+            "the override replaced the user's own stored value",
+        )
+        self.assertTrue(got["during"]["overridden"])
+        self.assertEqual(
+            got["after"], "cantonese", "the user's value did not come back"
+        )
+
+    def test_the_rendered_language_follows_the_override(self) -> None:
+        """A stored value nothing reads is a control that does nothing."""
+
+        got = render(
+            "const site = window.AmuletSite;"
+            "site.settings.set('language', 'english');"
+            "const before = site.lang.t('Home', 'X-YUE');"
+            "site.settings.override('language', 'cantonese');"
+            "const during = site.lang.t('Home', 'X-YUE');"
+            "site.settings.release('language');"
+            "return {before: before, during: during, after: site.lang.t('Home','X-YUE')};"
+        )
+        self.assertEqual(got["before"], "Home")
+        self.assertEqual(
+            got["during"],
+            "X-YUE",
+            "overriding the language changed the store but not the copy",
+        )
+        self.assertEqual(got["after"], "Home")
+
+    def test_provenance_says_a_schedule_is_responsible(self) -> None:
+        got = render(
+            "const S = window.AmuletSite.settings;"
+            "S.set('theme', 'dark');"
+            "S.override('theme', 'light');"
+            "const line = S.provenance('theme');"
+            "S.release('theme');"
+            "return {line: line};"
+        )
+        self.assertIn("schedule", got["line"].lower())
+
+
+class ScheduleWindowsMeanWhatTheySay(unittest.TestCase):
+    def test_a_window_crossing_midnight_matches_both_sides(self) -> None:
+        got = render(
+            "const S = window.AmuletSchedule;"
+            "const rule = {id:'r', enabled:true, days:'every',"
+            "  startTime:'22:00', endTime:'06:00', settings:{}};"
+            "const at = h => new Date(2026, 0, 5, h, 30);"
+            "return {lateEvening: S._matches(rule, at(23)),"
+            "        earlyMorning: S._matches(rule, at(2)),"
+            "        afternoon: S._matches(rule, at(14))};"
+        )
+        self.assertTrue(got["lateEvening"], "23:30 is inside 22:00-06:00")
+        self.assertTrue(got["earlyMorning"], "02:30 is inside 22:00-06:00")
+        self.assertFalse(got["afternoon"], "14:30 is not inside 22:00-06:00")
+
+    def test_an_equal_start_and_end_never_applies(self) -> None:
+        got = render(
+            "const S = window.AmuletSchedule;"
+            "const rule = {id:'r', enabled:true, days:'every',"
+            "  startTime:'09:00', endTime:'09:00', settings:{}};"
+            "return {at9: S._matches(rule, new Date(2026,0,5,9,0)),"
+            "        at12: S._matches(rule, new Date(2026,0,5,12,0))};"
+        )
+        self.assertFalse(
+            got["at9"], "a zero-length window took over instead of doing nothing"
+        )
+        self.assertFalse(got["at12"])
+
+    def test_a_later_rule_wins_key_by_key(self) -> None:
+        got = render(
+            "const S = window.AmuletSchedule;"
+            "S._set(["
+            "  {id:'a', enabled:true, days:'every', settings:{theme:'dark', scale:120}},"
+            "  {id:'b', enabled:true, days:'every', settings:{theme:'light'}}"
+            "]);"
+            "const r = S.evaluate(new Date(2026,0,5,12,0));"
+            "return {theme: r.values.theme, scale: r.values.scale,"
+            "        applied: r.applied.length};"
+        )
+        self.assertEqual(got["theme"], "light", "the later rule did not win")
+        self.assertEqual(got["scale"], 120, "a key only the earlier rule set was lost")
+        self.assertEqual(got["applied"], 2)
+
+    def test_a_disabled_rule_is_inert(self) -> None:
+        got = render(
+            "const S = window.AmuletSchedule;"
+            "const rule = {id:'r', enabled:false, days:'every', settings:{theme:'dark'}};"
+            "return {matched: S._matches(rule, new Date(2026,0,5,12,0))};"
+        )
+        self.assertFalse(got["matched"])

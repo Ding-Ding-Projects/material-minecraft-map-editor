@@ -86,12 +86,67 @@
     }
   }
 
+  /* A temporary override sits on top of the stored value without replacing it.
+   * A scheduled rule that wrote through settings.set would quietly become the
+   * user's permanent choice the moment it fired, and the value they actually
+   * chose would be gone with no way back. Overrides are memory-only, so they
+   * also cannot survive a reload as a mystery setting nobody set. */
+  var overrides = {};
+
+  function effective(key) {
+    return Object.prototype.hasOwnProperty.call(overrides, key)
+      ? overrides[key]
+      : current[key];
+  }
+
   var settings = {
     all: function () {
-      return Object.assign({}, current);
+      var out = Object.assign({}, current);
+      Object.keys(overrides).forEach(function (key) {
+        out[key] = overrides[key];
+      });
+      return out;
     },
     get: function (key) {
+      return effective(key);
+    },
+    /** The value the user actually chose, ignoring any active override. */
+    base: function (key) {
       return current[key];
+    },
+    isOverridden: function (key) {
+      return Object.prototype.hasOwnProperty.call(overrides, key);
+    },
+    activeOverrides: function () {
+      return Object.assign({}, overrides);
+    },
+    /** Apply a temporary value. Never persisted, never merged into `stored`. */
+    override: function (key, value) {
+      if (overrides[key] === value) return;
+      overrides[key] = value;
+      settingListeners.forEach(function (fn) {
+        try {
+          fn(key, value, settings.all());
+        } catch (error) {}
+      });
+    },
+    /** Hand the base value back. Omit `key` to release everything. */
+    release: function (key) {
+      var keys = key == null ? Object.keys(overrides) : [key];
+      var changed = keys.filter(function (name) {
+        return Object.prototype.hasOwnProperty.call(overrides, name);
+      });
+      changed.forEach(function (name) {
+        delete overrides[name];
+      });
+      changed.forEach(function (name) {
+        settingListeners.forEach(function (fn) {
+          try {
+            fn(name, current[name], settings.all());
+          } catch (error) {}
+        });
+      });
+      return changed;
     },
     isDefault: function (key) {
       return !Object.prototype.hasOwnProperty.call(stored, key);
@@ -99,6 +154,14 @@
     /** Where the current value actually came from, in the user's words. */
     provenance: function (key, render) {
       var shipped = render ? render(DEFAULTS[key]) : String(DEFAULTS[key]);
+      if (Object.prototype.hasOwnProperty.call(overrides, key)) {
+        var base = render ? render(current[key]) : String(current[key]);
+        return (
+          "A schedule is overriding this right now. Your own value " +
+          base +
+          " comes back when the schedule stops applying."
+        );
+      }
       return settings.isDefault(key)
         ? "Not set here yet, so the shipped value " + shipped + " is in use."
         : "Stored in this browser; the shipped value is " + shipped + ".";
@@ -140,8 +203,12 @@
   };
 
   // --------------------------------------------------------------- language
+  /* These read through `effective`, not `current`. A scheduled language rule
+   * that changed the stored value but not the rendered copy would be the
+   * classic "the setting is saved and nothing reads it" defect - a control
+   * that demonstrably does nothing while every test of the store passes. */
   function mode() {
-    var value = current.language;
+    var value = effective("language");
     return value === "cantonese" || value === "bilingual" ? value : "english";
   }
 
@@ -155,11 +222,13 @@
       return en;
     },
     funny: function (which) {
-      return Number(which === "yue" ? current.funnyYue : current.funnyEn) || 1;
+      return (
+        Number(which === "yue" ? effective("funnyYue") : effective("funnyEn")) || 1
+      );
     },
     /** Emoji decorate; they never carry meaning, so they can always be off. */
     emoji: function (glyph) {
-      return current.emoji && glyph ? glyph + " " : "";
+      return effective("emoji") && glyph ? glyph + " " : "";
     },
   };
 
