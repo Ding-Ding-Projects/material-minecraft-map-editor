@@ -120,29 +120,116 @@ modes, exports, and bulk actions. `material-shell`, `command-palette` and
 The eighteen article paths the Memory Console's reader names are now real files,
 and the suite asserts that they are.
 
+## What is verified now
+
+The interface has been photographed. `scripts/capture_studio_surfaces.py` renders
+each widget into a bitmap rather than reading the screen, so a run needs no
+visible desktop and cannot photograph a window that happened to be dragged over
+it; the README's capture matrix is generated from the manifest that run writes,
+so an image in the README exists on disk and carries the commit it was taken at.
+A surface whose controls could not draw is recorded as a failure with its reason
+and its file deleted, because a blank capture is worse than none — it looks like
+evidence.
+
+Release 1.0.0 is published with its Squirrel.Windows artifacts, unsigned and
+stated as unsigned.
+
+The per-surface completeness inventory (`docs/features/completeness-inventory/`)
+is the register of what is actually delivered: **18 of 19 rows complete**, each
+row's evidence enforced fail-closed by
+`tests/test_feature_completeness_inventory.py`. The one open row is
+`pages-site-parity`, which needs a headless browser capture harness this
+repository does not have.
+
+The inventory earns its keep. Three rows it marked incomplete —
+`locked-surfaces`, `two-factor-authenticator`, `app-logo-customization` — turned
+out to be features that existed **only on the documentation site**, or an engine
+with no surface to reach it from. A tree scan found their names in a dozen files
+and every one was a generated catalog. Closing those rows then found four more
+defects underneath: `substitute_text()` was never called by anything, the
+destructive gate's copy was hard-coded English, `MaterialButton` had no
+`render_to` so its captures silently photographed nothing, and `ConverterPanel`
+was fully built and reachable from nowhere in the running application.
+
 ## What is not verified
 
-**There is no runtime capture of the Amulet Studio interface.** Everything above
-is source and automated-test evidence. Every image tracked in the README shows a
-superseded build, and the README, the articles and the site say so where a
-current capture would otherwise be implied.
+Rendering against a loaded world, the real renderer inside the workspace
+viewport, and every operation on real world data still need a Windows desktop
+with a working OpenGL context. Hosted delta publication and a three-version
+installed-client update proof remain open before delta delivery is advertised.
 
-Rendering, the real renderer inside the workspace viewport, the `Ctrl+Shift+F`
-shortcut actually firing, and every operation against a loaded world all need a
-build on a Windows desktop with wxPython and a working OpenGL context.
+**Open defect: the interface repaints continuously and the viewport reports
+3 fps.** Reported from a running build, with two visible symptoms: a black
+rectangle around the regex opt-in and builder button in more than one search bar,
+and text clipped in the properties pane. Not yet diagnosed. Ruled out so far:
+`StudioButton`, `StudioCheckBox` and `SearchBar` all reach `_install()`, which
+sets `BG_STYLE_PAINT` and double-buffering, so a missing erase-background
+suppression is **not** the cause — that was the first hypothesis and it was
+wrong. Next step is to reproduce against a built artifact rather than to reason
+about the source, since the source says this should already be correct.
 
-Hosted CI and release publication are proven for earlier integrated commits; the
-newest workflow may still be running. Hosted delta publication and a
-three-version installed-client update proof remain open before delta delivery is
-advertised.
+## Converting to an Electron application, piece by piece
+
+The decision is to migrate rather than rewrite. What follows is the order that
+keeps a working application at every step; nothing here is started yet.
+
+**Why it is tractable at all:** the renderer already exists. `docs/site/` is a
+complete Material 3 web application carrying the tabs, the command palette, the
+regex builder, the settings surfaces, the appearance system, the locks and the
+authenticator, all built to the same contracts as the desktop app and already
+tested by `tests/test_site_runtime_render_contract.py`. The migration is
+therefore mostly about giving that renderer real data, not about drawing an
+interface twice.
+
+**Phase 0 — freeze the contracts.** The completeness inventory becomes the
+migration checklist: a row may not regress from complete to incomplete because
+of a port. This is the gate that stops a rewrite quietly shipping less than the
+thing it replaced.
+
+**Phase 1 — separate the core from wx.** Everything under `amulet_map_editor/api/`
+that does not import `wx` is already portable: `config.py`, `lang.py`,
+`text_overlay.py`, `authenticator.py`, `item_locks.py`, `converter/`,
+`dim_sum_surprise.py`, `app_logo.py`, `changelog_catalog.json`. Give that set an
+explicit boundary and a test that fails when a `wx` import crosses it. Do this
+first because it is useful on its own even if the migration stops here.
+
+**Phase 2 — a process boundary, not a rewrite.** The core stays Python and runs
+as a sidecar; the Electron main process supervises it and speaks a typed,
+versioned JSON protocol over stdio. Every call is already shaped for this: the
+converter sandbox spawns a child process today, so the pattern is proven in this
+repository rather than borrowed.
+
+**Phase 3 — port surfaces one at a time, cheapest first.** Backstage, then
+settings, then the dialogs, then the properties pane. Each ported surface keeps
+its Python core, its localized copy, its persistence and its tests; only the
+drawing moves. The inventory row for that surface must stay complete across the
+move, with a capture from the Electron build replacing the wx one.
+
+**Phase 4 — the viewport is the hard part and goes last.** The 3D editor is
+PyOpenGL inside a wx canvas and has no web equivalent in this tree. Two honest
+options, to be decided with real measurements rather than in advance: keep the
+wx viewport as a native child window owned by the sidecar and composite it into
+the Electron frame, or port the renderer to WebGL. The second is a genuine
+rewrite of the one component whose performance is already a reported defect, so
+it must not be started while that defect is open.
+
+**Phase 5 — packaging.** Squirrel.Windows is already the required installer and
+is Electron's own updater, so the artifact contract does not change. Code signing
+stays permanently out of scope, and the installer keeps saying so.
+
+**Known risks, written down now rather than discovered later.** The OS credential
+vault is reached from Python today and the authenticator's and locks' secrets
+live there — a port must not migrate a secret through a file or a log to get it
+into Node. The capture harness renders wx widgets and does not transfer; an
+Electron surface needs its own capture route before its inventory row can claim
+capture evidence. And a sidecar that dies must not lose unsaved work: the local
+version history has to record before the boundary, not after it.
 
 ## Next
 
-1. Build the application and photograph the Studio interface — the backstage,
-   the workspace, a spec dialog, the NBT editor, the Memory Console, the command
-   palette — then replace the "no capture exists" statements with real images.
-2. Drive the built application from a clean profile rather than only capturing a
-   fixed list, because that is how a surface nobody thought to photograph gets
-   found.
-3. Close out the per-element appearance and tab-projection items still marked in
-   progress in the roadmap.
+1. Reproduce the repaint defect against a built artifact and fix it. It blocks
+   the viewport decision in phase 4 and it is what a user sees first.
+2. Phase 0 and phase 1 of the migration: freeze the inventory as the checklist,
+   then draw the no-`wx` boundary around the core and guard it with a test.
+3. Give `pages-site-parity` a headless browser capture harness, which the
+   Electron work needs anyway — the same harness photographs both.

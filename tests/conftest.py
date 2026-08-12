@@ -219,3 +219,43 @@ def _keep_test_windows_off_the_users_screen(wx) -> None:
     # than a fight over the active window.
     wx.TopLevelWindow.Raise = lambda self: None
     wx.TopLevelWindow.SetFocus = lambda self: None
+
+    # Popups are a SEPARATE hierarchy and the first version of this missed
+    # them entirely: wx.PopupWindow descends from wx.NonOwnedWindow, not from
+    # wx.TopLevelWindow, so patching the latter left every menu, dropdown and
+    # anchored popover in this application still appearing on the real screen.
+    #
+    # They are also the worse half. A frame that flashes up is a rectangle; a
+    # transient popup GRABS THE MOUSE AND THE KEYBOARD while it is open and
+    # forces the desktop behind it to repaint when it closes. This suite opens
+    # a great many of them -- every menu-coverage capture is one -- so the
+    # visible symptom was not a flicker but a screen that would not stop
+    # repainting and a pointer that kept being taken away.
+    for name in ("PopupWindow", "PopupTransientWindow"):
+        popup = getattr(wx, name, None)
+        if popup is None:  # pragma: no cover - platform without popups
+            continue
+        original_popup_show = popup.Show
+
+        def popup_show(self, show=True, _original=original_popup_show):  # noqa: FBT002
+            if show:
+                try:
+                    self.SetPosition(exile)
+                except Exception:  # pragma: no cover - destroyed mid-call
+                    pass
+            return _original(self, show)
+
+        popup.Show = popup_show
+        # Popup() positions and shows in one call on some platforms; give it
+        # the same treatment rather than trusting Show() to be the only door.
+        if hasattr(popup, "Popup"):
+            original_popup = popup.Popup
+
+            def popup_popup(self, *args, _original=original_popup, **kwargs):
+                try:
+                    self.SetPosition(exile)
+                except Exception:  # pragma: no cover - destroyed mid-call
+                    pass
+                return _original(self, *args, **kwargs)
+
+            popup.Popup = popup_popup
