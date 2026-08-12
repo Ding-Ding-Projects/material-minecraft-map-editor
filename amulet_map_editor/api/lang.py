@@ -16,6 +16,7 @@ import re
 
 import amulet_map_editor
 from amulet_map_editor.api import config as CONFIG
+from amulet_map_editor.api import text_overlay as TEXT_OVERLAY
 
 log = logging.getLogger(__name__)
 
@@ -190,4 +191,10 @@ def get(unique_identifier: str):
     if unique_identifier not in _lang:
         # help debugging referenced lang entries that do not exist
         log.info(f"Could not find lang entry for {unique_identifier}")
-    return _lang.get(unique_identifier, unique_identifier)
+    value = _lang.get(unique_identifier, unique_identifier)
+    # Every localised string passes through this one function on its way to
+    # the screen, which makes it the natural user-facing text boundary for a
+    # user-supplied personal-vocabulary overlay (see
+    # amulet_map_editor.api.text_overlay).  With no overlay loaded this is a
+    # no-op and ``value`` is returned completely unchanged.
+    return TEXT_OVERLAY.substitute_text(TEXT_OVERLAY.load_cached_overlay(), value)

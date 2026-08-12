@@ -91,12 +91,16 @@ INVENTORY = {
         ],
     ),
     "file-converter": (
-        "incomplete",
+        "complete",
         [
             "amulet_map_editor/api/converter/core.py",
             "amulet_map_editor/api/converter/adapters.py",
             "amulet_map_editor/api/converter/registry.py",
+            "amulet_map_editor/api/studio/converter_panel.py",
+            "docs/features/file-converter/README.md",
             "tests/test_converter_core.py",
+            "tests/test_converter_panel_ui_contract.py",
+            "tests/test_file_converter_reachable_from_backstage.py",
         ],
     ),
     "localization": (
@@ -140,9 +144,15 @@ INVENTORY = {
         ],
     ),
     "personal-vocabulary": (
-        "incomplete",
+        "complete",
         [
-            "tests/test_site_private_vocabulary_contract.py",
+            "amulet_map_editor/api/text_overlay.py",
+            "amulet_map_editor/api/lang.py",
+            "amulet_map_editor/api/wx/ui/preferences.py",
+            "docs/features/personal-vocabulary/README.md",
+            "tests/test_text_overlay.py",
+            "tests/test_display_text_overlay_ui_contract.py",
+            "tests/test_personal_vocabulary.py",
         ],
     ),
     "regex-builder": (
@@ -182,9 +192,11 @@ INVENTORY = {
         ],
     ),
     "tab-navigation-runtime": (
-        "incomplete",
+        "complete",
         [
             "amulet_map_editor/api/framework/base_tab.py",
+            "docs/features/base-tab-runtime/README.md",
+            "tests/test_base_tab_runtime_contract.py",
             "tests/test_studio_runtime_render_contract.py",
         ],
     ),
