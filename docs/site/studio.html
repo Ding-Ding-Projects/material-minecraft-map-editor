@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Amulet Studio -- the desktop workspace shell for Material Minecraft World Editor.">
+  <title>Amulet Studio</title>
+  <link rel="icon" href="assets/amulet_logo_512.png" sizes="any">
+  <link rel="stylesheet" href="studio-tokens.css">
+  <style>
+    /* Shell-only layout rules. Every colour, size, and shadow here reads its
+       value from a studio-tokens.css custom property -- nothing is
+       hard-coded, so a theme or density switch repaints this in place. */
+    #studio-root {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      background: var(--studio-surface);
+      color: var(--studio-on-surface);
+    }
+
+    /* -- Frameless-window title bar --------------------------------------
+       The OS default title bar is never shown as product chrome (see
+       electron/main.js: frame:false). This bar is the product's own, and
+       its three window controls are the only thing on the page allowed to
+       call window.mmweDesktop.window.*. */
+    #studio-titlebar {
+      flex: 0 0 auto;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 6px 0 14px;
+      background: var(--studio-surface-container);
+      border-bottom: 1px solid var(--studio-outline-variant);
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    #studio-titlebar .studio-mark {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      background: var(--studio-primary);
+      flex: 0 0 auto;
+    }
+    #studio-titlebar .studio-title {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: .2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #studio-titlebar .studio-spacer { flex: 1; }
+    #studio-titlebar button,
+    #studio-titlebar .studio-palette-trigger {
+      -webkit-app-region: no-drag;
+    }
+    .studio-palette-trigger {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px 0 12px;
+      border: 1px solid var(--studio-outline-variant);
+      border-radius: 999px;
+      background: var(--studio-surface);
+      color: var(--studio-on-surface-variant);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .studio-palette-trigger:hover { background: var(--studio-surface-container-high); }
+    .studio-palette-trigger kbd {
+      font-family: var(--studio-font-mono);
+      font-size: 10px;
+      color: var(--studio-primary);
+    }
+    .studio-icon-button {
+      width: 32px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--studio-on-surface-variant);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .studio-icon-button:hover { background: var(--studio-surface-container-high); }
+    .studio-window-controls { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
+    .studio-window-controls button {
+      width: 44px;
+      height: 40px;
+      border: 0;
+      background: transparent;
+      color: var(--studio-on-surface-variant);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .studio-window-controls button:hover { background: var(--studio-surface-container-high); }
+    #studio-window-close:hover { background: var(--studio-error); color: #fff; }
+
+    /* -- View switch ------------------------------------------------------
+       Exactly one of #backstage-view / #workspace-view is visible at a
+       time; studio-shell.js toggles [hidden] and [data-active-view] on
+       #studio-root. Other lanes fill each view's interior. */
+    #studio-views {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+    #backstage-view,
+    #workspace-view {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+    }
+    #backstage-view[hidden],
+    #workspace-view[hidden] { display: none; }
+
+    .studio-view-placeholder {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--studio-on-surface-variant);
+      font-size: 13px;
+      text-align: center;
+      padding: 24px;
+    }
+
+    /* -- Command palette / notifications / toast host, reusing the same
+       ids and structure the shared modules already expect (see
+       docs/site/palette.js, notifications.js). */
+    dialog#command-palette {
+      border: 1px solid var(--studio-outline-variant);
+      border-radius: 16px;
+      box-shadow: var(--studio-e3);
+      background: var(--studio-surface-container);
+      color: var(--studio-on-surface);
+      padding: 0;
+      width: min(640px, 92vw);
+    }
+    dialog#command-palette::backdrop { background: var(--studio-scrim); }
+    .palette-card { display: flex; flex-direction: column; max-height: 80vh; }
+    .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; }
+    .drawer-head h2 { margin: 0; font-size: 15px; font-weight: 500; }
+    .icon-button {
+      border: 0; background: transparent; color: var(--studio-on-surface-variant);
+      cursor: pointer; font-size: 12px; border-radius: 7px; padding: 4px 8px;
+    }
+    .icon-button:hover { background: var(--studio-surface-container-high); }
+    .search-field {
+      display: flex; align-items: center; gap: 8px; margin: 0 18px 10px;
+      padding: 0 10px; height: var(--studio-ctrl);
+      border: 1px solid var(--studio-outline-variant); border-radius: 10px;
+      background: var(--studio-surface);
+    }
+    .search-field input {
+      flex: 1; border: 0; background: transparent; color: var(--studio-on-surface);
+      font-size: 13px; outline: none;
+    }
+    .regex-open {
+      border: 0; border-radius: 8px; background: var(--studio-surface-container-high);
+      color: var(--studio-primary); font-family: var(--studio-font-mono);
+      font-size: 10px; font-weight: 500; width: 28px; height: 24px; cursor: pointer;
+    }
+    #palette-results, #notif-list { overflow: auto; padding: 0 10px 12px; }
+    .empty-state { padding: 12px 18px; color: var(--studio-on-surface-variant); font-size: 13px; }
+
+    aside#notifications {
+      position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 92vw);
+      background: var(--studio-surface-container); border-left: 1px solid var(--studio-outline-variant);
+      box-shadow: var(--studio-e2); display: flex; flex-direction: column; z-index: 40;
+    }
+    aside#notifications[hidden] { display: none; }
+    .drawer-actions { display: flex; gap: 8px; padding: 0 18px 10px; }
+    .button { border-radius: 999px; height: var(--studio-ctrl); padding: 0 16px; font-size: 12px; cursor: pointer; border: 1px solid transparent; }
+    .button-outlined { background: transparent; border-color: var(--studio-outline); color: var(--studio-on-surface); }
+    .button-filled { background: var(--studio-primary); color: var(--studio-on-primary); }
+
+    #toast-region {
+      position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column;
+      gap: 8px; z-index: 60; max-width: 360px;
+    }
+    #context-menu[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <div id="studio-root" data-studio="1" data-theme="light" data-density="comfortable" data-active-view="backstage">
+
+    <div id="studio-titlebar">
+      <div class="studio-mark" aria-hidden="true"></div>
+      <span class="studio-title" id="studio-title">Amulet Studio</span>
+      <div class="studio-spacer"></div>
+      <button type="button" class="studio-palette-trigger" id="palette-open">
+        <span>Tell me what to do</span><kbd>Ctrl+Shift+F</kbd>
+      </button>
+      <button type="button" class="studio-icon-button" id="notif-open" title="Notifications" aria-label="Notification history" aria-expanded="false" aria-controls="notifications">◉</button>
+      <div class="studio-window-controls">
+        <button type="button" id="studio-window-minimize" aria-label="Minimize window" title="Minimize">&#x2212;</button>
+        <button type="button" id="studio-window-maximize" aria-label="Maximize or restore window" title="Maximize">&#x25A1;</button>
+        <button type="button" id="studio-window-close" aria-label="Close window" title="Close">&#x2715;</button>
+      </div>
+    </div>
+
+    <div id="studio-views">
+      <section id="backstage-view" data-view="backstage">
+        <div class="studio-view-placeholder" id="backstage-placeholder">
+          Backstage view -- Home, Open, Project info, Convert, All surfaces, Workspace.
+          Populated by the backstage lane.
+        </div>
+      </section>
+      <section id="workspace-view" data-view="workspace" hidden>
+        <div class="studio-view-placeholder" id="workspace-placeholder">
+          Workspace view -- ribbon, breadcrumb context bar, navigator, viewport, properties
+          pane, status bar. Populated by the workspace lane.
+        </div>
+      </section>
+    </div>
+
+    <aside id="notifications" class="drawer" aria-labelledby="notif-title" hidden>
+      <div class="drawer-head">
+        <h2 id="notif-title">Notification history</h2>
+        <button class="icon-button" type="button" id="notif-close" aria-label="Close notifications">&times;</button>
+      </div>
+      <label class="search-field" for="notif-search">
+        <span aria-hidden="true">&#8981;</span>
+        <input id="notif-search" type="search" placeholder="Search notifications" aria-label="Search notifications" autocomplete="off" maxlength="256">
+        <button class="regex-open" type="button" id="notif-regex-open" aria-label="Regex builder for the notification search" aria-expanded="false" aria-controls="notif-regex">.*</button>
+      </label>
+      <details class="regex-builder" id="notif-regex" data-search="notif"><summary>Regex builder &middot; notification search</summary><div class="regex-controls" data-regex-controls="notif"></div></details>
+      <div class="drawer-actions">
+        <button class="button button-outlined" type="button" id="notif-dismiss">Dismiss visible</button>
+        <button class="button button-filled" type="button" id="notif-export">Export as Markdown</button>
+      </div>
+      <div id="notif-list"></div>
+      <p id="notif-empty" class="empty-state" hidden>No notification matches. Every message is local to this device.</p>
+    </aside>
+
+    <dialog id="command-palette" aria-labelledby="palette-title">
+      <div class="palette-card">
+        <div class="drawer-head">
+          <h2 id="palette-title">Command palette</h2>
+          <button class="icon-button" type="button" id="palette-close" aria-label="Close palette">Esc</button>
+        </div>
+        <label class="search-field" for="palette-search">
+          <span aria-hidden="true">&#8981;</span>
+          <input id="palette-search" type="search" placeholder="Search commands, features, and settings" aria-label="Search commands, features, and settings" autocomplete="off" maxlength="256" role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls="palette-results">
+          <button class="regex-open" type="button" id="palette-regex-open" aria-label="Regex builder for the palette search" aria-expanded="false" aria-controls="palette-regex">.*</button>
+        </label>
+        <details class="regex-builder" id="palette-regex" data-search="palette"><summary>Regex builder &middot; palette search</summary><div class="regex-controls" data-regex-controls="palette"></div></details>
+        <div id="palette-results" role="listbox" aria-label="Palette results"></div>
+        <p id="palette-empty" class="empty-state" hidden>Nothing matches. Results cover every tab, feature, article, and setting in the studio.</p>
+      </div>
+    </dialog>
+
+    <div id="toast-region" role="status" aria-live="polite"></div>
+    <div id="context-menu" class="context-menu" role="menu" hidden></div>
+  </div>
+
+  <!-- Script order matters: site-core.js establishes window.Site (settings,
+       storage, search helpers) before anything else touches it; the rest
+       attach to it and to their own DOM ids the way docs/site/index.html
+       already loads them. -->
+  <script src="site-core.js"></script>
+  <script src="regex-builder.js"></script>
+  <script src="notifications.js"></script>
+  <script src="confirm-gate.js"></script>
+  <script src="palette.js"></script>
+  <script src="electron-bridge.js"></script>
+  <script src="studio-shell.js"></script>
+</body>
+</html>

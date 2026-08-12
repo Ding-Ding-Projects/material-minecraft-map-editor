@@ -1,0 +1,155 @@
+/* Amulet Studio design tokens -- traced to design/HANDOFF.md and
+ * design/Amulet Studio.dc.html (the ":root" custom-property block there,
+ * `[data-studio]` / `[data-studio][data-theme="dark"]` / `[data-density]`).
+ *
+ * These are plain CSS custom properties on the document root, so switching
+ * `data-theme` or `data-density` repaints the whole shell without
+ * re-rendering anything -- exactly the contract the design's own handoff
+ * describes ("theme, accent, and density are CSS custom properties on the
+ * root, so switching them repaints without re-rendering").
+ *
+ * The app bundles its own fonts locally (see studio-tokens.css's @font-face
+ * block below, backed by studio-fonts.css when real font files are added)
+ * and never reaches a CDN -- required so the desktop shell renders offline.
+ * Until real IBM Plex font files are vendored into this repository, the
+ * stack falls back honestly to the closest local system faces rather than
+ * pretending a webfont loaded.
+ */
+
+:root {
+  /* ---- Light theme (default) -- design/HANDOFF.md "light" role block ---- */
+  --studio-surface: #F7FAF9;
+  --studio-surface-container: #EDF3F2;
+  --studio-surface-container-high: #E1EAE8;
+  --studio-on-surface: #171D1C;
+  --studio-on-surface-variant: #3F4948;
+  --studio-outline: #6F7978;
+  --studio-outline-variant: #BFC9C7;
+  --studio-primary: #006A63;
+  --studio-on-primary: #FFFFFF;
+  --studio-primary-container: #A6F2E9;
+  --studio-on-primary-container: #00504A;
+  --studio-error: #BA1A1A;
+
+  --studio-scrim: rgba(14, 21, 20, .5);
+  --studio-tint: rgba(0, 106, 99, .06);
+  --studio-edge: inset 0 1px 0 rgba(255, 255, 255, .7);
+
+  /* ---- Elevation -- three tokens plus the edge highlight above ---- */
+  --studio-e1: 0 1px 2px rgba(14, 21, 20, .10), 0 1px 3px rgba(14, 21, 20, .06);
+  --studio-e2: 0 2px 6px rgba(14, 21, 20, .10), 0 8px 24px rgba(14, 21, 20, .08);
+  --studio-e3: 0 14px 44px rgba(14, 21, 20, .24), 0 2px 8px rgba(14, 21, 20, .12);
+
+  /* ---- Density -- compact 32 / comfortable 36 (default) / spacious 44 ---- */
+  --studio-ctrl: 36px;
+
+  /* ---- Type -- IBM Plex Sans for interface text, IBM Plex Mono for every
+     coordinate, id, tag and hash. Bundled locally where present; falls back
+     to close system faces so the shell still renders correctly offline
+     before any font file is vendored in. */
+  --studio-font-sans: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --studio-font-mono: "IBM Plex Mono", "Cascadia Mono", "Consolas", ui-monospace, monospace;
+}
+
+/* ---- Dark theme -- design/HANDOFF.md "dark" role block ---- */
+:root[data-theme="dark"] {
+  --studio-surface: #0E1514;
+  --studio-surface-container: #182020;
+  --studio-surface-container-high: #232C2B;
+  --studio-on-surface: #DDE4E2;
+  --studio-on-surface-variant: #BEC9C7;
+  --studio-outline: #899391;
+  --studio-outline-variant: #3F4948;
+  --studio-primary: #82D5CC;
+  --studio-on-primary: #003733;
+  --studio-primary-container: #00504A;
+  --studio-on-primary-container: #A6F2E9;
+  --studio-error: #FFB4AB;
+
+  --studio-scrim: rgba(0, 0, 0, .62);
+  --studio-tint: rgba(130, 213, 204, .08);
+  --studio-edge: inset 0 1px 0 rgba(255, 255, 255, .05);
+
+  --studio-e1: 0 1px 2px rgba(0, 0, 0, .5);
+  --studio-e2: 0 2px 8px rgba(0, 0, 0, .45), 0 10px 28px rgba(0, 0, 0, .35);
+  --studio-e3: 0 18px 52px rgba(0, 0, 0, .62);
+}
+
+/* `system` theme (no explicit choice) follows the OS preference, exactly as
+ * the artifact/theming contract requires everywhere else in this project. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --studio-surface: #0E1514;
+    --studio-surface-container: #182020;
+    --studio-surface-container-high: #232C2B;
+    --studio-on-surface: #DDE4E2;
+    --studio-on-surface-variant: #BEC9C7;
+    --studio-outline: #899391;
+    --studio-outline-variant: #3F4948;
+    --studio-primary: #82D5CC;
+    --studio-on-primary: #003733;
+    --studio-primary-container: #00504A;
+    --studio-on-primary-container: #A6F2E9;
+    --studio-error: #FFB4AB;
+
+    --studio-scrim: rgba(0, 0, 0, .62);
+    --studio-tint: rgba(130, 213, 204, .08);
+    --studio-edge: inset 0 1px 0 rgba(255, 255, 255, .05);
+
+    --studio-e1: 0 1px 2px rgba(0, 0, 0, .5);
+    --studio-e2: 0 2px 8px rgba(0, 0, 0, .45), 0 10px 28px rgba(0, 0, 0, .35);
+    --studio-e3: 0 18px 52px rgba(0, 0, 0, .62);
+  }
+}
+
+/* ---- Density tokens -- design/HANDOFF.md "compact 32, comfortable 36,
+   spacious 44" ---- */
+:root[data-density="compact"] { --studio-ctrl: 32px; }
+:root[data-density="comfortable"] { --studio-ctrl: 36px; }
+:root[data-density="spacious"] { --studio-ctrl: 44px; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--studio-surface);
+  color: var(--studio-on-surface);
+}
+
+body {
+  font-family: var(--studio-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+
+[data-studio] kbd,
+.studio-mono {
+  font-family: var(--studio-font-mono);
+}
+
+[data-studio] a { color: var(--studio-primary); text-decoration: none; }
+[data-studio] a:hover { color: var(--studio-on-primary-container); text-decoration: underline; }
+
+[data-studio] input:focus-visible,
+[data-studio] select:focus-visible,
+[data-studio] button:focus-visible,
+[data-studio] [tabindex]:focus-visible {
+  outline: 2px solid var(--studio-primary);
+  outline-offset: 1px;
+}
+
+[data-studio] input,
+[data-studio] select,
+[data-studio] textarea,
+[data-studio] button {
+  font-family: inherit;
+}
+
+[data-studio] ::-webkit-scrollbar { width: 10px; height: 10px; }
+[data-studio] ::-webkit-scrollbar-thumb { background: var(--studio-outline-variant); border-radius: 99px; }
+[data-studio] ::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-studio] * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}

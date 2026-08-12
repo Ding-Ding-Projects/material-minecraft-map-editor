@@ -2,9 +2,11 @@
  * Electron main process for the Material Minecraft Map Editor desktop shell.
  *
  * This process owns exactly one thing at this stage of the migration: a
- * frameless window that loads the already-complete Material 3 renderer at
- * docs/site/index.html. It draws nothing of its own -- the product's UI is
- * that site, unmodified, and this process's whole job is to host it, restore
+ * frameless window that loads the Amulet Studio shell at
+ * docs/site/studio.html (the Material 3 design at
+ * design/Amulet Studio.dc.html, implemented against the shared docs/site/
+ * modules). It draws nothing of its own -- the product's UI is that page,
+ * and this process's whole job is to host it, restore
  * its geometry across restarts, and expose a narrow typed bridge for the
  * window-chrome controls a frameless window needs (the OS default title bar
  * is never shown as product chrome; a later lane wires the on-page buttons to
@@ -22,7 +24,7 @@ const fs = require("fs");
 const { SidecarClient } = require("./sidecar-client");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
-const SITE_INDEX = path.join(REPO_ROOT, "docs", "site", "index.html");
+const STUDIO_ENTRY = path.join(REPO_ROOT, "docs", "site", "studio.html");
 const PRELOAD = path.join(__dirname, "preload.js");
 
 // The sidecar is a real Python source tree (amulet_map_editor/), not
@@ -206,7 +208,7 @@ function createWindow() {
       query: { world: viewportHarnessWorld },
     });
   } else {
-    mainWindow.loadFile(SITE_INDEX);
+    mainWindow.loadFile(STUDIO_ENTRY);
   }
 
   mainWindow.on("closed", () => {
