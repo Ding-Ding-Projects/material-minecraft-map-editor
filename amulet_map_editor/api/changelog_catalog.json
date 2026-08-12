@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "a27bd86e0d0f8e6cbeede0ead5d01bebe0c74ff9",
+  "source_revision": "fd677c07c3dd9a43e2e04b18187c021264d670ac",
   "entries": [
+    {
+      "version": "0.10.0-dev.749",
+      "released_on": "2026-08-12",
+      "commit_sha": "c46cd93c9d9f9c098f7f0bfb240474447d4697f8",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Convert the Waterlog operation panel to Material controls",
+          "commit_sha": "c46cd93c9d9f9c098f7f0bfb240474447d4697f8"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.747",
+      "released_on": "2026-08-12",
+      "commit_sha": "cb0bdca2e04fe3d59f7e386685e8551a481c2569",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Regenerate the changelog catalog at the green commit",
+          "commit_sha": "cb0bdca2e04fe3d59f7e386685e8551a481c2569"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.745",
+      "released_on": "2026-08-12",
+      "commit_sha": "a27bd86e0d0f8e6cbeede0ead5d01bebe0c74ff9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Move the arrow-key nudge note ahead of the tool's own description, not just its heading",
+          "commit_sha": "a27bd86e0d0f8e6cbeede0ead5d01bebe0c74ff9"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.742",
       "released_on": "2026-08-12",
