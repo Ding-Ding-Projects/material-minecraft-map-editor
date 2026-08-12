@@ -558,6 +558,25 @@ class MaterialTabs(wx.Panel, _Themed):
 
     # -- selection by id -----------------------------------------------------
     def select_tab(self, tab_id: str) -> None:
+        if tab_id not in self._order:
+            return
+        button = self._buttons.get(tab_id)
+        lock = self._locked_tab_lock(tab_id)
+        if lock is not None and button is not None:
+            # A locked tab prompts to unlock rather than teleporting past the
+            # lock -- so the selection below never runs until it matches.
+            try:
+                from amulet_map_editor.api.wx.ui import item_locks as item_locks_ui
+
+                item_locks_ui.open_unlock_prompt(
+                    self, button, lock, lambda: self._finish_select(tab_id)
+                )
+            except ImportError:
+                pass
+            return
+        self._finish_select(tab_id)
+
+    def _finish_select(self, tab_id: str) -> None:
         if tab_id in self._order:
             self.SetSelection(self._order.index(tab_id))
             button = self._buttons.get(tab_id)
@@ -749,6 +768,7 @@ class MaterialTabs(wx.Panel, _Themed):
             ("Move tab earlier", lambda: self._reorder(tab.tab_id, -1)),
             ("Move tab later", lambda: self._reorder(tab.tab_id, 1)),
             ("Edit tab appearance…", lambda: self._edit_appearance(button)),
+            *self._lock_rows(button),
             (
                 "Dock tab strip to the left",
                 lambda: self.set_dock(tab_groups.TabDock.LEFT),
@@ -860,6 +880,37 @@ class MaterialTabs(wx.Panel, _Themed):
             log.debug("The element appearance editor is not available")
             return
         open_element_appearance(button)
+
+    def _lock_rows(self, button: _TabButton) -> List[Tuple[str, Callable[[], None]]]:
+        """The toy "Lock…" / "Unlock…" / "Remove lock…" rows for one tab.
+
+        A locked tab still shows in every search and in the palette; only
+        activating it is gated, and gating happens in :meth:`select_tab`
+        rather than here, so a lock created after this menu was built is
+        still honoured the next time the tab is chosen.
+        """
+        try:
+            from amulet_map_editor.api.wx.ui import item_locks as item_locks_ui
+        except ImportError:
+            return []
+        return item_locks_ui.lock_menu_rows(
+            self,
+            button,
+            "tab",
+            button.tab.tab_id,
+            button.tab.title,
+            on_change=self.Refresh,
+        )
+
+    def _locked_tab_lock(self, tab_id: str):
+        try:
+            from amulet_map_editor.api import item_locks
+        except ImportError:
+            return None
+        for lock in item_locks.locks_for_target("tab", tab_id):
+            if not item_locks.is_unlocked(lock.lock_id):
+                return lock
+        return None
 
     # -- painting ------------------------------------------------------------
     def _apply_theme(self, palette: tokens.StudioPalette) -> None:

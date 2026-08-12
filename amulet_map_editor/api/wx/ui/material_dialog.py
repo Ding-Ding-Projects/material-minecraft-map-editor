@@ -189,6 +189,7 @@ class TextField(widgets.Card):
         name: str = "Text field",
         multiline: bool = False,
         read_only: bool = False,
+        password: bool = False,
         height: Optional[int] = None,
         size_px: float = 13,
         mono: bool = False,
@@ -197,6 +198,7 @@ class TextField(widgets.Card):
         self._height = height
         self._size_px = float(size_px)
         self._mono = bool(mono)
+        self._password = bool(password)
         super().__init__(parent, role="surface_container", radius=tokens.RADIUS_SM)
         # The whole control is drawn from the design tokens, inner entry
         # included, so the native pass has nothing to add here.  Left in, it
@@ -209,6 +211,8 @@ class TextField(widgets.Card):
             style |= wx.TE_MULTILINE
         if read_only:
             style |= wx.TE_READONLY
+        if password:
+            style |= wx.TE_PASSWORD
         self.text = wx.TextCtrl(self, value=str(value), style=style, name=name)
         self.text.SetName(name)
         if placeholder:

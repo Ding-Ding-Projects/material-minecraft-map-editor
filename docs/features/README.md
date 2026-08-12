@@ -64,6 +64,7 @@ If you are new to the interface, start with
 - [School mode](school-mode/README.md)
 - [Scheduled settings](scheduled-settings/README.md)
 - [Optional narrator](tts-narrator/README.md)
+- [Per-surface locks](item-locks/README.md)
 
 ## Safety, history, and getting data out
 
