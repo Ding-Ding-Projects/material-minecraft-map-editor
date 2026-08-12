@@ -54,7 +54,15 @@ BODY_PADDING_BOTTOM = 44
 
 #: The backstage destinations, in rail order.  The keys are what
 #: ``StudioShell.show_backstage`` passes in.
-TABS: Tuple[str, ...] = ("home", "open", "info", "convert", "features", "account")
+TABS: Tuple[str, ...] = (
+    "home",
+    "open",
+    "info",
+    "convert",
+    "file_convert",
+    "features",
+    "account",
+)
 
 #: Command keys this view asks the shell to run.  They are named here so the
 #: command registry and this view can be checked against one list rather than
@@ -2852,6 +2860,7 @@ class BackstageView(wx.Panel):
             ("open", "Open", "開啟", "▸"),
             ("info", "Info", "資料", "ⓘ"),
             ("convert", "Convert", "轉換", "⇄"),
+            ("file_convert", "File converter", "檔案轉換器", "⇅"),
             ("features", "All surfaces", "所有介面", "▦"),
             ("account", "Workspace", "工作區", "◎"),
         )
@@ -2984,6 +2993,7 @@ class BackstageView(wx.Panel):
             "open": self._build_open,
             "info": self._build_info,
             "convert": self._build_convert,
+            "file_convert": self._build_file_convert,
             "features": self._build_features,
             "account": self._build_workspace,
         }
@@ -4230,6 +4240,42 @@ class BackstageView(wx.Panel):
                 text.set_available_width(min(_px(860), width)),
                 progress.set_available_width(min(_px(860), width)),
             )
+        )
+
+    # -- file converter --------------------------------------------------
+    def _build_file_convert(self, parent: wx.Panel, sizer: wx.BoxSizer) -> None:
+        """Host the universal local file converter (JSON/NBT/image formats).
+
+        This is a different converter from :meth:`_build_convert` above: that
+        one merges an open world's chunks into another world through the
+        platform translation layer, while this one converts standalone files
+        -- structures, JSON documents, images -- entirely locally, with byte
+        signature detection and a sandboxed adapter. Neither replaces the
+        other.
+        """
+        from amulet_map_editor.api.studio.converter_panel import ConverterPanel
+
+        block = self._max_width_block(parent, sizer, 860)
+        inner = block.GetSizer()
+        inner.Add(
+            _heading(block, "File converter", "檔案轉換器", 30),
+            0,
+            wx.EXPAND | wx.BOTTOM,
+            _px(8),
+        )
+        intro = _body_text(
+            block,
+            "Convert a standalone file between formats this build has a real, "
+            "documented adapter for -- structures, JSON documents, and images "
+            "-- entirely on this machine.",
+            "喺呢部機度，將一個獨立檔案喺呢個版本有真實、有紀錄嘅轉換器嘅格式之間"
+            "轉換——包括建構檔、JSON文件同圖片。",
+        )
+        inner.Add(intro, 0, wx.EXPAND | wx.BOTTOM, _px(20))
+        panel = ConverterPanel(block)
+        inner.Add(panel, 1, wx.EXPAND)
+        self._register_width(
+            lambda width, text=intro: text.set_available_width(min(_px(860), width))
         )
 
     def _convert_blocker(self) -> str:
