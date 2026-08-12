@@ -65,6 +65,7 @@ If you are new to the interface, start with
 - [Scheduled settings](scheduled-settings/README.md)
 - [Optional narrator](tts-narrator/README.md)
 - [Per-surface locks](item-locks/README.md)
+- [Built-in authenticator](authenticator/README.md)
 
 ## Safety, history, and getting data out
 

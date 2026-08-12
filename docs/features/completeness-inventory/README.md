@@ -24,7 +24,7 @@ instead of silently passing.
 | dim-sum-catalog | `amulet_map_editor/api/dim_sum_surprise.py` | `docs/features/dim-sum-surprise/README.md` | `amulet_map_editor/api/lang.py` | non-optable, no persisted disable flag by design | `tests/test_dim_sum_surprise.py` | `tests/test_dim_sum_surprise.py` | `tests/test_dim_sum_surprise.py` (capture_composite) | complete |
 | file-converter | `amulet_map_editor/api/converter/core.py`, `adapters.py`, `registry.py`, `sandbox.py` | none | none | `amulet_map_editor/api/converter/registry.py` | `tests/test_converter_core.py` | `tests/test_converter_core.py` | none | incomplete — missing dedicated feature article and localized-copy audit, and no built-artifact capture |
 | localization | `amulet_map_editor/api/lang.py` | `docs/features/language-modes/README.md` | `amulet_map_editor/api/lang.py` (itself the localization resource) | `amulet_map_editor/api/wx/ui/preferences.py` | `tests/test_lang.py`, `tests/test_language_select_ui_contract.py` | `tests/test_language_select_ui_contract.py` | `tests/test_language_select_ui_contract.py` (capture_composite) | complete |
-| locked-surfaces | `docs/site/locks.js` (Pages site only) | none | `docs/site/locks.js` (`t(en, yue)` inline) | browser local storage (`docs/site/locks.js`) | `tests/test_site_runtime_render_contract.py` | `tests/test_site_runtime_render_contract.py` | none | incomplete — desktop app has no locked-tab/locked-appearance implementation at all; site-only, no article, no capture |
+| locked-surfaces | `amulet_map_editor/api/item_locks.py`, `amulet_map_editor/api/wx/ui/item_locks.py`, `docs/site/locks.js` | `docs/features/item-locks/README.md` | `amulet_map_editor/api/lang.py`, `t(en, yue)` inline in `docs/site/locks.js` | metadata in the config record, credential in the OS vault; browser local storage on the site | `tests/test_item_locks.py`, `tests/test_site_runtime_render_contract.py` | `tests/test_item_lock_ui_contract.py` | `tests/test_item_lock_ui_contract.py` (capture_composite) | complete |
 | memory-console | `amulet_map_editor/api/studio/memory_console.py`, `memory_content.py`, `surfaces.py` | `docs/features/memory-console/README.md` | `amulet_map_editor/api/lang.py` | `amulet_map_editor/api/studio/recents.py` | `tests/test_studio_accessibility_contract.py` | `tests/test_studio_runtime_render_contract.py` | `tests/test_studio_runtime_render_contract.py` (capture_composite) | complete |
 | pages-site-parity | `docs/site/site-data.js`, `docs/site/app.js` | `docs/features/pages-site/README.md` | inline `t(en, yue)` helpers across `docs/site/*.js` | browser local storage | `tests/test_site_runtime_render_contract.py`, `tests/test_site_palette_inventory_contract.py` | `tests/test_site_runtime_render_contract.py` | none (no headless browser capture harness for the Pages site in this repo) | incomplete — missing built-artifact capture evidence for the deployed site |
 | personal-vocabulary | none in `amulet_map_editor/`; only `tests/test_site_private_vocabulary_contract.py` describes the contract | none | none | none | `tests/test_site_private_vocabulary_contract.py` | none | none | incomplete — no implementation on either surface beyond the contract test; this is a real gap, not a false negative |
@@ -33,16 +33,25 @@ instead of silently passing.
 | super-confirmation | `docs/site/confirm-gate.js` (site), `amulet_map_editor/api/studio/widgets.py` (destructive gate widgets, undocumented class) | `docs/features/destructive-gate/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/confirm-gate.js` | n/a | none dedicated (only indirectly touched by `tests/test_editor_confirm_outcome.py`) | none | none | incomplete — no dedicated desktop test exercising the two-key + slider gate end to end, and no capture of the gate mid-animation |
 | tab-navigation | `amulet_map_editor/api/tab_groups.py`, `amulet_map_editor/api/wx/ui/material_tabs.py`, `amulet_map_editor/api/wx/ui/tab_manager.py`, `docs/site/tabs.js` | `docs/features/tab-groups/README.md` | `amulet_map_editor/api/lang.py`, inline `t(en, yue)` in `docs/site/tabs.js` | `amulet_map_editor/api/tab_groups.py` (order/pin/group persistence) | `tests/test_terrain_brush_group.py`, plus tab-groups tests | `tests/test_selection_menu_rows_run.py` | none dedicated | incomplete — missing a dedicated built-artifact capture of the tab strip at every dock edge (left/right/top/bottom) |
 | tab-navigation-runtime | `amulet_map_editor/api/framework/base_tab.py` | none | `amulet_map_editor/api/lang.py` | n/a | `tests/test_studio_runtime_render_contract.py` (covers the base tab render path indirectly) | `tests/test_studio_runtime_render_contract.py` | `tests/test_studio_runtime_render_contract.py` (capture_composite) | incomplete — no dedicated article distinguishing the runtime base-tab contract from the tab-groups feature article above |
-| two-factor-authenticator | `docs/site/totp.js`, `docs/site/authenticator.js` (site only) | none | inline `t(en, yue)` in `docs/site/authenticator.js` | browser local storage; secret in-memory only per contract | `tests/test_site_totp_contract.py` | `tests/test_site_totp_contract.py` | none | incomplete — desktop app has no built-in authenticator surface at all; site-only, no article, no capture |
+| two-factor-authenticator | `amulet_map_editor/api/authenticator.py`, `amulet_map_editor/api/wx/ui/authenticator_dialog.py`, `docs/site/totp.js`, `docs/site/authenticator.js` | `docs/features/authenticator/README.md` | `amulet_map_editor/api/lang.py`, `t(en, yue)` inline in `docs/site/authenticator.js` | metadata in the config record, secret in the OS vault only | `tests/test_authenticator.py`, `tests/test_authenticator_entries.py`, `tests/test_site_totp_contract.py` | `tests/test_authenticator_ui_contract.py` | `tests/test_authenticator_ui_contract.py` (capture_composite) | complete |
 | universal-feature-delivery | this inventory itself, plus `tests/test_feature_completeness_inventory.py` | `docs/features/completeness-inventory/README.md` (this file) | n/a (governance artifact, not user-facing copy) | n/a | `tests/test_feature_completeness_inventory.py` | n/a | n/a | complete — the inventory and its fail-closed negative-regression test are the deliverable required by this contract |
 
 ## Honest summary
 
-Of the 19 tracked rows, **9 are complete** with implementation, article, localized
+Of the 19 tracked rows, **12 are complete** with implementation, article, localized
 copy, persistence where relevant, tests, an interaction proof and capture
-evidence all present and verified by the test below. **10 are recorded
+evidence all present and verified by the test below. **7 are recorded
 incomplete**, each with the exact missing item named in the table rather than
 silently omitted:
+
+Three rows moved from incomplete to complete after this inventory was first
+written, and they moved because the inventory named the gap: `locked-surfaces`
+and `two-factor-authenticator` existed **only on the Pages site** with no
+desktop implementation at all, which is precisely the silent delegation the
+universal-delivery contract forbids and precisely what a tree-scan cannot
+see — grep found the feature's name in a dozen files, every one of them a
+generated catalog. `app-logo-customization` had a complete engine and no
+surface to reach it from.
 
 - `auto-updates` — missing capture evidence for the ready-to-restart banner.
 - `file-converter` — no feature article, no localization audit, no capture.

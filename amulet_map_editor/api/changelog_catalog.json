@@ -1,8 +1,128 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "d744d22951ae9eee4da29fa54fcfaac322e8b8bb",
+  "source_revision": "b3c41d88fbf0508f7b07965120cd0711bb24a90b",
   "entries": [
+    {
+      "version": "0.10.0-dev.772",
+      "released_on": "2026-08-12",
+      "commit_sha": "8d54fa27a4ae7b7e749f929e38dc308657d2163e",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add the desktop built-in TOTP authenticator (RFC 6238/4226), local QR pairing, and OS-vault secrets",
+          "commit_sha": "8d54fa27a4ae7b7e749f929e38dc308657d2163e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.771",
+      "released_on": "2026-08-12",
+      "commit_sha": "138a49dfe8813d304c611080190f5618b646e508",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Build the app-mark settings UI on the Appearance tab, wired to the existing engine",
+          "commit_sha": "138a49dfe8813d304c611080190f5618b646e508"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.768",
+      "released_on": "2026-08-12",
+      "commit_sha": "ef17bf602096f13e0f4877114a5a50680f6cf113",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wire the Memory Console's Operations and Changelog views to real GitHub state",
+          "commit_sha": "ef17bf602096f13e0f4877114a5a50680f6cf113"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.766",
+      "released_on": "2026-08-12",
+      "commit_sha": "c31c055d03a41942b98627a7492fb15c9538bef1",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add the universal local file converter: byte-sniffed, sandboxed, honest",
+          "commit_sha": "c31c055d03a41942b98627a7492fb15c9538bef1"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.764",
+      "released_on": "2026-08-12",
+      "commit_sha": "fb71761f8b703420df4ea756f85c50e3df0a8b11",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Properties pane's Dimension row becomes a real switcher, not a printout",
+          "commit_sha": "fb71761f8b703420df4ea756f85c50e3df0a8b11"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.762",
+      "released_on": "2026-08-12",
+      "commit_sha": "361d1fbd68e1184fd9ced0727d6980c466e49f4b",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add validated core for custom app-logo conversion (presets + upload)",
+          "commit_sha": "361d1fbd68e1184fd9ced0727d6980c466e49f4b"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.759",
+      "released_on": "2026-08-12",
+      "commit_sha": "986fc34ec62605588b389eb16d60db6f38cfee8f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Format the one call that drifted out of black's shape",
+          "commit_sha": "986fc34ec62605588b389eb16d60db6f38cfee8f"
+        }
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "released_on": "2026-08-12",
+      "commit_sha": "7874d1db4091bceec7fb4ca556e8fa064b891c9a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Regenerate the changelog catalog for the 1.0.0 tag",
+          "commit_sha": "7874d1db4091bceec7fb4ca556e8fa064b891c9a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.756",
+      "released_on": "2026-08-12",
+      "commit_sha": "7874d1db4091bceec7fb4ca556e8fa064b891c9a",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Regenerate the changelog catalog for the 1.0.0 tag",
+          "commit_sha": "7874d1db4091bceec7fb4ca556e8fa064b891c9a"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.755",
+      "released_on": "2026-08-12",
+      "commit_sha": "d744d22951ae9eee4da29fa54fcfaac322e8b8bb",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Build the installer at the version the project actually has",
+          "commit_sha": "d744d22951ae9eee4da29fa54fcfaac322e8b8bb"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.753",
       "released_on": "2026-08-12",

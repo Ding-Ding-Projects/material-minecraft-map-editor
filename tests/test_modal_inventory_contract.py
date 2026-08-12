@@ -118,6 +118,16 @@ EXPECTED_MODAL_CALLS = Counter(
         ),
         (
             "amulet_map_editor/api/wx/ui/preferences.py",
+            "PreferencesDialog._open_app_mark_regex_builder",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/wx/ui/authenticator_dialog.py",
+            "AuthenticatorDialog._on_add",
+            "dialog",
+        ),
+        (
+            "amulet_map_editor/api/wx/ui/preferences.py",
             "CommandPaletteDialog._open_regex_builder",
             "dialog",
         ),
@@ -249,6 +259,11 @@ _EDITOR_MODALS = {
     "NbtStudioDialog._edit_element",
     "NbtStudioDialog.add_tag",
     "NbtStudioDialog.rename_tag",
+    # Registering an authenticator entry is a credential step: it pairs a
+    # secret and then requires one live code back before the factor arms, so
+    # it must complete or be abandoned as a whole. Half a registration is a
+    # factor that cannot be used and cannot be recovered from.
+    "AuthenticatorDialog._on_add",
 }
 
 #: Modals the user must answer before anything proceeds.  A bulk-action preview

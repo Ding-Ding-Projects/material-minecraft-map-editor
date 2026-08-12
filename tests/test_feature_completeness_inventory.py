@@ -113,6 +113,7 @@ INVENTORY = {
         [
             "amulet_map_editor/api/item_locks.py",
             "amulet_map_editor/api/wx/ui/item_locks.py",
+            "docs/features/item-locks/README.md",
             "docs/site/locks.js",
             "tests/test_item_locks.py",
             "tests/test_item_lock_ui_contract.py",
@@ -193,6 +194,7 @@ INVENTORY = {
             "docs/site/totp.js",
             "docs/site/authenticator.js",
             "tests/test_site_totp_contract.py",
+            "docs/features/authenticator/README.md",
             "amulet_map_editor/api/authenticator.py",
             "amulet_map_editor/api/wx/ui/authenticator_dialog.py",
             "tests/test_authenticator.py",
@@ -280,6 +282,43 @@ def test_no_row_silently_claims_complete_without_declared_evidence():
         if status == "complete" and not paths
     ]
     assert not empty, f"complete rows with no declared evidence: {empty}"
+
+
+#: Rows whose subject genuinely has no user-facing surface to write an article
+#: about, with the reason. Anything NOT listed here needs one.
+_NO_ARTICLE_BY_DESIGN = {
+    # A governance artifact: the inventory doc IS this row's article, and it
+    # is already declared as its evidence.
+    "universal-feature-delivery",
+}
+
+
+def test_complete_rows_declare_an_article_and_a_test():
+    """The columns that make a row 'complete' must actually be declared.
+
+    The fail-closed gate above only checks that the paths a row DECLARES all
+    exist -- so a row can be marked complete while declaring no article at
+    all, and every assertion in this file passes. That is not hypothetical:
+    ``two-factor-authenticator`` was flipped to complete with an
+    implementation, a UI and three test files declared and no article
+    anywhere, and nothing here noticed, because everything it named was
+    genuinely on disk. A guard that only validates what is present cannot see
+    what was never listed.
+    """
+    faults = {}
+    for feature, (status, paths) in INVENTORY.items():
+        if status != "complete":
+            continue
+        gaps = []
+        if feature not in _NO_ARTICLE_BY_DESIGN and not any(
+            p.startswith("docs/") and p.endswith("README.md") for p in paths
+        ):
+            gaps.append("no article declared")
+        if not any(p.startswith("tests/") for p in paths):
+            gaps.append("no test suite declared")
+        if gaps:
+            faults[feature] = gaps
+    assert not faults, f"complete rows missing a required column: {faults}"
 
 
 @pytest.mark.parametrize(
