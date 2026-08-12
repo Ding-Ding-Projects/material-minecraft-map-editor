@@ -82,6 +82,14 @@ class ProgressOverlay(wx.Panel, _Themed):
         self._timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_tick, self._timer)
         self.Bind(wx.EVT_SIZE, self._on_size)
+        # ``_install`` sets ``BG_STYLE_PAINT`` but never binds the paint
+        # event itself -- every other Studio widget binds it beside its own
+        # ``render_to`` override, and this one had gone without, so the
+        # window was left declaring "I paint myself" while nothing ever
+        # actually painted it.  With ``TRANSPARENT_WINDOW`` and no paint
+        # handler wx still ran its default erase, which is the flash.
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
         # The overlay stops its own animation when it goes, rather than relying
         # on the frame's close path to do it. A wx.Timer left running against a
         # destroyed window keeps delivering events to a handler that is no

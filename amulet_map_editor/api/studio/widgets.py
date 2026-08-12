@@ -688,7 +688,13 @@ class _Themed:
                 refresh = getattr(child, "refresh_theme", None)
                 if callable(refresh):
                     refresh()
-            self.Refresh()
+            # Every Studio widget paints its own background in ``render_to``,
+            # so the default GDI erase this would otherwise trigger repaints
+            # nothing useful -- it just clears to the system brush a frame
+            # before ``render_to`` draws over it, which is the flash a theme
+            # change (or any other wide repaint) was putting across the
+            # whole tree.
+            self.Refresh(eraseBackground=False)
         except RuntimeError:
             # The underlying window has already gone; the listener drops itself.
             self._theme_unsubscribe = None

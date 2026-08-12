@@ -48,6 +48,12 @@ class BaseCanvas(GLCanvas):
             size=parent.GetClientSize(),
             style=wx.WANTS_CHARS,
         )
+        # The GL surface paints itself entirely through the swap chain; a
+        # GDI erase-background pass before that first frame is what put a
+        # flash of the system's raw window colour across the viewport, so
+        # it is suppressed the same way every other owner-drawn Studio
+        # surface suppresses it.
+        self.Bind(wx.EVT_ERASE_BACKGROUND, lambda _event: None)
 
         # Amulet-Team/Amulet-Map-Editor#84
         # Amulet-Team/Amulet-Map-Editor#597
