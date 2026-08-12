@@ -310,7 +310,7 @@
   /* The fallback, used only where SubtleCrypto is absent. It is an iterated mix,
    * not a reviewed KDF, and every surface that mentions it says so. */
   function fallbackDigest(secret, saltHex, rounds) {
-    var text = saltHex + " " + secret;
+    var text = saltHex + "\u0000" + secret;
     var a = 0x811c9dc5;
     var b = 0x01000193;
     var c = 0x9e3779b9;

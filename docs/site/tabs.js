@@ -38,7 +38,8 @@
     { id: "community", en: "Community", yue: "社群" },
     { id: "changelog", en: "Changelog", yue: "變更記錄" },
     { id: "history", en: "History", yue: "歷史" },
-    { id: "settings", en: "Settings", yue: "設定" }
+    { id: "settings", en: "Settings", yue: "設定" },
+    { id: "security", en: "Security", yue: "保安" }
   ];
 
   var KEY_PINS = "tabs.pinned"; // shipped key, kept so existing pins survive

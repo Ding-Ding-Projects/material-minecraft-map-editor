@@ -126,3 +126,8 @@ venv.bak/
 /plugins
 /config
 /cache
+
+# Test-only dependency for the site runtime render contract. The published
+# site bundles nothing; this is never shipped.
+node_modules/
+package-lock.json

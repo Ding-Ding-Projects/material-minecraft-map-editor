@@ -241,6 +241,42 @@
       <div class="settings-grid" id="settings-grid"></div>
       <p id="settings-empty" class="empty-state" hidden>No setting matches that search.</p>
     </section>
+
+    <section id="security" class="page-section" role="tabpanel" aria-labelledby="tab-security" data-page="security" tabindex="-1" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">LOCKS, CODES AND THE WAY BACK IN</p>
+          <h1>A two-factor authenticator, and locks that are honestly toys.</h1>
+          <p id="security-copy">The QR is drawn in this page from local code, because a remote QR service is handed the secret on the way to drawing it. The locks are for fun and say so. Support Tickets is the recovery route, and it works.</p>
+        </div>
+      </div>
+
+      <h2 id="authenticator-title">Authenticator</h2>
+      <div class="search-stack">
+        <label class="search-field" for="auth-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="auth-search" type="search" placeholder="Search entries" aria-label="Search authenticator entries" autocomplete="off" maxlength="256">
+          <span class="count" id="auth-search-feedback"></span>
+          <button class="regex-open" type="button" id="auth-regex-open" aria-label="Regex builder for the authenticator search" aria-expanded="false" aria-controls="auth-regex">.*</button>
+        </label>
+      </div>
+      <details class="regex-builder" id="auth-regex" data-search="auth"><summary>Regex builder · authenticator search</summary><div class="regex-controls" data-regex-controls="auth"></div></details>
+      <div id="authenticator-root" aria-labelledby="authenticator-title"></div>
+
+      <h2 id="locks-title">Locked tabs and locked appearance</h2>
+      <div class="search-stack">
+        <label class="search-field" for="locks-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="locks-search" type="search" placeholder="Search lockable things" aria-label="Search lockable tabs and appearance values" autocomplete="off" maxlength="256">
+          <button class="regex-open" type="button" id="locks-regex-open" aria-label="Regex builder for the locks search" aria-expanded="false" aria-controls="locks-regex">.*</button>
+        </label>
+      </div>
+      <details class="regex-builder" id="locks-regex" data-search="locks"><summary>Regex builder · locks search</summary><div class="regex-controls" data-regex-controls="locks"></div></details>
+      <div id="locks-root" aria-labelledby="locks-title"></div>
+
+      <h2 id="support-title">Support Tickets</h2>
+      <div id="support-root" aria-labelledby="support-title"></div>
+    </section>
   </main>
 
   <aside id="notifications" class="drawer" aria-labelledby="notif-title" hidden>
@@ -307,6 +343,11 @@
   <script src="school-mode.js"></script>
   <script src="dimsum.js"></script>
   <script src="panel-resize.js"></script>
+  <script src="totp.js"></script>
+  <script src="qr.js"></script>
+  <script src="authenticator.js"></script>
+  <script src="locks.js"></script>
+  <script src="support-tickets.js"></script>
   <script src="palette.js"></script>
   <script src="app.js"></script>
 </body>

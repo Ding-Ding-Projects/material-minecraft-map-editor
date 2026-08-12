@@ -1,0 +1,9 @@
+{
+  "name": "mmwe-site-checks",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Test-only dependencies for the site's runtime render contract. The published site itself bundles no dependencies at all: every script here is a classic browser script that runs from a file:// preview with nothing installed.",
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}
