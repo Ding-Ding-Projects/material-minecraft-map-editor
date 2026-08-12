@@ -37,12 +37,23 @@ class AppearanceTokenCostTestCase(unittest.TestCase):
         cls.config = config
         cls.preferences = preferences
         cls.tokens = tokens
-        cls.app = wx.App(False)
+        # Reuse a live ``wx.App`` when the session already has one, and only
+        # create -- and later destroy -- a fresh instance when it does not.
+        # Unconditionally creating a second ``wx.App`` silently orphans an
+        # existing one and, if later destroyed, clears wx's notion of "the
+        # current app" for every other test module -- the exact sequence
+        # that corrupts wxPython's SIP class table for platform-native
+        # widgets such as ``wx.PopupTransientWindow``.
+        existing = wx.App.Get()
+        cls._created_app = existing is None and wx.App(False)
+        cls.app = existing or cls._created_app
         cls.frame = wx.Frame(None, size=(400, 300), pos=(-32000, -32000))
 
     @classmethod
     def tearDownClass(cls):
         cls.frame.Destroy()
+        if cls._created_app:
+            cls._created_app.Destroy()
         cls.config.invalidate()
         cls._dir.cleanup()
 

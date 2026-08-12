@@ -228,25 +228,52 @@ def _inside_the_window(window: Any) -> bool:
     return True
 
 
-def _scroll_into_view(window: Any) -> str:
-    """Ask the nearest scrolling ancestor to bring ``window`` into view.
+def _scroll_into_view(window: Any) -> List[str]:
+    """Ask *every* scrolling ancestor to bring ``window`` into view.
 
-    Returns what was asked, for the failure message: "no scrolled ancestor" is
-    a different defect from "scrolled and the control still is not there", and
-    a reader of a red run should not have to guess which one they have.
+    Returns what was asked of each one, for the failure message: "no scrolled
+    ancestor" is a different defect from "scrolled and the control still is
+    not there", and a reader of a red run should not have to guess which one
+    they have.
+
+    ``ScrollChildIntoView`` is asked about ``window`` itself, not about
+    whatever child of the scrolling ancestor happens to sit on the path to it.
+    ``GetChildRectRelativeToSelf`` computes that rect from ``GetScreenRect()``,
+    so it answers correctly for any descendant, direct or not -- and asking
+    about an intermediate wrapper instead is a real bug this walk used to
+    have: for an operation like Fill, whose Run button is nested one level
+    inside a plain ``wx.Panel`` and not a direct child of the tool's
+    ``ScrolledPanel``, substituting that wrapper made
+    ``ScrollChildIntoView``'s own top-anchoring math refuse to scroll at all
+    -- the wrapper's *top* was already visible, so revealing its bottom would
+    have hidden that top edge, and the routine chooses to keep the top edge in
+    view over moving at all.  Confirmed against a standalone probe mirroring
+    that exact nesting: scrolling the wrapper left the button out of view with
+    the scroll position never leaving (0, 0); scrolling the button itself
+    (this fix) reached it every time.
+
+    And every one, not just the nearest: Replace nests its own
+    ``SimpleScrollablePanel`` -- two stacked block pickers -- one level inside
+    the tool's own ``ToolPanel``, so its Run button sits behind *two*
+    independent scroll regions.  Stopping at the first (Replace's own) can
+    leave the outer ``ToolPanel`` still scrolled to wherever it was, with
+    Replace itself -- now correctly scrolled internally -- laid out past the
+    bottom of what the outer panel is currently showing.  Bringing the button
+    inside the window needs both scrolled into place, innermost first.
     """
-    child = window
+    asked: List[str] = []
     node = window.GetParent()
     while node is not None:
         if isinstance(node, wx.ScrolledWindow) and hasattr(node, "ScrollChildIntoView"):
             try:
-                node.ScrollChildIntoView(child)
-                return f"{type(node).__name__}.ScrollChildIntoView"
+                node.ScrollChildIntoView(window)
+                asked.append(f"{type(node).__name__}.ScrollChildIntoView")
             except Exception as error:  # noqa: BLE001
-                return f"{type(node).__name__}.ScrollChildIntoView raised {error!r}"
-        child = node
+                asked.append(
+                    f"{type(node).__name__}.ScrollChildIntoView raised {error!r}"
+                )
         node = node.GetParent()
-    return "no scrolling ancestor"
+    return asked or ["no scrolling ancestor"]
 
 
 def _operation_tiles() -> Tuple[Any, ...]:
@@ -264,12 +291,22 @@ def _chooser(canvas: Any) -> Optional[Any]:
     """Return the Operation tool's own operation list, or ``None``.
 
     Identified by what it holds rather than by where it sits: the operation
-    list is the one ``wx.Choice`` offering every stock operation.  The first
+    list is the one dropdown offering every stock operation.  The first
     version of this walked the tool's windows and took the first Choice it
     found, which was fine while the panel underneath was always Clone's (Clone
     has no dropdowns) and started answering with *Set Biome's own mode
     dropdown* the moment the fix made the other operations reachable -- a
     measurement error that would have read as the fix not working.
+
+    Identified by *duck type*, not ``isinstance(node, wx.Choice)``.  This
+    dropdown used to be a real ``wx.Choice``; the Material 3 conversion moved
+    it to ``MaterialChoice`` in ``base_operation_choice.py`` -- a control that
+    answers the same ``GetStrings``/``GetStringSelection`` vocabulary but is
+    built on ``wx.Panel``, not ``wx.Choice`` -- so an isinstance check against
+    the old class stopped matching it the day that conversion landed and every
+    arrival here silently read back as "no chooser found".
+    ``tests/test_export_format_runtime.py`` hit the exact same false negative
+    for its own exporter chooser first; this mirrors that fix.
     """
     tool = editor_tools.tool_named("Operation", canvas)
     if tool is None:
@@ -283,8 +320,11 @@ def _chooser(canvas: Any) -> Optional[Any]:
     while stack:
         node = stack.pop()
         try:
-            if isinstance(node, wx.Choice) and wanted <= set(node.GetStrings()):
-                return node
+            get_strings = getattr(node, "GetStrings", None)
+            get_selection = getattr(node, "GetStringSelection", None)
+            if callable(get_strings) and callable(get_selection):
+                if wanted <= set(get_strings()):
+                    return node
             stack.extend(node.GetChildren())
         except Exception:  # noqa: BLE001 - a control mid-teardown
             continue
@@ -394,7 +434,9 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
             # "already there" and "one scroll away" are different answers and
             # only one of them matches the copy on the tile.
             in_window = [control for control in runs if _inside_the_window(control)]
-            scrolls = [_scroll_into_view(control) for control in runs]
+            scrolls = [
+                asked for control in runs for asked in _scroll_into_view(control)
+            ]
             _pump(0.2)
             reachable = [control for control in runs if _inside_the_window(control)]
             record.arrivals[tile.label] = {

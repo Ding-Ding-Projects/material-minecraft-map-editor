@@ -113,7 +113,7 @@ class DocumentationDialog(wx.Dialog):
         )
         self.regex_button = studio.StudioButton(
             self,
-            "Regex…",
+            label="Regex…",
             variant="outlined",
             hint="Build a bounded regular-expression search",
             name="Documentation search regex builder",

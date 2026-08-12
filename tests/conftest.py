@@ -121,3 +121,54 @@ def generated_fixtures(request: pytest.FixtureRequest) -> None:
     reporter = request.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is not None:
         reporter.write_line(f"[conftest] {message}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _one_wx_app_for_the_whole_session():
+    """Create exactly one ``wx.App`` before any test runs, and never destroy it.
+
+    Individual test modules each carry their own ``app`` fixture -- most of
+    them written as ``existing = wx.App.Get(); created = wx.App(...) if
+    existing is None else None``, destroying ``created`` at their own module
+    teardown when they were the one that made it.  That pattern is correct
+    for the case it was written for -- never leaving two ``wx.App``
+    instances alive at once -- but across ~150 modules in one process it
+    still means the App gets destroyed and a fresh one created dozens of
+    times over the life of the suite, because whichever module's fixture
+    runs first after a previous one tore its App down becomes the next
+    "creator" in turn.
+
+    Measured directly: ``tests/test_editor_toolbar_material_contract.py``'s
+    dimension dropdown -- an ``AnchoredPopup(wx.PopupTransientWindow)`` --
+    opens cleanly by itself and in small combinations of preceding files, but
+    fails deep into a full run with
+    ``TypeError: PopupTransientWindow.Popup(): first argument of unbound
+    method must have type 'PopupTransientWindow'``.  That is wxPython's SIP
+    layer refusing a method call because the instance's wrapped type no
+    longer matches what it expects -- exactly the shape of damage repeated
+    ``wx.App`` teardown/recreate cycles are documented to cause for
+    platform-native popup classes on MSW, whose window-class registration is
+    tied to the App's lifetime.  A single dedicated reproduction of 300
+    create/open/destroy popup cycles under one *never-recreated* App did not
+    fail, which is the other half of the evidence: the corruption tracks the
+    App's own churn, not popup volume.
+
+    Creating the App here, once, before ``generated_fixtures`` or any test
+    module's own ``app`` fixture runs, means ``wx.App.Get()`` is never
+    ``None`` again for the rest of the session: every module's own fixture
+    reuses this instance and its own ``created`` branch never fires, so
+    nothing ever tears it down mid-session.  It is deliberately never
+    destroyed here either -- process exit reclaims it, and destroying it
+    right before interpreter shutdown is its own separate source of the
+    "crash while garbage-collecting" failure this suite has already hit once
+    (see ``test_capture_blank_detection.py``'s history).
+    """
+    try:
+        import wx
+    except ImportError:
+        return None
+    try:
+        app = wx.App.Get() or wx.App(False)
+    except Exception:  # pragma: no cover - platform boundary, e.g. no display
+        return None
+    return app

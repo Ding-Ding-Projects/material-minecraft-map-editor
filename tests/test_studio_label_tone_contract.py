@@ -167,12 +167,23 @@ def _tone_would_reach(labels: List[Tuple[str, str]]) -> List[str]:
 
 @pytest.fixture(scope="module")
 def app():
-    try:
-        instance = wx.App(False)
-    except Exception as error:  # pragma: no cover - depends on the host
-        pytest.skip(f"wx.App could not start on this host: {error!r}")
-    yield instance
-    instance.Destroy()
+    # Reuse a live ``wx.App`` when the session already has one, and only
+    # create -- and later destroy -- a fresh instance when it does not.
+    # Unconditionally creating a second ``wx.App`` and then unconditionally
+    # destroying it clears wx's notion of "the current app" out from under
+    # every other test module -- the exact sequence that corrupts wxPython's
+    # SIP class table for platform-native widgets such as
+    # ``wx.PopupTransientWindow``.
+    existing = wx.App.Get()
+    created = None
+    if existing is None:
+        try:
+            created = wx.App(False)
+        except Exception as error:  # pragma: no cover - depends on the host
+            pytest.skip(f"wx.App could not start on this host: {error!r}")
+    yield existing or created
+    if created is not None:
+        created.Destroy()
 
 
 @pytest.fixture(scope="module")

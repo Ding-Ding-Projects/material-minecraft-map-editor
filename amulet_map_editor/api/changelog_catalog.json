@@ -1,8 +1,200 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "0a6a4afc25e0b92b31e7682121fdf06f95a5b1b9",
+  "source_revision": "b8bcedbb706eaefc52ee4a7a37553f687e7e082d",
   "entries": [
+    {
+      "version": "0.10.0-dev.681",
+      "released_on": "2026-08-11",
+      "commit_sha": "ae697c74f4e923ebddba8beb8f2fa262e6a0f239",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Build the site's TOTP and QR core, checked against published values",
+          "commit_sha": "ae697c74f4e923ebddba8beb8f2fa262e6a0f239"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.682",
+      "released_on": "2026-08-11",
+      "commit_sha": "ae697c74f4e923ebddba8beb8f2fa262e6a0f239",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Build the site's TOTP and QR core, checked against published values",
+          "commit_sha": "ae697c74f4e923ebddba8beb8f2fa262e6a0f239"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.675",
+      "released_on": "2026-08-11",
+      "commit_sha": "988b9d539b6225ad894aa0e7e954ed6bb82a4f2d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Format the gallery builder the way the rest of the tree is formatted",
+          "commit_sha": "988b9d539b6225ad894aa0e7e954ed6bb82a4f2d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.676",
+      "released_on": "2026-08-11",
+      "commit_sha": "988b9d539b6225ad894aa0e7e954ed6bb82a4f2d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Format the gallery builder the way the rest of the tree is formatted",
+          "commit_sha": "988b9d539b6225ad894aa0e7e954ed6bb82a4f2d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.673",
+      "released_on": "2026-08-11",
+      "commit_sha": "378fba621bba5a2eefac826ba419b8852c14bed3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main' into site/pages-landing",
+          "commit_sha": "378fba621bba5a2eefac826ba419b8852c14bed3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.674",
+      "released_on": "2026-08-11",
+      "commit_sha": "378fba621bba5a2eefac826ba419b8852c14bed3",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main' into site/pages-landing",
+          "commit_sha": "378fba621bba5a2eefac826ba419b8852c14bed3"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.670",
+      "released_on": "2026-08-11",
+      "commit_sha": "d4437184e2a5b953764dea8c90558c43b3a2b126",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add the display-text overlay's upload surface to Preferences",
+          "commit_sha": "d4437184e2a5b953764dea8c90558c43b3a2b126"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.668",
+      "released_on": "2026-08-11",
+      "commit_sha": "62ad466e6068a46e7d55039e9855ebe039077a90",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add the loader, bounded validation, cache, and substitution boundary for a display-text overlay",
+          "commit_sha": "62ad466e6068a46e7d55039e9855ebe039077a90"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.666",
+      "released_on": "2026-08-11",
+      "commit_sha": "919fc6b7cf6f192b20a265a0adeab9ca6a5f430e",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Cache the resolved presentation, not just the disk read underneath it",
+          "commit_sha": "919fc6b7cf6f192b20a265a0adeab9ca6a5f430e"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.663",
+      "released_on": "2026-08-11",
+      "commit_sha": "eb0c9d6efddcacf8313a404f250fbf1e914214fc",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Paint the last native widgets in main menu, world picker, docs, and key config",
+          "commit_sha": "eb0c9d6efddcacf8313a404f250fbf1e914214fc"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.659",
+      "released_on": "2026-08-11",
+      "commit_sha": "79240b068961cf117d01f5d35489d2b6ad11ccfd",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Convert the plugin operation-options panel to Material widgets",
+          "commit_sha": "79240b068961cf117d01f5d35489d2b6ad11ccfd"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.658",
+      "released_on": "2026-08-11",
+      "commit_sha": "0098fb8202b390e4cf15afcd21b3b869b39399ec",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wire up the search field's anchored regex builder and un-brick the field guard",
+          "commit_sha": "0098fb8202b390e4cf15afcd21b3b869b39399ec"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.654",
+      "released_on": "2026-08-11",
+      "commit_sha": "026f3e56c3c9aceeab22404bffe7986369cabb1d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Replace the capture matrix with one taken after the fleets landed",
+          "commit_sha": "026f3e56c3c9aceeab22404bffe7986369cabb1d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.652",
+      "released_on": "2026-08-11",
+      "commit_sha": "33febaf473996f3d15e3e7e277e6cb34db51313f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Draw the settings, the dialogs and the progress bar ourselves",
+          "commit_sha": "33febaf473996f3d15e3e7e277e6cb34db51313f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.651",
+      "released_on": "2026-08-11",
+      "commit_sha": "cad7e3e64176afefa64d1f28f7d68844c96e8f1f",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main' into site/pages-landing",
+          "commit_sha": "cad7e3e64176afefa64d1f28f7d68844c96e8f1f"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.649",
+      "released_on": "2026-08-11",
+      "commit_sha": "0a6a4afc25e0b92b31e7682121fdf06f95a5b1b9",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop a paste that lost its undo point being reported as one that wrote nothing",
+          "commit_sha": "0a6a4afc25e0b92b31e7682121fdf06f95a5b1b9"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.647",
       "released_on": "2026-08-11",
@@ -16,6 +208,18 @@
       ]
     },
     {
+      "version": "0.10.0-dev.643",
+      "released_on": "2026-08-11",
+      "commit_sha": "7fec32b63f40bd7d1346d55526ad131d77e3e792",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "feat(site): the remaining contract features, and the changelog renders its changes",
+          "commit_sha": "7fec32b63f40bd7d1346d55526ad131d77e3e792"
+        }
+      ]
+    },
+    {
       "version": "0.10.0-dev.642",
       "released_on": "2026-08-11",
       "commit_sha": "b412e22043ce46862153c489d34f90fd559d7f03",
@@ -24,6 +228,18 @@
           "action": "changed",
           "summary": "Test the ribbon's own refusals with definitions broken on purpose",
           "commit_sha": "b412e22043ce46862153c489d34f90fd559d7f03"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.640",
+      "released_on": "2026-08-11",
+      "commit_sha": "64b5f33b17ab9c52fa08ab93cdc65b0108c6e158",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "feat(site): replace every capture with the real interface, 270 of them",
+          "commit_sha": "64b5f33b17ab9c52fa08ab93cdc65b0108c6e158"
         }
       ]
     },
@@ -60,6 +276,18 @@
           "action": "changed",
           "summary": "Let every heads-up overlay be dragged, nudged, and put back",
           "commit_sha": "1d4215e164e9cde7a10a6740e72059c50ff14b66"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.632",
+      "released_on": "2026-08-11",
+      "commit_sha": "cd91e30bf75c39191b653a4259ec740dafd95433",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "feat(site): add the changelog and history surfaces, and mount the contract build",
+          "commit_sha": "cd91e30bf75c39191b653a4259ec740dafd95433"
         }
       ]
     },
@@ -672,6 +900,18 @@
           "action": "changed",
           "summary": "Declare the YAML dependency the workflow contract needs",
           "commit_sha": "3f2f7ed3750f904af3aa7e2c7b493cabcd78daed"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.522",
+      "released_on": "2026-08-10",
+      "commit_sha": "1b31d6f994473396e976a6db30ee0ddd95b87385",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "feat(capture): settle before every capture, and composite containers",
+          "commit_sha": "1b31d6f994473396e976a6db30ee0ddd95b87385"
         }
       ]
     },

@@ -703,7 +703,20 @@ def _describe_operation_controls(canvas: Any) -> List[Dict[str, Any]]:
         node = stack.pop()
         try:
             label = str(node.GetLabel() or "")
-            kind = "chooser" if isinstance(node, wx.Choice) else label
+            get_strings = getattr(node, "GetStrings", None)
+            get_selection = getattr(node, "GetStringSelection", None)
+            # Duck-typed, not ``isinstance(node, wx.Choice)``: the Material 3
+            # conversion moved this dropdown to ``MaterialChoice`` -- a
+            # ``wx.Panel`` answering the same ``GetStrings``/
+            # ``GetStringSelection`` vocabulary but not a ``wx.Choice`` -- so
+            # an isinstance check against the old class silently stopped
+            # matching it. Mirrors the identical fix already made for
+            # tests/test_export_format_runtime.py's exporter chooser.
+            kind = (
+                "chooser"
+                if callable(get_strings) and callable(get_selection)
+                else label
+            )
             if kind in dict(OPERATION_CONTROLS):
                 described.append(
                     {
