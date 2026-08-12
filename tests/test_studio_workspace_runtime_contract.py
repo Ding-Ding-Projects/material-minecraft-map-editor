@@ -376,15 +376,31 @@ class TheTerrainEntitiesAndDataTabsCallTheRealBridge(unittest.TestCase):
           window.__entitiesListCalledWith = Array.prototype.slice.call(arguments);
           return Promise.resolve({ count: 1, entities: [{ namespace: "minecraft", base_name: "cow", x: 1, y: 2, z: 3 }] });
         },
+        place: function () {
+          window.__entitiesPlaceCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ placed: { namespace: "minecraft", base_name: "cow" } });
+        },
+        remove: function () {
+          window.__entitiesRemoveCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ removed: 2 });
+        },
       },
       data: {
         readLevel: function () {
           window.__levelReadCalledWith = Array.prototype.slice.call(arguments);
           return Promise.resolve({ level_name: "Fixture World", data_version: 1, difficulty: 2, hardcore: false, raining: false, thundering: false });
         },
+        writeLevel: function () {
+          window.__levelWriteCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ updated: ["level_name"] });
+        },
         readGameRules: function () {
           window.__gameRulesReadCalledWith = Array.prototype.slice.call(arguments);
           return Promise.resolve({ game_rules: { doFire: "true" } });
+        },
+        writeGameRules: function () {
+          window.__gameRulesWriteCalledWith = Array.prototype.slice.call(arguments);
+          return Promise.resolve({ updated: ["doFire"] });
         },
       },
       confirmDestructive: function (opts) { opts.onConfirm(); },
@@ -396,6 +412,28 @@ class TheTerrainEntitiesAndDataTabsCallTheRealBridge(unittest.TestCase):
       edit: {
         readPoints: () => ({ point1: [0, 0, 0], point2: [3, 6, 3] }),
         blockValue: () => "universal_minecraft:stone",
+        entityTypeValue: () => "minecraft:cow",
+        seaLevelModeValue: () => "raise",
+      },
+      runPlaceEntity: function () {
+        return window.AmuletSite.electronSidecar.entities.place(
+          "fixture-world-id", "minecraft:overworld", [0, 0, 0], "minecraft", "cow", true
+        );
+      },
+      runRemoveEntities: function () {
+        return window.AmuletSite.electronSidecar.entities.remove(
+          "fixture-world-id", "minecraft:overworld", [0, 0, 0], [3, 6, 3], "minecraft", "cow", true
+        );
+      },
+      runWriteLevel: function () {
+        return window.AmuletSite.electronSidecar.data.writeLevel(
+          "fixture-world-id", { level_name: "New Name" }, true
+        );
+      },
+      runWriteGameRules: function () {
+        return window.AmuletSite.electronSidecar.data.writeGameRules(
+          "fixture-world-id", { doFire: "false" }, true
+        );
       },
     };
     """
@@ -458,18 +496,37 @@ class TheTerrainEntitiesAndDataTabsCallTheRealBridge(unittest.TestCase):
         self.assertFalse(got["wasDisabled"])
         self.assertIsNotNone(got["calledWith"])
 
-    def test_entities_place_and_remove_stay_honestly_unwired(self) -> None:
+    def test_entities_place_and_remove_are_wired(self) -> None:
         got = render(
             FAKE_SIDECAR + self.WORKSHOP_FIXTURE,
             "all('.sw-ribbon-tab').find(b => b.textContent === 'Entities').click();"
             "const place = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Place') !== -1);"
             "const remove = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Remove') !== -1);"
-            "return { placeDisabled: place.disabled, placeTitle: place.title, removeDisabled: remove.disabled, removeTitle: remove.title };",
+            "const placeDisabled = place.disabled, removeDisabled = remove.disabled;"
+            "place.click(); remove.click();"
+            "await new Promise(r => setTimeout(r, 20));"
+            "return { placeDisabled, removeDisabled, placeCalled: window.__entitiesPlaceCalledWith, removeCalled: window.__entitiesRemoveCalledWith };",
         )
-        self.assertTrue(got["placeDisabled"])
-        self.assertIn("Not yet wired to the desktop sidecar", got["placeTitle"])
-        self.assertTrue(got["removeDisabled"])
-        self.assertIn("Not yet wired to the desktop sidecar", got["removeTitle"])
+        self.assertFalse(got["placeDisabled"])
+        self.assertFalse(got["removeDisabled"])
+        self.assertIsNotNone(got["placeCalled"])
+        self.assertIsNotNone(got["removeCalled"])
+
+    def test_write_level_dat_and_write_game_rule_are_wired(self) -> None:
+        got = render(
+            FAKE_SIDECAR + self.WORKSHOP_FIXTURE,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Data').click();"
+            "const writeLevel = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Write level.dat') !== -1);"
+            "const writeRule = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Write game rule') !== -1);"
+            "const writeLevelDisabled = writeLevel.disabled, writeRuleDisabled = writeRule.disabled;"
+            "writeLevel.click(); writeRule.click();"
+            "await new Promise(r => setTimeout(r, 20));"
+            "return { writeLevelDisabled, writeRuleDisabled, levelCalled: window.__levelWriteCalledWith, rulesCalled: window.__gameRulesWriteCalledWith };",
+        )
+        self.assertFalse(got["writeLevelDisabled"])
+        self.assertFalse(got["writeRuleDisabled"])
+        self.assertIsNotNone(got["levelCalled"])
+        self.assertIsNotNone(got["rulesCalled"])
 
     def test_level_dat_and_game_rules_are_wired(self) -> None:
         got = render(
@@ -486,6 +543,139 @@ class TheTerrainEntitiesAndDataTabsCallTheRealBridge(unittest.TestCase):
         self.assertFalse(got["rulesDisabled"])
         self.assertIsNotNone(got["levelCalled"])
         self.assertIsNotNone(got["rulesCalled"])
+
+
+class TheViewTabTogglesRealLocalUiState(unittest.TestCase):
+    """Layers/Navigator/Ribbon/Properties/Options are all local UI state or a
+    real overlay call -- none needs the sidecar's write path, but Layers is
+    gated on a streaming world (there is nothing to toggle a grid over
+    before one exists), matching its own requiresWorld declaration."""
+
+    def test_layers_toggles_the_real_grid_via_viewport_panel(self) -> None:
+        got = render(
+            FAKE_SIDECAR
+            + """
+            window.__gridVisible = true;
+            window.__AmuletViewportPanel = {
+              isStreaming: () => true,
+              edit: { readPoints: () => null },
+              isGridVisible: () => window.__gridVisible,
+              setGridVisible: function (v) { window.__gridVisible = !!v; return window.__gridVisible; },
+            };
+            """,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'View').click();"
+            "const layers = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Layers') !== -1);"
+            "const wasDisabled = layers.disabled;"
+            "layers.click();"
+            "return { wasDisabled, afterClick: window.__gridVisible };",
+        )
+        self.assertFalse(got["wasDisabled"], "Layers must render enabled once a world is streaming")
+        self.assertFalse(got["afterClick"], "clicking Layers must call the real setGridVisible(), toggling it off")
+
+    def test_layers_is_disabled_without_a_streaming_world(self) -> None:
+        got = render(
+            FAKE_SIDECAR,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'View').click();"
+            "const layers = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Layers') !== -1);"
+            "return { disabled: layers.disabled, title: layers.title };",
+        )
+        self.assertTrue(got["disabled"])
+        self.assertIn("Open a world", got["title"])
+
+    def test_navigator_toggle_hides_and_reshows_the_real_navigator(self) -> None:
+        got = render(
+            FAKE_SIDECAR,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'View').click();"
+            "const navBtn = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Navigator') !== -1);"
+            "const before = q('.sw-navigator').hidden;"
+            "navBtn.click();"
+            "const afterFirstClick = q('.sw-navigator').hidden;"
+            "navBtn.click();"
+            "const afterSecondClick = q('.sw-navigator').hidden;"
+            "return { before, afterFirstClick, afterSecondClick };",
+        )
+        self.assertFalse(got["before"])
+        self.assertTrue(got["afterFirstClick"], "clicking Navigator once must hide the real navigator panel")
+        self.assertFalse(got["afterSecondClick"], "clicking Navigator again must show it again")
+
+    def test_options_opens_the_real_appearance_editor_when_available(self) -> None:
+        got = render(
+            FAKE_SIDECAR
+            + """
+            window.__appearanceMounted = false;
+            window.AmuletStudioAppearance = { mount: function () { window.__appearanceMounted = true; } };
+            """,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'View').click();"
+            "const options = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Options') !== -1);"
+            "const wasDisabled = options.disabled;"
+            "options.click();"
+            "return { wasDisabled, mounted: window.__appearanceMounted };",
+        )
+        self.assertFalse(got["wasDisabled"], "Options must render enabled once window.AmuletStudioAppearance exists")
+        self.assertTrue(got["mounted"], "clicking Options must mount the real appearance editor overlay")
+
+    def test_options_is_disabled_without_the_appearance_editor_module(self) -> None:
+        got = render(
+            FAKE_SIDECAR,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'View').click();"
+            "const options = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Options') !== -1);"
+            "return { disabled: options.disabled };",
+        )
+        self.assertTrue(got["disabled"])
+
+
+class ThePanelsTabInspectorOpensTheRealPropertiesPane(unittest.TestCase):
+    def test_inspector_reopens_and_focuses_the_properties_tab(self) -> None:
+        got = render(
+            FAKE_SIDECAR,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'View').click();"
+            "const properties = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Properties') !== -1);"
+            "properties.click();"
+            "const closedAfterToggle = !q('.sw-pane .sw-pane-header');"
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Panels').click();"
+            "const inspector = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Inspector') !== -1);"
+            "const wasDisabled = inspector.disabled;"
+            "inspector.click();"
+            "const reopened = !!q('.sw-pane .sw-pane-header');"
+            "const activeTab = all('.sw-pane-tab').find(t => t.getAttribute('aria-selected') === 'true');"
+            "return { closedAfterToggle, wasDisabled, reopened, activeTabLabel: activeTab && activeTab.textContent };",
+        )
+        self.assertTrue(got["closedAfterToggle"], "test setup must actually close the pane first")
+        self.assertFalse(got["wasDisabled"], "Inspector is real local UI and must never be disabled")
+        self.assertTrue(got["reopened"], "clicking Inspector must reopen the real properties pane")
+        self.assertEqual(got["activeTabLabel"], "Properties")
+
+
+class TheAutomateTabOpensTheRealNotificationDrawer(unittest.TestCase):
+    def test_notifications_presses_the_real_notif_open_button(self) -> None:
+        got = render(
+            FAKE_SIDECAR
+            + """
+            window.__notifOpenClicked = false;
+            """,
+            "const notifOpen = window.document.createElement('button');"
+            "notifOpen.id = 'notif-open';"
+            "notifOpen.addEventListener('click', () => { window.__notifOpenClicked = true; });"
+            "window.document.body.appendChild(notifOpen);"
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Automate').click();"
+            "const notifications = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Notifications') !== -1);"
+            "const wasDisabled = notifications.disabled;"
+            "notifications.click();"
+            "return { wasDisabled, clicked: window.__notifOpenClicked };",
+        )
+        self.assertFalse(got["wasDisabled"], "Notifications is real local UI (a button press) and must never be disabled")
+        self.assertTrue(got["clicked"], "clicking the ribbon's Notifications command must press the real #notif-open button")
+
+    def test_release_notes_and_memory_console_are_still_honestly_unwired(self) -> None:
+        got = render(
+            FAKE_SIDECAR,
+            "all('.sw-ribbon-tab').find(b => b.textContent === 'Automate').click();"
+            "const releaseNotes = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Release notes') !== -1);"
+            "const memoryConsole = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Memory console') !== -1);"
+            "return { releaseNotesDisabled: releaseNotes.disabled, memoryConsoleDisabled: memoryConsole.disabled };",
+        )
+        self.assertTrue(got["releaseNotesDisabled"])
+        self.assertTrue(got["memoryConsoleDisabled"])
 
 
 if __name__ == "__main__":

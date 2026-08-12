@@ -42,6 +42,8 @@
   var NO_WORLD_REASON = "Open a world in the viewport below first.";
   var THEME_KEY = "amulet-studio-workspace-theme";
   var DENSITY_KEY = "amulet-studio-workspace-density";
+  var NAV_OPEN_KEY = "amulet-studio-workspace-nav-open";
+  var GRID_VISIBLE_KEY = "amulet-studio-workspace-grid-visible";
 
   function bridge() {
     return window.mmweDesktop && window.mmweDesktop.sidecar;
@@ -209,7 +211,7 @@
         ]),
         group("Generate", [
           btn("Noise", "⁘", "Fill the selection from a seeded noise field.", null, { primary: true }),
-          btn("Sea level", "≡", "Raise the water table to the selection's midpoint Y.", actions.terrainSeaLevel, { requiresSidecar: true, requiresWorld: true }),
+          btn("Sea level", "≡", "Raise or drain the water table to the selection's midpoint Y, per the Sea level mode field in the viewport's edit panel below.", actions.terrainSeaLevel, { requiresSidecar: true, requiresWorld: true }),
           btn("Regenerate", "↻", "Regenerate chunks from the world seed."),
         ]),
         group("Surface", [
@@ -250,8 +252,8 @@
         ]),
         group("Edit", [
           btn("Edit entity", "✎", "Edit the selected entity's NBT.", null, { primary: true }),
-          btn("Place", "＋", "Place an entity at the cursor. Backend real (entities.place) but this build's edit panel has no position/type fields to drive it yet."),
-          btn("Remove", "⌫", "Remove entities matching a filter. Backend real (entities.remove) but this build's edit panel has no filter field to drive it yet."),
+          btn("Place", "＋", "Place the entity type from the viewport's edit panel at selection point 1.", actions.entitiesPlace, { requiresSidecar: true, requiresWorld: true }),
+          btn("Remove", "⌫", "Remove entities in the selection matching the viewport edit panel's entity type field.", actions.entitiesRemove, { requiresSidecar: true, requiresWorld: true }),
         ]),
         group("Spawners", [
           btn("Spawner", "◈", "Edit spawner type, delay, and range."),
@@ -266,7 +268,9 @@
         ]),
         group("World data", [
           btn("level.dat", "▣", "Read the world's real level.dat fields.", actions.dataLevelRead, { primary: true, requiresSidecar: true, requiresWorld: true }),
+          btn("Write level.dat", "✎", "Write the level.dat fields set in the viewport's edit panel below (leave a field blank to keep it unchanged). Edits the world's own metadata -- confirm gate applies.", actions.dataLevelWrite, { requiresSidecar: true, requiresWorld: true }),
           btn("Game rules", "⚖", "Every game rule with its current value.", actions.dataGameRulesRead, { requiresSidecar: true, requiresWorld: true }),
+          btn("Write game rule", "⚖", "Set the game rule name/value entered in the viewport's edit panel below. Edits the world's own metadata -- confirm gate applies.", actions.dataGameRulesWrite, { requiresSidecar: true, requiresWorld: true }),
           btn("Scoreboard", "▧", "Objectives, teams, and scores."),
           btn("Maps", "◫", "Map items and their stored images."),
         ]),
@@ -330,76 +334,99 @@
       view: [
         group("Appearance", [
           btn("Theme", "◐", "Switch light and dark.", actions.toggleTheme, { primary: true }),
-          btn("Options", "⚙", "Open Options."),
+          btn(
+            "Options",
+            "⚙",
+            window.AmuletStudioAppearance
+              ? "Open the per-element appearance editor."
+              : "Open the per-element appearance editor.",
+            window.AmuletStudioAppearance ? actions.openOptions : null
+          ),
         ], { select: actions.densitySelect }),
         group("Show", [
           btn("Properties", "▤", "Toggle the properties pane.", actions.togglePane),
           btn("Ribbon", "▬", "Collapse or expand the ribbon.", actions.toggleRibbon),
+          btn("Navigator", "◫", "Toggle the navigator sidebar.", actions.toggleNavigator),
         ]),
         group("Views", [
-          btn("View", "◱", "View type, camera, and overlays.", null, { primary: true }),
-          btn("Four-up", "⊞", "Camera, overhead, and two elevations at once."),
-          btn("Cutaway", "◧", "Clip the world along a plane."),
-          btn("Work plane", "▬", "The fixed plane brushes snap to."),
+          btn("View", "◱", "View type, camera, and overlays. This build's renderer only draws a single perspective camera -- no orthographic or multi-view mode yet.", null, { primary: true }),
+          btn("Four-up", "⊞", "Camera, overhead, and two elevations at once. This build renders one viewport, not four."),
+          btn("Cutaway", "◧", "Clip the world along a plane. No clip-plane support in this build's renderer."),
+          btn("Work plane", "▬", "The fixed plane brushes snap to. No brush system exists to snap yet."),
         ]),
         group("Layers", [
-          btn("Layers", "☰", "Draw or hide each render layer.", null, { primary: true }),
-          btn("Installs", "⛁", "Resource packs and texture atlas."),
+          btn(
+            "Layers",
+            "☰",
+            "Draw or hide the reference grid overlay.",
+            actions.toggleGrid,
+            { primary: true, requiresSidecar: true, requiresWorld: true }
+          ),
+          btn("Installs", "⛁", "Resource packs and texture atlas. This build has no resource-pack manager to list."),
         ]),
       ],
       panels: [
         group("Inspect", [
-          btn("Inspector", "⌕", "Dockable inspector that follows the selection.", null, { primary: true }),
-          btn("World info", "▣", "World identity, size on disk, time and weather."),
-          btn("Players", "☺", "Players, skins, positions, and inventories."),
-          btn("Inventory", "▦", "Slot-by-slot inventory editor."),
+          // "Inspector -- dockable inspector that follows the selection" is
+          // exactly the properties pane this build already has (point1/
+          // point2, world/dimension, streaming state, and every command's
+          // own analyze/workshop result). No separate inspector surface
+          // exists to build, so this opens and focuses the real one.
+          btn("Inspector", "⌕", "Dockable inspector that follows the selection -- opens the properties pane.", actions.openInspector, { primary: true }),
+          btn("World info", "▣", "World identity, size on disk, time and weather. No such panel exists in this build yet."),
+          btn("Players", "☺", "Players, skins, positions, and inventories. No player-data panel exists in this build yet."),
+          btn("Inventory", "▦", "Slot-by-slot inventory editor. No inventory editor exists in this build yet."),
         ]),
         group("Objects", [
-          btn("Pending", "⧉", "Pending imports awaiting confirmation.", null, { primary: true }),
-          btn("Library", "❑", "Schematic library with folders and previews."),
-          btn("Maps", "◫", "Map items and image import."),
+          btn("Pending", "⧉", "Pending imports awaiting confirmation. No pending-import queue exists in this build yet.", null, { primary: true }),
+          btn("Library", "❑", "Schematic library with folders and previews. No schematic library exists in this build yet."),
+          btn("Maps", "◫", "Map items and image import. No map-item panel exists in this build yet."),
         ]),
         group("Diagnostics", [
-          btn("Log", "▤", "Filterable application log."),
-          btn("Profiler", "⏱", "Frame time and chunk-loading samples."),
-          btn("Console", "⌨", "Embedded Python console."),
-          btn("Errors", "⚠", "Local error report with traceback."),
+          btn("Log", "▤", "Filterable application log. No application-log panel exists in this build yet."),
+          btn("Profiler", "⏱", "Frame time and chunk-loading samples. No profiler exists in this build yet."),
+          btn("Console", "⌨", "Embedded Python console. No Python console exists in this build yet."),
+          btn("Errors", "⚠", "Local error report with traceback. No error report panel exists in this build yet."),
         ]),
       ],
       extend: [
         group("Pickers", [
-          btn("Blocks", "▨", "Block picker with states and textures.", null, { primary: true }),
-          btn("Items", "◈", "Item type list with textures."),
-          btn("Biomes", "❋", "Biome picker."),
-          btn("Define", "✎", "Configure block and item definitions."),
+          btn("Blocks", "▨", "Block picker with states and textures. No block picker exists in this build yet.", null, { primary: true }),
+          btn("Items", "◈", "Item type list with textures. No item picker exists in this build yet."),
+          btn("Biomes", "❋", "Biome picker. No biome picker exists in this build yet."),
+          btn("Define", "✎", "Configure block and item definitions. No definitions editor exists in this build yet."),
         ]),
         group("Resources", [
-          btn("Installs", "⛁", "Minecraft installs, versions, and resource packs.", null, { primary: true }),
-          btn("Versions", "◇", "Platform and data version for handlers."),
+          btn("Installs", "⛁", "Minecraft installs, versions, and resource packs. No installs manager exists in this build yet.", null, { primary: true }),
+          btn("Versions", "◇", "Platform and data version for handlers. No version manager exists in this build yet."),
         ]),
         group("Plugins", [
-          btn("Plugins", "✦", "Installed tools, generators, and commands.", null, { primary: true }),
-          btn("Generate", "⁘", "Generator plugins including L-system."),
-          btn("Console", "⌨", "Operation console for Python extensions."),
+          btn("Plugins", "✦", "Installed tools, generators, and commands. No plugin host exists in this build yet.", null, { primary: true }),
+          btn("Generate", "⁘", "Generator plugins including L-system. No generator plugin host exists in this build yet."),
+          btn("Console", "⌨", "Operation console for Python extensions. No Python console exists in this build yet."),
         ]),
       ],
       automate: [
         group("Scripting", [
-          btn("Console", "⌨", "Operation console for Python extensions.", null, { primary: true }),
-          btn("Batch queue", "⛁", "Queue several operations across worlds."),
-          btn("Macro", "⏺", "Record and replay operation sequences."),
+          btn("Console", "⌨", "Operation console for Python extensions. No Python console exists in this build yet.", null, { primary: true }),
+          btn("Batch queue", "⛁", "Queue several operations across worlds. No batch queue exists in this build yet."),
+          btn("Macro", "⏺", "Record and replay operation sequences. No macro recorder exists in this build yet."),
         ]),
         group("Scheduling", [
-          btn("Rules", "⏷", "Scheduled language, theme, density, and accent rules.", null, { primary: true }),
+          btn("Rules", "⏷", "Scheduled language, theme, density, and accent rules. No scheduled-settings surface exists in this build yet.", null, { primary: true }),
         ]),
         group("Records", [
-          btn("Notifications", "◉", "Notification history."),
-          btn("History", "⟲", "Version history."),
-          btn("Release notes", "♧", "Release notes."),
+          // The notification drawer (#notif-open, wired by studio-shell.js)
+          // is real and already on the same page this ribbon mounts into --
+          // this just presses that real button rather than building a
+          // second notification surface.
+          btn("Notifications", "◉", "Notification history -- opens the notification drawer.", actions.openNotifications),
+          btn("History", "⟲", "Version history. The Surfaces view that hosts local history is not switched into by this build's view router yet."),
+          btn("Release notes", "♧", "Release notes. This build has no in-app changelog viewer yet -- see the documentation site's own changelog."),
         ]),
         group("Memory", [
-          btn("Memory console", "▤", "Agent Global Memory Console.", null, { primary: true }),
-          btn("Regex builder", ".*", "Open the bounded regex builder."),
+          btn("Memory console", "▤", "Agent Global Memory Console. Not applicable inside the desktop app -- this is an operator tool for this project's own agents.", null, { primary: true }),
+          btn("Regex builder", ".*", "Open the bounded regex builder. Use this tab's own search field's regex builder for now -- a standalone builder command does not exist yet."),
         ]),
       ],
     };
@@ -447,6 +474,25 @@
       ribbonRegex: false,
       paneOpen: true,
       paneTab: "properties",
+      navOpen: (function () {
+        try {
+          return window.localStorage.getItem(NAV_OPEN_KEY) !== "0";
+        } catch (err) {
+          return true;
+        }
+      })(),
+      // Grid state lives in localStorage too, exactly like theme/density
+      // above, so it survives a restart the same way -- but the value that
+      // actually decides what draws is viewport-panel.js's own
+      // gridVisible closure var (mirrored here on toggle and read back on
+      // world-open, since the overlay does not exist until a world does).
+      gridVisible: (function () {
+        try {
+          return window.localStorage.getItem(GRID_VISIBLE_KEY) !== "0";
+        } catch (err) {
+          return true;
+        }
+      })(),
       navSearch: "",
       navSelected: null,
       theme: (function () {
@@ -561,6 +607,20 @@
         state.paneOpen = true;
         render();
       },
+      // "Inspector" (Panels tab): open and focus the real properties pane
+      // -- see the group comment above for why there is no second panel.
+      openInspector: function () {
+        state.paneOpen = true;
+        state.paneTab = "properties";
+        render();
+      },
+      // "Notifications" (Automate tab): press the real notification-drawer
+      // toggle studio-shell.js/notifications.js already wire on this same
+      // page, rather than reimplementing a second notification list here.
+      openNotifications: function () {
+        var openBtn = document.getElementById("notif-open");
+        if (openBtn && typeof openBtn.click === "function") openBtn.click();
+      },
       togglePane: function () {
         state.paneOpen = !state.paneOpen;
         render();
@@ -568,6 +628,37 @@
       toggleRibbon: function () {
         state.ribbonOpen = !state.ribbonOpen;
         render();
+      },
+      toggleNavigator: function () {
+        state.navOpen = !state.navOpen;
+        try {
+          window.localStorage.setItem(NAV_OPEN_KEY, state.navOpen ? "1" : "0");
+        } catch (err) {
+          /* ignore */
+        }
+        render();
+      },
+      // "Layers" (View tab): the only render layer this build's viewport
+      // actually draws separately from the world itself is the reference
+      // grid overlay (docs/site/viewport-overlays.js), so that is what this
+      // toggles -- real and local, via viewport-panel.js's setGridVisible.
+      toggleGrid: function () {
+        var vp = viewportPanel();
+        if (!vp || typeof vp.setGridVisible !== "function") return;
+        state.gridVisible = vp.setGridVisible(!vp.isGridVisible());
+        try {
+          window.localStorage.setItem(GRID_VISIBLE_KEY, state.gridVisible ? "1" : "0");
+        } catch (err) {
+          /* ignore */
+        }
+        render();
+      },
+      // "Options" (View tab): the real per-element appearance editor this
+      // build ships (already used by the pane header's own edit icon) --
+      // there is no second, broader settings surface to distinguish it
+      // from yet, so Options opens the same overlay.
+      openOptions: function () {
+        openAppearanceEditorOverlay();
       },
       toggleTheme: function () {
         state.theme = state.theme === "dark" ? "light" : "dark";
@@ -793,21 +884,23 @@
         }
       },
 
-      // "Sea level" raises the water table: every air block at or below the
-      // selection's own midpoint Y becomes water. There is no dedicated sea
-      // level field in this build's edit panel, so the selection's vertical
-      // midpoint is the real, computed value used, and this build only ever
-      // raises (draining is real in the sidecar -- see terrain.sea_level's
-      // "drain" mode -- but has no ribbon command yet).
+      // "Sea level" raises or drains the water table across the selection at
+      // its own midpoint Y -- there is no dedicated sea level Y field in
+      // this build's edit panel, so the selection's vertical midpoint is
+      // the real, computed value used. The mode (raise or drain) comes from
+      // the Sea level mode select in the viewport's edit panel -- both
+      // modes are real in the sidecar (terrain.sea_level's "raise"/"drain"),
+      // so this reads the real control instead of hard-coding "raise".
       terrainSeaLevel: function () {
         var ctx = actions.workshopContext("Sea level");
         if (!ctx) return;
         var seaLevel = Math.round((ctx.points.point1[1] + ctx.points.point2[1]) / 2);
+        var mode = ctx.edit && typeof ctx.edit.seaLevelModeValue === "function" ? ctx.edit.seaLevelModeValue() : "raise";
         var run = function () {
           actions.runWorkshopCommand(
             "Sea level",
             function () {
-              return ctx.eb.terrain.seaLevel(ctx.worldId, ctx.dimension, ctx.points.point1, ctx.points.point2, seaLevel, "raise", true);
+              return ctx.eb.terrain.seaLevel(ctx.worldId, ctx.dimension, ctx.points.point1, ctx.points.point2, seaLevel, mode, true);
             },
             function (result) {
               return [
@@ -821,9 +914,12 @@
         var site = window.AmuletSite;
         if (site && typeof site.confirmDestructive === "function") {
           site.confirmDestructive({
-            title: "Raise sea level",
-            detail: "Fills air at or below Y=" + seaLevel + " in the selection with water.",
-            confirm: "Raise",
+            title: mode === "drain" ? "Drain sea level" : "Raise sea level",
+            detail:
+              mode === "drain"
+                ? "Turns every water block in the selection into air."
+                : "Fills air at or below Y=" + seaLevel + " in the selection with water.",
+            confirm: mode === "drain" ? "Drain" : "Raise",
             onConfirm: run,
           });
         } else {
@@ -899,6 +995,22 @@
         );
       },
 
+      // "Place" and "Remove" (Entities tab, Edit group) call the real
+      // entities.place/entities.remove backend. Both were disabled purely
+      // for want of a type/filter field to drive them from -- viewport-
+      // panel.js's edit panel now has that field (entityTypeValue()), and
+      // runPlaceEntity/runRemoveEntities on the viewport panel itself do the
+      // parsing, the confirm gate, and the bridge call, the same way
+      // runFill/runCopySelection/etc. already do for every other write here.
+      entitiesPlace: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runPlaceEntity === "function") vp.runPlaceEntity();
+      },
+      entitiesRemove: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runRemoveEntities === "function") vp.runRemoveEntities();
+      },
+
       // "level.dat" (Data tab) reads the world's real level.dat fields --
       // read-only; no selection is required.
       dataLevelRead: function () {
@@ -955,6 +1067,21 @@
             });
           }
         );
+      },
+
+      // "Write level.dat" and "Write game rule" (Data tab) call the real
+      // data.level_write/data.game_rules_write backend. Both were disabled
+      // purely for want of editable fields -- viewport-panel.js's edit
+      // panel now has them, and runWriteLevel/runWriteGameRules on the
+      // viewport panel itself validate the values, apply the confirm gate,
+      // and make the bridge call.
+      dataLevelWrite: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runWriteLevel === "function") vp.runWriteLevel();
+      },
+      dataGameRulesWrite: function () {
+        var vp = viewportPanel();
+        if (vp && typeof vp.runWriteGameRules === "function") vp.runWriteGameRules();
       },
     };
 
@@ -1551,6 +1678,7 @@
         b.setAttribute("aria-selected", b.getAttribute("data-tab-key") === state.ribbonTab ? "true" : "false");
       });
       ribbonSearchInput.value = state.ribbonSearch;
+      navigatorEl.hidden = !state.navOpen;
       renderRibbonGroups();
       renderBreadcrumb();
       renderNavigator();

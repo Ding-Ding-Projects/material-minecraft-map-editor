@@ -158,6 +158,87 @@
     var findField = textField("find-block", "Block ID to find", "minecraft:dirt");
     var replaceField = textField("replace-block", "Block ID to replace it with", "minecraft:grass_block");
 
+    // entities.place/entities.remove (amulet_map_editor/api/sidecar/entity_methods.py)
+    // are real, tested, and were unreachable from the ribbon for want of a
+    // type/filter field -- this is that field. One "namespace:base_name"
+    // text box serves both commands: Place requires both halves (the
+    // sidecar rejects an empty namespace or base_name outright, so a typo
+    // like "cow" alone is reported as an error rather than silently
+    // resolved to something else); Remove accepts a namespace-only or
+    // base_name-only filter, so a plain "cow" with no colon is read as a
+    // base_name-only filter there. Placement position reuses selection
+    // point 1 -- the same "reuse the real six-field selection" pattern the
+    // Build tab's Cuboid command already uses for Fill.
+    var entityTypeField = textField("entity-type", "Entity type (namespace:base_name)", "minecraft:cow");
+
+    // terrain.sea_level's "drain" mode (amulet_map_editor/api/sidecar/
+    // terrain_methods.py) is real in the sidecar and had no control at all --
+    // this build only ever sent "raise". A real value or an explicit choice,
+    // never a hidden default: "raise" stays the select's own default so
+    // existing behaviour does not silently change underfoot.
+    var seaLevelModeSelect = document.createElement("select");
+    seaLevelModeSelect.id = "viewport-edit-sea-level-mode";
+    seaLevelModeSelect.setAttribute("aria-label", "Sea level mode");
+    ["raise", "drain"].forEach(function (value) {
+      var option = document.createElement("option");
+      option.value = value;
+      option.textContent = value === "raise" ? "Raise (air to water)" : "Drain (water to air)";
+      seaLevelModeSelect.appendChild(option);
+    });
+    var seaLevelModeWrap = document.createElement("label");
+    seaLevelModeWrap.className = "viewport-edit-field";
+    seaLevelModeWrap.setAttribute("for", seaLevelModeSelect.id);
+    var seaLevelModeSpan = document.createElement("span");
+    seaLevelModeSpan.textContent = "Sea level mode";
+    seaLevelModeWrap.appendChild(seaLevelModeSpan);
+    seaLevelModeWrap.appendChild(seaLevelModeSelect);
+
+    // data.level_write/data.game_rules_write (same module) are real and were
+    // unreachable for want of editable fields. These are the two most
+    // dangerous controls on this panel: a bad write can make level.dat --
+    // the world's own metadata -- unopenable. Every field here is opt-in
+    // (blank means "leave this field alone"; nothing is defaulted or
+    // guessed), and the caller in studio-workspace.js routes every write
+    // through the project's destructive-action confirm gate before it ever
+    // reaches the bridge.
+    var levelNameField = textField("level-name", "level.dat: Level name", "leave blank to keep unchanged");
+    var difficultyField = textField("level-difficulty", "level.dat: Difficulty (0-3)", "leave blank to keep unchanged");
+    difficultyField.input.type = "number";
+    difficultyField.input.min = "0";
+    difficultyField.input.max = "3";
+    difficultyField.input.step = "1";
+
+    function triStateField(idSuffix, labelText) {
+      var select = document.createElement("select");
+      select.id = "viewport-edit-" + idSuffix;
+      select.setAttribute("aria-label", labelText);
+      [
+        { value: "", label: "Leave unchanged" },
+        { value: "true", label: "True" },
+        { value: "false", label: "False" },
+      ].forEach(function (opt) {
+        var option = document.createElement("option");
+        option.value = opt.value;
+        option.textContent = opt.label;
+        select.appendChild(option);
+      });
+      var wrap = document.createElement("label");
+      wrap.className = "viewport-edit-field";
+      wrap.setAttribute("for", select.id);
+      var span = document.createElement("span");
+      span.textContent = labelText;
+      wrap.appendChild(span);
+      wrap.appendChild(select);
+      return { wrap: wrap, select: select };
+    }
+
+    var hardcoreField = triStateField("level-hardcore", "level.dat: Hardcore");
+    var rainingField = triStateField("level-raining", "level.dat: Raining");
+    var thunderingField = triStateField("level-thundering", "level.dat: Thundering");
+
+    var gameRuleNameField = textField("game-rule-name", "Game rule name", "doDaylightCycle");
+    var gameRuleValueField = textField("game-rule-value", "Game rule value", "true / false / a number as text");
+
     function actionButton(text) {
       var button = document.createElement("button");
       button.type = "button";
@@ -209,12 +290,43 @@
       historyGroup.appendChild(n);
     });
 
+    var entityGroup = document.createElement("div");
+    entityGroup.className = "viewport-edit-group";
+    entityGroup.appendChild(entityTypeField.wrap);
+
+    var terrainGroup = document.createElement("div");
+    terrainGroup.className = "viewport-edit-group";
+    terrainGroup.appendChild(seaLevelModeWrap);
+
+    var levelDataNote = document.createElement("p");
+    levelDataNote.className = "viewport-edit-reason";
+    levelDataNote.textContent =
+      "These edit the world's own level.dat metadata. A bad write can make the world unopenable -- every field below defaults to \"leave unchanged\" and nothing here is written until Write level.dat is confirmed.";
+
+    var levelDataGroup = document.createElement("div");
+    levelDataGroup.className = "viewport-edit-group";
+    levelDataGroup.appendChild(levelDataNote);
+    levelDataGroup.appendChild(levelNameField.wrap);
+    levelDataGroup.appendChild(difficultyField.wrap);
+    levelDataGroup.appendChild(hardcoreField.wrap);
+    levelDataGroup.appendChild(rainingField.wrap);
+    levelDataGroup.appendChild(thunderingField.wrap);
+
+    var gameRulesGroup = document.createElement("div");
+    gameRulesGroup.className = "viewport-edit-group";
+    gameRulesGroup.appendChild(gameRuleNameField.wrap);
+    gameRulesGroup.appendChild(gameRuleValueField.wrap);
+
     var root = document.createElement("div");
     root.className = "viewport-edit-panel";
     root.appendChild(pointsRow);
     root.appendChild(fillGroup);
     root.appendChild(replaceGroup);
     root.appendChild(historyGroup);
+    root.appendChild(entityGroup);
+    root.appendChild(terrainGroup);
+    root.appendChild(levelDataGroup);
+    root.appendChild(gameRulesGroup);
     root.appendChild(unsavedNote);
 
     var buttons = { fill: fillButton, replace: replaceButton, undo: undoButton, redo: redoButton, save: saveButton };
@@ -236,6 +348,18 @@
       blockValue: function () { return blockField.input.value.trim(); },
       findBlockValue: function () { return findField.input.value.trim(); },
       replaceBlockValue: function () { return replaceField.input.value.trim(); },
+      entityTypeValue: function () { return entityTypeField.input.value.trim(); },
+      seaLevelModeValue: function () { return seaLevelModeSelect.value; },
+      levelNameValue: function () { return levelNameField.input.value.trim(); },
+      // Returns the raw trimmed text so the caller can honestly report an
+      // unparseable value as an error rather than this field silently
+      // coercing "abc" to NaN and then to some substituted number.
+      difficultyRawValue: function () { return difficultyField.input.value.trim(); },
+      hardcoreValue: function () { return hardcoreField.select.value; },
+      rainingValue: function () { return rainingField.select.value; },
+      thunderingValue: function () { return thunderingField.select.value; },
+      gameRuleNameValue: function () { return gameRuleNameField.input.value.trim(); },
+      gameRuleValueValue: function () { return gameRuleValueField.input.value.trim(); },
       setDisabled: function (name, disabled, reason) {
         var button = buttons[name];
         var reasonEl = reasons[name];
@@ -821,6 +945,213 @@
       refreshEditControls();
     }
 
+    // -------------------------------------- entities.place / entities.remove
+    // entities.place needs a position and an entity type; entities.remove
+    // needs a filter. Both were real in the sidecar and disabled on the
+    // ribbon purely for want of these fields -- see entityTypeField's
+    // comment in buildEditControls() for the exact "namespace:base_name"
+    // parsing rule shared by both commands below.
+    function parseEntityType(raw) {
+      var idx = raw.indexOf(":");
+      if (idx === -1) return { namespace: "", baseName: raw };
+      return { namespace: raw.slice(0, idx).trim(), baseName: raw.slice(idx + 1).trim() };
+    }
+
+    function runPlaceEntity() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var raw = edit.entityTypeValue();
+      if (!raw) {
+        setStatus("Enter an entity type (namespace:base_name) first.");
+        return;
+      }
+      var parsed = parseEntityType(raw);
+      if (!parsed.namespace || !parsed.baseName) {
+        setStatus('Entity type must be "namespace:base_name" (for example minecraft:cow) to place an entity.');
+        return;
+      }
+      var position = points.point1;
+      var site = window.AmuletSite;
+      var doPlace = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || !eb.entities || typeof eb.entities.place !== "function") {
+          setStatus("entities.place is not available yet.");
+          return;
+        }
+        setStatus("Placing entity...");
+        eb.entities
+          .place(worldId, dimension, position, parsed.namespace, parsed.baseName, true)
+          .then(function () {
+            editState.canUndo = true;
+            editState.canRedo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus(raw + " placed at " + position.join(",") + ".");
+          })
+          .catch(function (err) {
+            setStatus("entities.place failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Place entity",
+          detail: "This places " + raw + " at " + position.join(",") + ".",
+          confirm: "Place",
+          onConfirm: doPlace,
+        });
+      } else {
+        doPlace();
+      }
+    }
+
+    function runRemoveEntities() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var raw = edit.entityTypeValue();
+      if (!raw) {
+        setStatus("Enter a namespace, a base_name, or namespace:base_name to filter which entities to remove.");
+        return;
+      }
+      var parsed = parseEntityType(raw);
+      var namespace = parsed.namespace || undefined;
+      var baseName = parsed.baseName || undefined;
+      var site = window.AmuletSite;
+      var doRemove = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || !eb.entities || typeof eb.entities.remove !== "function") {
+          setStatus("entities.remove is not available yet.");
+          return;
+        }
+        setStatus("Removing matching entities...");
+        eb.entities
+          .remove(worldId, dimension, points.point1, points.point2, namespace, baseName, true)
+          .then(function (result) {
+            editState.canUndo = editState.canUndo || result.removed > 0;
+            editState.canRedo = false;
+            editState.unsaved = editState.unsaved || result.removed > 0;
+            refreshEditControls();
+            setStatus(String(result.removed) + " entity(ies) removed.");
+          })
+          .catch(function (err) {
+            setStatus("entities.remove failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Remove entities",
+          detail:
+            "This removes every entity matching " + raw + " from " + points.point1.join(",") + " to " + points.point2.join(",") + ".",
+          confirm: "Remove",
+          onConfirm: doRemove,
+        });
+      } else {
+        doRemove();
+      }
+    }
+
+    // ------------------------------------- data.level_write / game_rules_write
+    // The most dangerous controls on this panel -- see levelDataNote's text
+    // in buildEditControls(). Every field is opt-in: a blank field is left
+    // out of the write entirely rather than defaulted, and an unparseable
+    // difficulty value is reported as an error, never silently coerced or
+    // dropped.
+    function runWriteLevel() {
+      if (worldId === null) return;
+      var fields = {};
+      var levelName = edit.levelNameValue();
+      if (levelName) fields.level_name = levelName;
+      var difficultyRaw = edit.difficultyRawValue();
+      if (difficultyRaw) {
+        var difficulty = Number(difficultyRaw);
+        if (!Number.isInteger(difficulty) || difficulty < 0 || difficulty > 3) {
+          setStatus("Difficulty must be a whole number from 0 to 3 -- \"" + difficultyRaw + "\" does not resolve to one.");
+          return;
+        }
+        fields.difficulty = difficulty;
+      }
+      var hardcore = edit.hardcoreValue();
+      if (hardcore) fields.hardcore = hardcore === "true";
+      var raining = edit.rainingValue();
+      if (raining) fields.raining = raining === "true";
+      var thundering = edit.thunderingValue();
+      if (thundering) fields.thundering = thundering === "true";
+      if (!Object.keys(fields).length) {
+        setStatus("Set at least one level.dat field before writing -- every field currently reads \"leave unchanged\".");
+        return;
+      }
+      var site = window.AmuletSite;
+      var doWrite = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || !eb.data || typeof eb.data.writeLevel !== "function") {
+          setStatus("data.level_write is not available yet.");
+          return;
+        }
+        setStatus("Writing level.dat...");
+        eb.data
+          .writeLevel(worldId, fields, true)
+          .then(function (result) {
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus("level.dat updated: " + (result.updated || []).join(", ") + ".");
+          })
+          .catch(function (err) {
+            setStatus("data.level_write failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Write level.dat",
+          detail:
+            "This edits the world's own level.dat metadata (" + Object.keys(fields).join(", ") + "). A bad write can make the world unopenable.",
+          confirm: "Write",
+          onConfirm: doWrite,
+        });
+      } else {
+        doWrite();
+      }
+    }
+
+    function runWriteGameRules() {
+      if (worldId === null) return;
+      var name = edit.gameRuleNameValue();
+      var value = edit.gameRuleValueValue();
+      if (!name || !value) {
+        setStatus("Enter both a game rule name and its value first.");
+        return;
+      }
+      var rules = {};
+      rules[name] = value;
+      var site = window.AmuletSite;
+      var doWrite = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || !eb.data || typeof eb.data.writeGameRules !== "function") {
+          setStatus("data.game_rules_write is not available yet.");
+          return;
+        }
+        setStatus("Writing game rule...");
+        eb.data
+          .writeGameRules(worldId, rules, true)
+          .then(function () {
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus("Game rule " + name + " set to " + value + ".");
+          })
+          .catch(function (err) {
+            setStatus("data.game_rules_write failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Write game rule",
+          detail: "This edits the world's own level.dat metadata: sets " + name + " = " + value + ".",
+          confirm: "Write",
+          onConfirm: doWrite,
+        });
+      } else {
+        doWrite();
+      }
+    }
+
     // -------------------------------------------------------------- picking
     // Turns pointerdown-only-rotates-the-camera into an editor: Alt+click
     // ray-casts into the world (docs/site/viewport-picking.js's DDA march)
@@ -1263,17 +1594,38 @@
     // It is created lazily, on the first frame that has a GL context, because
     // the viewport itself is only constructed once a world is open.
     var overlay = null;
+    // Whether the reference grid should be drawn once an overlay exists --
+    // read by ensureOverlay() below and by the exposed setGridVisible/
+    // isGridVisible() pair, so a toggle pressed before a world (and
+    // therefore a GL context) exists still takes effect the moment one
+    // shows up, rather than being silently lost.
+    var gridVisible = true;
 
     function ensureOverlay() {
       if (overlay || !viewport || !viewport.gl) return overlay;
       var factory = window.AmuletViewportOverlays;
       if (!factory || typeof factory.SelectionOverlay !== "function") return null;
       overlay = new factory.SelectionOverlay(viewport.gl);
-      overlay.setGrid({ y: 0 });
+      overlay.setGrid(gridVisible ? { y: 0 } : null);
       viewport.afterRender = function (transform, cameraPosition) {
         overlay.render(transform, cameraPosition);
       };
       return overlay;
+    }
+
+    /** Show or hide the reference grid drawn at y=0. Real and local: no
+     * sidecar round trip, since the grid is purely a viewport overlay. */
+    function setGridVisible(visible) {
+      gridVisible = !!visible;
+      var current = ensureOverlay();
+      if (current && typeof current.setGrid === "function") {
+        current.setGrid(gridVisible ? { y: 0 } : null);
+      }
+      return gridVisible;
+    }
+
+    function isGridVisible() {
+      return gridVisible;
     }
 
     /** Set or clear the selection the viewport draws. */
@@ -1379,6 +1731,11 @@
       hasOverlay: function () {
         return Boolean(overlay);
       },
+      // Reference-grid visibility, for the View ribbon tab's "Layers"
+      // command (docs/site/studio-workspace.js) -- local UI state, no
+      // sidecar involved.
+      setGridVisible: setGridVisible,
+      isGridVisible: isGridVisible,
       // Picking/handle-dragging hooks, exposed for the same reason as
       // setSelection above -- and so a later change that adds a real
       // per-block sidecar query can swap the ground-plane placeholder out
@@ -1414,6 +1771,10 @@
       runCreateChunks: runCreateChunks,
       runDeleteChunks: runDeleteChunks,
       runPruneChunks: runPruneChunks,
+      runPlaceEntity: runPlaceEntity,
+      runRemoveEntities: runRemoveEntities,
+      runWriteLevel: runWriteLevel,
+      runWriteGameRules: runWriteGameRules,
     };
 
     window.addEventListener("beforeunload", function () {
