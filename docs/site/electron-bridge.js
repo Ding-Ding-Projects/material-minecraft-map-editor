@@ -35,6 +35,20 @@
  *    draw (`amulet_map_editor.api.dim_sum_surprise.should_show`) and the
  *    real public catalog fetch, rather than reimplementing the odds or the
  *    catalog parsing in JavaScript.
+ *  - `world.fill` / `world.replace` / `world.undo` / `world.redo` /
+ *    `world.save` are exposed as `Site.electronSidecar.fillSelection(...)`,
+ *    `.replaceInSelection(...)`, `.undoEdit(...)`, `.redoEdit(...)` and
+ *    `.saveWorld(...)` -- the real write path against the world the sidecar
+ *    has open, called against the viewport panel's own selection rather
+ *    than reimplemented as a second copy of "what is selected" in this
+ *    file. Parameter names here match
+ *    `amulet_map_editor/api/sidecar/edit_methods.py` exactly: selection
+ *    points are `min`/`max` (not `point1`/`point2`), the confirmation flag
+ *    is `confirm` (not `confirmed`), and replace takes `original_block` /
+ *    `replacement_block` (not `find_block`/`replace_block`) -- the sidecar
+ *    lane landed with those names, and this file was updated to match
+ *    rather than left pointing at names that only ever existed in a
+ *    comment.
  */
 (function () {
   "use strict";
@@ -57,6 +71,16 @@
     // single conversion. Exposed here so a converter surface can actually run
     // one rather than describe one.
     convert: convertFile,
+    // The world-edit write path. Each of these is a real bridge.call() site
+    // against the sidecar's world.* methods -- never a flag this file sets
+    // to true on the caller's behalf. `confirmed` must come from a real user
+    // decision made in the interface (the destructive-action confirm gate),
+    // not a default supplied here.
+    fillSelection: fillSelection,
+    replaceInSelection: replaceInSelection,
+    undoEdit: undoEdit,
+    redoEdit: redoEdit,
+    saveWorld: saveWorld,
   };
 
   Site.electronSidecar = status;
@@ -243,6 +267,68 @@
         }
         return response.result;
       });
+  }
+
+  function callWorldMethod(method, params) {
+    return bridge.call(method, params).then(function (response) {
+      if (!response || !response.ok) {
+        throw new Error(
+          (response && response.error && response.error.message) || method + " failed"
+        );
+      }
+      return response.result;
+    });
+  }
+
+  /**
+   * Fill the given selection with one block.
+   *
+   * `confirmed` is deliberately NOT defaulted to true, exactly like
+   * `convertFile`'s `overwriteConfirmed` above -- writing blocks into a
+   * world the user has open is their decision, made in the confirm gate,
+   * not a default this bridge quietly supplies. It is sent to the sidecar
+   * as `confirm`, the field name `edit_methods.py`'s `_require_confirm`
+   * actually reads.
+   */
+  function fillSelection(worldId, dimension, min, max, block, confirmed) {
+    return callWorldMethod("world.fill", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+      block: block,
+      confirm: Boolean(confirmed),
+    });
+  }
+
+  /** Replace every matching block within the selection with another. */
+  function replaceInSelection(worldId, dimension, min, max, originalBlock, replacementBlock, confirmed) {
+    return callWorldMethod("world.replace", {
+      world_id: worldId,
+      dimension: dimension,
+      min: min,
+      max: max,
+      original_block: originalBlock,
+      replacement_block: replacementBlock,
+      confirm: Boolean(confirmed),
+    });
+  }
+
+  /** Undo the most recent edit against this world. Not gated: undoing is the
+   * un-destructive direction, and `world.undo` takes no `confirm` field. */
+  function undoEdit(worldId) {
+    return callWorldMethod("world.undo", { world_id: worldId });
+  }
+
+  /** Redo the most recently undone edit against this world. */
+  function redoEdit(worldId) {
+    return callWorldMethod("world.redo", { world_id: worldId });
+  }
+
+  /** Save the open world to disk. `confirmed` follows the same rule as the
+   * edit methods above -- a real user decision, never a default. */
+  function saveWorld(worldId, confirmed) {
+    return callWorldMethod("world.save", { world_id: worldId, confirm: Boolean(confirmed) });
   }
 
   function drawDimSum(languageMode) {

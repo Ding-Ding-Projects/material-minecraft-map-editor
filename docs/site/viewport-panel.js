@@ -21,6 +21,16 @@
  * calls, and world.open/viewport.prepare already demonstrate the
  * "background thread + poll" pattern this loop follows for its own
  * world.open call.
+ *
+ * The write path: this panel also hosts the plain fill/replace/undo/redo/
+ * save controls against the CURRENT selection, calling
+ * Site.electronSidecar.fillSelection/replaceInSelection/undoEdit/redoEdit/
+ * saveWorld (docs/site/electron-bridge.js). Fill and replace go through the
+ * project's real destructive-action confirm gate (docs/site/confirm-gate.js)
+ * -- the "confirmed" flag the bridge sends is only ever true after that gate
+ * finishes, never a default this file sets on the caller's behalf. Every
+ * control says why it is disabled rather than sitting there inert, and an
+ * unsaved-changes state is shown, not just tracked.
  */
 (function () {
   "use strict";
@@ -32,6 +42,11 @@
 
   function bridge() {
     return window.mmweDesktop && window.mmweDesktop.sidecar;
+  }
+
+  function sidecarEditBridge() {
+    var site = window.AmuletSite;
+    return site && site.electronSidecar;
   }
 
   function sidecarCall(method, params) {
@@ -58,6 +73,173 @@
 
   function chunkCoordOf(worldX, worldZ) {
     return [Math.floor(worldX / CHUNK_SIZE), Math.floor(worldZ / CHUNK_SIZE)];
+  }
+
+  /**
+   * The plain edit toolbar: six selection-point number fields, a block ID
+   * field for fill, find/replace block ID fields for replace, and the five
+   * write-path buttons (fill, replace, undo, redo, save). Built with plain
+   * DOM calls -- this file has never depended on site-core.js's `el()`
+   * helper, and the controls here are honest form fields, not a redesign.
+   *
+   * Every disabled control carries its reason as visible text next to it
+   * (never just a disabled attribute with no explanation), and the reason
+   * is recomputed by the caller on every relevant state change via
+   * setDisabled(name, disabled, reason).
+   */
+  function buildEditControls() {
+    function field(idSuffix, labelText) {
+      var input = document.createElement("input");
+      input.type = "number";
+      input.step = "1";
+      input.id = "viewport-edit-" + idSuffix;
+      input.className = "viewport-edit-coord";
+      input.setAttribute("aria-label", labelText);
+      var wrap = document.createElement("label");
+      wrap.className = "viewport-edit-field";
+      wrap.setAttribute("for", input.id);
+      var span = document.createElement("span");
+      span.textContent = labelText;
+      wrap.appendChild(span);
+      wrap.appendChild(input);
+      return { wrap: wrap, input: input };
+    }
+
+    var x1 = field("x1", "Point 1 X");
+    var y1 = field("y1", "Point 1 Y");
+    var z1 = field("z1", "Point 1 Z");
+    var x2 = field("x2", "Point 2 X");
+    var y2 = field("y2", "Point 2 Y");
+    var z2 = field("z2", "Point 2 Z");
+
+    var pointsRow = document.createElement("div");
+    pointsRow.className = "viewport-edit-points";
+    [x1, y1, z1, x2, y2, z2].forEach(function (f) {
+      pointsRow.appendChild(f.wrap);
+    });
+
+    function textField(idSuffix, labelText, placeholder) {
+      var input = document.createElement("input");
+      input.type = "text";
+      input.id = "viewport-edit-" + idSuffix;
+      input.placeholder = placeholder || "";
+      input.setAttribute("aria-label", labelText);
+      input.autocomplete = "off";
+      var wrap = document.createElement("label");
+      wrap.className = "viewport-edit-field";
+      wrap.setAttribute("for", input.id);
+      var span = document.createElement("span");
+      span.textContent = labelText;
+      wrap.appendChild(span);
+      wrap.appendChild(input);
+      return { wrap: wrap, input: input };
+    }
+
+    var blockField = textField("fill-block", "Block ID to fill with", "minecraft:stone");
+    var findField = textField("find-block", "Block ID to find", "minecraft:dirt");
+    var replaceField = textField("replace-block", "Block ID to replace it with", "minecraft:grass_block");
+
+    function actionButton(text) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "button button-tonal";
+      button.textContent = text;
+      return button;
+    }
+
+    var fillButton = actionButton("Fill selection");
+    var fillReason = document.createElement("p");
+    fillReason.className = "viewport-edit-reason";
+
+    var replaceButton = actionButton("Replace blocks");
+    var replaceReason = document.createElement("p");
+    replaceReason.className = "viewport-edit-reason";
+
+    var undoButton = actionButton("Undo");
+    var undoReason = document.createElement("p");
+    undoReason.className = "viewport-edit-reason";
+
+    var redoButton = actionButton("Redo");
+    var redoReason = document.createElement("p");
+    redoReason.className = "viewport-edit-reason";
+
+    var saveButton = actionButton("Save world");
+    var saveReason = document.createElement("p");
+    saveReason.className = "viewport-edit-reason";
+
+    var unsavedNote = document.createElement("p");
+    unsavedNote.className = "viewport-edit-unsaved tab-note";
+    unsavedNote.setAttribute("role", "status");
+
+    var fillGroup = document.createElement("div");
+    fillGroup.className = "viewport-edit-group";
+    fillGroup.appendChild(blockField.wrap);
+    fillGroup.appendChild(fillButton);
+    fillGroup.appendChild(fillReason);
+
+    var replaceGroup = document.createElement("div");
+    replaceGroup.className = "viewport-edit-group";
+    replaceGroup.appendChild(findField.wrap);
+    replaceGroup.appendChild(replaceField.wrap);
+    replaceGroup.appendChild(replaceButton);
+    replaceGroup.appendChild(replaceReason);
+
+    var historyGroup = document.createElement("div");
+    historyGroup.className = "viewport-edit-group";
+    [undoButton, undoReason, redoButton, redoReason, saveButton, saveReason].forEach(function (n) {
+      historyGroup.appendChild(n);
+    });
+
+    var root = document.createElement("div");
+    root.className = "viewport-edit-panel";
+    root.appendChild(pointsRow);
+    root.appendChild(fillGroup);
+    root.appendChild(replaceGroup);
+    root.appendChild(historyGroup);
+    root.appendChild(unsavedNote);
+
+    var buttons = { fill: fillButton, replace: replaceButton, undo: undoButton, redo: redoButton, save: saveButton };
+    var reasons = { fill: fillReason, replace: replaceReason, undo: undoReason, redo: redoReason, save: saveReason };
+
+    function readPoints() {
+      var raw = [x1, y1, z1, x2, y2, z2].map(function (f) {
+        return f.input.value === "" ? NaN : Number(f.input.value);
+      });
+      if (raw.some(function (n) { return !isFinite(n); })) return null;
+      return { point1: [raw[0], raw[1], raw[2]], point2: [raw[3], raw[4], raw[5]] };
+    }
+
+    return {
+      root: root,
+      fillButton: fillButton,
+      replaceButton: replaceButton,
+      readPoints: readPoints,
+      blockValue: function () { return blockField.input.value.trim(); },
+      findBlockValue: function () { return findField.input.value.trim(); },
+      replaceBlockValue: function () { return replaceField.input.value.trim(); },
+      setDisabled: function (name, disabled, reason) {
+        var button = buttons[name];
+        var reasonEl = reasons[name];
+        if (!button || !reasonEl) return;
+        button.disabled = Boolean(disabled);
+        reasonEl.textContent = disabled ? reason || "" : "";
+      },
+      setUnsaved: function (unsaved) {
+        unsavedNote.textContent = unsaved
+          ? "Unsaved changes -- Save world to write them to disk."
+          : "No unsaved changes.";
+      },
+      onFill: function (fn) { fillButton.addEventListener("click", fn); },
+      onReplace: function (fn) { replaceButton.addEventListener("click", fn); },
+      onUndo: function (fn) { undoButton.addEventListener("click", fn); },
+      onRedo: function (fn) { redoButton.addEventListener("click", fn); },
+      onSave: function (fn) { saveButton.addEventListener("click", fn); },
+      onPointsChanged: function (fn) {
+        [x1, y1, z1, x2, y2, z2].forEach(function (f) {
+          f.input.addEventListener("input", fn);
+        });
+      },
+    };
   }
 
   function init() {
@@ -101,6 +283,228 @@
     var streamBusy = false;
     var streamTimer = null;
     var rafHandle = null;
+
+    // ---------------------------------------------------------- edit path
+    // The write path against the currently open world: fill and replace
+    // (each real bridge.call() sites gated behind the project's
+    // destructive-action confirm, per docs/site/confirm-gate.js), undo,
+    // redo and save. Plain controls against the CURRENT selection -- this
+    // is a working surface, not a redesign of the viewport tab.
+    var edit = buildEditControls();
+    if (edit && edit.root) {
+      host.parentNode.insertBefore(edit.root, host.nextSibling);
+    }
+    var editState = { canUndo: false, canRedo: false, unsaved: false };
+
+    function selectionPoints() {
+      return edit ? edit.readPoints() : null;
+    }
+
+    function refreshEditControls() {
+      if (!edit) return;
+      var worldOpen = worldId !== null;
+      var hasSelection = Boolean(selectionPoints());
+      var bridgeReady = Boolean(sidecarEditBridge());
+      edit.setDisabled("fill", !worldOpen || !hasSelection || !bridgeReady, !worldOpen
+        ? "No world is open yet."
+        : !hasSelection
+          ? "Enter both selection points first."
+          : !bridgeReady
+            ? "The sidecar bridge is not available."
+            : "");
+      edit.setDisabled("replace", !worldOpen || !hasSelection || !bridgeReady, !worldOpen
+        ? "No world is open yet."
+        : !hasSelection
+          ? "Enter both selection points first."
+          : !bridgeReady
+            ? "The sidecar bridge is not available."
+            : "");
+      edit.setDisabled("undo", !worldOpen || !editState.canUndo || !bridgeReady, !worldOpen
+        ? "No world is open yet."
+        : !editState.canUndo
+          ? "Nothing to undo yet."
+          : !bridgeReady
+            ? "The sidecar bridge is not available."
+            : "");
+      edit.setDisabled("redo", !worldOpen || !editState.canRedo || !bridgeReady, !worldOpen
+        ? "No world is open yet."
+        : !editState.canRedo
+          ? "Nothing to redo yet."
+          : !bridgeReady
+            ? "The sidecar bridge is not available."
+            : "");
+      edit.setDisabled("save", !worldOpen || !editState.unsaved || !bridgeReady, !worldOpen
+        ? "No world is open yet."
+        : !editState.unsaved
+          ? "No unsaved changes."
+          : !bridgeReady
+            ? "The sidecar bridge is not available."
+            : "");
+      edit.setUnsaved(editState.unsaved);
+      var points = selectionPoints();
+      setSelection(points ? points.point1 : null, points ? points.point2 : null);
+    }
+
+    function runFill() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var block = edit.blockValue();
+      if (!block) {
+        setStatus("Enter a block ID to fill with first.");
+        return;
+      }
+      var site = window.AmuletSite;
+      var doFill = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || typeof eb.fillSelection !== "function") {
+          setStatus("world.fill is not available yet.");
+          return;
+        }
+        setStatus("Filling selection...");
+        eb.fillSelection(worldId, dimension, points.point1, points.point2, block, true)
+          .then(function () {
+            editState.canUndo = true;
+            editState.canRedo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus("Selection filled with " + block + ".");
+          })
+          .catch(function (err) {
+            setStatus("world.fill failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Fill selection",
+          detail:
+            "This overwrites every block from " +
+            points.point1.join(",") +
+            " to " +
+            points.point2.join(",") +
+            " with " +
+            block +
+            ".",
+          confirm: "Fill",
+          anchor: edit.fillButton,
+          onConfirm: doFill,
+        });
+      } else {
+        doFill();
+      }
+    }
+
+    function runReplace() {
+      var points = selectionPoints();
+      if (!points || worldId === null) return;
+      var findBlock = edit.findBlockValue();
+      var replaceBlock = edit.replaceBlockValue();
+      if (!findBlock || !replaceBlock) {
+        setStatus("Enter both the block to find and the block to replace it with.");
+        return;
+      }
+      var site = window.AmuletSite;
+      var doReplace = function () {
+        var eb = sidecarEditBridge();
+        if (!eb || typeof eb.replaceInSelection !== "function") {
+          setStatus("world.replace is not available yet.");
+          return;
+        }
+        setStatus("Replacing blocks...");
+        eb.replaceInSelection(worldId, dimension, points.point1, points.point2, findBlock, replaceBlock, true)
+          .then(function () {
+            editState.canUndo = true;
+            editState.canRedo = false;
+            editState.unsaved = true;
+            refreshEditControls();
+            setStatus("Replaced " + findBlock + " with " + replaceBlock + " in the selection.");
+          })
+          .catch(function (err) {
+            setStatus("world.replace failed: " + String(err));
+          });
+      };
+      if (site && typeof site.confirmDestructive === "function") {
+        site.confirmDestructive({
+          title: "Replace blocks",
+          detail:
+            "This replaces every " + findBlock + " with " + replaceBlock + " from " +
+            points.point1.join(",") + " to " + points.point2.join(",") + ".",
+          confirm: "Replace",
+          anchor: edit.replaceButton,
+          onConfirm: doReplace,
+        });
+      } else {
+        doReplace();
+      }
+    }
+
+    function runUndo() {
+      if (worldId === null) return;
+      var eb = sidecarEditBridge();
+      if (!eb || typeof eb.undoEdit !== "function") {
+        setStatus("world.undo is not available yet.");
+        return;
+      }
+      setStatus("Undoing last edit...");
+      eb.undoEdit(worldId)
+        .then(function () {
+          editState.canRedo = true;
+          editState.unsaved = true;
+          refreshEditControls();
+          setStatus("Undid the last edit.");
+        })
+        .catch(function (err) {
+          setStatus("world.undo failed: " + String(err));
+        });
+    }
+
+    function runRedo() {
+      if (worldId === null) return;
+      var eb = sidecarEditBridge();
+      if (!eb || typeof eb.redoEdit !== "function") {
+        setStatus("world.redo is not available yet.");
+        return;
+      }
+      setStatus("Redoing edit...");
+      eb.redoEdit(worldId)
+        .then(function () {
+          editState.canUndo = true;
+          editState.unsaved = true;
+          refreshEditControls();
+          setStatus("Redid the edit.");
+        })
+        .catch(function (err) {
+          setStatus("world.redo failed: " + String(err));
+        });
+    }
+
+    function runSave() {
+      if (worldId === null) return;
+      var eb = sidecarEditBridge();
+      if (!eb || typeof eb.saveWorld !== "function") {
+        setStatus("world.save is not available yet.");
+        return;
+      }
+      setStatus("Saving world...");
+      eb.saveWorld(worldId, true)
+        .then(function () {
+          editState.unsaved = false;
+          refreshEditControls();
+          setStatus("World saved.");
+        })
+        .catch(function (err) {
+          setStatus("world.save failed: " + String(err));
+        });
+    }
+
+    if (edit) {
+      edit.onFill(runFill);
+      edit.onReplace(runReplace);
+      edit.onUndo(runUndo);
+      edit.onRedo(runRedo);
+      edit.onSave(runSave);
+      edit.onPointsChanged(refreshEditControls);
+      refreshEditControls();
+    }
 
     function ensureViewport() {
       if (viewport) return viewport;
@@ -300,8 +704,13 @@
         }
         streamTick();
         if (rafHandle === null) renderLoop();
+        editState.canUndo = false;
+        editState.canRedo = false;
+        editState.unsaved = false;
+        refreshEditControls();
       } catch (err) {
         setStatus("Failed to open world: " + String(err));
+        refreshEditControls();
       }
     }
 
@@ -335,6 +744,14 @@
       hasOverlay: function () {
         return Boolean(overlay);
       },
+      // Exposed for tests: the edit controls, without reaching into closure
+      // state.
+      edit: edit,
+      runFill: runFill,
+      runReplace: runReplace,
+      runUndo: runUndo,
+      runRedo: runRedo,
+      runSave: runSave,
     };
 
     window.addEventListener("beforeunload", function () {

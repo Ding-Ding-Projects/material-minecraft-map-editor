@@ -96,13 +96,43 @@ connected one process pair and one real setting, not the whole surface.
       preload.js exposes no wider surface; the site actually includes and
       calls the bridge script).
 
-    What is still missing: only `theme` is wired end to end. The other
-    ten writable preference fields (`display_name`, `language_mode`,
-    `funny_level_english`, `funny_level_cantonese`, `show_dialog_emojis`,
-    `density`, `accent`, `ui_font`, `ui_scale`, `external_editor_path`,
-    `auto_stage_updates`) and the `language.*`/`converter.formats` methods
-    have no site-side call site yet — the bridge and the sidecar can already
-    carry them, but nothing in `docs/site/` asks them to.
+    What was missing at the time this section was first written: only
+    `theme` was wired end to end. That has since widened — every writable
+    preference field round-trips (`docs/site/electron-bridge.js`'s
+    `FIELD_MAP`), and `converter.formats`, `changelog.entries`,
+    `docs.articles` and `dimsum.draw` each have a real call site too.
+
+    **The write path now has a real call site as well.**
+    `docs/site/electron-bridge.js` exposes `fillSelection`,
+    `replaceInSelection`, `undoEdit`, `redoEdit` and `saveWorld`, each a
+    genuine `bridge.call("world.fill" | "world.replace" | "world.undo" |
+    "world.redo" | "world.save", ...)` against the sidecar. `docs/site/
+    viewport-panel.js` is the caller: a plain toolbar next to the viewport
+    (six selection-point fields, a fill block field, find/replace block
+    fields, and Fill/Replace/Undo/Redo/Save buttons) that calls those
+    methods against the world the viewport already has open and the
+    selection currently entered. Fill and replace go through the project's
+    real destructive-action confirm gate (`docs/site/confirm-gate.js`) —
+    the `confirmed` flag the bridge sends is only ever `true` after that
+    gate's two keys and slider finish, never a default the bridge or the
+    panel sets on the caller's behalf. Every control states why it is
+    disabled (no world open, no selection entered, nothing to undo/redo,
+    no unsaved changes) instead of sitting there inert, and an
+    unsaved-changes line is shown, not just tracked internally.
+
+    **This was written against the sidecar methods this lane's task agreed
+    with the parallel lane building `world.fill`/`world.replace`/
+    `world.undo`/`world.redo`/`world.save` — the exact method names and
+    parameter shapes (`world_id`, `dimension`, `point1`, `point2`, `block`
+    / `find_block`+`replace_block`, `confirmed`) that lane's task brief
+    specified.** If those methods have not landed in
+    `amulet_map_editor/api/sidecar/methods.py` yet, every one of these
+    calls fails honestly with `world.fill is not available yet.` (etc.) in
+    the panel's status line rather than crashing or silently doing nothing
+    — `tests/test_electron_sidecar_bridge.py` covers the static wiring
+    (the call sites exist, the confirm gate is used, every disabled
+    control has a reason) but does not itself prove the sidecar methods
+    exist; that proof belongs to the sidecar lane's own tests.
 
 ## What exists but is not wired to anything (the shell)
 
@@ -252,14 +282,13 @@ direct write.
   newline-delimited JSON protocol can drive it, and the wx app does not use
   this path.
 
-**What remains:** ten more writable preference fields have no site-side call
-site yet (`display_name`, `language_mode`, `funny_level_english`,
-`funny_level_cantonese`, `show_dialog_emojis`, `density`, `accent`,
-`ui_font`, `ui_scale`, `external_editor_path`, `auto_stage_updates`), and
-`language.*`/`converter.formats` are callable but unused by the site. Wiring
-those in is the rest of Phase 2; porting a real user-facing surface
-(Backstage, the properties pane, the dialogs) onto this same bridge is
-Phase 3, and has not started.
+**What remains:** every writable preference field now round-trips, and
+`converter.formats`, `changelog.entries`, `docs.articles` and `dimsum.draw`
+each have a real site-side caller, as does the world-edit write path
+(`world.fill`/`world.replace`/`world.undo`/`world.redo`/`world.save`, from
+the viewport panel's own toolbar). Porting the rest of a real user-facing
+surface (Backstage, the properties pane, the dialogs) onto this same bridge
+is Phase 3, and has not started.
 
 ## Related reading
 

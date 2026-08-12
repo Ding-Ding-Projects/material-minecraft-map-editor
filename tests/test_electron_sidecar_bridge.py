@@ -174,3 +174,57 @@ def test_bridge_has_real_call_sites_for_changelog_docs_and_dim_sum() -> None:
     # drawDimSum must be reachable from other site code, not a private
     # helper nobody outside this file can call.
     assert "drawDimSum: drawDimSum" in bridge_js
+
+
+def test_bridge_has_real_call_sites_for_the_world_edit_path() -> None:
+    """Static wiring guard for the write path: world.fill / world.replace /
+    world.undo / world.redo / world.save must each have a genuine
+    ``bridge.call(...)`` site in electron-bridge.js and be reachable from
+    other site code, not merely named in a comment."""
+    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(encoding="utf-8")
+    # world.* calls go through the shared callWorldMethod(method, params)
+    # helper rather than bridge.call(...) directly, so match either form.
+    called_methods = set(re.findall(r'(?:\.call|callWorldMethod)\(\s*"([a-z.]+)"', bridge_js))
+    for method in ("world.fill", "world.replace", "world.undo", "world.redo", "world.save"):
+        assert method in called_methods, f"electron-bridge.js has no call site for {method!r}"
+    for exposed in (
+        "fillSelection: fillSelection",
+        "replaceInSelection: replaceInSelection",
+        "undoEdit: undoEdit",
+        "redoEdit: redoEdit",
+        "saveWorld: saveWorld",
+    ):
+        assert exposed in bridge_js, f"electron-bridge.js does not expose {exposed!r} to other site code"
+
+
+def test_viewport_panel_reaches_the_edit_bridge_and_the_confirm_gate() -> None:
+    """Static wiring guard for the call site this lane owns: the viewport
+    panel must actually call the bridge's edit methods against the current
+    selection, gate the two destructive ones behind the project's real
+    destructive-action confirm (never a flag defaulted to true), and say why
+    a control is disabled rather than leaving it silently inert."""
+    panel_js = (ROOT / "docs" / "site" / "viewport-panel.js").read_text(encoding="utf-8")
+    for called in (
+        "eb.fillSelection(",
+        "eb.replaceInSelection(",
+        "eb.undoEdit(",
+        "eb.redoEdit(",
+        "eb.saveWorld(",
+    ):
+        assert called in panel_js, f"viewport-panel.js does not call {called!r}"
+    # The two mutating write calls must be gated behind a real confirm, not a
+    # bridge-side default -- confirmDestructive() is only ever invoked from
+    # inside the fill/replace flows, and both defer the actual sidecar call
+    # to onConfirm rather than calling it unconditionally.
+    assert "site.confirmDestructive(" in panel_js
+    assert panel_js.count("onConfirm: do") >= 2
+    # Undo/redo/save are not destructive-gated (undo/redo reverse an edit,
+    # save persists it) but every control must still say why it is disabled.
+    assert "setDisabled" in panel_js
+    assert "No world is open yet." in panel_js
+    assert "Enter both selection points first." in panel_js
+    assert "Nothing to undo yet." in panel_js
+    assert "Nothing to redo yet." in panel_js
+    assert "No unsaved changes." in panel_js
+    # An unsaved-changes state must be visible, not just tracked internally.
+    assert "Unsaved changes" in panel_js

@@ -103,6 +103,7 @@ INVENTORY = {
             "amulet_map_editor/api/sidecar/server.py",
             "amulet_map_editor/api/sidecar/protocol.py",
             "docs/site/electron-bridge.js",
+            "docs/site/viewport-panel.js",
             "scripts/capture_electron_shell.js",
             "scripts/verify_sidecar_client.js",
             "scripts/capture_electron_sidecar_roundtrip.js",
