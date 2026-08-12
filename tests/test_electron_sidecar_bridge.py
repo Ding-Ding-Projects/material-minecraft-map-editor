@@ -116,3 +116,21 @@ def test_bridge_maps_every_writable_preference_field_but_theme_is_no_longer_alon
     # The fields this lane was explicitly asked to widen beyond theme.
     for expected in ("density", "accent", "ui_font", "language_mode", "ui_scale"):
         assert expected in mapped_prefs, f"electron-bridge.js no longer maps {expected!r}"
+
+
+def test_bridge_has_real_call_sites_for_changelog_docs_and_dim_sum() -> None:
+    """Static wiring guard for the surfaces this lane was asked to stop
+    faking: changelog, docs and the dim-sum draw must each have a genuine
+    ``bridge.call(...)`` site in electron-bridge.js, not merely be named in
+    a comment."""
+    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(encoding="utf-8")
+    called_methods = set(re.findall(r'\.call\(\s*"([a-z.]+)"', bridge_js))
+    assert "changelog.entries" in called_methods
+    assert "docs.articles" in called_methods
+    assert "dimsum.draw" in called_methods
+    # The changelog call site must actually replace the site-bundled global
+    # changelog.js reads, not merely stash the response somewhere unused.
+    assert "window.AMULET_CHANGELOG = {" in bridge_js
+    # drawDimSum must be reachable from other site code, not a private
+    # helper nobody outside this file can call.
+    assert "drawDimSum: drawDimSum" in bridge_js

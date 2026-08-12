@@ -186,6 +186,72 @@ async function main() {
       confirm.result.ui_scale
     );
 
+    // --- changelog.entries / docs.articles / dimsum.draw: confirm the
+    // renderer's published state came from the real Python sidecar rather
+    // than from the site's own bundled changelog-data.js or a JS-side
+    // reimplementation of the dim-sum odds.
+    const directChangelog = JSON.parse(
+      await evalJSON(client, "window.mmweDesktop.sidecar.call('changelog.entries', {}).then(JSON.stringify)")
+    );
+    assert(directChangelog.ok === true, "a direct changelog.entries call must succeed: " + JSON.stringify(directChangelog));
+    assert(directChangelog.result.entries.length > 0, "the sidecar's real changelog catalog must have entries");
+    assert(
+      /^[0-9a-f]{40}$/.test(directChangelog.result.entries[0].commit_sha),
+      "a changelog entry's commit_sha must be a real 40-character SHA, got " +
+        JSON.stringify(directChangelog.result.entries[0].commit_sha)
+    );
+
+    await sleep(500); // give electron-bridge.js's own startup fetch a moment to land
+    const publishedChangelog = JSON.parse(
+      await evalJSON(client, "JSON.stringify(window.AmuletSite.electronSidecar.changelogEntries)")
+    );
+    assert(
+      Array.isArray(publishedChangelog) && publishedChangelog.length > 0,
+      "electron-bridge.js must publish Site.electronSidecar.changelogEntries from the real sidecar"
+    );
+    const publishedGlobal = JSON.parse(await evalJSON(client, "JSON.stringify(window.AMULET_CHANGELOG)"));
+    assert(
+      publishedGlobal.source_revision === directChangelog.result.source_revision,
+      "window.AMULET_CHANGELOG must be overwritten with the sidecar's real source_revision, not the site-bundled one"
+    );
+    manifest.steps.push({
+      step: "changelog_entries_from_python",
+      ok: true,
+      entries: directChangelog.result.entries.length,
+      source_revision: directChangelog.result.source_revision,
+    });
+
+    const directDocs = JSON.parse(
+      await evalJSON(client, "window.mmweDesktop.sidecar.call('docs.articles', {}).then(JSON.stringify)")
+    );
+    assert(directDocs.ok === true, "a direct docs.articles call must succeed: " + JSON.stringify(directDocs));
+    assert(directDocs.result.articles.length > 0, "the sidecar's real bundled docs articles must be non-empty");
+    const publishedDocs = JSON.parse(
+      await evalJSON(client, "JSON.stringify(window.AmuletSite.electronSidecar.docsArticles)")
+    );
+    assert(
+      Array.isArray(publishedDocs) && publishedDocs.length === directDocs.result.articles.length,
+      "electron-bridge.js must publish Site.electronSidecar.docsArticles matching the sidecar's real article count"
+    );
+    manifest.steps.push({ step: "docs_articles_from_python", ok: true, articles: directDocs.result.articles.length });
+
+    const drawResult = JSON.parse(
+      await evalJSON(
+        client,
+        "window.AmuletSite.electronSidecar.drawDimSum('bilingual').then(function(r){return JSON.stringify({ok:true,result:r})}).catch(function(e){return JSON.stringify({ok:false,error:String(e)})})"
+      )
+    );
+    assert(
+      drawResult.ok === true && ["not_drawn", "unavailable", "ready"].includes(drawResult.result.status),
+      "Site.electronSidecar.drawDimSum() must resolve with the sidecar's real draw status: " + JSON.stringify(drawResult)
+    );
+    manifest.steps.push({ step: "dimsum_draw_from_python", ok: true, status: drawResult.result.status });
+    console.log(
+      "changelog entries=", directChangelog.result.entries.length,
+      "docs articles=", directDocs.result.articles.length,
+      "dimsum draw status=", drawResult.result.status
+    );
+
     const shot = await client.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
     const bytes = Buffer.from(shot.data, "base64");
     assert(bytes.length >= 5000, "capture must not be a blank/near-blank page, got " + bytes.length + " bytes");

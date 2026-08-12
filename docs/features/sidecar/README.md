@@ -77,7 +77,46 @@ application:
 | `preferences.write` | `amulet_map_editor.api.preferences.update(**params)`, allowlisted field-by-field |
 | `language.get` / `language.set` / `language.list` | `amulet_map_editor.api.lang` |
 | `converter.formats` | `amulet_map_editor.api.converter.registry.ADAPTERS` |
+| `changelog.entries` | `amulet_map_editor.api.changelog.load_bundled_catalog()`, optionally filtered by `start_date`/`end_date`/`actions`/`text` through `ChangelogQuery` |
+| `docs.articles` | `amulet_map_editor.api.docs_browser.load_bundled_articles()`, all articles or one by `slug` |
+| `dimsum.draw` | `amulet_map_editor.api.dim_sum_surprise` -- the real `should_show()` 10% gate and the real public-catalog fetch, honoured exactly (never reimplemented in JavaScript) |
 | `world.open` / `world.open_status` / `world.dimensions` / `world.close` / `recents.list` | real, read-only world access -- see `docs/features/electron-world-access/README.md` |
+
+### `language.*` and the site's three language modes
+
+`language.get`/`set`/`list` are honest about a real mismatch: `lang.py` deals
+in RFC 1766 language IDs (`en`, `zh-Hant`, whatever `.lang` files exist on
+disk), while `docs/site/`'s own `Site.settings` language concept is the
+three fixed modes these shared instructions require everywhere --
+`english`, `cantonese`, `bilingual`. Those are not the same axis: the
+site's mode is "which of three voices renders", while `lang.py`'s ID is
+"which translated string table is active". `electron-bridge.js` maps the
+sidecar's `language_mode` *preference* field (a site-shaped three-mode
+value stored via `preferences.write`) onto the site's `language` setting
+the same way it maps every other preference; it deliberately does not
+attempt to collapse `lang.py`'s open-ended language ID list into the
+site's three-mode control, because doing so would either invent a mapping
+the wx application does not have or silently drop every non-English,
+non-Cantonese `.lang` file the desktop app ships.
+
+### `changelog.entries` and `docs.articles` in the renderer
+
+`electron-bridge.js` fetches both once at startup (alongside
+`converter.formats`) and publishes the real results on
+`Site.electronSidecar.changelogEntries` / `.docsArticles`. For the
+changelog specifically, the bridge also overwrites `window.AMULET_CHANGELOG`
+with the sidecar's real catalog in the exact shape `docs/site/changelog.js`'s
+own `catalogueSource()` already reads (`repository_url`, `source_revision`,
+`entries[]`), so the real commit-linked catalog -- not the one
+`changelog-data.js` bundles for the standalone GitHub Pages site -- is what
+a consuming surface sees once the fetch has landed. `dimsum.draw` is
+exposed as a callable, `Site.electronSidecar.drawDimSum(languageMode)`,
+returning the sidecar's own three-way honest status (`not_drawn` -- the
+10% draw did not win; `unavailable` -- it won but the public catalog could
+not be reached; `ready` -- a real dish). None of the three overrides the
+plain-browser build's existing bundled behaviour: every bridge call is
+skipped outright when `window.mmweDesktop.sidecar` is absent, exactly as
+the other preference wiring already does.
 
 `preferences.write` only accepts the fields listed in
 `methods._WRITABLE_PREFERENCE_FIELDS` -- a new preference field is opt-in to
@@ -121,8 +160,24 @@ trip, a genuinely separate process actually enforcing the timeout). It
 covers: a normal round trip, an unknown method, a version mismatch, malformed
 JSON, an oversized message, preferences read/write and normalisation, the
 writable-field allowlist, language get/set/list, the converter format list,
-and a guard that nothing this lane's methods touch ever writes a
-secret-shaped word to stdout or stderr.
+the changelog catalog (including its date/action/text filtering and its
+`invalid_params` reporting for a malformed date), the docs article bundle
+(including fetching a single article by `slug` and rejecting an unknown
+one), the dim-sum draw's real status contract, and a guard that nothing
+this lane's methods touch ever writes a secret-shaped word to stdout or
+stderr.
+
+`tests/test_electron_sidecar_bridge.py` adds static wiring guards proving
+`electron-bridge.js` carries a real `bridge.call(...)` site for each of
+`changelog.entries`, `docs.articles` and `dimsum.draw`, and that the
+changelog call site actually overwrites `window.AMULET_CHANGELOG` rather
+than merely stashing the response somewhere unused.
+`scripts/capture_electron_sidecar_roundtrip.js` drives all three against the
+real built Electron shell: a direct sidecar call for each, plus a check
+that `Site.electronSidecar`'s published values (and, for the changelog,
+`window.AMULET_CHANGELOG` itself) match what the direct call returned --
+proving the renderer's state came from the real Python catalog, not the
+site-bundled one.
 
 ## Related reading
 

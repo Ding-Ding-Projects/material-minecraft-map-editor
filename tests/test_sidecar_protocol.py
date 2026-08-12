@@ -207,6 +207,74 @@ def test_converter_formats_lists_real_adapters(sidecar: SidecarProcess) -> None:
         assert isinstance(adapter["lossy"], bool)
 
 
+def test_changelog_entries_lists_the_real_bundled_catalog(sidecar: SidecarProcess) -> None:
+    response = sidecar.call("changelog.entries")
+    result = response["result"]
+    assert result["entries"], "the sidecar must expose the real bundled changelog catalog"
+    entry = result["entries"][0]
+    assert entry["version"]
+    assert entry["commit_sha"]
+    assert entry["changes"]
+    change = entry["changes"][0]
+    assert change["action"]
+    assert change["summary"]
+    assert change["commit_sha"]
+
+
+def test_changelog_entries_filters_by_text(sidecar: SidecarProcess) -> None:
+    all_entries = sidecar.call("changelog.entries")["result"]["entries"]
+    version = all_entries[0]["version"]
+    response = sidecar.call("changelog.entries", {"text": version}, request_id=2)
+    filtered = response["result"]["entries"]
+    assert filtered
+    assert all(row["version"] == version for row in filtered)
+
+
+def test_changelog_entries_rejects_bad_date(sidecar: SidecarProcess) -> None:
+    response = sidecar.call("changelog.entries", {"start_date": "not-a-date"})
+    assert response["error"]["code"] == "invalid_params"
+
+
+def test_docs_articles_lists_the_real_bundled_articles(sidecar: SidecarProcess) -> None:
+    response = sidecar.call("docs.articles")
+    articles = response["result"]["articles"]
+    assert articles, "the sidecar must expose the real bundled documentation articles"
+    for article in articles:
+        assert article["slug"]
+        assert article["title"]
+        assert article["markdown"]
+        assert article["sha256"]
+
+
+def test_docs_articles_returns_one_article_by_slug(sidecar: SidecarProcess) -> None:
+    all_articles = sidecar.call("docs.articles")["result"]["articles"]
+    slug = all_articles[0]["slug"]
+    response = sidecar.call("docs.articles", {"slug": slug}, request_id=2)
+    result = response["result"]["articles"]
+    assert len(result) == 1
+    assert result[0]["slug"] == slug
+
+
+def test_docs_articles_rejects_unknown_slug(sidecar: SidecarProcess) -> None:
+    response = sidecar.call("docs.articles", {"slug": "does-not-exist"})
+    assert response["error"]["code"] == "invalid_params"
+
+
+def test_dimsum_draw_honours_the_real_language_modes(sidecar: SidecarProcess) -> None:
+    response = sidecar.call("dimsum.draw", {"language_mode": "bilingual"})
+    result = response["result"]
+    assert result["status"] in ("not_drawn", "unavailable", "ready")
+    if result["status"] == "ready":
+        assert result["language_mode"] == "bilingual"
+        assert result["title"]
+        assert result["image_asset_path"]
+
+
+def test_dimsum_draw_rejects_unknown_language_mode(sidecar: SidecarProcess) -> None:
+    response = sidecar.call("dimsum.draw", {"language_mode": "klingon"})
+    assert response["error"]["code"] == "invalid_params"
+
+
 def test_sidecar_never_writes_a_secret_to_stdout_or_stderr(sidecar: SidecarProcess) -> None:
     """The methods this lane exposes touch no secret, and the smoke test says so.
 
@@ -218,6 +286,9 @@ def test_sidecar_never_writes_a_secret_to_stdout_or_stderr(sidecar: SidecarProce
     sidecar.call("preferences.read")
     sidecar.call("language.get", request_id=2)
     sidecar.call("converter.formats", request_id=3)
+    sidecar.call("changelog.entries", request_id=4)
+    sidecar.call("docs.articles", request_id=5)
+    sidecar.call("dimsum.draw", {"language_mode": "english"}, request_id=6)
     sidecar.close()
     stderr = sidecar.process.stderr.read() if sidecar.process.stderr else ""
     lowered = stderr.lower()

@@ -18,6 +18,23 @@
  *  - `converter.formats` is read once at startup and published on
  *    `Site.electronSidecar.converterFormats` so a real converter surface can
  *    read the actual adapter catalog instead of a hand-written list.
+ *  - `changelog.entries` is read once at startup and published on
+ *    `Site.electronSidecar.changelogEntries` (the sidecar's real bundled
+ *    catalog, with real commit SHAs) instead of the site's own bundled
+ *    `changelog-data.js`. This bridge also overwrites `window.AMULET_CHANGELOG`
+ *    with the same shape `changelog.js` already reads, so a consuming
+ *    surface that reads the global after this script has run sees the real
+ *    Python catalog rather than the site-bundled one.
+ *  - `docs.articles` is read once at startup and published on
+ *    `Site.electronSidecar.docsArticles` -- the real bundled feature
+ *    documentation articles from `amulet_map_editor/api/docs_articles.json`,
+ *    the same bundle the desktop app's own in-app documentation browser
+ *    reads (see `docs/features/sidecar/README.md` for how the two relate).
+ *  - `dimsum.draw` is exposed as `Site.electronSidecar.drawDimSum(language)`,
+ *    a thin wrapper any surface can call to run the sidecar's *real* 10%
+ *    draw (`amulet_map_editor.api.dim_sum_surprise.should_show`) and the
+ *    real public catalog fetch, rather than reimplementing the odds or the
+ *    catalog parsing in JavaScript.
  */
 (function () {
   "use strict";
@@ -32,6 +49,9 @@
     lastError: null,
     lastSyncedAt: null,
     converterFormats: null,
+    changelogEntries: null,
+    docsArticles: null,
+    drawDimSum: drawDimSum,
   };
 
   Site.electronSidecar = status;
@@ -130,6 +150,66 @@
       });
   }
 
+  function loadChangelogEntries() {
+    bridge
+      .call("changelog.entries", {})
+      .then(function (response) {
+        if (!response || !response.ok || !response.result) return;
+        var result = response.result;
+        status.changelogEntries = result.entries || [];
+        // The exact shape changelog.js's own catalogueSource() already
+        // reads from window.AMULET_CHANGELOG (repository_url,
+        // source_revision, entries[]) -- so a surface that reads the global
+        // after this script has run sees the sidecar's real catalog instead
+        // of the one changelog-data.js bundled for the standalone site.
+        window.AMULET_CHANGELOG = {
+          repository_url: result.repository_url,
+          source_revision: result.source_revision,
+          entries: result.entries,
+        };
+      })
+      .catch(function () {
+        /* Leave changelogEntries null and window.AMULET_CHANGELOG as the
+         * site's own bundled data -- an unreachable sidecar must fall back
+         * to the standalone site's behaviour, never render nothing. */
+      });
+  }
+
+  function loadDocsArticles() {
+    bridge
+      .call("docs.articles", {})
+      .then(function (response) {
+        if (response && response.ok && response.result) {
+          status.docsArticles = response.result.articles || [];
+        }
+      })
+      .catch(function () {
+        /* Leave docsArticles null; a docs surface must treat that as
+         * "unavailable", never as "no articles exist". */
+      });
+  }
+
+  /** Run the sidecar's real dim-sum draw. Resolves to the sidecar's real
+   * response shape ({status:"not_drawn"|"unavailable"|"ready", ...}) so a
+   * caller sees exactly the same honesty the Python module already has --
+   * "unavailable" is a real, distinct outcome from "did not win the draw",
+   * never collapsed into a single failure case. Rejects (rather than
+   * silently returning null) when the bridge itself is unreachable, so a
+   * caller can fall back to the site's own bundled draw. */
+  function drawDimSum(languageMode) {
+    if (!status.available) {
+      return Promise.reject(new Error("sidecar unavailable"));
+    }
+    return bridge
+      .call("dimsum.draw", { language_mode: languageMode || "english" })
+      .then(function (response) {
+        if (!response || !response.ok) {
+          throw new Error((response && response.error && response.error.message) || "dimsum.draw failed");
+        }
+        return response.result;
+      });
+  }
+
   bridge
     .call("protocol.ping", {})
     .then(function (pingResponse) {
@@ -142,6 +222,8 @@
       }
       status.available = true;
       loadConverterFormats();
+      loadChangelogEntries();
+      loadDocsArticles();
       return bridge.call("preferences.read", {});
     })
     .then(function (readResponse) {
