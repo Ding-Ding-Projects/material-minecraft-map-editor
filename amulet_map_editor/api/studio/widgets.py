@@ -3115,9 +3115,37 @@ class SearchBar(wx.Panel, _Themed):
         )
         root = wx.BoxSizer(wx.VERTICAL)
         root.Add(row, 0, wx.EXPAND)
-        root.Add(self.feedback, 0, wx.EXPAND | wx.TOP, tokens.scaled(tokens.SPACE_XS))
+        # A gap the feedback line's own font is measured against, rather than a
+        # fixed few pixels: at the smaller compact size the descenders of the
+        # field's rounded box and the ascenders of the feedback text sat close
+        # enough to read as painted on top of one another, worst in bilingual
+        # mode where the line is longest and every other row is two lines deep.
+        root.Add(
+            self.feedback,
+            0,
+            wx.EXPAND | wx.TOP,
+            tokens.scaled(tokens.SPACE_XS + 2),
+        )
         self.SetSizer(root)
+        self.Bind(wx.EVT_SIZE, self._on_resize)
         self._apply_theme(self.palette())
+
+    def _on_resize(self, event: wx.SizeEvent) -> None:
+        """Rewrap the feedback line to the bar's own width, not the field's.
+
+        Without this the feedback ``StudioText`` never wrapped at all, so its
+        best-size height was always one line even when the drawn text -- an
+        error sentence, or the bilingual pairing of one -- was long enough to
+        need two.  The sizer kept reserving that single-line height, and the
+        control's own painting then drew a second line straight through the
+        space the sizer had given the field above it: the helper text reading
+        as printed over the field's own lower edge instead of below it.
+        """
+        width = self.GetClientSize().width
+        if width > 0:
+            self.feedback.set_available_width(width)
+            self.Layout()
+        event.Skip()
 
     # -- state ---------------------------------------------------------------
     def query(self) -> str:
@@ -3135,6 +3163,9 @@ class SearchBar(wx.Panel, _Themed):
     def refresh_feedback(self) -> None:
         """Re-read the state's honest status line and show it."""
         message = self.state.feedback()
+        width = self.GetClientSize().width
+        if width > 0:
+            self.feedback.set_available_width(width)
         self.feedback.SetLabel(message)
         invalid = self.state.regex and not self.state.is_valid()
         # Only the error red is pushed in; the ordinary colour goes back to the

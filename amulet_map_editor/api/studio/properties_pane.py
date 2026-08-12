@@ -787,14 +787,35 @@ class PropertyRow(wx.Control):
     def AcceptsFocusFromKeyboard(self) -> bool:  # noqa: N802 - wx API spelling
         return False
 
+    #: The most a single row will ever ask a sizer for, in design pixels.
+    #:
+    #: Below this a row keeps asking for exactly what its text needs, so a
+    #: value that grows (a coordinate walking toward the edge of a world, a
+    #: chunk count climbing past a comma) is still measured and never quietly
+    #: elided just because an earlier, shorter value happened to be drawn
+    #: first.  Above it a row stops growing the request: a long value used to
+    #: make the row's *minimum* width wider than the pane itself, so the
+    #: sizer honoured that minimum and the value ran off the right edge with
+    #: nothing to show it had been cut -- clipped by the container, not
+    #: elided by :meth:`_draw`.  The cap sits under :data:`MIN_PANEL_WIDTH` so
+    #: even the narrowest column the pane can be dragged to never needs a row
+    #: wider than itself; :meth:`_draw` still elides down from there with a
+    #: real ellipsis, and the untruncated text stays reachable in the tooltip
+    #: and the accessible name.
+    MAX_REQUEST_WIDTH = 220
+
     def DoGetBestSize(self) -> wx.Size:  # noqa: N802 - wx API spelling
         dc = wx.ClientDC(self)
         dc.SetFont(tokens.font_px(self, point_size(12)))
         label_width, label_height = dc.GetTextExtent(self.label or " ")
         dc.SetFont(tokens.mono_font_px(self, point_size(12)))
         value_width, value_height = dc.GetTextExtent(self.value or " ")
+        content_width = (
+            label_width + value_width + tokens.scaled(self.PADDING_X * 2 + 10)
+        )
+        width = min(content_width, tokens.scaled(self.MAX_REQUEST_WIDTH))
         return wx.Size(
-            label_width + value_width + tokens.scaled(self.PADDING_X * 2 + 10),
+            width,
             max(label_height, value_height) + tokens.scaled(self.PADDING_Y) * 2,
         )
 
