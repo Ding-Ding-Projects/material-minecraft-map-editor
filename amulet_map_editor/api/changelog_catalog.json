@@ -1,8 +1,68 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "b3c41d88fbf0508f7b07965120cd0711bb24a90b",
+  "source_revision": "4d571859f155b92ab2ce4a5542fabd488d965c46",
   "entries": [
+    {
+      "version": "0.10.0-dev.783",
+      "released_on": "2026-08-12",
+      "commit_sha": "c3a70e3df780e7066f7c40cb2e1b9445d7a49280",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add a desktop-side guard proving non-palette lists render live rich controls",
+          "commit_sha": "c3a70e3df780e7066f7c40cb2e1b9445d7a49280"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.781",
+      "released_on": "2026-08-12",
+      "commit_sha": "861078e758ca76d450c1c1de1f92cee1f85fb1c6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wire the personal-vocabulary overlay into the shared translation boundary",
+          "commit_sha": "861078e758ca76d450c1c1de1f92cee1f85fb1c6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.779",
+      "released_on": "2026-08-12",
+      "commit_sha": "a8d2b917c61dddcf960d1276d577bcdec22a05d5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge remote-tracking branch 'origin/main'",
+          "commit_sha": "a8d2b917c61dddcf960d1276d577bcdec22a05d5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.776",
+      "released_on": "2026-08-12",
+      "commit_sha": "a7972ad5dbf927e24294234d816e170f3f98d9d6",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Background the status bar's first revision read",
+          "commit_sha": "a7972ad5dbf927e24294234d816e170f3f98d9d6"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.775",
+      "released_on": "2026-08-12",
+      "commit_sha": "b3c41d88fbf0508f7b07965120cd0711bb24a90b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Build desktop per-surface locks: a tab, a group, or an appearance value, locked shut for fun",
+          "commit_sha": "b3c41d88fbf0508f7b07965120cd0711bb24a90b"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.772",
       "released_on": "2026-08-12",
