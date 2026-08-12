@@ -179,7 +179,21 @@ function createWindow() {
   mainWindow.on("move", persist);
   mainWindow.on("close", persist);
 
-  mainWindow.loadFile(SITE_INDEX);
+  // AMULET_VIEWPORT_HARNESS_WORLD is set only by the WebGL2 viewport's own
+  // capture script (scripts/capture_viewport_render.js). It swaps the
+  // loaded page for docs/site/viewport-harness.html, a proof harness that
+  // opens the given world through the real sidecar, meshes a real chunk,
+  // and draws it -- it never loads instead of the product's own
+  // docs/site/index.html in an ordinary run.
+  const viewportHarnessWorld = process.env.AMULET_VIEWPORT_HARNESS_WORLD;
+  if (viewportHarnessWorld) {
+    const harnessPath = path.join(REPO_ROOT, "docs", "site", "viewport-harness.html");
+    mainWindow.loadFile(harnessPath, {
+      query: { world: viewportHarnessWorld },
+    });
+  } else {
+    mainWindow.loadFile(SITE_INDEX);
+  }
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -235,6 +249,56 @@ ipcMain.handle("sidecar:call", (_event, payload) => {
       ? payload.params
       : {};
   return sidecar.call(method, params);
+});
+
+// --- The one binary-file bridge, for the WebGL2 viewport.
+//
+// The sidecar's newline-delimited JSON protocol is right for preferences
+// and settings and wrong by an order of magnitude for a chunk's vertex
+// data or its texture atlas -- base64-encoding tens of thousands of
+// floats into a JSON string is bytes-on-the-wire waste for no benefit.
+// "viewport.chunk_mesh" and "viewport.atlas" (see
+// amulet_map_editor/api/sidecar/mesh_methods.py) instead write raw bytes
+// to a file under the sidecar's own per-process temp directory and return
+// that path in their (small) JSON result. This handler is the only way
+// the renderer can turn that path into actual bytes: it asks the sidecar
+// itself (never the renderer, never a hard-coded guess) what that
+// directory is, caches the answer, and refuses to open anything outside
+// it -- the sidecar can hand the renderer a chunk mesh, never an arbitrary
+// file on the user's disk.
+let _viewportTempRoot = null;
+
+async function _resolveViewportTempRoot() {
+  if (_viewportTempRoot) return _viewportTempRoot;
+  const response = await sidecar.call("viewport.temp_root", {});
+  if (response && response.ok && response.result && typeof response.result.path === "string") {
+    _viewportTempRoot = response.result.path;
+  }
+  return _viewportTempRoot;
+}
+
+ipcMain.handle("sidecar:readBinary", async (_event, requestPath) => {
+  if (typeof requestPath !== "string" || !requestPath) {
+    return { ok: false, error: { code: "invalid_params", message: "path must be a non-empty string" } };
+  }
+  const root = await _resolveViewportTempRoot();
+  if (!root) {
+    return {
+      ok: false,
+      error: { code: "sidecar_unavailable", message: "Could not resolve the sidecar's viewport temp directory" },
+    };
+  }
+  const resolvedRoot = path.resolve(root) + path.sep;
+  const resolvedRequest = path.resolve(requestPath);
+  if (!(resolvedRequest + path.sep).startsWith(resolvedRoot) && resolvedRequest !== path.resolve(root)) {
+    return { ok: false, error: { code: "invalid_params", message: "path is outside the viewport temp directory" } };
+  }
+  try {
+    const data = fs.readFileSync(resolvedRequest);
+    return { ok: true, result: data };
+  } catch (err) {
+    return { ok: false, error: { code: "read_failed", message: String(err && err.message ? err.message : err) } };
+  }
 });
 
 app.whenReady().then(() => {

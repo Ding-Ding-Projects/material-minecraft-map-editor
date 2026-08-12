@@ -68,5 +68,22 @@ contextBridge.exposeInMainWorld("mmweDesktop", {
         params && typeof params === "object" && !Array.isArray(params) ? params : {};
       return ipcRenderer.invoke("sidecar:call", { method: method, params: safeParams });
     },
+    /**
+     * Read a binary file the sidecar itself wrote (a chunk mesh, a texture
+     * atlas) as a Node Buffer -- structured-cloned to the renderer as a
+     * Uint8Array. main.js refuses any path outside the sidecar's own
+     * viewport temp directory (see "sidecar:readBinary" there), so this is
+     * not a general filesystem-read primitive: it only ever returns bytes
+     * the sidecar generated for this purpose.
+     */
+    readBinary: (filePath) => {
+      if (typeof filePath !== "string" || !filePath) {
+        return Promise.resolve({
+          ok: false,
+          error: { code: "invalid_params", message: "'path' must be a non-empty string" },
+        });
+      }
+      return ipcRenderer.invoke("sidecar:readBinary", filePath);
+    },
   },
 });

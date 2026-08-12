@@ -1,0 +1,31 @@
+<!doctype html>
+<!--
+  A minimal, real page that exercises the whole real-data path end to end:
+  open a world through the sidecar, ask it to mesh chunk (0, 0), pull the
+  mesh and the texture atlas back as bytes through the narrow
+  "sidecar:readBinary" bridge, and draw the result with WebGL2.
+
+  This is deliberately NOT the product's tabbed Material 3 shell -- it is
+  the proof harness for the rendering pipeline itself (see
+  docs/articles/webgl2-viewport.md for what is and is not done). Electron's
+  main process only loads this page when launched with
+  AMULET_VIEWPORT_HARNESS_WORLD set to a world path (see electron/main.js);
+  the ordinary app always loads docs/site/index.html.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Viewport harness</title>
+    <style>
+      html, body { margin: 0; background: #111; }
+      canvas { display: block; }
+      #status { position: fixed; top: 0; left: 0; color: #0f0; font: 12px monospace; background: #000a; padding: 4px; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas" width="1024" height="768"></canvas>
+    <div id="status">starting...</div>
+    <script src="viewport-webgl.js"></script>
+    <script src="viewport-harness.js"></script>
+  </body>
+</html>
