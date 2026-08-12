@@ -834,6 +834,27 @@ class PreferencesDialog(wx.Dialog):
         editor_row.GetSizer().Add(self.external_editor_status, 0, wx.EXPAND | wx.TOP, 4)
         root.Add(editor_row, 0, wx.EXPAND | wx.BOTTOM, 18)
 
+        auto_update_row = self._row(
+            page,
+            "Automatic update staging",
+            "Downloads and validates a discovered update in the background, "
+            "without a click, so restarting is the only thing you ever have "
+            "to do. The banner then reads as staged and waiting rather than "
+            "asking you to stage it. Restarting still always waits for your "
+            "unsaved work, and the update stays unsigned either way. Turn "
+            "this off to keep pressing Stage available update yourself.",
+            key="auto_stage_updates",
+            default=True,
+        )
+        self.auto_stage_updates = studio.StudioCheckBox(
+            auto_update_row.body,
+            "Automatically stage updates in the background",
+            value=self._prefs.auto_stage_updates,
+            name="Automatically stage updates in the background",
+        )
+        auto_update_row.set_control(self.auto_stage_updates, 0)
+        root.Add(auto_update_row, 0, wx.EXPAND | wx.BOTTOM, 18)
+
         scale_row = self._row(
             page,
             "UI scale",
@@ -2262,6 +2283,7 @@ class PreferencesDialog(wx.Dialog):
                 ui_font=appearance.ui_font,
                 ui_scale=appearance.ui_scale,
                 external_editor_path=self.external_editor_path.GetValue().strip(),
+                auto_stage_updates=self.auto_stage_updates.GetValue(),
             )
         )
 

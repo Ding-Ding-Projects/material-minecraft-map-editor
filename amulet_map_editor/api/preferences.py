@@ -39,6 +39,7 @@ class Preferences:
     ui_font: str = ""
     ui_scale: float = 1.0
     external_editor_path: str = ""
+    auto_stage_updates: bool = True
 
     def normalised(self) -> "Preferences":
         """Return a safe value even when an older profile was hand-edited."""
@@ -71,6 +72,7 @@ class Preferences:
             r"#[0-9a-fA-F]{6,8}", self.accent
         ):
             self.accent = "#6750A4"
+        self.auto_stage_updates = bool(self.auto_stage_updates)
         return self
 
 
