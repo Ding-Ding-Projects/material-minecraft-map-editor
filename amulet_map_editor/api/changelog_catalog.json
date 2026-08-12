@@ -1,8 +1,44 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "1446efdacc929f8d1e44c1fe80615820794a70ce",
+  "source_revision": "ece3dd7be52a42647aa7a0c41940a030c6b8fd12",
   "entries": [
+    {
+      "version": "0.10.0-dev.845",
+      "released_on": "2026-08-12",
+      "commit_sha": "2e5baee9c737b95ef25c23a7d6fb89cf6e145d81",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Rewrite the handoff around an application that now exists",
+          "commit_sha": "2e5baee9c737b95ef25c23a7d6fb89cf6e145d81"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.844",
+      "released_on": "2026-08-12",
+      "commit_sha": "b3fe0df47bba3deb8ba6629a23b9250bb127d58d",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Show test windows without activating them, and stop one file counting other tests' state",
+          "commit_sha": "b3fe0df47bba3deb8ba6629a23b9250bb127d58d"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.842",
+      "released_on": "2026-08-12",
+      "commit_sha": "1446efdacc929f8d1e44c1fe80615820794a70ce",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Let the bridge actually convert a file, not just list what it could convert",
+          "commit_sha": "1446efdacc929f8d1e44c1fe80615820794a70ce"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.840",
       "released_on": "2026-08-12",
