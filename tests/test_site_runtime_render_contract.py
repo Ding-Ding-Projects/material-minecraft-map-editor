@@ -463,3 +463,54 @@ class ScheduleWindowsMeanWhatTheySay(unittest.TestCase):
             "return {matched: S._matches(rule, new Date(2026,0,5,12,0))};"
         )
         self.assertFalse(got["matched"])
+
+
+class PresetsComeFromTheRealDefaults(unittest.TestCase):
+    """A preset claiming to be "as it ships" has to be derived from the shipped
+    values, not from a hand-copied list that drifts the first time a default
+    changes."""
+
+    def test_the_shipped_preset_equals_the_core_defaults(self) -> None:
+        got = render(
+            "const P = window.AmuletPresets;"
+            "const D = window.AmuletSite.settings.DEFAULTS;"
+            "const s = P.shipped();"
+            "return {mismatch: Object.keys(s).filter(k => s[k] !== D[k])};"
+        )
+        self.assertEqual(
+            got["mismatch"],
+            [],
+            "the 'as it ships' preset disagrees with the actual defaults",
+        )
+
+    def test_every_preset_only_sets_keys_the_site_reads(self) -> None:
+        got = render(
+            "const P = window.AmuletPresets;"
+            "const known = Object.keys(window.AmuletSite.settings.DEFAULTS);"
+            "const bad = [];"
+            "P.builtIn.forEach(p => Object.keys(p.values()).forEach(k => {"
+            "  if (known.indexOf(k) < 0) bad.push(p.id + ':' + k); }));"
+            "return {bad: bad};"
+        )
+        self.assertEqual(
+            got["bad"], [], "a preset sets a key nothing on this site consumes"
+        )
+
+    def test_applying_a_preset_actually_changes_the_settings(self) -> None:
+        got = render(
+            "const S = window.AmuletSite.settings;"
+            "S.set('theme', 'light');"
+            "const night = window.AmuletPresets.builtIn.find(p => p.id === 'night');"
+            "window.AmuletPresets._apply(night.values(), 'night');"
+            "return {theme: S.get('theme'), density: S.get('density')};"
+        )
+        self.assertEqual(got["theme"], "dark", "applying a preset changed nothing")
+        self.assertEqual(got["density"], "comfortable")
+
+    def test_the_presets_surface_mounts(self) -> None:
+        got = render(
+            "return {root: (q('#presets-root')||{}).childElementCount || 0,"
+            "        schedule: (q('#schedule-root')||{}).childElementCount || 0};"
+        )
+        self.assertGreater(got["root"], 0, "the presets surface is blank")
+        self.assertGreater(got["schedule"], 0, "the schedule surface is blank")
