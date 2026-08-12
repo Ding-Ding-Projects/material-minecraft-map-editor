@@ -49,6 +49,11 @@ def update_copy(
         english = f"Update {version_text} is available. Choose Stage available update to download it."
         cantonese = f"有新版本 {version_text}。撳「Stage available update」先下載，唔會打斷你而家嘅工作。"
         title_en, title_zh = "Update available", "有更新"
+    elif status == "downloading":
+        downloading_version = f" {version}" if version else ""
+        english = f"Downloading the unsigned update{downloading_version} in the background. Your work is not interrupted."
+        cantonese = f"背景下載緊未簽署更新{downloading_version}，唔會打斷你而家嘅工作。"
+        title_en, title_zh = "Downloading update", "下載緊更新"
     elif status == "ready_to_restart":
         ready_version = f" {version}" if version else ""
         english = f"The unsigned update{ready_version} is staged. Choose Restart to install update when your work is saved."
@@ -82,6 +87,7 @@ def action_labels(status: str) -> Tuple[str, str]:
     if prefs.language_mode == "cantonese":
         primary = {
             "available": "Stage available update",
+            "downloading": "Downloading…",
             "ready_to_restart": "Restart to install update",
             "failed": "Check for updates",
         }.get(status, "Close")
@@ -89,12 +95,14 @@ def action_labels(status: str) -> Tuple[str, str]:
     if prefs.language_mode == "bilingual":
         primary = {
             "available": "Stage available update · 下載更新",
+            "downloading": "Downloading… · 下載緊…",
             "ready_to_restart": "Restart to install update · 重新啟動安裝",
             "failed": "Check for updates · 再檢查",
         }.get(status, "Close · 關閉")
         return primary, "Later · 稍後"
     return {
         "available": "Stage available update",
+        "downloading": "Downloading…",
         "ready_to_restart": "Restart to install update",
         "failed": "Check for updates",
     }.get(status, "Close"), "Later"

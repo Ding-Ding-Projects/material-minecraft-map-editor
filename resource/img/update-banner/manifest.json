@@ -1,0 +1,89 @@
+{
+  "captures": [
+    {
+      "name": "available",
+      "status": "available",
+      "path": "resource\\img\\update-banner\\update-banner-available.png",
+      "colours": 38,
+      "descendants": 3,
+      "routes": {
+        "render": 2,
+        "print": 1,
+        "blit": 0
+      },
+      "skipped": [],
+      "blitted_leaves": [],
+      "uniform_fraction": 0.714,
+      "size": [
+        320,
+        144
+      ],
+      "gate": "a person must look at a sample of every run"
+    },
+    {
+      "name": "downloading",
+      "status": "downloading",
+      "path": "resource\\img\\update-banner\\update-banner-downloading.png",
+      "colours": 37,
+      "descendants": 3,
+      "routes": {
+        "render": 2,
+        "print": 1,
+        "blit": 0
+      },
+      "skipped": [],
+      "blitted_leaves": [],
+      "uniform_fraction": 0.731,
+      "size": [
+        320,
+        144
+      ],
+      "gate": "a person must look at a sample of every run"
+    },
+    {
+      "name": "ready-to-restart",
+      "status": "ready_to_restart",
+      "path": "resource\\img\\update-banner\\update-banner-ready-to-restart.png",
+      "colours": 40,
+      "descendants": 3,
+      "routes": {
+        "render": 2,
+        "print": 1,
+        "blit": 0
+      },
+      "skipped": [],
+      "blitted_leaves": [],
+      "uniform_fraction": 0.73,
+      "size": [
+        320,
+        161
+      ],
+      "gate": "a person must look at a sample of every run"
+    },
+    {
+      "name": "failed",
+      "status": "failed",
+      "path": "resource\\img\\update-banner\\update-banner-failed.png",
+      "colours": 43,
+      "descendants": 3,
+      "routes": {
+        "render": 2,
+        "print": 1,
+        "blit": 0
+      },
+      "skipped": [],
+      "blitted_leaves": [],
+      "uniform_fraction": 0.747,
+      "size": [
+        320,
+        161
+      ],
+      "gate": "a person must look at a sample of every run"
+    },
+    {
+      "name": "no-update",
+      "status": "up_to_date",
+      "colours": 14
+    }
+  ]
+}

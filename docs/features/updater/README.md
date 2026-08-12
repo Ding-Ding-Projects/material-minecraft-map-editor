@@ -3,12 +3,17 @@
 The Windows app checks the project's exact immutable HTTPS Squirrel feed after startup and on
 a bounded six-hour timer. The default `automated` channel selects the highest
 numeric `dev` sequence without mixing in stable releases or trusting publish
-order. A non-blocking Material 3 banner reports available, ready, failed, and
-current states. It carries the exact version and a validated immutable
-**Release notes** action through staging. Staging validates feed metadata and
+order. A non-blocking Material 3 banner reports available, downloading, ready,
+failed, and current states. It carries the exact version and a validated
+immutable **Release notes** action through staging. Manually starting staging
+renders the banner's own **downloading** state -- its action button reads
+"Downloading…" and is disabled for the duration, so the standing offer never
+silently disappears mid-fetch -- and staging validates feed metadata and
 package hashes; installation occurs only after the user chooses **Restart to
 install update**. **Later** hides the banner without discarding the staged
-state.
+state. The "current" state (no update found) intentionally shows no banner at
+all; it is reported through the status bar instead, exactly as it is when
+updates are unavailable in this installation.
 
 ## Configuration and failure modes
 
@@ -73,9 +78,22 @@ exit code, and does not close. The responsive banner stacks its
 message above keyboard-operable Material actions, is localized, remains
 persistent until dismissed, and records deduplicated history entries.
 
+## Ready-banner captures
+
+`scripts/capture_update_banner.py` builds the real `AmuletUI` frame off-screen,
+drives its real `_render_update_banner` through `available`, `downloading`,
+`ready_to_restart`, and `failed`, and reads the status bar for the "current"
+(no update) state where the banner is correctly hidden. The five resulting
+PNGs live under `resource/img/update-banner/` and are guarded by
+`tests/test_update_banner_capture_contract.py`, which fails the suite if a
+capture goes missing or comes back blank rather than showing the banner's
+real title, body, and buttons. Regenerate them with
+`pythonw -3.11 scripts/capture_update_banner.py --out resource/img/update-banner`
+after any change to the banner's copy or layout.
+
 ## Verification
 
-Run `python -m pytest -q tests/test_squirrel_version.py tests/test_updater_banner_contract.py tests/test_updater_surface_contract.py tests/api/framework/test_squirrel_update.py tests/api/framework/test_update_copy.py`.
+Run `python -m pytest -q tests/test_squirrel_version.py tests/test_updater_banner_contract.py tests/test_updater_surface_contract.py tests/test_update_banner_capture_contract.py tests/api/framework/test_squirrel_update.py tests/api/framework/test_update_copy.py`.
 Then run
 `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_squirrel_cli_output.ps1`.
 The pinned real-CLI fixture verifies the actual 2.0.1 shape and reports its

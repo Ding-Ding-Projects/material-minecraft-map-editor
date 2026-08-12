@@ -242,8 +242,38 @@ class MaterialButton(wx.Control):
         return background, foreground, border
 
     def _paint(self, _event: wx.PaintEvent) -> None:
-        palette = _active_palette()
         dc = wx.AutoBufferedPaintDC(self)
+        width, height = self.GetClientSize()
+        self.render_to(dc, wx.Rect(0, 0, width, height))
+
+    def render_to(self, dc: wx.DC, rect: wx.Rect) -> None:
+        """Draw this button's own appearance into an externally-owned ``dc``.
+
+        A ``wx.AutoBufferedPaintDC`` is only valid inside a real ``WM_PAINT``
+        dispatch; constructing one outside that -- which is exactly what a
+        capture harness driving this widget off-screen has to do -- hands the
+        drawing code a stale device-context handle and every call into it
+        (``SetTextColor``, the final buffered ``BitBlt``) fails silently,
+        leaving the button's own background rectangle as the only thing that
+        landed. Every other owner-drawn Studio widget avoids that by exposing
+        ``render_to`` -- the same drawing code, callable against a device
+        context the caller already owns -- and this button now does too, which
+        is what let the update-ready banner's "Restart to install update"
+        button actually appear in its own capture instead of a blank card.
+
+        ``widgets.translated`` shifts the device origin rather than this
+        method trying to track ``rect``'s offset by hand across a plain
+        ``DrawRectangle`` and a separately-built ``GraphicsContext`` -- two
+        coordinate systems that silently disagreed the first time this was
+        written, doubling the offset and drawing the button off its own card.
+        """
+        from amulet_map_editor.api.studio.widgets import translated
+
+        with translated(dc, rect):
+            self._draw(dc, wx.Rect(0, 0, rect.width, rect.height))
+
+    def _draw(self, dc: wx.DC, rect: wx.Rect) -> None:
+        palette = _active_palette()
         parent = self.GetParent()
         outside = (
             parent.GetBackgroundColour()
@@ -251,11 +281,25 @@ class MaterialButton(wx.Control):
             else palette["surface_container"]
         )
         dc.SetBackground(wx.Brush(outside))
-        dc.Clear()
-        graphics = wx.GraphicsContext.Create(dc)
+        dc.SetBrush(wx.Brush(outside))
+        dc.SetPen(wx.Pen(outside))
+        dc.DrawRectangle(rect)
+        # A ``wx.GCDC`` -- what a capture harness hands this so several
+        # widgets can composite through one graphics-context-backed context --
+        # already owns a ``wx.GraphicsContext``, and ``GraphicsContext.Create``
+        # rejects a ``GCDC`` outright ("argument 1 has unexpected type
+        # 'GCDC'"). That exception used to be swallowed by the caller and read
+        # as "this control cannot draw", which is why this button's capture
+        # came back as an empty rounded rectangle with no label. Reuse the
+        # wrapper's own context there instead of building a second one on it.
+        graphics = (
+            dc.GetGraphicsContext()
+            if isinstance(dc, wx.GCDC)
+            else wx.GraphicsContext.Create(dc)
+        )
         if graphics is None:
             return
-        width, height = self.GetClientSize()
+        width, height = rect.width, rect.height
         background, foreground, border = self._roles()
         graphics.SetBrush(wx.Brush(background))
         graphics.SetPen(wx.Pen(border or background, 1))

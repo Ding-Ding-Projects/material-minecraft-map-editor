@@ -1478,6 +1478,19 @@ class AmuletUI(wx.Frame):
         feed_url = self._update_state.feed_url
         version = self._update_state.version
         release_notes_url = self._update_state.release_notes_url
+        # The download itself has no worker result to wait for -- Squirrel's
+        # staging call blocks the thread below until it finishes -- so the
+        # banner's own "downloading" render is the only visible surface for
+        # this state. It disables the action button rather than hiding the
+        # banner, so the standing offer never silently disappears mid-fetch.
+        self._render_update_banner(
+            SquirrelUpdateState(
+                "downloading",
+                version=version,
+                feed_url=feed_url,
+                release_notes_url=release_notes_url,
+            )
+        )
         self._update_stage_thread = threading.Thread(
             target=self._stage_update_worker,
             args=(feed_url, version, release_notes_url, generation),
@@ -1703,9 +1716,14 @@ class AmuletUI(wx.Frame):
         self._update_banner_release_notes.SetToolTip(
             "Open the immutable GitHub release notes for this update."
         )
+        self._update_banner_action.Enable(state.status != "downloading")
         if state.status == "available":
             self._update_banner_action.SetToolTip(
                 "Download the unsigned update in the background."
+            )
+        elif state.status == "downloading":
+            self._update_banner_action.SetToolTip(
+                "The unsigned update is already downloading in the background."
             )
         elif state.status == "ready_to_restart":
             self._update_banner_action.SetToolTip(

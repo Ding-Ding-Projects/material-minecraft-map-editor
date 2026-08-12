@@ -418,10 +418,27 @@ def _paint_into(window: wx.Window, target: wx.MemoryDC, origin: wx.Point) -> str
         return "render"
     if _render_via_paint(window, target, origin):
         return "render"
-    if _print_window(window, target, origin):
-        return "print"
-    if _print_client(window, target, origin):
-        return "print"
+    # PrintWindow is documented for top-level windows, and on a child control
+    # it is free to report success while drawing nothing at all -- observed
+    # here for a plain wx.StaticText, which came back a genuine boolean True
+    # over an untouched background every single time, with WM_PRINTCLIENT
+    # drawing its two lines of text correctly on the very same control. A
+    # "print" route in the manifest used to mean either call, so this one
+    # looked identical to a real capture: healthy structural fields, an empty
+    # picture. WM_PRINTCLIENT is tried first for anything that is not itself a
+    # top-level window, and PrintWindow is kept for the case it actually
+    # documents -- a window with no parent, or a frame/dialog composited
+    # whole.
+    if window.GetParent() is not None:
+        if _print_client(window, target, origin):
+            return "print"
+        if _print_window(window, target, origin):
+            return "print"
+    else:
+        if _print_window(window, target, origin):
+            return "print"
+        if _print_client(window, target, origin):
+            return "print"
     try:
         source = wx.ClientDC(window)
         target.Blit(origin.x, origin.y, size.width, size.height, source, 0, 0)
