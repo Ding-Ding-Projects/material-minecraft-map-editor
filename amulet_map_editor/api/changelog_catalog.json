@@ -1,8 +1,56 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "20d7a324d2ad9aabb619c9a8f7f05a6569def288",
+  "source_revision": "27f45053723a6f4d0a5669893e2136b666b4b96b",
   "entries": [
+    {
+      "version": "0.11.0-dev.23",
+      "released_on": "2026-08-13",
+      "commit_sha": "91d12575eb28ff668f766b7dc4e30bf622a0c669",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Correct one index line that still says the migration has barely started",
+          "commit_sha": "91d12575eb28ff668f766b7dc4e30bf622a0c669"
+        }
+      ]
+    },
+    {
+      "version": "0.11.0-dev.22",
+      "released_on": "2026-08-13",
+      "commit_sha": "6ac8c1c6e7664bec6c71500fc71a06dc0dd859eb",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Merge branch 'task/full-documentation-write'",
+          "commit_sha": "6ac8c1c6e7664bec6c71500fc71a06dc0dd859eb"
+        }
+      ]
+    },
+    {
+      "version": "0.11.0-dev.21",
+      "released_on": "2026-08-13",
+      "commit_sha": "4392a9bd405f13c221c635159c5adf9688eac712",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop the wxPython workflow reacting to a release it no longer publishes",
+          "commit_sha": "4392a9bd405f13c221c635159c5adf9688eac712"
+        }
+      ]
+    },
+    {
+      "version": "0.11.0-dev.20",
+      "released_on": "2026-08-12",
+      "commit_sha": "20d7a324d2ad9aabb619c9a8f7f05a6569def288",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Stop the converter sandbox calling a crash a timeout",
+          "commit_sha": "20d7a324d2ad9aabb619c9a8f7f05a6569def288"
+        }
+      ]
+    },
     {
       "version": "0.11.0-dev.19",
       "released_on": "2026-08-12",
