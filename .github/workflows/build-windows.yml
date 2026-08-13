@@ -9,8 +9,6 @@ on:
         description: Optional canonical major.minor.patch or major.minor.0-dev.run tag
         required: false
         type: string
-  release:
-    types: [published]
 
 permissions:
   contents: read
@@ -19,6 +17,16 @@ permissions:
 # release now -- this workflow still builds and (report-only) tests the
 # wxPython/PyInstaller app so that build does not silently rot, but it no
 # longer creates or uploads a release. Do not "fix" that back.
+#
+# It also no longer runs on `release: [published]`, and that removal is load
+# bearing rather than tidying. While it published its own releases, reacting to
+# a publication made sense. Now that the Electron workflow publishes, every
+# Electron release fired this workflow, which went looking for a previous
+# *wxPython* Squirrel feed to build a delta against -- assets named
+# Amulet-<version>-full.nupkg, which an Electron release does not have and never
+# will. The run failed at "Fetch previous Squirrel feed for delta" every single
+# time, so shipping the Electron app turned this workflow red on a schedule.
+# A workflow that no longer publishes has no reason to react to a publication.
 #
 # Since this workflow no longer publishes, it is an ordinary push-triggered
 # validation workflow: a newer push may cancel a stale run.

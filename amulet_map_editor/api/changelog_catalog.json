@@ -1,8 +1,20 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "14eafe58576ab9a9a2fd89d6bffc5e00dcffa8ee",
+  "source_revision": "20d7a324d2ad9aabb619c9a8f7f05a6569def288",
   "entries": [
+    {
+      "version": "0.11.0-dev.19",
+      "released_on": "2026-08-12",
+      "commit_sha": "14eafe58576ab9a9a2fd89d6bffc5e00dcffa8ee",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Commit the lockfile CI needs, and format the tree",
+          "commit_sha": "14eafe58576ab9a9a2fd89d6bffc5e00dcffa8ee"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.851",
       "released_on": "2026-08-12",
