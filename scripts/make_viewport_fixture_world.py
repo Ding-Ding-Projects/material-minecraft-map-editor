@@ -7,6 +7,7 @@ through amulet-core directly rather than shipping a binary save file.
 
 Usage: py -3.11 scripts/make_viewport_fixture_world.py <destination-dir>
 """
+
 from __future__ import annotations
 
 import sys
@@ -28,7 +29,9 @@ def build(world_path: str) -> None:
         air = chunk.block_palette.get_add_block(Block("universal_minecraft", "air"))
         stone = chunk.block_palette.get_add_block(Block("universal_minecraft", "stone"))
         dirt = chunk.block_palette.get_add_block(Block("universal_minecraft", "dirt"))
-        grass = chunk.block_palette.get_add_block(Block("universal_minecraft", "grass_block"))
+        grass = chunk.block_palette.get_add_block(
+            Block("universal_minecraft", "grass_block")
+        )
 
         chunk.blocks[:, :, :] = air
         # A simple stepped landscape so the render has real silhouette, not
@@ -48,7 +51,9 @@ def build(world_path: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("usage: make_viewport_fixture_world.py <destination-dir>", file=sys.stderr)
+        print(
+            "usage: make_viewport_fixture_world.py <destination-dir>", file=sys.stderr
+        )
         raise SystemExit(2)
     build(sys.argv[1])
     print(sys.argv[1])

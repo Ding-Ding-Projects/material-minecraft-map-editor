@@ -95,10 +95,14 @@ def fixture_world_path(tmp_path) -> str:
     return str(world_path)
 
 
-def _poll_open_status(sidecar: SidecarProcess, world_id: str, timeout: float = 15.0) -> Dict[str, Any]:
+def _poll_open_status(
+    sidecar: SidecarProcess, world_id: str, timeout: float = 15.0
+) -> Dict[str, Any]:
     deadline = time.time() + timeout
     while True:
-        response = sidecar.call("world.open_status", {"world_id": world_id}, request_id="poll")
+        response = sidecar.call(
+            "world.open_status", {"world_id": world_id}, request_id="poll"
+        )
         result = response.get("result")
         assert result is not None, response
         if result["status"] != "pending":
@@ -131,7 +135,9 @@ def _read_block_names_directly(world_path: str, coords) -> Dict[tuple, str]:
 # ------------------------------------------------------------- terrain.*
 
 
-def test_flatten_requires_confirmation(sidecar: SidecarProcess, fixture_world_path: str) -> None:
+def test_flatten_requires_confirmation(
+    sidecar: SidecarProcess, fixture_world_path: str
+) -> None:
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "terrain.flatten",
@@ -174,7 +180,9 @@ def test_flatten_sets_below_to_block_and_above_to_air(
     sidecar.call("world.save", {"world_id": world_id, "confirm": True}, request_id=3)
     sidecar.call("world.close", {"world_id": world_id}, request_id=4)
 
-    names = _read_block_names_directly(fixture_world_path, [(0, y, 0) for y in range(8)])
+    names = _read_block_names_directly(
+        fixture_world_path, [(0, y, 0) for y in range(8)]
+    )
     for y in range(5):
         assert names[(0, y, 0)] == "cobblestone", (y, names)
     for y in range(5, 8):
@@ -208,7 +216,9 @@ def test_sea_level_raise_fills_air_with_water_up_to_the_level(
     sidecar.call("world.save", {"world_id": world_id, "confirm": True}, request_id=3)
     sidecar.call("world.close", {"world_id": world_id}, request_id=4)
 
-    names = _read_block_names_directly(fixture_world_path, [(10, y, 10) for y in range(10)])
+    names = _read_block_names_directly(
+        fixture_world_path, [(10, y, 10) for y in range(10)]
+    )
     assert names[(10, 6, 10)] == "grass_block"
     assert names[(10, 7, 10)] == "water"
     assert names[(10, 8, 10)] == "water"
@@ -256,7 +266,9 @@ def test_sea_level_drain_turns_water_back_to_air(
     assert names[(10, 8, 10)] == "air"
 
 
-def test_sea_level_rejects_an_unknown_mode(sidecar: SidecarProcess, fixture_world_path: str) -> None:
+def test_sea_level_rejects_an_unknown_mode(
+    sidecar: SidecarProcess, fixture_world_path: str
+) -> None:
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "terrain.sea_level",
@@ -299,7 +311,9 @@ def test_repaint_changes_only_the_topmost_block_of_each_column(
     sidecar.call("world.save", {"world_id": world_id, "confirm": True}, request_id=3)
     sidecar.call("world.close", {"world_id": world_id}, request_id=4)
 
-    names = _read_block_names_directly(fixture_world_path, [(0, y, 0) for y in range(8)])
+    names = _read_block_names_directly(
+        fixture_world_path, [(0, y, 0) for y in range(8)]
+    )
     assert names[(0, 6, 0)] == "sand"  # was grass_block, now repainted
     assert names[(0, 5, 0)] == "dirt"  # untouched, one below the surface
     assert names[(0, 3, 0)] == "stone"  # untouched, deep in the column
@@ -308,7 +322,9 @@ def test_repaint_changes_only_the_topmost_block_of_each_column(
 # ------------------------------------------------------------ entities.*
 
 
-def _place_entity(sidecar: SidecarProcess, world_id: str, x, y, z, base_name: str, request_id) -> None:
+def _place_entity(
+    sidecar: SidecarProcess, world_id: str, x, y, z, base_name: str, request_id
+) -> None:
     response = sidecar.call(
         "entities.place",
         {
@@ -324,7 +340,9 @@ def _place_entity(sidecar: SidecarProcess, world_id: str, x, y, z, base_name: st
     assert "error" not in response, response
 
 
-def test_entities_place_requires_confirmation(sidecar: SidecarProcess, fixture_world_path: str) -> None:
+def test_entities_place_requires_confirmation(
+    sidecar: SidecarProcess, fixture_world_path: str
+) -> None:
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "entities.place",
@@ -347,7 +365,9 @@ def test_entities_list_returns_only_entities_inside_the_box(
     world_id = _open_world(sidecar, fixture_world_path)
     _place_entity(sidecar, world_id, 1.5, 5.0, 1.5, "cow", 2)
     _place_entity(sidecar, world_id, 2.5, 5.0, 2.5, "pig", 3)
-    _place_entity(sidecar, world_id, 40.0, 5.0, 40.0, "cow", 4)  # outside the test box below
+    _place_entity(
+        sidecar, world_id, 40.0, 5.0, 40.0, "cow", 4
+    )  # outside the test box below
 
     response = sidecar.call(
         "entities.list",
@@ -366,7 +386,9 @@ def test_entities_list_returns_only_entities_inside_the_box(
     sidecar.call("world.close", {"world_id": world_id}, request_id=6)
 
 
-def test_entities_remove_requires_a_filter(sidecar: SidecarProcess, fixture_world_path: str) -> None:
+def test_entities_remove_requires_a_filter(
+    sidecar: SidecarProcess, fixture_world_path: str
+) -> None:
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "entities.remove",
@@ -389,7 +411,9 @@ def test_entities_remove_deletes_only_matching_entities_in_the_box(
     world_id = _open_world(sidecar, fixture_world_path)
     _place_entity(sidecar, world_id, 1.5, 5.0, 1.5, "cow", 2)
     _place_entity(sidecar, world_id, 2.5, 5.0, 2.5, "pig", 3)
-    _place_entity(sidecar, world_id, 40.0, 5.0, 40.0, "cow", 4)  # in a wider box, out of the removal box
+    _place_entity(
+        sidecar, world_id, 40.0, 5.0, 40.0, "cow", 4
+    )  # in a wider box, out of the removal box
 
     remove_response = sidecar.call(
         "entities.remove",
@@ -404,15 +428,25 @@ def test_entities_remove_deletes_only_matching_entities_in_the_box(
         request_id=5,
     )
     assert "error" not in remove_response, remove_response
-    assert remove_response["result"]["removed"] == 1  # the in-box cow, not the pig or the far cow
+    assert (
+        remove_response["result"]["removed"] == 1
+    )  # the in-box cow, not the pig or the far cow
 
     list_response = sidecar.call(
         "entities.list",
-        {"world_id": world_id, "dimension": DIMENSION, "min": [0, 0, 0], "max": [50, 16, 50]},
+        {
+            "world_id": world_id,
+            "dimension": DIMENSION,
+            "min": [0, 0, 0],
+            "max": [50, 16, 50],
+        },
         request_id=6,
     )
     remaining = sorted(e["base_name"] for e in list_response["result"]["entities"])
-    assert remaining == ["cow", "pig"]  # the far cow (still in this wider box) + the pig
+    assert remaining == [
+        "cow",
+        "pig",
+    ]  # the far cow (still in this wider box) + the pig
 
     sidecar.call("world.close", {"world_id": world_id}, request_id=7)
 
@@ -430,7 +464,9 @@ def test_level_read_reports_the_real_level_name(
     sidecar.call("world.close", {"world_id": world_id}, request_id=3)
 
 
-def test_level_write_requires_confirmation(sidecar: SidecarProcess, fixture_world_path: str) -> None:
+def test_level_write_requires_confirmation(
+    sidecar: SidecarProcess, fixture_world_path: str
+) -> None:
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "data.level_write",
@@ -472,7 +508,9 @@ def test_level_write_changes_the_level_name_and_persists_on_save(
         level.close()
 
 
-def test_level_write_rejects_unknown_fields(sidecar: SidecarProcess, fixture_world_path: str) -> None:
+def test_level_write_rejects_unknown_fields(
+    sidecar: SidecarProcess, fixture_world_path: str
+) -> None:
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "data.level_write",
@@ -488,9 +526,13 @@ def test_game_rules_round_trip_write_then_read_then_persist(
 ) -> None:
     world_id = _open_world(sidecar, fixture_world_path)
 
-    empty_read = sidecar.call("data.game_rules_read", {"world_id": world_id}, request_id=2)
+    empty_read = sidecar.call(
+        "data.game_rules_read", {"world_id": world_id}, request_id=2
+    )
     assert "error" not in empty_read, empty_read
-    assert empty_read["result"]["game_rules"] == {}  # the fixture world has no GameRules yet
+    assert (
+        empty_read["result"]["game_rules"] == {}
+    )  # the fixture world has no GameRules yet
 
     write_response = sidecar.call(
         "data.game_rules_write",
@@ -502,9 +544,14 @@ def test_game_rules_round_trip_write_then_read_then_persist(
         request_id=3,
     )
     assert "error" not in write_response, write_response
-    assert sorted(write_response["result"]["updated"]) == ["doDaylightCycle", "keepInventory"]
+    assert sorted(write_response["result"]["updated"]) == [
+        "doDaylightCycle",
+        "keepInventory",
+    ]
 
-    read_back = sidecar.call("data.game_rules_read", {"world_id": world_id}, request_id=4)
+    read_back = sidecar.call(
+        "data.game_rules_read", {"world_id": world_id}, request_id=4
+    )
     assert read_back["result"]["game_rules"] == {
         "doDaylightCycle": "false",
         "keepInventory": "true",
@@ -535,17 +582,39 @@ def test_game_rules_write_requires_confirmation(
     sidecar.call("world.close", {"world_id": world_id}, request_id=3)
 
 
-def test_terrain_and_data_methods_require_a_known_world_id(sidecar: SidecarProcess) -> None:
+def test_terrain_and_data_methods_require_a_known_world_id(
+    sidecar: SidecarProcess,
+) -> None:
     common_box = {"dimension": DIMENSION, "min": [0, 0, 0], "max": [1, 1, 1]}
     for method, params in [
-        ("terrain.flatten", {**common_box, "height": 4, "block": "universal_minecraft:stone", "confirm": True}),
-        ("terrain.sea_level", {**common_box, "sea_level": 4, "mode": "raise", "confirm": True}),
-        ("terrain.repaint", {**common_box, "block": "universal_minecraft:sand", "confirm": True}),
+        (
+            "terrain.flatten",
+            {
+                **common_box,
+                "height": 4,
+                "block": "universal_minecraft:stone",
+                "confirm": True,
+            },
+        ),
+        (
+            "terrain.sea_level",
+            {**common_box, "sea_level": 4, "mode": "raise", "confirm": True},
+        ),
+        (
+            "terrain.repaint",
+            {**common_box, "block": "universal_minecraft:sand", "confirm": True},
+        ),
         ("entities.list", common_box),
         ("entities.remove", {**common_box, "base_name": "cow", "confirm": True}),
         (
             "entities.place",
-            {"dimension": DIMENSION, "position": [1.0, 5.0, 1.0], "namespace": "minecraft", "base_name": "cow", "confirm": True},
+            {
+                "dimension": DIMENSION,
+                "position": [1.0, 5.0, 1.0],
+                "namespace": "minecraft",
+                "base_name": "cow",
+                "confirm": True,
+            },
         ),
         ("data.level_read", {}),
         ("data.level_write", {"fields": {"level_name": "X"}, "confirm": True}),

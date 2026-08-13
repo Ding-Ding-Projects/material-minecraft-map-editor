@@ -108,6 +108,8 @@ from amulet_map_editor.api.credential_vault import (  # noqa: F401
     _bounded,
     _Store,
 )
+
+
 @dataclass(frozen=True)
 class Account:
     """One signed-in account.  **Every field here is safe to display.**

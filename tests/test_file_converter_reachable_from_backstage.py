@@ -78,7 +78,9 @@ def test_selecting_the_rail_item_builds_the_real_converter_panel(frame, tmp_path
 
     assert view.tab == "file_convert"
     panel = _find_converter_panel(view)
-    assert panel is not None, "the rail's File converter destination built no real ConverterPanel"
+    assert (
+        panel is not None
+    ), "the rail's File converter destination built no real ConverterPanel"
 
     out_path = tmp_path / "backstage_file_convert.png"
     report = capture_composite(view, str(out_path))

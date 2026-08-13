@@ -25,7 +25,9 @@ SCRIPT = SITE / "studio-surfaces.js"
 def render(setup_js: str, question: str) -> dict:
     node = shutil.which("node")
     if node is None:
-        raise AssertionError("node is required to execute studio-surfaces.js and was not found on PATH.")
+        raise AssertionError(
+            "node is required to execute studio-surfaces.js and was not found on PATH."
+        )
     if not (SITE / "node_modules" / "jsdom").is_dir():
         raise AssertionError(
             "jsdom is required to execute the surfaces panel and is not installed. Run `npm install` "
@@ -71,7 +73,9 @@ const all = sel => [...window.document.querySelectorAll(sel)];
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "render.cjs"
         path.write_text(script, encoding="utf-8")
-        result = subprocess.run([node, str(path)], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            [node, str(path)], capture_output=True, text=True, timeout=120
+        )
     if result.returncode != 0:
         raise AssertionError(f"rendering failed:\n{result.stdout}\n{result.stderr}")
     return json.loads(result.stdout.strip().splitlines()[-1])
@@ -108,11 +112,19 @@ NO_SIDECAR_MESSAGE = "Desktop only: notifications, local history, and the extern
 class ThePanelExecutesCleanly(unittest.TestCase):
     def test_loads_without_throwing_in_a_plain_browser(self) -> None:
         got = render("", "return {};")
-        self.assertEqual(got["loadErrors"], [], "the module threw while loading with no sidecar present")
+        self.assertEqual(
+            got["loadErrors"],
+            [],
+            "the module threw while loading with no sidecar present",
+        )
 
     def test_loads_without_throwing_with_a_fake_sidecar(self) -> None:
         got = render(FAKE_SIDECAR, "return {};")
-        self.assertEqual(got["loadErrors"], [], "the module threw while loading with a fake sidecar present")
+        self.assertEqual(
+            got["loadErrors"],
+            [],
+            "the module threw while loading with a fake sidecar present",
+        )
 
 
 class DesktopOnlyDegradeIsHonest(unittest.TestCase):
@@ -159,7 +171,9 @@ class HistoryPanelIsReal(unittest.TestCase):
 
 class SupportTicketsPanelIsReal(unittest.TestCase):
     def test_disclosure_says_nothing_is_sent_anywhere(self) -> None:
-        got = render(FAKE_SIDECAR, "return { text: q('.surf-disclosure').textContent };")
+        got = render(
+            FAKE_SIDECAR, "return { text: q('.surf-disclosure').textContent };"
+        )
         self.assertIn("Nothing here is sent anywhere", got["text"])
 
     def test_creating_a_ticket_adds_a_row(self) -> None:

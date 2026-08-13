@@ -58,7 +58,9 @@ ERR_GAME_RULE_UNKNOWN = "game_rule_unknown"
 #: ``_WRITABLE_PREFERENCE_FIELDS`` -- so a new NBT key an older Minecraft
 #: version relies on is opt-in to remote mutation, never automatically
 #: exposed the day someone notices it in a save file.
-_WRITABLE_LEVEL_FIELDS = frozenset({"level_name", "difficulty", "hardcore", "raining", "thundering"})
+_WRITABLE_LEVEL_FIELDS = frozenset(
+    {"level_name", "difficulty", "hardcore", "raining", "thundering"}
+)
 
 
 # --------------------------------------------------------------- entities
@@ -99,7 +101,9 @@ def _entities_list(params: Dict[str, Any]) -> Dict[str, Any]:
         for cz in range(cz_min, cz_max + 1):
             try:
                 chunk = world.get_chunk(cx, cz, dimension)
-            except Exception:  # noqa: BLE001 - a missing/unloadable chunk has no entities
+            except (
+                Exception
+            ):  # noqa: BLE001 - a missing/unloadable chunk has no entities
                 continue
             for entity in chunk.entities:
                 x, y, z = entity.location
@@ -145,13 +149,17 @@ def _entities_remove(params: Dict[str, Any]) -> Dict[str, Any]:
             for cz in range(cz_min, cz_max + 1):
                 try:
                     chunk = world.get_chunk(cx, cz, dimension)
-                except Exception:  # noqa: BLE001 - nothing to remove from a missing chunk
+                except (
+                    Exception
+                ):  # noqa: BLE001 - nothing to remove from a missing chunk
                     continue
                 kept = []
                 changed = False
                 for entity in chunk.entities:
                     x, y, z = entity.location
-                    in_box = min_x <= x < max_x and min_y <= y < max_y and min_z <= z < max_z
+                    in_box = (
+                        min_x <= x < max_x and min_y <= y < max_y and min_z <= z < max_z
+                    )
                     matches = (
                         in_box
                         and (not namespace or entity.namespace == namespace)
@@ -196,17 +204,25 @@ def _entities_place(params: Dict[str, Any]) -> Dict[str, Any]:
     if (
         not isinstance(position, (list, tuple))
         or len(position) != 3
-        or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in position)
+        or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in position
+        )
     ):
-        raise ProtocolError(ERR_INVALID_PARAMS, "'position' must be a [x, y, z] array of numbers")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'position' must be a [x, y, z] array of numbers"
+        )
     x, y, z = (float(v) for v in position)
 
     namespace = params.get("namespace")
     base_name = params.get("base_name")
     if not isinstance(namespace, str) or not namespace:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'namespace' must be a non-empty string")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'namespace' must be a non-empty string"
+        )
     if not isinstance(base_name, str) or not base_name:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'base_name' must be a non-empty string")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'base_name' must be a non-empty string"
+        )
 
     world = handle.world
     cx, cz = int(x) // 16, int(z) // 16
@@ -271,9 +287,15 @@ def _data_level_read(params: Dict[str, Any]) -> Dict[str, Any]:
         "level_name": _string("LevelName"),
         "data_version": _number("DataVersion"),
         "difficulty": _number("Difficulty"),
-        "hardcore": bool(_number("hardcore")) if data.get("hardcore") is not None else None,
-        "raining": bool(_number("raining")) if data.get("raining") is not None else None,
-        "thundering": bool(_number("thundering")) if data.get("thundering") is not None else None,
+        "hardcore": (
+            bool(_number("hardcore")) if data.get("hardcore") is not None else None
+        ),
+        "raining": (
+            bool(_number("raining")) if data.get("raining") is not None else None
+        ),
+        "thundering": (
+            bool(_number("thundering")) if data.get("thundering") is not None else None
+        ),
         "day_time": _number("DayTime"),
     }
 
@@ -288,7 +310,8 @@ def _data_level_write(params: Dict[str, Any]) -> Dict[str, Any]:
     fields = params.get("fields")
     if not isinstance(fields, dict) or not fields:
         raise ProtocolError(
-            ERR_INVALID_PARAMS, "'fields' must be a non-empty object of level.dat fields to set"
+            ERR_INVALID_PARAMS,
+            "'fields' must be a non-empty object of level.dat fields to set",
         )
     unknown = set(fields) - _WRITABLE_LEVEL_FIELDS
     if unknown:
@@ -301,13 +324,21 @@ def _data_level_write(params: Dict[str, Any]) -> Dict[str, Any]:
     if "level_name" in fields:
         value = fields["level_name"]
         if not isinstance(value, str) or not value:
-            raise ProtocolError(ERR_INVALID_PARAMS, "'level_name' must be a non-empty string")
+            raise ProtocolError(
+                ERR_INVALID_PARAMS, "'level_name' must be a non-empty string"
+            )
         data["LevelName"] = _amulet_nbt.StringTag(value)
         updated.append("level_name")
     if "difficulty" in fields:
         value = fields["difficulty"]
-        if not isinstance(value, int) or isinstance(value, bool) or not (0 <= value <= 3):
-            raise ProtocolError(ERR_INVALID_PARAMS, "'difficulty' must be an integer 0-3")
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not (0 <= value <= 3)
+        ):
+            raise ProtocolError(
+                ERR_INVALID_PARAMS, "'difficulty' must be an integer 0-3"
+            )
         data["Difficulty"] = _amulet_nbt.ByteTag(value)
         updated.append("difficulty")
     for bool_field, nbt_key in (
@@ -318,7 +349,9 @@ def _data_level_write(params: Dict[str, Any]) -> Dict[str, Any]:
         if bool_field in fields:
             value = fields[bool_field]
             if not isinstance(value, bool):
-                raise ProtocolError(ERR_INVALID_PARAMS, f"'{bool_field}' must be a boolean")
+                raise ProtocolError(
+                    ERR_INVALID_PARAMS, f"'{bool_field}' must be a boolean"
+                )
             data[nbt_key] = _amulet_nbt.ByteTag(1 if value else 0)
             updated.append(bool_field)
 
@@ -349,11 +382,14 @@ def _data_game_rules_write(params: Dict[str, Any]) -> Dict[str, Any]:
     rules = params.get("rules")
     if not isinstance(rules, dict) or not rules:
         raise ProtocolError(
-            ERR_INVALID_PARAMS, "'rules' must be a non-empty object of game rule name -> string value"
+            ERR_INVALID_PARAMS,
+            "'rules' must be a non-empty object of game rule name -> string value",
         )
     for key, value in rules.items():
         if not isinstance(key, str) or not key:
-            raise ProtocolError(ERR_INVALID_PARAMS, "every game rule name must be a non-empty string")
+            raise ProtocolError(
+                ERR_INVALID_PARAMS, "every game rule name must be a non-empty string"
+            )
         if not isinstance(value, str):
             raise ProtocolError(
                 ERR_INVALID_PARAMS,

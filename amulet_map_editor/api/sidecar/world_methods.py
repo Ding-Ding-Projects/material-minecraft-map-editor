@@ -111,9 +111,7 @@ def _validate_world_path(raw_path: object) -> str:
     try:
         resolved = os.path.realpath(raw_path, strict=True)
     except OSError as exc:
-        raise ProtocolError(
-            ERR_PATH_NOT_FOUND, f"'path' could not be resolved: {exc}"
-        )
+        raise ProtocolError(ERR_PATH_NOT_FOUND, f"'path' could not be resolved: {exc}")
 
     if not os.path.exists(resolved):
         raise ProtocolError(ERR_PATH_NOT_FOUND, f"No such path: {resolved!r}")
@@ -235,7 +233,9 @@ def _world_open_status(params: Dict[str, Any]) -> Dict[str, Any]:
         raise ProtocolError(ERR_INVALID_PARAMS, "'world_id' must be a non-empty string")
     handle = _REGISTRY.get(world_id)
     if handle is None:
-        raise ProtocolError(ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}")
+        raise ProtocolError(
+            ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}"
+        )
     if handle.status == "pending":
         return {"world_id": world_id, "status": "pending"}
     if handle.status == "failed":
@@ -253,7 +253,9 @@ def _world_dimensions(params: Dict[str, Any]) -> Dict[str, Any]:
         raise ProtocolError(ERR_INVALID_PARAMS, "'world_id' must be a non-empty string")
     handle = _REGISTRY.get(world_id)
     if handle is None:
-        raise ProtocolError(ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}")
+        raise ProtocolError(
+            ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}"
+        )
     if handle.status == "pending":
         raise ProtocolError(ERR_NOT_READY, "That world is still opening")
     if handle.status == "failed":
@@ -289,7 +291,9 @@ def _world_dimensions(params: Dict[str, Any]) -> Dict[str, Any]:
 def _close_worker(handle: _WorldHandle) -> None:
     try:
         handle.world.close()
-    except Exception:  # noqa: BLE001 - closing best-effort; handle is dropped regardless
+    except (
+        Exception
+    ):  # noqa: BLE001 - closing best-effort; handle is dropped regardless
         pass
 
 
@@ -299,7 +303,9 @@ def _world_close(params: Dict[str, Any]) -> Dict[str, Any]:
         raise ProtocolError(ERR_INVALID_PARAMS, "'world_id' must be a non-empty string")
     handle = _REGISTRY.drop(world_id)
     if handle is None:
-        raise ProtocolError(ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}")
+        raise ProtocolError(
+            ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}"
+        )
     if handle.status == "ready" and handle.world is not None:
         # Closing (flushing any read caches, releasing file locks) can take
         # a moment on a large world; run it off the stdio thread exactly as

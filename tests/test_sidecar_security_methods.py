@@ -172,7 +172,11 @@ def test_authenticator_full_lifecycle_through_real_vault(sidecar):
     renamed = _result(
         sidecar,
         "auth.rename_entry",
-        {"entry_id": entry["id"], "issuer": "Amulet Renamed", "account": "test@example.com"},
+        {
+            "entry_id": entry["id"],
+            "issuer": "Amulet Renamed",
+            "account": "test@example.com",
+        },
     )
     assert renamed["renamed"] is True
 

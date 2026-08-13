@@ -45,9 +45,7 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         duration = PUBLISHING_WORKFLOW.index("scripts/release_timing.py", completion)
         self.assertLess(publish, completion)
         self.assertLess(completion, duration)
-        self.assertIn(
-            "Release remained a draft after publication", PUBLISHING_WORKFLOW
-        )
+        self.assertIn("Release remained a draft after publication", PUBLISHING_WORKFLOW)
 
     def test_only_release_builds_search_for_a_safe_delta_base(self):
         step = WORKFLOW[

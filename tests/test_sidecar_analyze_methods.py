@@ -149,7 +149,9 @@ def _entity_round_trip_is_broken_in_this_environment() -> bool:
             air = chunk.block_palette.get_add_block(Block("universal_minecraft", "air"))
             chunk.blocks[:, :, :] = air
             chunk.changed = True
-            chunk.entities = [Entity("minecraft", "cow", 1.5, 5.0, 1.5, amulet_nbt.NamedTag())]
+            chunk.entities = [
+                Entity("minecraft", "cow", 1.5, 5.0, 1.5, amulet_nbt.NamedTag())
+            ]
             level.put_chunk(chunk, DIMENSION)
             level.save()
         finally:
@@ -190,10 +192,14 @@ def fixture_world(tmp_path):
     return str(world_path), expected
 
 
-def _poll_open_status(sidecar: SidecarProcess, world_id: str, timeout: float = 15.0) -> Dict[str, Any]:
+def _poll_open_status(
+    sidecar: SidecarProcess, world_id: str, timeout: float = 15.0
+) -> Dict[str, Any]:
     deadline = time.time() + timeout
     while True:
-        response = sidecar.call("world.open_status", {"world_id": world_id}, request_id="poll")
+        response = sidecar.call(
+            "world.open_status", {"world_id": world_id}, request_id="poll"
+        )
         result = response.get("result")
         assert result is not None, response
         if result["status"] != "pending":
@@ -263,7 +269,9 @@ def test_chunk_inventory_reports_the_one_present_chunk(sidecar, fixture_world):
     assert chunk["block_entity_count"] == 0
 
 
-def test_chunk_inventory_refuses_a_selection_over_the_chunk_limit(sidecar, fixture_world):
+def test_chunk_inventory_refuses_a_selection_over_the_chunk_limit(
+    sidecar, fixture_world
+):
     world_path, _expected = fixture_world
     world_id = _open_world(sidecar, world_path)
 
@@ -282,7 +290,9 @@ def test_chunk_inventory_refuses_a_selection_over_the_chunk_limit(sidecar, fixtu
 
 
 @pytest.mark.skipif(ENTITY_ROUND_TRIP_BROKEN, reason=ENTITY_ROUND_TRIP_SKIP_REASON)
-def test_entity_counts_only_counts_entities_inside_the_selection(sidecar, fixture_world):
+def test_entity_counts_only_counts_entities_inside_the_selection(
+    sidecar, fixture_world
+):
     world_path, _expected = fixture_world
     world_id = _open_world(sidecar, world_path)
 

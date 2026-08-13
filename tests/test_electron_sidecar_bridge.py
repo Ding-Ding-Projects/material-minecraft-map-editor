@@ -62,7 +62,10 @@ def _electron_binary_present() -> bool:
 
 
 @pytest.mark.skipif(_node() is None, reason="Node is not on PATH")
-@pytest.mark.skipif(not _electron_binary_present(), reason="Electron binary not installed (run npm install)")
+@pytest.mark.skipif(
+    not _electron_binary_present(),
+    reason="Electron binary not installed (run npm install)",
+)
 def test_sidecar_process_never_outlives_its_electron_parent() -> None:
     """The orphan check: launches the REAL packaged app headlessly (never a
     visible window -- AMULET_HEADLESS=1, per this repository's never-steal-
@@ -116,8 +119,8 @@ def test_preload_exposes_a_narrow_sidecar_bridge_and_nothing_wider() -> None:
     assert '"sidecar:call"' in preload_js
     # The bridge must never hand the renderer ipcRenderer itself, a raw
     # child_process, or filesystem access.
-    assert "require(\"fs\")" not in preload_js
-    assert "require(\"child_process\")" not in preload_js
+    assert 'require("fs")' not in preload_js
+    assert 'require("child_process")' not in preload_js
     assert "ipcRenderer," not in preload_js.split("exposeInMainWorld")[1]
 
 
@@ -128,13 +131,17 @@ def test_site_settings_surface_has_a_real_sidecar_call_site() -> None:
     index_html = (ROOT / "docs" / "site" / "index.html").read_text(encoding="utf-8")
     assert '<script src="electron-bridge.js">' in index_html
 
-    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(encoding="utf-8")
+    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(
+        encoding="utf-8"
+    )
     assert "preferences.read" in bridge_js
     assert "preferences.write" in bridge_js
     assert "settings.onChange" in bridge_js
 
 
-def test_bridge_maps_every_writable_preference_field_but_theme_is_no_longer_alone() -> None:
+def test_bridge_maps_every_writable_preference_field_but_theme_is_no_longer_alone() -> (
+    None
+):
     """A regression guard for the original gap this lane exists to close:
     only ``preferences.theme`` was wired end to end and every other field was
     still browser-local state pretending to be the application. This does
@@ -143,11 +150,13 @@ def test_bridge_maps_every_writable_preference_field_but_theme_is_no_longer_alon
     assert the bridge is no longer a single-field special case: every site
     setting FIELD_MAP entry must reference an actually-writable sidecar
     preference field, and there must be more than one of them."""
-    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(encoding="utf-8")
-    mapped_prefs = set(re.findall(r'pref:\s*"([a-z_]+)"', bridge_js))
-    assert len(mapped_prefs) > 1, (
-        "electron-bridge.js must map more than just theme -- got " + repr(mapped_prefs)
+    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(
+        encoding="utf-8"
     )
+    mapped_prefs = set(re.findall(r'pref:\s*"([a-z_]+)"', bridge_js))
+    assert (
+        len(mapped_prefs) > 1
+    ), "electron-bridge.js must map more than just theme -- got " + repr(mapped_prefs)
     unknown = mapped_prefs - _WRITABLE_PREFERENCE_FIELDS
     assert not unknown, (
         "electron-bridge.js maps a site setting to a preference field the "
@@ -155,7 +164,9 @@ def test_bridge_maps_every_writable_preference_field_but_theme_is_no_longer_alon
     )
     # The fields this lane was explicitly asked to widen beyond theme.
     for expected in ("density", "accent", "ui_font", "language_mode", "ui_scale"):
-        assert expected in mapped_prefs, f"electron-bridge.js no longer maps {expected!r}"
+        assert (
+            expected in mapped_prefs
+        ), f"electron-bridge.js no longer maps {expected!r}"
 
 
 def test_bridge_has_real_call_sites_for_changelog_docs_and_dim_sum() -> None:
@@ -163,7 +174,9 @@ def test_bridge_has_real_call_sites_for_changelog_docs_and_dim_sum() -> None:
     faking: changelog, docs and the dim-sum draw must each have a genuine
     ``bridge.call(...)`` site in electron-bridge.js, not merely be named in
     a comment."""
-    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(encoding="utf-8")
+    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(
+        encoding="utf-8"
+    )
     called_methods = set(re.findall(r'\.call\(\s*"([a-z.]+)"', bridge_js))
     assert "changelog.entries" in called_methods
     assert "docs.articles" in called_methods
@@ -181,12 +194,24 @@ def test_bridge_has_real_call_sites_for_the_world_edit_path() -> None:
     world.undo / world.redo / world.save must each have a genuine
     ``bridge.call(...)`` site in electron-bridge.js and be reachable from
     other site code, not merely named in a comment."""
-    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(encoding="utf-8")
+    bridge_js = (ROOT / "docs" / "site" / "electron-bridge.js").read_text(
+        encoding="utf-8"
+    )
     # world.* calls go through the shared callWorldMethod(method, params)
     # helper rather than bridge.call(...) directly, so match either form.
-    called_methods = set(re.findall(r'(?:\.call|callWorldMethod)\(\s*"([a-z.]+)"', bridge_js))
-    for method in ("world.fill", "world.replace", "world.undo", "world.redo", "world.save"):
-        assert method in called_methods, f"electron-bridge.js has no call site for {method!r}"
+    called_methods = set(
+        re.findall(r'(?:\.call|callWorldMethod)\(\s*"([a-z.]+)"', bridge_js)
+    )
+    for method in (
+        "world.fill",
+        "world.replace",
+        "world.undo",
+        "world.redo",
+        "world.save",
+    ):
+        assert (
+            method in called_methods
+        ), f"electron-bridge.js has no call site for {method!r}"
     for exposed in (
         "fillSelection: fillSelection",
         "replaceInSelection: replaceInSelection",
@@ -194,7 +219,9 @@ def test_bridge_has_real_call_sites_for_the_world_edit_path() -> None:
         "redoEdit: redoEdit",
         "saveWorld: saveWorld",
     ):
-        assert exposed in bridge_js, f"electron-bridge.js does not expose {exposed!r} to other site code"
+        assert (
+            exposed in bridge_js
+        ), f"electron-bridge.js does not expose {exposed!r} to other site code"
 
 
 def test_viewport_panel_reaches_the_edit_bridge_and_the_confirm_gate() -> None:
@@ -203,7 +230,9 @@ def test_viewport_panel_reaches_the_edit_bridge_and_the_confirm_gate() -> None:
     selection, gate the two destructive ones behind the project's real
     destructive-action confirm (never a flag defaulted to true), and say why
     a control is disabled rather than leaving it silently inert."""
-    panel_js = (ROOT / "docs" / "site" / "viewport-panel.js").read_text(encoding="utf-8")
+    panel_js = (ROOT / "docs" / "site" / "viewport-panel.js").read_text(
+        encoding="utf-8"
+    )
     for called in (
         "eb.fillSelection(",
         "eb.replaceInSelection(",

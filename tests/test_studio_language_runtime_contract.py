@@ -25,7 +25,9 @@ SITE_CORE = SITE / "site-core.js"
 def render(setup_js: str, question: str) -> dict:
     node = shutil.which("node")
     if node is None:
-        raise AssertionError("node is required to execute the script and was not found on PATH.")
+        raise AssertionError(
+            "node is required to execute the script and was not found on PATH."
+        )
     if not (SITE / "node_modules" / "jsdom").is_dir():
         raise AssertionError(
             "jsdom is required to execute the panel and is not installed. Run `npm install` "
@@ -76,7 +78,9 @@ const all = sel => [...window.document.querySelectorAll(sel)];
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "render.cjs"
         path.write_text(script, encoding="utf-8")
-        result = subprocess.run([node, str(path)], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            [node, str(path)], capture_output=True, text=True, timeout=120
+        )
     if result.returncode != 0:
         raise AssertionError(f"rendering failed:\n{result.stdout}\n{result.stderr}")
     return json.loads(result.stdout.strip().splitlines()[-1])
@@ -141,7 +145,9 @@ class DesktopOnlyDegradeIsHonest(unittest.TestCase):
     def test_language_mode_still_works_without_a_sidecar(self) -> None:
         # Language mode / funny levels / emoji are real local Site.settings
         # preferences with or without the desktop sidecar -- same as theme.
-        got = render("", "return { hasSelect: !!q('select[aria-label=\"Language mode\"]') };")
+        got = render(
+            "", "return { hasSelect: !!q('select[aria-label=\"Language mode\"]') };"
+        )
         self.assertTrue(got["hasSelect"])
 
 
@@ -168,7 +174,9 @@ class LanguageModeAndFunnyLevelsRoundTripThroughSiteSettings(unittest.TestCase):
 
 
 class SchoolModeHidesRatherThanDisables(unittest.TestCase):
-    def test_enabling_school_mode_hides_the_cantonese_row_and_forces_english(self) -> None:
+    def test_enabling_school_mode_hides_the_cantonese_row_and_forces_english(
+        self,
+    ) -> None:
         got = render(
             FAKE_SIDECAR,
             WAIT
@@ -186,7 +194,10 @@ class SchoolModeHidesRatherThanDisables(unittest.TestCase):
             + "const modeSelect = q('select[aria-label=\"Language mode\"]');"
             + "return { cantoneseHidden: cantoneseRow.hidden, mode: modeSelect.value, modeDisabled: modeSelect.disabled };",
         )
-        self.assertTrue(got["cantoneseHidden"], "School mode must hide, not merely disable, the Cantonese row")
+        self.assertTrue(
+            got["cantoneseHidden"],
+            "School mode must hide, not merely disable, the Cantonese row",
+        )
         self.assertEqual(got["mode"], "english")
         self.assertTrue(got["modeDisabled"])
 

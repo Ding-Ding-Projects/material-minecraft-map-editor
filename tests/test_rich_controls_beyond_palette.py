@@ -1,4 +1,4 @@
-""""Prefer rich controls" outside the command palette, driven for real.
+""" "Prefer rich controls" outside the command palette, driven for real.
 
 The command palette already renders its results as live inline controls, and
 that lane has its own tests. What this rule also asks for -- and what had no
@@ -260,7 +260,9 @@ def test_nbt_form_row_toggle_switch_writes_through_the_document(frame) -> None:
             "underlying tag -- the switch is decorative rather than "
             "wired to NbtStudioDialog._edit"
         )
-        assert switch.value == after, "the switch and the document disagree after the edit"
+        assert (
+            switch.value == after
+        ), "the switch and the document disagree after the edit"
     finally:
         dialog.Destroy()
 

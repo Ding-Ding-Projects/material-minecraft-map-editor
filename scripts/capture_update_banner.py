@@ -148,12 +148,16 @@ def main() -> int:
         ]
 
         for name, state in states:
-            window._render_update_banner(state)  # noqa: SLF001 -- capturing the real surface
+            window._render_update_banner(
+                state
+            )  # noqa: SLF001 -- capturing the real surface
             wx.Yield()
             window._position_notification_toasts()  # noqa: SLF001
             wx.Yield()
             path = out / f"update-banner-{name}.png"
-            capture_report = capture_composite(window._update_banner, path)  # noqa: SLF001
+            capture_report = capture_composite(
+                window._update_banner, path
+            )  # noqa: SLF001
             _non_trivial(path)
             report["captures"].append(
                 {"name": name, "status": state.status, **capture_report}
@@ -163,7 +167,11 @@ def main() -> int:
         window._hide_update_banner()  # noqa: SLF001
 
         for name, status_text, sim_status in [
-            ("no-update", f"{window.GetTitle() or 'Amulet'} is up to date", "up_to_date"),
+            (
+                "no-update",
+                f"{window.GetTitle() or 'Amulet'} is up to date",
+                "up_to_date",
+            ),
         ]:
             window.SetStatusText(status_text)
             wx.Yield()

@@ -140,7 +140,9 @@ def _get_ready_world(world_id: object):
         raise ProtocolError(ERR_INVALID_PARAMS, "'world_id' must be a non-empty string")
     handle = _REGISTRY.get(world_id)
     if handle is None:
-        raise ProtocolError(ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}")
+        raise ProtocolError(
+            ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}"
+        )
     if handle.status == "pending":
         raise ProtocolError(ERR_NOT_READY, "That world is still opening")
     if handle.status == "failed":
@@ -277,7 +279,9 @@ class _ResourcePackCache:
             pass
         return gl_pack
 
-    def atlas_path(self, world_id: str, gl_pack: "OpenGLResourcePack") -> Tuple[str, int, int]:
+    def atlas_path(
+        self, world_id: str, gl_pack: "OpenGLResourcePack"
+    ) -> Tuple[str, int, int]:
         with self._lock:
             existing = self._atlas_paths.get(world_id)
             if existing is not None and os.path.exists(existing):
@@ -406,19 +410,29 @@ def _sub_chunks_for(world, dimension: str, cx: int, cz: int, blocks):
 
     for cy in blocks.sub_chunks:
         sub_chunk = blocks.get_sub_chunk(cy)
-        larger_blocks = numpy.zeros(sub_chunk.shape + numpy.array((2, 2, 2)), sub_chunk.dtype)
+        larger_blocks = numpy.zeros(
+            sub_chunk.shape + numpy.array((2, 2, 2)), sub_chunk.dtype
+        )
         larger_blocks[1:-1, 1:-1, 1:-1] = sub_chunk
         for chunk_offset, neighbour_blocks in neighbour_chunks.items():
             if cy not in neighbour_blocks:
                 continue
             if chunk_offset == (-1, 0):
-                larger_blocks[0, 1:-1, 1:-1] = neighbour_blocks.get_sub_chunk(cy)[-1, :, :]
+                larger_blocks[0, 1:-1, 1:-1] = neighbour_blocks.get_sub_chunk(cy)[
+                    -1, :, :
+                ]
             elif chunk_offset == (1, 0):
-                larger_blocks[-1, 1:-1, 1:-1] = neighbour_blocks.get_sub_chunk(cy)[0, :, :]
+                larger_blocks[-1, 1:-1, 1:-1] = neighbour_blocks.get_sub_chunk(cy)[
+                    0, :, :
+                ]
             elif chunk_offset == (0, -1):
-                larger_blocks[1:-1, 1:-1, 0] = neighbour_blocks.get_sub_chunk(cy)[:, :, -1]
+                larger_blocks[1:-1, 1:-1, 0] = neighbour_blocks.get_sub_chunk(cy)[
+                    :, :, -1
+                ]
             elif chunk_offset == (0, 1):
-                larger_blocks[1:-1, 1:-1, -1] = neighbour_blocks.get_sub_chunk(cy)[:, :, 0]
+                larger_blocks[1:-1, 1:-1, -1] = neighbour_blocks.get_sub_chunk(cy)[
+                    :, :, 0
+                ]
         if cy - 1 in blocks:
             larger_blocks[1:-1, 0, 1:-1] = blocks.get_sub_chunk(cy - 1)[:, -1, :]
         if cy + 1 in blocks:
@@ -462,7 +476,9 @@ def _occupancy_for_chunk(world, dimension: str, cx: int, cz: int):
         sub = chunk.blocks.get_sub_chunk(cy)
         solid = solid_lut[sub]
         ordered = numpy.transpose(solid, (1, 2, 0))  # (x,y,z) -> (y,z,x)
-        packed = numpy.packbits(numpy.ascontiguousarray(ordered).reshape(-1), bitorder="little")
+        packed = numpy.packbits(
+            numpy.ascontiguousarray(ordered).reshape(-1), bitorder="little"
+        )
         sub_chunks.append({"cy": int(cy), "bytes": packed.tobytes()})
     return True, sub_chunks
 
@@ -480,7 +496,9 @@ def _viewport_chunk_mesh(params: Dict[str, Any]) -> Dict[str, Any]:
 
     dimension = params.get("dimension")
     if not isinstance(dimension, str) or not dimension:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'dimension' must be a non-empty string")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'dimension' must be a non-empty string"
+        )
     if dimension not in world.dimensions:
         raise ProtocolError(ERR_INVALID_PARAMS, f"Unknown dimension: {dimension!r}")
 
@@ -495,7 +513,9 @@ def _viewport_chunk_mesh(params: Dict[str, Any]) -> Dict[str, Any]:
     except ChunkDoesNotExist:
         return {"exists": False, "path": None, "vertex_count": 0}
     except ChunkLoadError as exc:
-        raise ProtocolError(ERR_LOAD_FAILED, f"Failed to load chunk ({cx}, {cz}): {exc}")
+        raise ProtocolError(
+            ERR_LOAD_FAILED, f"Failed to load chunk ({cx}, {cz}): {exc}"
+        )
 
     gl_pack = _PACKS.get_ready(handle.world_id)
 
@@ -629,7 +649,9 @@ def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
         occ_cursor = 0
         gl_pack = _PACKS.get_ready(_batches[batch_id]["world_id"])
         for cx, cz in chunks:
-            exists, verts, opaque_count = _mesh_one_chunk(world, dimension, cx, cz, gl_pack)
+            exists, verts, opaque_count = _mesh_one_chunk(
+                world, dimension, cx, cz, gl_pack
+            )
             vertex_count = int(verts.size // 12)
             if exists and vertex_count:
                 buffers.append(verts)
@@ -649,7 +671,11 @@ def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
                 data = sub["bytes"]
                 occ_buffers.append(data)
                 occ_meta.append(
-                    {"cy": sub["cy"], "byte_offset": occ_cursor, "byte_length": len(data)}
+                    {
+                        "cy": sub["cy"],
+                        "byte_offset": occ_cursor,
+                        "byte_length": len(data),
+                    }
                 )
                 occ_cursor += len(data)
 
@@ -660,7 +686,9 @@ def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
                     "exists": exists,
                     "vertex_count": vertex_count,
                     "opaque_vertex_count": opaque_count if exists else 0,
-                    "translucent_vertex_count": (vertex_count - opaque_count) if exists else 0,
+                    "translucent_vertex_count": (
+                        (vertex_count - opaque_count) if exists else 0
+                    ),
                     "byte_offset": cursor,
                     "byte_length": byte_length,
                     "occupancy_exists": occ_exists,
@@ -672,7 +700,9 @@ def _run_batch_worker(batch_id: str, world, dimension: str, chunks) -> None:
         import numpy
 
         combined = (
-            numpy.concatenate(buffers) if buffers else numpy.zeros(0, dtype=numpy.float32)
+            numpy.concatenate(buffers)
+            if buffers
+            else numpy.zeros(0, dtype=numpy.float32)
         )
         _ensure_temp_root()
         path = os.path.join(_TEMP_ROOT, f"mesh-batch-{batch_id}.bin")
@@ -726,7 +756,9 @@ def _viewport_chunk_mesh_batch(params: Dict[str, Any]) -> Dict[str, Any]:
 
     dimension = params.get("dimension")
     if not isinstance(dimension, str) or not dimension:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'dimension' must be a non-empty string")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'dimension' must be a non-empty string"
+        )
     if dimension not in world.dimensions:
         raise ProtocolError(ERR_INVALID_PARAMS, f"Unknown dimension: {dimension!r}")
 
@@ -746,7 +778,9 @@ def _viewport_chunk_mesh_batch(params: Dict[str, Any]) -> Dict[str, Any]:
             or not isinstance(entry[0], int)
             or not isinstance(entry[1], int)
         ):
-            raise ProtocolError(ERR_CHUNK_COORD, "Each entry in 'chunks' must be [cx, cz] integers")
+            raise ProtocolError(
+                ERR_CHUNK_COORD, "Each entry in 'chunks' must be [cx, cz] integers"
+            )
         chunks.append((entry[0], entry[1]))
 
     batch_id = uuid.uuid4().hex

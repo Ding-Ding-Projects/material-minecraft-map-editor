@@ -93,9 +93,7 @@ class ConverterPanel(wx.Panel):
         )
         outer.Add(self.source_field, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, pad)
 
-        self._no_file_text = studio_text(
-            "No file chosen yet.", "重未揀檔案。"
-        )
+        self._no_file_text = studio_text("No file chosen yet.", "重未揀檔案。")
         self.detected_label = StudioText(
             self,
             self._no_file_text,
@@ -151,7 +149,9 @@ class ConverterPanel(wx.Panel):
             studio_label("Add to batch", "加入批次"),
             variant="outlined",
             on_click=self._on_add_to_batch,
-            name=studio_label("Add this conversion to the batch queue", "將呢個轉換加入批次隊列"),
+            name=studio_label(
+                "Add this conversion to the batch queue", "將呢個轉換加入批次隊列"
+            ),
         )
         button_row.Add(self.add_to_batch_button, 0)
         self.convert_button = StudioButton(
@@ -210,9 +210,7 @@ class ConverterPanel(wx.Panel):
         batch_row.Add(self.cancel_button, 0, wx.LEFT, tokens.scaled(tokens.SPACE_SM))
         outer.Add(batch_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, pad)
 
-        self.progress_row = ProgressRow(
-            self, studio_label("Idle", "閒置中"), 0.0, ""
-        )
+        self.progress_row = ProgressRow(self, studio_label("Idle", "閒置中"), 0.0, "")
         outer.Add(self.progress_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, pad)
 
         outer.Add(

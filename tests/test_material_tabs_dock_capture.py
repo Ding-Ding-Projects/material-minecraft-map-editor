@@ -81,7 +81,12 @@ def frame(app, monkeypatch, tmp_path_factory):
 
 def _build_tabs(frame, surface_id: str) -> MaterialTabs:
     tabs = MaterialTabs(frame, surface_id)
-    for title in ("World Editor", "Structure Blocks", "Chunk Inspector", "Import/Export"):
+    for title in (
+        "World Editor",
+        "Structure Blocks",
+        "Chunk Inspector",
+        "Import/Export",
+    ):
         page = wx.Panel(tabs)
         page.SetBackgroundColour(wx.Colour(240, 240, 240))
         tabs.AddPage(page, title)

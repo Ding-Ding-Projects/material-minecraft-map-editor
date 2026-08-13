@@ -152,8 +152,14 @@ class SidecarConverterTest(unittest.TestCase):
         that dies on bad input does not fail one call -- it ends the session,
         and every later request in the application fails with a dead sidecar.
         """
-        self.call("converter.convert", {"source_path": "", "adapter_id": "", "destination_path": ""})
-        self.call("converter.convert", {"source_path": 5, "adapter_id": None, "destination_path": []})
+        self.call(
+            "converter.convert",
+            {"source_path": "", "adapter_id": "", "destination_path": ""},
+        )
+        self.call(
+            "converter.convert",
+            {"source_path": 5, "adapter_id": None, "destination_path": []},
+        )
         alive = self.call("protocol.ping", {})
         self.assertTrue(alive.get("result", {}).get("ok"), alive)
 

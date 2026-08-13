@@ -78,7 +78,9 @@ def _notifications_search(params: Dict[str, Any]) -> Dict[str, Any]:
 def _notifications_bulk_dismiss(params: Dict[str, Any]) -> Dict[str, Any]:
     ids = params.get("notification_ids")
     if not isinstance(ids, list) or not ids:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'notification_ids' must be a non-empty list")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'notification_ids' must be a non-empty list"
+        )
     changed = NOTIFICATIONS.bulk_dismiss(str(value) for value in ids)
     return {"dismissed": changed}
 

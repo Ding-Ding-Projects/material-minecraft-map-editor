@@ -117,7 +117,9 @@ def _get_ready_handle(params: Dict[str, Any]):
         raise ProtocolError(ERR_INVALID_PARAMS, "'world_id' must be a non-empty string")
     handle = _REGISTRY.get(world_id)
     if handle is None:
-        raise ProtocolError(ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}")
+        raise ProtocolError(
+            ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}"
+        )
     if handle.status == "pending":
         raise ProtocolError(ERR_NOT_READY, "That world is still opening")
     if handle.status == "failed":
@@ -139,7 +141,9 @@ def _require_confirm(params: Dict[str, Any], action: str) -> None:
 def _require_dimension(params: Dict[str, Any], handle) -> str:
     dimension = params.get("dimension")
     if not isinstance(dimension, str) or not dimension:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'dimension' must be a non-empty string")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'dimension' must be a non-empty string"
+        )
     if dimension not in handle.world.dimensions:
         raise ProtocolError(
             ERR_DIMENSION_UNKNOWN,
@@ -154,7 +158,9 @@ def _require_point(params: Dict[str, Any], field: str) -> Tuple[int, int, int]:
     if (
         not isinstance(value, (list, tuple))
         or len(value) != 3
-        or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in value)
+        or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in value
+        )
     ):
         raise ProtocolError(
             ERR_INVALID_PARAMS, f"'{field}' must be a [x, y, z] array of numbers"
@@ -187,9 +193,12 @@ def _require_block(params: Dict[str, Any], field: str):
         raise ProtocolError(ERR_INVALID_PARAMS, f"'{field}' must be a non-empty string")
     try:
         return _Block.from_string_blockstate(raw)
-    except Exception as exc:  # noqa: BLE001 - any parse failure is reported, never swallowed
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - any parse failure is reported, never swallowed
         raise ProtocolError(
-            ERR_BLOCK_UNRESOLVED, f"'{field}' ({raw!r}) did not resolve to a block: {exc}"
+            ERR_BLOCK_UNRESOLVED,
+            f"'{field}' ({raw!r}) did not resolve to a block: {exc}",
         )
 
 
@@ -201,7 +210,9 @@ def _slice_volume(slices: Tuple[slice, slice, slice]) -> int:
     )
 
 
-def _clear_block_entities_in_range(chunk, x_min, x_max, y_min, y_max, z_min, z_max) -> None:
+def _clear_block_entities_in_range(
+    chunk, x_min, x_max, y_min, y_max, z_min, z_max
+) -> None:
     for x, y, z in list(chunk.block_entities.keys()):
         if x_min <= x < x_max and y_min <= y < y_max and z_min <= z < z_max:
             chunk.block_entities.pop((x, y, z))
@@ -234,7 +245,9 @@ def _world_fill(params: Dict[str, Any]) -> Dict[str, Any]:
             x_max = chunk_x + slices[0].stop
             y_max = slices[1].stop
             z_max = chunk_z + slices[2].stop
-            _clear_block_entities_in_range(chunk, x_min, x_max, y_min, y_max, z_min, z_max)
+            _clear_block_entities_in_range(
+                chunk, x_min, x_max, y_min, y_max, z_min, z_max
+            )
 
             chunk.changed = True
             blocks_changed += _slice_volume(slices)
@@ -352,7 +365,11 @@ def _world_save(params: Dict[str, Any]) -> Dict[str, Any]:
     chunks_saved = 0
     for _chunk_index, chunk_count in world.save_iter():
         chunks_saved = chunk_count
-    return {"world_id": handle.world_id, "status": "saved", "chunks_saved": chunks_saved}
+    return {
+        "world_id": handle.world_id,
+        "status": "saved",
+        "chunks_saved": chunks_saved,
+    }
 
 
 #: Method name -> handler, merged into the sidecar's dispatch table by

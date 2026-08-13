@@ -99,8 +99,7 @@ def test_no_two_captures_are_the_same_image(manifest: dict) -> None:
             digests[digest] = entry["filename"]
     assert not collisions, (
         "These captures are the same image under different names, so an "
-        "opener ran without changing anything on screen:\n  "
-        + "\n  ".join(collisions)
+        "opener ran without changing anything on screen:\n  " + "\n  ".join(collisions)
     )
 
 

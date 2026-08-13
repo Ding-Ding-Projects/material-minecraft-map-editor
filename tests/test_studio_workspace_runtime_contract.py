@@ -34,7 +34,9 @@ def render(setup_js: str, question: str) -> dict:
 
     node = shutil.which("node")
     if node is None:
-        raise AssertionError("node is required to execute the workspace script and was not found on PATH.")
+        raise AssertionError(
+            "node is required to execute the workspace script and was not found on PATH."
+        )
     if not (SITE / "node_modules" / "jsdom").is_dir():
         raise AssertionError(
             "jsdom is required to execute the workspace and is not installed. Run `npm install` "
@@ -79,7 +81,9 @@ const all = sel => [...window.document.querySelectorAll(sel)];
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "render.cjs"
         path.write_text(script, encoding="utf-8")
-        result = subprocess.run([node, str(path)], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            [node, str(path)], capture_output=True, text=True, timeout=120
+        )
     if result.returncode != 0:
         raise AssertionError(f"rendering failed:\n{result.stdout}\n{result.stderr}")
     return json.loads(result.stdout.strip().splitlines()[-1])
@@ -98,11 +102,19 @@ window.mmweDesktop = { sidecar: { call: function (method, params) {
 class ThePageExecutesCleanly(unittest.TestCase):
     def test_loads_without_throwing_in_a_plain_browser(self) -> None:
         got = render("", "return {};")
-        self.assertEqual(got["loadErrors"], [], "the module threw while loading with no sidecar present")
+        self.assertEqual(
+            got["loadErrors"],
+            [],
+            "the module threw while loading with no sidecar present",
+        )
 
     def test_loads_without_throwing_with_a_sidecar(self) -> None:
         got = render(FAKE_SIDECAR, "return {};")
-        self.assertEqual(got["loadErrors"], [], "the module threw while loading with a fake sidecar present")
+        self.assertEqual(
+            got["loadErrors"],
+            [],
+            "the module threw while loading with a fake sidecar present",
+        )
 
 
 class DesktopOnlyDegradeIsHonest(unittest.TestCase):
@@ -115,7 +127,10 @@ class DesktopOnlyDegradeIsHonest(unittest.TestCase):
             "return { text: root.textContent, hasRibbon: !!q('.sw-ribbon-tab') };",
         )
         self.assertIn("Desktop only", got["text"])
-        self.assertFalse(got["hasRibbon"], "no ribbon should render when there is no sidecar to drive it")
+        self.assertFalse(
+            got["hasRibbon"],
+            "no ribbon should render when there is no sidecar to drive it",
+        )
 
 
 class TheRibbonRendersAllSeventeenTabs(unittest.TestCase):
@@ -125,8 +140,21 @@ class TheRibbonRendersAllSeventeenTabs(unittest.TestCase):
             "return { tabs: all('.sw-ribbon-tab').map(b => b.textContent) };",
         )
         expected = [
-            "Home", "Selection", "Operations", "Structures", "Chunks", "Terrain", "Build",
-            "Entities", "Data", "Analyze", "Redstone", "Worldgen", "View", "Panels", "Extend",
+            "Home",
+            "Selection",
+            "Operations",
+            "Structures",
+            "Chunks",
+            "Terrain",
+            "Build",
+            "Entities",
+            "Data",
+            "Analyze",
+            "Redstone",
+            "Worldgen",
+            "View",
+            "Panels",
+            "Extend",
             "Automate",
         ]
         self.assertEqual(got["tabs"], expected)
@@ -172,13 +200,15 @@ class DisabledCommandsAlwaysCarryAReason(unittest.TestCase):
             "const undo = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Undo') !== -1);"
             "return { disabled: undo.disabled, title: undo.title };",
         )
-        self.assertTrue(got["disabled"], "Undo has no open world in this fixture and must stay disabled")
+        self.assertTrue(
+            got["disabled"],
+            "Undo has no open world in this fixture and must stay disabled",
+        )
         self.assertIn("Open a world", got["title"])
 
     def test_undo_is_wired_and_enabled_once_a_world_is_streaming(self) -> None:
         got = render(
-            FAKE_SIDECAR
-            + """
+            FAKE_SIDECAR + """
             window.__undoCalled = false;
             window.__AmuletViewportPanel = {
               isStreaming: () => true,
@@ -191,8 +221,13 @@ class DisabledCommandsAlwaysCarryAReason(unittest.TestCase):
             "undo.click();"
             "return { wasDisabled, called: window.__undoCalled };",
         )
-        self.assertFalse(got["wasDisabled"], "Undo must render enabled once __AmuletViewportPanel reports streaming")
-        self.assertTrue(got["called"], "clicking the wired Undo button must call the real runUndo()")
+        self.assertFalse(
+            got["wasDisabled"],
+            "Undo must render enabled once __AmuletViewportPanel reports streaming",
+        )
+        self.assertTrue(
+            got["called"], "clicking the wired Undo button must call the real runUndo()"
+        )
 
 
 class TheNavigatorReflectsSidecarDimensions(unittest.TestCase):
@@ -200,7 +235,9 @@ class TheNavigatorReflectsSidecarDimensions(unittest.TestCase):
         got = render(FAKE_SIDECAR, "return { text: q('.sw-navigator').textContent };")
         self.assertIn("No world open yet", got["text"])
 
-    def test_opening_a_world_populates_the_navigator_from_world_dimensions(self) -> None:
+    def test_opening_a_world_populates_the_navigator_from_world_dimensions(
+        self,
+    ) -> None:
         fake_dimension_flow = """
             window.mmweDesktop = { sidecar: { call: function (method, params) {
               if (method === 'world.open') {
@@ -246,7 +283,9 @@ class ThePropertiesPaneAndStatusBarRender(unittest.TestCase):
         self.assertFalse(got["afterClose"])
         self.assertTrue(got["afterReopen"])
 
-    def test_status_bar_and_viewport_host_ids_are_present_for_viewport_panel_js(self) -> None:
+    def test_status_bar_and_viewport_host_ids_are_present_for_viewport_panel_js(
+        self,
+    ) -> None:
         got = render(
             FAKE_SIDECAR,
             "return {"
@@ -259,10 +298,19 @@ class ThePropertiesPaneAndStatusBarRender(unittest.TestCase):
             "  pathInput: !!q('#viewport-world-path'),"
             "};",
         )
-        self.assertTrue(all([
-            got["status"], got["host"], got["canvas"], got["empty"], got["openRow"],
-            got["openButton"], got["pathInput"],
-        ]))
+        self.assertTrue(
+            all(
+                [
+                    got["status"],
+                    got["host"],
+                    got["canvas"],
+                    got["empty"],
+                    got["openRow"],
+                    got["openButton"],
+                    got["pathInput"],
+                ]
+            )
+        )
 
 
 class TheAnalyzeTabCallsTheRealBridge(unittest.TestCase):
@@ -303,8 +351,14 @@ class TheAnalyzeTabCallsTheRealBridge(unittest.TestCase):
             "const section = [...all('.sw-pane-section-title')].map(e => e.textContent).join('|');"
             "return { wasDisabled, calledWith: window.__analyzeCalledWith, section };",
         )
-        self.assertFalse(got["wasDisabled"], "Histogram must render enabled with a sidecar, a streaming world, and a selection")
-        self.assertIsNotNone(got["calledWith"], "clicking Histogram must call Site.electronSidecar.analyze.blockHistogram")
+        self.assertFalse(
+            got["wasDisabled"],
+            "Histogram must render enabled with a sidecar, a streaming world, and a selection",
+        )
+        self.assertIsNotNone(
+            got["calledWith"],
+            "clicking Histogram must call Site.electronSidecar.analyze.blockHistogram",
+        )
         self.assertIn("Analysis", got["section"])
 
     def test_chunk_inspector_and_validate_are_also_wired(self) -> None:
@@ -320,10 +374,11 @@ class TheAnalyzeTabCallsTheRealBridge(unittest.TestCase):
         self.assertFalse(got["inspectorDisabled"])
         self.assertFalse(got["validateDisabled"])
 
-    def test_analyze_without_a_selection_reports_an_honest_error_not_a_crash(self) -> None:
+    def test_analyze_without_a_selection_reports_an_honest_error_not_a_crash(
+        self,
+    ) -> None:
         got = render(
-            FAKE_SIDECAR
-            + """
+            FAKE_SIDECAR + """
             window.AmuletSite = { electronSidecar: { analyze: {
               blockHistogram: function () { return Promise.resolve({ blocks_scanned: 0, distinct_blocks: 0, histogram: [] }); },
             } } };
@@ -335,7 +390,10 @@ class TheAnalyzeTabCallsTheRealBridge(unittest.TestCase):
             "const errorRow = [...all('.sw-pane-row-value')].map(e => e.textContent).find(t => t.indexOf('point 1') !== -1);"
             "return { errorRow, threw: !!errorRow === false };",
         )
-        self.assertIsNotNone(got["errorRow"], "clicking Histogram with no selection must report an honest error, not silently do nothing")
+        self.assertIsNotNone(
+            got["errorRow"],
+            "clicking Histogram with no selection must report an honest error, not silently do nothing",
+        )
 
     def test_biome_map_is_still_honestly_unwired(self) -> None:
         got = render(
@@ -468,9 +526,7 @@ class TheTerrainEntitiesAndDataTabsCallTheRealBridge(unittest.TestCase):
 
     def test_cuboid_reuses_the_real_fill_write_path(self) -> None:
         got = render(
-            FAKE_SIDECAR
-            + self.WORKSHOP_FIXTURE
-            + """
+            FAKE_SIDECAR + self.WORKSHOP_FIXTURE + """
             window.__fillCalled = false;
             window.__AmuletViewportPanel.runFill = function () { window.__fillCalled = true; };
             """,
@@ -481,7 +537,10 @@ class TheTerrainEntitiesAndDataTabsCallTheRealBridge(unittest.TestCase):
             "return { wasDisabled, called: window.__fillCalled };",
         )
         self.assertFalse(got["wasDisabled"])
-        self.assertTrue(got["called"], "Cuboid must call the real runFill(), the same write path as Operations > Fill")
+        self.assertTrue(
+            got["called"],
+            "Cuboid must call the real runFill(), the same write path as Operations > Fill",
+        )
 
     def test_entities_list_is_wired(self) -> None:
         got = render(
@@ -553,8 +612,7 @@ class TheViewTabTogglesRealLocalUiState(unittest.TestCase):
 
     def test_layers_toggles_the_real_grid_via_viewport_panel(self) -> None:
         got = render(
-            FAKE_SIDECAR
-            + """
+            FAKE_SIDECAR + """
             window.__gridVisible = true;
             window.__AmuletViewportPanel = {
               isStreaming: () => true,
@@ -569,8 +627,13 @@ class TheViewTabTogglesRealLocalUiState(unittest.TestCase):
             "layers.click();"
             "return { wasDisabled, afterClick: window.__gridVisible };",
         )
-        self.assertFalse(got["wasDisabled"], "Layers must render enabled once a world is streaming")
-        self.assertFalse(got["afterClick"], "clicking Layers must call the real setGridVisible(), toggling it off")
+        self.assertFalse(
+            got["wasDisabled"], "Layers must render enabled once a world is streaming"
+        )
+        self.assertFalse(
+            got["afterClick"],
+            "clicking Layers must call the real setGridVisible(), toggling it off",
+        )
 
     def test_layers_is_disabled_without_a_streaming_world(self) -> None:
         got = render(
@@ -595,13 +658,17 @@ class TheViewTabTogglesRealLocalUiState(unittest.TestCase):
             "return { before, afterFirstClick, afterSecondClick };",
         )
         self.assertFalse(got["before"])
-        self.assertTrue(got["afterFirstClick"], "clicking Navigator once must hide the real navigator panel")
-        self.assertFalse(got["afterSecondClick"], "clicking Navigator again must show it again")
+        self.assertTrue(
+            got["afterFirstClick"],
+            "clicking Navigator once must hide the real navigator panel",
+        )
+        self.assertFalse(
+            got["afterSecondClick"], "clicking Navigator again must show it again"
+        )
 
     def test_options_opens_the_real_appearance_editor_when_available(self) -> None:
         got = render(
-            FAKE_SIDECAR
-            + """
+            FAKE_SIDECAR + """
             window.__appearanceMounted = false;
             window.AmuletStudioAppearance = { mount: function () { window.__appearanceMounted = true; } };
             """,
@@ -611,8 +678,14 @@ class TheViewTabTogglesRealLocalUiState(unittest.TestCase):
             "options.click();"
             "return { wasDisabled, mounted: window.__appearanceMounted };",
         )
-        self.assertFalse(got["wasDisabled"], "Options must render enabled once window.AmuletStudioAppearance exists")
-        self.assertTrue(got["mounted"], "clicking Options must mount the real appearance editor overlay")
+        self.assertFalse(
+            got["wasDisabled"],
+            "Options must render enabled once window.AmuletStudioAppearance exists",
+        )
+        self.assertTrue(
+            got["mounted"],
+            "clicking Options must mount the real appearance editor overlay",
+        )
 
     def test_options_is_disabled_without_the_appearance_editor_module(self) -> None:
         got = render(
@@ -640,17 +713,22 @@ class ThePanelsTabInspectorOpensTheRealPropertiesPane(unittest.TestCase):
             "const activeTab = all('.sw-pane-tab').find(t => t.getAttribute('aria-selected') === 'true');"
             "return { closedAfterToggle, wasDisabled, reopened, activeTabLabel: activeTab && activeTab.textContent };",
         )
-        self.assertTrue(got["closedAfterToggle"], "test setup must actually close the pane first")
-        self.assertFalse(got["wasDisabled"], "Inspector is real local UI and must never be disabled")
-        self.assertTrue(got["reopened"], "clicking Inspector must reopen the real properties pane")
+        self.assertTrue(
+            got["closedAfterToggle"], "test setup must actually close the pane first"
+        )
+        self.assertFalse(
+            got["wasDisabled"], "Inspector is real local UI and must never be disabled"
+        )
+        self.assertTrue(
+            got["reopened"], "clicking Inspector must reopen the real properties pane"
+        )
         self.assertEqual(got["activeTabLabel"], "Properties")
 
 
 class TheAutomateTabOpensTheRealNotificationDrawer(unittest.TestCase):
     def test_notifications_presses_the_real_notif_open_button(self) -> None:
         got = render(
-            FAKE_SIDECAR
-            + """
+            FAKE_SIDECAR + """
             window.__notifOpenClicked = false;
             """,
             "const notifOpen = window.document.createElement('button');"
@@ -663,8 +741,14 @@ class TheAutomateTabOpensTheRealNotificationDrawer(unittest.TestCase):
             "notifications.click();"
             "return { wasDisabled, clicked: window.__notifOpenClicked };",
         )
-        self.assertFalse(got["wasDisabled"], "Notifications is real local UI (a button press) and must never be disabled")
-        self.assertTrue(got["clicked"], "clicking the ribbon's Notifications command must press the real #notif-open button")
+        self.assertFalse(
+            got["wasDisabled"],
+            "Notifications is real local UI (a button press) and must never be disabled",
+        )
+        self.assertTrue(
+            got["clicked"],
+            "clicking the ribbon's Notifications command must press the real #notif-open button",
+        )
 
     def test_release_notes_and_memory_console_are_still_honestly_unwired(self) -> None:
         got = render(

@@ -56,7 +56,6 @@ class CredentialStoreUnavailable(ForgeAccountError):
     """
 
 
-
 class _Store:
     """The interface a credential store has to provide."""
 

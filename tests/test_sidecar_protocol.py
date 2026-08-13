@@ -107,7 +107,9 @@ def test_ping_round_trip(sidecar: SidecarProcess) -> None:
     assert "error" not in response
 
 
-def test_unknown_method_is_a_structured_error_not_a_crash(sidecar: SidecarProcess) -> None:
+def test_unknown_method_is_a_structured_error_not_a_crash(
+    sidecar: SidecarProcess,
+) -> None:
     response = sidecar.call("no.such.method")
     assert "result" not in response
     assert response["error"]["code"] == "unknown_method"
@@ -135,8 +137,12 @@ def test_malformed_json_line_gets_a_structured_error(sidecar: SidecarProcess) ->
     assert follow_up["result"] == {"ok": True}
 
 
-def test_oversized_message_is_rejected_before_json_parsing(sidecar: SidecarProcess) -> None:
-    huge = json.dumps({"id": 1, "method": "protocol.ping", "params": {"pad": "x" * (9 * 1024 * 1024)}})
+def test_oversized_message_is_rejected_before_json_parsing(
+    sidecar: SidecarProcess,
+) -> None:
+    huge = json.dumps(
+        {"id": 1, "method": "protocol.ping", "params": {"pad": "x" * (9 * 1024 * 1024)}}
+    )
     assert sidecar.process.stdin is not None
     sidecar.process.stdin.write(huge + "\n")
     sidecar.process.stdin.flush()
@@ -155,7 +161,9 @@ def test_language_get_and_set_round_trip(sidecar: SidecarProcess) -> None:
     assert get_response["result"]["language_id"] == "en"
 
 
-def test_language_set_rejects_bad_params_as_structured_error(sidecar: SidecarProcess) -> None:
+def test_language_set_rejects_bad_params_as_structured_error(
+    sidecar: SidecarProcess,
+) -> None:
     response = sidecar.call("language.set", {"language_id": 12345})
     assert response["error"]["code"] == "invalid_params"
 
@@ -207,10 +215,14 @@ def test_converter_formats_lists_real_adapters(sidecar: SidecarProcess) -> None:
         assert isinstance(adapter["lossy"], bool)
 
 
-def test_changelog_entries_lists_the_real_bundled_catalog(sidecar: SidecarProcess) -> None:
+def test_changelog_entries_lists_the_real_bundled_catalog(
+    sidecar: SidecarProcess,
+) -> None:
     response = sidecar.call("changelog.entries")
     result = response["result"]
-    assert result["entries"], "the sidecar must expose the real bundled changelog catalog"
+    assert result[
+        "entries"
+    ], "the sidecar must expose the real bundled changelog catalog"
     entry = result["entries"][0]
     assert entry["version"]
     assert entry["commit_sha"]
@@ -275,7 +287,9 @@ def test_dimsum_draw_rejects_unknown_language_mode(sidecar: SidecarProcess) -> N
     assert response["error"]["code"] == "invalid_params"
 
 
-def test_sidecar_never_writes_a_secret_to_stdout_or_stderr(sidecar: SidecarProcess) -> None:
+def test_sidecar_never_writes_a_secret_to_stdout_or_stderr(
+    sidecar: SidecarProcess,
+) -> None:
     """The methods this lane exposes touch no secret, and the smoke test says so.
 
     This is not a search for a specific leaked value (nothing here holds a

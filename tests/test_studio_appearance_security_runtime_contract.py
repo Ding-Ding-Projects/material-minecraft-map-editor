@@ -22,10 +22,17 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 SITE = REPO / "docs" / "site"
 
-BASE_SCRIPTS = ["site-data.js", "site-core.js", "regex-builder.js", "electron-bridge.js"]
+BASE_SCRIPTS = [
+    "site-data.js",
+    "site-core.js",
+    "regex-builder.js",
+    "electron-bridge.js",
+]
 
 
-def render(question: str, extra_scripts, sidecar_js: str = "", container_id: str = "panel") -> dict:
+def render(
+    question: str, extra_scripts, sidecar_js: str = "", container_id: str = "panel"
+) -> dict:
     node = shutil.which("node")
     if node is None:
         raise AssertionError("node is required and was not found on PATH.")
@@ -80,7 +87,9 @@ process.exit(0);
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "render.cjs"
         path.write_text(script, encoding="utf-8")
-        result = subprocess.run([node, str(path)], capture_output=True, text=True, timeout=180)
+        result = subprocess.run(
+            [node, str(path)], capture_output=True, text=True, timeout=180
+        )
     if result.returncode != 0:
         raise AssertionError(f"rendering failed:\n{result.stdout}\n{result.stderr}")
     return json.loads(result.stdout.strip().splitlines()[-1])

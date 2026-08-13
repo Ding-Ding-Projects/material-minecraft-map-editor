@@ -103,7 +103,9 @@ def dispatch(request: Request, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS)
     return encode_result(request.id, result)
 
 
-def handle_line(line: str, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS) -> Optional[str]:
+def handle_line(
+    line: str, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+) -> Optional[str]:
     """Parse and dispatch one input line; ``None`` for a blank line."""
     line = line.rstrip("\r\n")
     if not line:

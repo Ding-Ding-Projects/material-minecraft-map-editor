@@ -212,9 +212,7 @@ def _keep_test_windows_off_the_users_screen(wx) -> None:
     # taking the foreground or the keyboard from whoever is using the machine.
     exile = wx.Point(-32000, -32000)  # kept for windows that need no pixels
     original_show = wx.TopLevelWindow.Show
-    show_without_activating = getattr(
-        wx.TopLevelWindow, "ShowWithoutActivating", None
-    )
+    show_without_activating = getattr(wx.TopLevelWindow, "ShowWithoutActivating", None)
 
     def show(self, show=True):  # noqa: FBT002 - matching wx's own signature
         if show and show_without_activating is not None:

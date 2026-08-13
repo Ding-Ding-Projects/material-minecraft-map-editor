@@ -23,10 +23,12 @@ import textwrap
 
 import pytest
 
-from amulet_map_editor.api.core_boundary import KNOWN_NOT_PORTABLE, PORTABLE_CORE_MODULES
+from amulet_map_editor.api.core_boundary import (
+    KNOWN_NOT_PORTABLE,
+    PORTABLE_CORE_MODULES,
+)
 
-_CHECK_SCRIPT = textwrap.dedent(
-    """
+_CHECK_SCRIPT = textwrap.dedent("""
     import importlib
     import sys
 
@@ -51,8 +53,7 @@ _CHECK_SCRIPT = textwrap.dedent(
 
     importlib.import_module(sys.argv[1])
     print("BOUNDARY_OK")
-    """
-)
+    """)
 
 
 def _import_without_wx(module_name: str) -> subprocess.CompletedProcess:

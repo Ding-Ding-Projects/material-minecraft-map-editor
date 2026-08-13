@@ -119,7 +119,9 @@ def _get_ready_handle(params: Dict[str, Any]):
         raise ProtocolError(ERR_INVALID_PARAMS, "'world_id' must be a non-empty string")
     handle = _REGISTRY.get(world_id)
     if handle is None:
-        raise ProtocolError(ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}")
+        raise ProtocolError(
+            ERR_NOT_FOUND, f"No open (or opening) world with id {world_id!r}"
+        )
     if handle.status == "pending":
         raise ProtocolError(ERR_NOT_READY, "That world is still opening")
     if handle.status == "failed":
@@ -132,7 +134,9 @@ def _get_ready_handle(params: Dict[str, Any]):
 def _require_dimension(params: Dict[str, Any], handle) -> str:
     dimension = params.get("dimension")
     if not isinstance(dimension, str) or not dimension:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'dimension' must be a non-empty string")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'dimension' must be a non-empty string"
+        )
     if dimension not in handle.world.dimensions:
         raise ProtocolError(
             ERR_DIMENSION_UNKNOWN,
@@ -147,7 +151,9 @@ def _require_point(params: Dict[str, Any], field: str):
     if (
         not isinstance(value, (list, tuple))
         or len(value) != 3
-        or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in value)
+        or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in value
+        )
     ):
         raise ProtocolError(
             ERR_INVALID_PARAMS, f"'{field}' must be a [x, y, z] array of numbers"
@@ -237,7 +243,9 @@ def _analyze_chunk_inventory(params: Dict[str, Any]) -> Dict[str, Any]:
 
     world = handle.world
     chunks = []
-    for chunk, _cbox in world.get_chunk_boxes(dimension, box, create_missing_chunks=False):
+    for chunk, _cbox in world.get_chunk_boxes(
+        dimension, box, create_missing_chunks=False
+    ):
         chunks.append(
             {
                 "cx": chunk.cx,
@@ -269,7 +277,9 @@ def _analyze_entity_counts(params: Dict[str, Any]) -> Dict[str, Any]:
     world = handle.world
     counts: Counter = Counter()
     total = 0
-    for chunk, _cbox in world.get_chunk_boxes(dimension, box, create_missing_chunks=False):
+    for chunk, _cbox in world.get_chunk_boxes(
+        dimension, box, create_missing_chunks=False
+    ):
         for entity in chunk.entities:
             if (entity.x, entity.y, entity.z) not in box:
                 continue

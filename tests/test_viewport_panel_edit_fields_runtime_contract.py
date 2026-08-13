@@ -46,7 +46,9 @@ window.mmweDesktop = { sidecar: { call: function () {
 def render(setup_js: str, question: str) -> dict:
     node = shutil.which("node")
     if node is None:
-        raise AssertionError("node is required to execute the panel and was not found on PATH.")
+        raise AssertionError(
+            "node is required to execute the panel and was not found on PATH."
+        )
     if not (SITE / "node_modules" / "jsdom").is_dir():
         raise AssertionError(
             "jsdom is required to execute the panel and is not installed. Run `npm install` "
@@ -102,7 +104,9 @@ const q = sel => window.document.querySelector(sel);
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "render.cjs"
         path.write_text(script, encoding="utf-8")
-        result = subprocess.run([node, str(path)], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            [node, str(path)], capture_output=True, text=True, timeout=120
+        )
     if result.returncode != 0:
         raise AssertionError(f"rendering failed:\n{result.stdout}\n{result.stderr}")
     return json.loads(result.stdout.strip().splitlines()[-1])
@@ -111,7 +115,11 @@ const q = sel => window.document.querySelector(sel);
 class LoadsCleanly(unittest.TestCase):
     def test_loads_without_throwing(self) -> None:
         got = render(FAKE_BRIDGE, "return {};")
-        self.assertEqual(got["loadErrors"], [], "viewport-panel.js threw while loading the new fields")
+        self.assertEqual(
+            got["loadErrors"],
+            [],
+            "viewport-panel.js threw while loading the new fields",
+        )
 
 
 class EntityTypeField(unittest.TestCase):
@@ -199,7 +207,9 @@ class LevelDatFields(unittest.TestCase):
         self.assertEqual(got["raining"], "")
         self.assertEqual(got["thundering"], "")
 
-    def test_writing_with_every_field_blank_reports_an_error_and_never_calls_the_bridge(self) -> None:
+    def test_writing_with_every_field_blank_reports_an_error_and_never_calls_the_bridge(
+        self,
+    ) -> None:
         got = render(
             FAKE_BRIDGE,
             "window.AmuletSite = { electronSidecar: { data: { writeLevel: function () {"

@@ -25,7 +25,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-amulet = pytest.importorskip("amulet", reason="amulet-core is not installed in this interpreter")
+amulet = pytest.importorskip(
+    "amulet", reason="amulet-core is not installed in this interpreter"
+)
 
 import numpy  # noqa: E402
 
@@ -35,7 +37,9 @@ from amulet_map_editor.api.sidecar import mesh_methods as mm  # noqa: E402
 def _unpack(sub_chunk_bytes: bytes) -> "numpy.ndarray":
     """Undo the exact packing OCCUPANCY_* documents, returning bits indexed
     ``bits[(ly * 16 + lz) * 16 + lx]``."""
-    return numpy.unpackbits(numpy.frombuffer(sub_chunk_bytes, dtype=numpy.uint8), bitorder="little")
+    return numpy.unpackbits(
+        numpy.frombuffer(sub_chunk_bytes, dtype=numpy.uint8), bitorder="little"
+    )
 
 
 def _bit_at(bits: "numpy.ndarray", lx: int, ly: int, lz: int) -> int:
@@ -73,8 +77,12 @@ def fixture_world(tmp_path_factory):
     # A block sitting exactly on the +X edge of chunk (0, 0) / start of
     # chunk (1, 0), so an off-by-one in chunk-local coordinate math would
     # place it in the wrong chunk's occupancy entirely.
-    world.set_version_block(15, 70, 5, dimension, version, stone)  # last column of chunk (0,0)
-    world.set_version_block(16, 70, 5, dimension, version, stone)  # first column of chunk (1,0)
+    world.set_version_block(
+        15, 70, 5, dimension, version, stone
+    )  # last column of chunk (0,0)
+    world.set_version_block(
+        16, 70, 5, dimension, version, stone
+    )  # first column of chunk (1,0)
 
     # A column of pure air: chunk (5, 5) is never touched at all, so
     # world.get_chunk on it either raises ChunkDoesNotExist or (once anvil
@@ -146,7 +154,9 @@ def test_low_height_limit_block_is_recorded(fixture_world):
     assert exists
     # y = -64 -> cy = floor(-64 / 16) = -4
     sub = next((s for s in sub_chunks if s["cy"] == -4), None)
-    assert sub is not None, f"no sub-chunk at cy=-4; got cys={[s['cy'] for s in sub_chunks]}"
+    assert (
+        sub is not None
+    ), f"no sub-chunk at cy=-4; got cys={[s['cy'] for s in sub_chunks]}"
     bits = _unpack(sub["bytes"])
     # local y for world y=-64 in sub-chunk cy=-4 is -64 - (-4*16) = 0
     assert _bit_at(bits, 4, 0, 4) == 1
@@ -191,7 +201,9 @@ def test_bit_order_guard_flip_and_restore():
     assert _bit_at(decoded, lx, ly, lz) == 1  # correct order: found it
 
     wrong_index = (ly * 16 + lx) * 16 + lz  # lx/lz swapped on purpose
-    assert int(decoded[wrong_index]) == 0 or wrong_index == correct_index  # wrong order: (usually) misses it
+    assert (
+        int(decoded[wrong_index]) == 0 or wrong_index == correct_index
+    )  # wrong order: (usually) misses it
     # The swapped formula must actually disagree with the real one for this
     # particular (lx, ly, lz), or the guard proves nothing -- assert that.
     assert wrong_index != correct_index

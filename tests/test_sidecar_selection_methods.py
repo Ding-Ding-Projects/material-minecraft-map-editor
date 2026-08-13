@@ -83,10 +83,14 @@ def fixture_world_path(tmp_path) -> str:
     return str(world_path)
 
 
-def _poll_open_status(sidecar: SidecarProcess, world_id: str, timeout: float = 15.0) -> Dict[str, Any]:
+def _poll_open_status(
+    sidecar: SidecarProcess, world_id: str, timeout: float = 15.0
+) -> Dict[str, Any]:
     deadline = time.time() + timeout
     while True:
-        response = sidecar.call("world.open_status", {"world_id": world_id}, request_id="poll")
+        response = sidecar.call(
+            "world.open_status", {"world_id": world_id}, request_id="poll"
+        )
         result = response.get("result")
         assert result is not None, response
         if result["status"] != "pending":
@@ -129,7 +133,12 @@ def test_selection_copy_does_not_require_confirm_and_touches_nothing(
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "selection.copy",
-        {"world_id": world_id, "dimension": DIMENSION, "min": STONE_MIN, "max": STONE_MAX},
+        {
+            "world_id": world_id,
+            "dimension": DIMENSION,
+            "min": STONE_MIN,
+            "max": STONE_MAX,
+        },
     )
     assert "error" not in response, response
     assert response["result"]["blocks_copied"] == STONE_VOLUME
@@ -145,7 +154,12 @@ def test_selection_delete_is_refused_without_confirmation(
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "selection.delete",
-        {"world_id": world_id, "dimension": DIMENSION, "min": STONE_MIN, "max": STONE_MAX},
+        {
+            "world_id": world_id,
+            "dimension": DIMENSION,
+            "min": STONE_MIN,
+            "max": STONE_MAX,
+        },
     )
     assert response["error"]["code"] == "confirmation_required", response
 
@@ -225,7 +239,12 @@ def test_selection_copy_then_paste_places_real_blocks_elsewhere(
     world_id = _open_world(sidecar, fixture_world_path)
     copy = sidecar.call(
         "selection.copy",
-        {"world_id": world_id, "dimension": DIMENSION, "min": STONE_MIN, "max": STONE_MAX},
+        {
+            "world_id": world_id,
+            "dimension": DIMENSION,
+            "min": STONE_MIN,
+            "max": STONE_MAX,
+        },
     )
     assert "error" not in copy, copy
 
@@ -255,7 +274,12 @@ def test_chunk_delete_is_refused_without_confirmation(
     world_id = _open_world(sidecar, fixture_world_path)
     response = sidecar.call(
         "chunk.delete",
-        {"world_id": world_id, "dimension": DIMENSION, "min": [0, 0, 0], "max": [16, 1, 16]},
+        {
+            "world_id": world_id,
+            "dimension": DIMENSION,
+            "min": [0, 0, 0],
+            "max": [16, 1, 16],
+        },
     )
     assert response["error"]["code"] == "confirmation_required", response
 

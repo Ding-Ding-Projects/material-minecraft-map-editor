@@ -25,7 +25,9 @@ MODULE = REPO / "docs" / "site" / "viewport-handles.js"
 def _run(js_body: str) -> dict:
     node = shutil.which("node")
     if node is None:
-        raise AssertionError("node is required to run this suite and was not found on PATH.")
+        raise AssertionError(
+            "node is required to run this suite and was not found on PATH."
+        )
     script = f"""
 const api = require({json.dumps(str(MODULE.as_posix()))});
 const out = {{}};
@@ -42,66 +44,53 @@ console.log(JSON.stringify(out));
 
 class HandleInventoryTests(unittest.TestCase):
     def test_fourteen_handles_six_face_eight_corner(self):
-        out = _run(
-            """
+        out = _run("""
             out.total = api.BOX_HANDLES.length;
             out.faces = api.FACE_HANDLES.length;
             out.corners = api.CORNER_HANDLES.length;
-            """
-        )
+            """)
         self.assertEqual(out["total"], 14)
         self.assertEqual(out["faces"], 6)
         self.assertEqual(out["corners"], 8)
 
     def test_handle_centre_face_sits_at_face_midpoint(self):
-        out = _run(
-            """
+        out = _run("""
             var handle = api.FACE_HANDLES.filter(h => h.name === "face:+x")[0];
             out.centre = api.handleCentre(handle, [0, 0, 0], [4, 2, 2]);
-            """
-        )
+            """)
         self.assertEqual(out["centre"], [4, 1, 1])
 
     def test_handle_centre_corner_sits_at_the_corner(self):
-        out = _run(
-            """
+        out = _run("""
             var handle = api.CORNER_HANDLES.filter(h => h.name === "corner:+x-y+z")[0];
             out.centre = api.handleCentre(handle, [0, 0, 0], [4, 2, 2]);
-            """
-        )
+            """)
         self.assertEqual(out["centre"], [4, 0, 2])
 
     def test_handle_half_size_clamps_between_min_and_max(self):
-        out = _run(
-            """
+        out = _run("""
             out.tiny = api.handleHalfSize([0, 0, 0], [1, 1, 1]);
             out.huge = api.handleHalfSize([0, 0, 0], [300, 300, 300]);
-            """
-        )
+            """)
         self.assertAlmostEqual(out["tiny"], max(1 / 6, 0.15), places=6)
         self.assertAlmostEqual(out["huge"], 0.75, places=6)
 
 
 class RayBoxDistanceTests(unittest.TestCase):
     def test_hits_report_distance_zero_from_inside(self):
-        out = _run(
-            """
+        out = _run("""
             out.distance = api.rayBoxDistance([0.5, 0.5, 0.5], [1, 0, 0], [0, 0, 0], [1, 1, 1]);
-            """
-        )
+            """)
         self.assertEqual(out["distance"], 0)
 
     def test_miss_returns_null(self):
-        out = _run(
-            """
+        out = _run("""
             out.distance = api.rayBoxDistance([0, 10, 0], [1, 0, 0], [0, 0, 0], [1, 1, 1]);
-            """
-        )
+            """)
         self.assertIsNone(out["distance"])
 
     def test_hit_handle_picks_the_nearest_of_two_overlapping_bounds(self):
-        out = _run(
-            """
+        out = _run("""
             var near = { name: "near", offset: [1, 0, 0], axis: 0 };
             var far = { name: "far", offset: [-1, 0, 0], axis: 0 };
             // Two 1-wide boxes on the ray from x=0 looking +X.
@@ -110,37 +99,31 @@ class RayBoxDistanceTests(unittest.TestCase):
             // instead exercise hitHandle end-to-end with the real box handles.
             var picked = api.hitHandle([0, 0, 0], [10, 10, 10], [-5, 5, 5], [1, 0, 0]);
             out.picked = picked ? picked.name : null;
-            """
-        )
+            """)
         self.assertEqual(out["picked"], "face:-x")
 
 
 class FaceAlignmentTests(unittest.TestCase):
     def test_face_handle_withheld_when_stared_straight_down_its_axis(self):
-        out = _run(
-            """
+        out = _run("""
             var handle = api.FACE_HANDLES.filter(h => h.name === "face:+x")[0];
             out.usable_straight_on = api.faceHandleIsUsable(handle, [1, 0, 0]);
             out.usable_side_on = api.faceHandleIsUsable(handle, [0, 0, 1]);
-            """
-        )
+            """)
         self.assertFalse(out["usable_straight_on"])
         self.assertTrue(out["usable_side_on"])
 
     def test_corner_handles_are_always_usable(self):
-        out = _run(
-            """
+        out = _run("""
             var handle = api.CORNER_HANDLES[0];
             out.usable = api.faceHandleIsUsable(handle, [1, 0, 0]);
-            """
-        )
+            """)
         self.assertTrue(out["usable"])
 
 
 class DragTests(unittest.TestCase):
     def test_face_drag_moves_only_its_own_axis(self):
-        out = _run(
-            """
+        out = _run("""
             var handle = api.FACE_HANDLES.filter(h => h.name === "face:+x")[0];
             var min = [0, 0, 0], max = [4, 4, 4];
             // Camera looking down -Z at the +X face, cursor ray along -Z hitting
@@ -153,29 +136,25 @@ class DragTests(unittest.TestCase):
             out.offset = offset;
             var box = api.applyDragOffset(drag, offset);
             out.box = box;
-            """
-        )
+            """)
         self.assertTrue(out["began"])
         self.assertEqual(out["offset"], [3, 0, 0])
         self.assertEqual(out["box"][0], [0, 0, 0])
         self.assertEqual(out["box"][1], [7, 4, 4])
 
     def test_face_drag_returns_null_when_looking_straight_down_axis(self):
-        out = _run(
-            """
+        out = _run("""
             var handle = api.FACE_HANDLES.filter(h => h.name === "face:+x")[0];
             var drag = api.beginDrag(handle, [0, 0, 0], [4, 4, 4], [10, 2, 2], [-1, 0, 0]);
             out.began = drag !== null;
-            """
-        )
+            """)
         # The cursor ray runs parallel to the face handle's own axis line --
         # closestParameterOnLine has no single answer for that, matching
         # handles.py's begin_drag, which also refuses to start here.
         self.assertFalse(out["began"])
 
     def test_corner_drag_moves_in_the_camera_facing_plane(self):
-        out = _run(
-            """
+        out = _run("""
             var handle = api.CORNER_HANDLES.filter(h => h.name === "corner:+x+y+z")[0];
             var min = [0, 0, 0], max = [4, 4, 4];
             // Camera looking along -Z, so the dominant axis of the view is Z ->
@@ -186,20 +165,17 @@ class DragTests(unittest.TestCase):
             out.began = drag !== null;
             var offset = api.dragBlockOffset(drag, [6, 5, 10], direction);
             out.offset = offset;
-            """
-        )
+            """)
         self.assertTrue(out["began"])
         self.assertEqual(out["offset"][2], 0)
         self.assertEqual(out["offset"][0], 2)
         self.assertEqual(out["offset"][1], 1)
 
     def test_dominant_axis_picks_the_largest_component(self):
-        out = _run(
-            """
+        out = _run("""
             out.a = api.dominantAxis([0.1, 0.9, 0.2]);
             out.b = api.dominantAxis([5, 1, 1]);
-            """
-        )
+            """)
         self.assertEqual(out["a"], 1)
         self.assertEqual(out["b"], 0)
 

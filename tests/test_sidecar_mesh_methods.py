@@ -24,7 +24,9 @@ if str(REPO_ROOT) not in sys.path:
 
 from test_sidecar_protocol import SidecarProcess  # noqa: E402  (reuse the real client)
 
-amulet = pytest.importorskip("amulet", reason="amulet-core is not installed in this interpreter")
+amulet = pytest.importorskip(
+    "amulet", reason="amulet-core is not installed in this interpreter"
+)
 pytest.importorskip(
     "minecraft_model_reader.api.resource_pack",
     reason="minecraft_model_reader is not installed in this interpreter",
@@ -64,16 +66,22 @@ def populated_world_path(tmp_path_factory) -> str:
     for cx, cz in ((0, 0), (1, 0)):
         for x in range(cx * 16, cx * 16 + 16, 2):
             for z in range(cz * 16, cz * 16 + 16, 2):
-                world.set_version_block(x, 64, z, dimension, ("java", (1, 20, 4)), block)
+                world.set_version_block(
+                    x, 64, z, dimension, ("java", (1, 20, 4)), block
+                )
     world.save()
     world.close()
     return world_path
 
 
-def _poll_open_status(sidecar: SidecarProcess, world_id: str, timeout: float = 15.0) -> Dict[str, Any]:
+def _poll_open_status(
+    sidecar: SidecarProcess, world_id: str, timeout: float = 15.0
+) -> Dict[str, Any]:
     deadline = time.time() + timeout
     while True:
-        response = sidecar.call("world.open_status", {"world_id": world_id}, request_id="poll")
+        response = sidecar.call(
+            "world.open_status", {"world_id": world_id}, request_id="poll"
+        )
         result = response.get("result")
         assert result is not None, response
         if result["status"] != "pending":
@@ -83,10 +91,14 @@ def _poll_open_status(sidecar: SidecarProcess, world_id: str, timeout: float = 1
         time.sleep(0.05)
 
 
-def _poll_resource_pack(sidecar: SidecarProcess, world_id: str, timeout: float = 120.0) -> None:
+def _poll_resource_pack(
+    sidecar: SidecarProcess, world_id: str, timeout: float = 120.0
+) -> None:
     deadline = time.time() + timeout
     while True:
-        prep = sidecar.call("viewport.prepare", {"world_id": world_id}, request_id="prep")
+        prep = sidecar.call(
+            "viewport.prepare", {"world_id": world_id}, request_id="prep"
+        )
         result = prep.get("result")
         assert result is not None, prep
         if result["status"] == "ready":
@@ -97,11 +109,15 @@ def _poll_resource_pack(sidecar: SidecarProcess, world_id: str, timeout: float =
         time.sleep(0.2)
 
 
-def _poll_batch(sidecar: SidecarProcess, batch_id: str, timeout: float = 60.0) -> Dict[str, Any]:
+def _poll_batch(
+    sidecar: SidecarProcess, batch_id: str, timeout: float = 60.0
+) -> Dict[str, Any]:
     deadline = time.time() + timeout
     while True:
         response = sidecar.call(
-            "viewport.chunk_mesh_batch_status", {"batch_id": batch_id}, request_id="batch-poll"
+            "viewport.chunk_mesh_batch_status",
+            {"batch_id": batch_id},
+            request_id="batch-poll",
         )
         result = response.get("result")
         assert result is not None, response
@@ -142,7 +158,11 @@ def test_chunk_mesh_batch_matches_individual_chunk_mesh(
 
     kicked = sidecar.call(
         "viewport.chunk_mesh_batch",
-        {"world_id": world_id, "dimension": dimension, "chunks": [[0, 0], [1, 0], [5, 5]]},
+        {
+            "world_id": world_id,
+            "dimension": dimension,
+            "chunks": [[0, 0], [1, 0], [5, 5]],
+        },
         request_id=3,
     )
     assert "error" not in kicked, kicked
@@ -212,7 +232,9 @@ def test_chunk_mesh_batch_does_not_block_other_requests(
 
     assert kicked["result"]["status"] == "pending"
     assert ping["result"] == {"ok": True}
-    assert elapsed < 5.0, f"batch kick-off + ping took {elapsed:.2f}s -- the batch blocked the pipe"
+    assert (
+        elapsed < 5.0
+    ), f"batch kick-off + ping took {elapsed:.2f}s -- the batch blocked the pipe"
 
     ready = _poll_batch(sidecar, kicked["result"]["batch_id"])
     assert ready["status"] == "ready"

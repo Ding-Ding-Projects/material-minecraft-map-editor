@@ -97,10 +97,14 @@ def fixture_world_path(tmp_path) -> str:
     return str(world_path)
 
 
-def _poll_open_status(sidecar: SidecarProcess, world_id: str, timeout: float = 15.0) -> Dict[str, Any]:
+def _poll_open_status(
+    sidecar: SidecarProcess, world_id: str, timeout: float = 15.0
+) -> Dict[str, Any]:
     deadline = time.time() + timeout
     while True:
-        response = sidecar.call("world.open_status", {"world_id": world_id}, request_id="poll")
+        response = sidecar.call(
+            "world.open_status", {"world_id": world_id}, request_id="poll"
+        )
         result = response.get("result")
         assert result is not None, response
         if result["status"] != "pending":
@@ -195,7 +199,9 @@ def test_fill_and_save_writes_real_blocks_verified_by_rereading_them(
     assert fill_response["result"]["blocks_changed"] == STONE_VOLUME
     assert fill_response["result"]["selection_volume"] == STONE_VOLUME
 
-    save_response = sidecar.call("world.save", {"world_id": world_id, "confirm": True}, request_id=3)
+    save_response = sidecar.call(
+        "world.save", {"world_id": world_id, "confirm": True}, request_id=3
+    )
     assert "error" not in save_response, save_response
     assert save_response["result"]["status"] == "saved"
     assert save_response["result"]["chunks_saved"] >= 1
@@ -262,11 +268,15 @@ def test_undo_restores_the_previous_state_and_redo_reapplies_it(
     assert "error" not in undo_response, undo_response
     assert undo_response["result"]["status"] == "undone"
 
-    save_response = sidecar.call("world.save", {"world_id": world_id, "confirm": True}, request_id=4)
+    save_response = sidecar.call(
+        "world.save", {"world_id": world_id, "confirm": True}, request_id=4
+    )
     assert "error" not in save_response, save_response
 
     sidecar.call("world.close", {"world_id": world_id}, request_id=5)
-    names_after_undo = _read_block_names_directly(fixture_world_path, _stone_region_coords())
+    names_after_undo = _read_block_names_directly(
+        fixture_world_path, _stone_region_coords()
+    )
     assert all(name == "stone" for name in names_after_undo.values()), names_after_undo
 
     # Reopen and prove redo reapplies the fill.
@@ -295,8 +305,12 @@ def test_undo_restores_the_previous_state_and_redo_reapplies_it(
     sidecar.call("world.save", {"world_id": world_id_2, "confirm": True}, request_id=5)
     sidecar.call("world.close", {"world_id": world_id_2}, request_id=6)
 
-    names_after_redo = _read_block_names_directly(fixture_world_path, _stone_region_coords())
-    assert all(name == "diamond_block" for name in names_after_redo.values()), names_after_redo
+    names_after_redo = _read_block_names_directly(
+        fixture_world_path, _stone_region_coords()
+    )
+    assert all(
+        name == "diamond_block" for name in names_after_redo.values()
+    ), names_after_redo
 
 
 def test_undo_with_nothing_to_undo_is_a_structured_error(
@@ -373,7 +387,10 @@ def test_fill_refuses_an_oversized_selection(
         request_id=2,
     )
     assert response["error"]["code"] == "selection_too_large", response
-    assert "262144" in response["error"]["message"] or "262,144" in response["error"]["message"]
+    assert (
+        "262144" in response["error"]["message"]
+        or "262,144" in response["error"]["message"]
+    )
 
     sidecar.call("world.close", {"world_id": world_id}, request_id=3)
 
@@ -409,8 +426,27 @@ def test_fill_rejects_an_unresolvable_block_string(
 
 def test_edit_methods_require_a_known_world_id(sidecar: SidecarProcess) -> None:
     for method, params in [
-        ("world.fill", {"dimension": DIMENSION, "min": [0, 0, 0], "max": [1, 1, 1], "block": "universal_minecraft:stone", "confirm": True}),
-        ("world.replace", {"dimension": DIMENSION, "min": [0, 0, 0], "max": [1, 1, 1], "original_block": "universal_minecraft:stone", "replacement_block": "universal_minecraft:dirt", "confirm": True}),
+        (
+            "world.fill",
+            {
+                "dimension": DIMENSION,
+                "min": [0, 0, 0],
+                "max": [1, 1, 1],
+                "block": "universal_minecraft:stone",
+                "confirm": True,
+            },
+        ),
+        (
+            "world.replace",
+            {
+                "dimension": DIMENSION,
+                "min": [0, 0, 0],
+                "max": [1, 1, 1],
+                "original_block": "universal_minecraft:stone",
+                "replacement_block": "universal_minecraft:dirt",
+                "confirm": True,
+            },
+        ),
         ("world.undo", {}),
         ("world.redo", {}),
         ("world.save", {"confirm": True}),

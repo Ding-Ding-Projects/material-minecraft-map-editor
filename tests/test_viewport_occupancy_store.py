@@ -27,7 +27,9 @@ PICKING_MODULE = REPO / "docs" / "site" / "viewport-picking.js"
 def _run(js_body: str) -> dict:
     node = shutil.which("node")
     if node is None:
-        raise AssertionError("node is required to run this suite and was not found on PATH.")
+        raise AssertionError(
+            "node is required to run this suite and was not found on PATH."
+        )
     script = f"""
 const occ = require({json.dumps(str(OCCUPANCY_MODULE.as_posix()))});
 const picking = require({json.dumps(str(PICKING_MODULE.as_posix()))});
@@ -60,8 +62,7 @@ def _pack_single_bit(lx: int, ly: int, lz: int) -> str:
 class OccupancyStoreTests(unittest.TestCase):
     def test_known_bitset_answers_solid_and_non_solid_correctly(self):
         packed_b64 = _pack_single_bit(lx=3, ly=7, lz=11)
-        out = _run(
-            f"""
+        out = _run(f"""
             var store = occ.createOccupancyStore();
             var bytes = Buffer.from({json.dumps(packed_b64)}, "base64");
             var buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
@@ -69,15 +70,13 @@ class OccupancyStoreTests(unittest.TestCase):
             out.solidAtTheBit = store.isSolid(3, 7, 11);
             out.airNextToIt = store.isSolid(4, 7, 11);
             out.airElsewhere = store.isSolid(0, 0, 0);
-            """
-        )
+            """)
         self.assertTrue(out["solidAtTheBit"])
         self.assertFalse(out["airNextToIt"])
         self.assertFalse(out["airElsewhere"])
 
     def test_unloaded_chunk_answers_false_rather_than_throwing(self):
-        out = _run(
-            """
+        out = _run("""
             var store = occ.createOccupancyStore();
             out.beforeLoad = store.isSolid(100, 5, 100);
             out.threw = false;
@@ -86,8 +85,7 @@ class OccupancyStoreTests(unittest.TestCase):
             } catch (e) {
               out.threw = true;
             }
-            """
-        )
+            """)
         self.assertFalse(out["beforeLoad"])
         self.assertFalse(out["threw"])
 
@@ -96,23 +94,20 @@ class OccupancyStoreTests(unittest.TestCase):
         (cy=5) has never streamed in -- that height must answer false, not
         crash and not silently treat it as ground level's data."""
         packed_b64 = _pack_single_bit(lx=0, ly=0, lz=0)
-        out = _run(
-            f"""
+        out = _run(f"""
             var store = occ.createOccupancyStore();
             var bytes = Buffer.from({json.dumps(packed_b64)}, "base64");
             var buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
             store.setChunk(0, 0, [{{cy: 0, byte_offset: 0, byte_length: 512}}], buffer);
             out.knownHeight = store.isSolid(0, 0, 0);
             out.unknownHeight = store.isSolid(0, 80, 0); // cy=5, never loaded
-            """
-        )
+            """)
         self.assertTrue(out["knownHeight"])
         self.assertFalse(out["unknownHeight"])
 
     def test_unload_chunk_drops_its_occupancy(self):
         packed_b64 = _pack_single_bit(lx=0, ly=0, lz=0)
-        out = _run(
-            f"""
+        out = _run(f"""
             var store = occ.createOccupancyStore();
             var bytes = Buffer.from({json.dumps(packed_b64)}, "base64");
             var buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
@@ -120,14 +115,12 @@ class OccupancyStoreTests(unittest.TestCase):
             out.beforeUnload = store.isSolid(0, 0, 0);
             store.unloadChunk(0, 0);
             out.afterUnload = store.isSolid(0, 0, 0);
-            """
-        )
+            """)
         self.assertTrue(out["beforeUnload"])
         self.assertFalse(out["afterUnload"])
 
     def test_bounded_cache_evicts_oldest_chunk(self):
-        out = _run(
-            """
+        out = _run("""
             var store = occ.createOccupancyStore(2);
             var buffer = new ArrayBuffer(512);
             store.setChunk(0, 0, [{cy: 0, byte_offset: 0, byte_length: 512}], buffer);
@@ -135,8 +128,7 @@ class OccupancyStoreTests(unittest.TestCase):
             out.sizeAfterTwo = store.size();
             store.setChunk(2, 0, [{cy: 0, byte_offset: 0, byte_length: 512}], buffer);
             out.sizeAfterThree = store.size();
-            """
-        )
+            """)
         self.assertEqual(out["sizeAfterTwo"], 2)
         self.assertEqual(out["sizeAfterThree"], 2)  # bounded, not 3
 
@@ -146,8 +138,7 @@ class OccupancyStoreTests(unittest.TestCase):
         viewport-picking.js -- proving the two modules actually agree on
         block coordinates, not just that each is internally consistent."""
         packed_b64 = _pack_single_bit(lx=0, ly=0, lz=0)  # world (0,0,0) solid
-        out = _run(
-            f"""
+        out = _run(f"""
             var store = occ.createOccupancyStore();
             var bytes = Buffer.from({json.dumps(packed_b64)}, "base64");
             var buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
@@ -155,8 +146,7 @@ class OccupancyStoreTests(unittest.TestCase):
             // Straight down from (0.5, 5, 0.5) should hit block (0,0,0).
             var hit = picking.voxelRaycast([0.5, 5, 0.5], [0, -1, 0], store.isSolid, 64);
             out.hit = hit ? hit.block : null;
-            """
-        )
+            """)
         self.assertEqual(out["hit"], [0, 0, 0])
 
     def test_bit_order_guard_is_actually_load_bearing(self):
@@ -165,8 +155,7 @@ class OccupancyStoreTests(unittest.TestCase):
         would have caught a real regression, not just that the code and the
         test were written to agree with each other by construction."""
         packed_b64 = _pack_single_bit(lx=3, ly=7, lz=11)
-        out = _run(
-            f"""
+        out = _run(f"""
             var bytes = Buffer.from({json.dumps(packed_b64)}, "base64");
             var view = new Uint8Array(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
             function readCorrect(lx, ly, lz) {{
@@ -179,8 +168,7 @@ class OccupancyStoreTests(unittest.TestCase):
             }}
             out.correct = readCorrect(3, 7, 11);
             out.wrong = readWrongOrder(3, 7, 11);
-            """
-        )
+            """)
         self.assertEqual(out["correct"], 1)
         self.assertEqual(out["wrong"], 0)  # the broken order misses the bit entirely
 

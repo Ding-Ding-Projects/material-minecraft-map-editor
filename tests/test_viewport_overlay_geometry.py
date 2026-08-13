@@ -72,7 +72,13 @@ class ModuleLoadsAndExportsWhatIntegrationNeeds(unittest.TestCase):
         )
         self.assertEqual(
             out,
-            {"hasOverlay": True, "hasEdges": True, "hasFaces": True, "hasGrid": True, "hasMarker": True},
+            {
+                "hasOverlay": True,
+                "hasEdges": True,
+                "hasFaces": True,
+                "hasGrid": True,
+                "hasMarker": True,
+            },
         )
 
 
@@ -97,7 +103,9 @@ class BoxEdgeVertices(unittest.TestCase):
             "minZ: Math.min(...zs), maxZ: Math.max(...zs),"
             "};"
         )
-        self.assertEqual(out, {"minX": 1, "maxX": 5, "minY": 2, "maxY": 6, "minZ": 3, "maxZ": 7})
+        self.assertEqual(
+            out, {"minX": 1, "maxX": 5, "minY": 2, "maxY": 6, "minZ": 3, "maxZ": 7}
+        )
 
     def test_every_vertex_is_a_real_box_corner(self) -> None:
         out = run_node(
@@ -188,9 +196,7 @@ class MarkerCube(unittest.TestCase):
 
 class SortedBoundsAndPointInBox(unittest.TestCase):
     def test_bounds_sort_regardless_of_which_point_is_which(self) -> None:
-        out = run_node(
-            "return overlays._sortedBounds([5,1,9],[2,7,3]);"
-        )
+        out = run_node("return overlays._sortedBounds([5,1,9],[2,7,3]);")
         self.assertEqual(out, {"min": [2, 1, 3], "max": [5, 7, 9]})
 
     def test_point_in_box(self) -> None:

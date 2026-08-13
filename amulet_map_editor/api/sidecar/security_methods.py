@@ -114,7 +114,9 @@ def _appearance_export(params: Dict[str, Any]) -> Dict[str, Any]:
 def _appearance_import(params: Dict[str, Any]) -> Dict[str, Any]:
     payload = _require_str(params, "payload")
     try:
-        preset = PRESETS.import_preset(payload, replace=bool(params.get("replace", False)))
+        preset = PRESETS.import_preset(
+            payload, replace=bool(params.get("replace", False))
+        )
     except PRESETS.AppearancePresetValidationError as exc:
         raise ProtocolError(ERR_INVALID_PARAMS, str(exc))
     return {"preset": preset.to_dict()}
@@ -300,7 +302,9 @@ def _find_entry(entry_id: str) -> "AUTH.Entry":
     for entry in AUTH.list_entries():
         if entry.id == entry_id:
             return entry
-    raise ProtocolError(ERR_INVALID_PARAMS, f"No authenticator entry with id {entry_id!r}.")
+    raise ProtocolError(
+        ERR_INVALID_PARAMS, f"No authenticator entry with id {entry_id!r}."
+    )
 
 
 def _auth_current_code(params: Dict[str, Any]) -> Dict[str, Any]:

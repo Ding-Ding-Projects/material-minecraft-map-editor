@@ -72,7 +72,12 @@
 # Test-only dependency for the site runtime render contract. The published
 # site bundles nothing; this is never shipped.
 node_modules/
-package-lock.json
+# Anchored to docs/site on purpose. Unanchored, this matched the ROOT
+# package-lock.json too -- the Electron app's own lockfile -- so it was never
+# committed, and CI's setup-node cache and `npm ci` both failed on a repository
+# that looked complete. Same shape as the unanchored 'build/' further up: a
+# pattern written for one directory quietly matching another.
+docs/site/package-lock.json
 
 # ──── Desktop Material: Python ────  (dm-template:python)
 # Byte-compiled / optimized / DLL files

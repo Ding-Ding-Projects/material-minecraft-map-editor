@@ -261,9 +261,13 @@ def _clipboard_status(params: Dict[str, Any]) -> Dict[str, Any]:
 
 def _require_writable_destination(path: object, overwrite: bool) -> str:
     if not isinstance(path, str) or not path.strip():
-        raise ProtocolError(ERR_INVALID_PARAMS, "'destination_path' must be a non-empty string")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'destination_path' must be a non-empty string"
+        )
     if "\x00" in path:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'destination_path' must not contain a NUL byte")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'destination_path' must not contain a NUL byte"
+        )
     if os.path.exists(path) and not overwrite:
         raise ProtocolError(
             ERR_DESTINATION_EXISTS,
@@ -345,9 +349,13 @@ def _structure_import(params: Dict[str, Any]) -> Dict[str, Any]:
 
     source = params.get("source_path")
     if not isinstance(source, str) or not source.strip():
-        raise ProtocolError(ERR_INVALID_PARAMS, "'source_path' must be a non-empty string")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'source_path' must be a non-empty string"
+        )
     if "\x00" in source:
-        raise ProtocolError(ERR_INVALID_PARAMS, "'source_path' must not contain a NUL byte")
+        raise ProtocolError(
+            ERR_INVALID_PARAMS, "'source_path' must not contain a NUL byte"
+        )
     if not os.path.exists(source):
         raise ProtocolError(ERR_INVALID_PARAMS, f"No such path: {source!r}")
 
@@ -361,7 +369,9 @@ def _structure_import(params: Dict[str, Any]) -> Dict[str, Any]:
             ERR_STRUCTURE_LOAD_FAILED, f"No loader matched {source!r}: {exc}"
         )
     except Exception as exc:  # noqa: BLE001 - reported, never left to crash the sidecar
-        raise ProtocolError(ERR_STRUCTURE_LOAD_FAILED, f"Could not load {source!r}: {exc}")
+        raise ProtocolError(
+            ERR_STRUCTURE_LOAD_FAILED, f"Could not load {source!r}: {exc}"
+        )
 
     try:
         src_dimension = src_level.dimensions[0]
@@ -395,7 +405,9 @@ def _structure_import(params: Dict[str, Any]) -> Dict[str, Any]:
 # ------------------------------------------------------------------ chunks
 
 
-def _require_chunk_area(params: Dict[str, Any], handle) -> Tuple[str, List[Tuple[int, int]], Any]:
+def _require_chunk_area(
+    params: Dict[str, Any], handle
+) -> Tuple[str, List[Tuple[int, int]], Any]:
     """A block-coordinate min/max, projected down to the chunk coordinates it
     covers -- and bounded by :data:`MAX_CHUNK_OPERATION_COUNT`, refused
     (never silently clamped) when it is not.

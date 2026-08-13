@@ -152,11 +152,15 @@ class ThePageExecutesCleanly(unittest.TestCase):
         )
         self.assertGreater(got["children"], 0, "the backstage mounted nothing")
         self.assertEqual(got["nav"], 5, "expected the five backstage nav destinations")
-        self.assertEqual(got["templates"], 5, "expected the five template gallery cards")
+        self.assertEqual(
+            got["templates"], 5, "expected the five template gallery cards"
+        )
 
 
 class NoSidecarIsAnHonestDesktopOnlyState(unittest.TestCase):
-    def test_the_recent_table_says_desktop_only_rather_than_rendering_nothing(self) -> None:
+    def test_the_recent_table_says_desktop_only_rather_than_rendering_nothing(
+        self,
+    ) -> None:
         got = render(
             "return {status: (q('.sb-status')||{}).textContent || '',"
             "        rows: all('.sb-table-row').length};"
@@ -281,7 +285,9 @@ class OpeningAWorldUsesTheRealSidecarContract(unittest.TestCase):
             "};",
             sidecar_js=self.FAKE_OPEN_SIDECAR,
         )
-        self.assertFalse(got["infoHidden"], "opening a world did not route to Project info")
+        self.assertFalse(
+            got["infoHidden"], "opening a world did not route to Project info"
+        )
         self.assertIn("Debug 1.14", got["rows"])
         self.assertIn("Java 1.14.4", got["rows"])
 

@@ -91,41 +91,68 @@ def sidecar():
         proc.close()
 
 
-def test_notification_add_list_and_bulk_dismiss_round_trip(sidecar: SurfaceSidecarProcess) -> None:
+def test_notification_add_list_and_bulk_dismiss_round_trip(
+    sidecar: SurfaceSidecarProcess,
+) -> None:
     added = sidecar.call(
         "notifications.add",
-        {"severity": "success", "title": "World saved", "body": "The world was written to disk."},
+        {
+            "severity": "success",
+            "title": "World saved",
+            "body": "The world was written to disk.",
+        },
     )
     assert "error" not in added, added
     notification_id = added["result"]["notification_id"]
 
     listed = sidecar.call("notifications.list", {})
-    assert notification_id in [n["notification_id"] for n in listed["result"]["notifications"]]
+    assert notification_id in [
+        n["notification_id"] for n in listed["result"]["notifications"]
+    ]
 
-    dismissed = sidecar.call("notifications.bulkDismiss", {"notification_ids": [notification_id]})
+    dismissed = sidecar.call(
+        "notifications.bulkDismiss", {"notification_ids": [notification_id]}
+    )
     assert dismissed["result"]["dismissed"] == 1
 
     active = sidecar.call("notifications.list", {"include_dismissed": False})
-    assert notification_id not in [n["notification_id"] for n in active["result"]["notifications"]]
+    assert notification_id not in [
+        n["notification_id"] for n in active["result"]["notifications"]
+    ]
 
 
-def test_notification_export_honours_active_filter(sidecar: SurfaceSidecarProcess) -> None:
-    a = sidecar.call("notifications.add", {"severity": "info", "title": "A", "body": "first"})
-    sidecar.call("notifications.add", {"severity": "info", "title": "B", "body": "second"})
+def test_notification_export_honours_active_filter(
+    sidecar: SurfaceSidecarProcess,
+) -> None:
+    a = sidecar.call(
+        "notifications.add", {"severity": "info", "title": "A", "body": "first"}
+    )
+    sidecar.call(
+        "notifications.add", {"severity": "info", "title": "B", "body": "second"}
+    )
     exported = sidecar.call(
         "notifications.export",
         {"format": "json", "notification_ids": [a["result"]["notification_id"]]},
     )
     assert exported["result"]["count"] == 1
-    assert '"A"' not in exported["result"]["content"] or "A" in exported["result"]["content"]
+    assert (
+        '"A"' not in exported["result"]["content"]
+        or "A" in exported["result"]["content"]
+    )
 
 
-def test_notification_add_rejects_unknown_severity(sidecar: SurfaceSidecarProcess) -> None:
-    response = sidecar.call("notifications.add", {"severity": "chaotic", "title": "x", "body": "y"})
+def test_notification_add_rejects_unknown_severity(
+    sidecar: SurfaceSidecarProcess,
+) -> None:
+    response = sidecar.call(
+        "notifications.add", {"severity": "chaotic", "title": "x", "body": "y"}
+    )
     assert response["error"]["code"] == "invalid_params"
 
 
-def test_history_records_and_restores_a_real_event(sidecar: SurfaceSidecarProcess) -> None:
+def test_history_records_and_restores_a_real_event(
+    sidecar: SurfaceSidecarProcess,
+) -> None:
     root = sidecar.call("history.root", {})
     assert Path(root["result"]["root"]).is_absolute()
 
@@ -136,7 +163,9 @@ def test_history_records_and_restores_a_real_event(sidecar: SurfaceSidecarProces
     assert "Local history" in exported["result"]["content"]
 
 
-def test_editor_discover_and_selected_are_reachable(sidecar: SurfaceSidecarProcess) -> None:
+def test_editor_discover_and_selected_are_reachable(
+    sidecar: SurfaceSidecarProcess,
+) -> None:
     discovered = sidecar.call("editor.discover", {})
     assert isinstance(discovered["result"]["candidates"], list)
 
@@ -145,6 +174,8 @@ def test_editor_discover_and_selected_are_reachable(sidecar: SurfaceSidecarProce
 
 
 def test_editor_open_refuses_a_missing_path(sidecar: SurfaceSidecarProcess) -> None:
-    response = sidecar.call("editor.open", {"path": str(REPO_ROOT / "does-not-exist-at-all")})
+    response = sidecar.call(
+        "editor.open", {"path": str(REPO_ROOT / "does-not-exist-at-all")}
+    )
     assert response["result"]["ok"] is False
     assert response["result"]["status"] == "invalid_target"

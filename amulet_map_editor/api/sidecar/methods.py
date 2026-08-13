@@ -146,7 +146,9 @@ def _converter_convert(params: Dict[str, Any]) -> Dict[str, Any]:
         ("destination_path", destination),
     ):
         if not isinstance(value, str) or not value.strip():
-            raise ProtocolError(ERR_INVALID_PARAMS, f"'{name}' must be a non-empty string")
+            raise ProtocolError(
+                ERR_INVALID_PARAMS, f"'{name}' must be a non-empty string"
+            )
     if "\x00" in source or "\x00" in destination:
         raise ProtocolError(ERR_INVALID_PARAMS, "a path may not contain a NUL byte")
     if not os.path.isfile(source):
@@ -224,13 +226,19 @@ def _changelog_entries(params: Dict[str, Any]) -> Dict[str, Any]:
         if value is None:
             return None
         if not isinstance(value, str):
-            raise ProtocolError(ERR_INVALID_PARAMS, f"'{field}' must be an ISO date string")
+            raise ProtocolError(
+                ERR_INVALID_PARAMS, f"'{field}' must be an ISO date string"
+            )
         try:
             return _date.fromisoformat(value)
         except ValueError:
-            raise ProtocolError(ERR_INVALID_PARAMS, f"'{field}' must use the YYYY-MM-DD form")
+            raise ProtocolError(
+                ERR_INVALID_PARAMS, f"'{field}' must use the YYYY-MM-DD form"
+            )
 
-    if not isinstance(actions, list) or not all(isinstance(item, str) for item in actions):
+    if not isinstance(actions, list) or not all(
+        isinstance(item, str) for item in actions
+    ):
         raise ProtocolError(ERR_INVALID_PARAMS, "'actions' must be a list of strings")
     if not isinstance(text, str):
         raise ProtocolError(ERR_INVALID_PARAMS, "'text' must be a string")
@@ -330,7 +338,9 @@ def _school_status_dict(state: "SCHOOL_MODE.SchoolModeState") -> Dict[str, Any]:
     return {
         "mode_name": state.mode_name,
         "enabled": state.enabled,
-        "has_unlock_credential": bool(state.credential_salt and state.credential_digest),
+        "has_unlock_credential": bool(
+            state.credential_salt and state.credential_digest
+        ),
     }
 
 

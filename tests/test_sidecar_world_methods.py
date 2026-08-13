@@ -57,10 +57,14 @@ def real_world_path(tmp_path_factory) -> str:
     return str(world_path)
 
 
-def _poll_open_status(sidecar: SidecarProcess, world_id: str, timeout: float = 15.0) -> Dict[str, Any]:
+def _poll_open_status(
+    sidecar: SidecarProcess, world_id: str, timeout: float = 15.0
+) -> Dict[str, Any]:
     deadline = time.time() + timeout
     while True:
-        response = sidecar.call("world.open_status", {"world_id": world_id}, request_id="poll")
+        response = sidecar.call(
+            "world.open_status", {"world_id": world_id}, request_id="poll"
+        )
         result = response.get("result")
         assert result is not None, response
         if result["status"] != "pending":
@@ -136,10 +140,14 @@ def test_world_open_does_not_block_other_requests(
     # Generous bound: this only has to prove the ping was not made to wait
     # for the *whole* world load (which involves NBT parsing and would take
     # much longer under load), not that background GIL contention is zero.
-    assert elapsed < 8.0, f"world.open + ping took {elapsed:.2f}s -- the open blocked the pipe"
+    assert (
+        elapsed < 8.0
+    ), f"world.open + ping took {elapsed:.2f}s -- the open blocked the pipe"
 
     _poll_open_status(sidecar, opened["result"]["world_id"])
-    sidecar.call("world.close", {"world_id": opened["result"]["world_id"]}, request_id=3)
+    sidecar.call(
+        "world.close", {"world_id": opened["result"]["world_id"]}, request_id=3
+    )
 
 
 @pytest.mark.parametrize(
@@ -154,14 +162,18 @@ def test_world_open_does_not_block_other_requests(
 def test_world_open_rejects_bad_paths_as_structured_errors(
     sidecar: SidecarProcess, bad_path, expected_code: str
 ) -> None:
-    response = sidecar.call("world.open", {"path": bad_path} if bad_path is not None else {})
+    response = sidecar.call(
+        "world.open", {"path": bad_path} if bad_path is not None else {}
+    )
     assert response["error"]["code"] == expected_code, response
     # The sidecar must recover and keep serving subsequent requests.
     follow_up = sidecar.call("protocol.ping", request_id=2)
     assert follow_up["result"] == {"ok": True}
 
 
-def test_world_open_rejects_a_special_file(sidecar: SidecarProcess, tmp_path: Path) -> None:
+def test_world_open_rejects_a_special_file(
+    sidecar: SidecarProcess, tmp_path: Path
+) -> None:
     if os.name != "nt":
         # Named pipes/FIFOs are the interesting case on POSIX; exercised
         # only where the platform can cheaply create one.
@@ -192,12 +204,16 @@ def test_world_open_on_a_non_world_directory_is_a_structured_load_failure(
     assert status["error"]["code"] == "world_load_failed"
 
 
-def test_world_close_of_unknown_handle_is_a_structured_error(sidecar: SidecarProcess) -> None:
+def test_world_close_of_unknown_handle_is_a_structured_error(
+    sidecar: SidecarProcess,
+) -> None:
     response = sidecar.call("world.close", {"world_id": "does-not-exist"})
     assert response["error"]["code"] == "world_not_found"
 
 
-def test_world_dimensions_of_unknown_handle_is_a_structured_error(sidecar: SidecarProcess) -> None:
+def test_world_dimensions_of_unknown_handle_is_a_structured_error(
+    sidecar: SidecarProcess,
+) -> None:
     response = sidecar.call("world.dimensions", {"world_id": "does-not-exist"})
     assert response["error"]["code"] == "world_not_found"
 

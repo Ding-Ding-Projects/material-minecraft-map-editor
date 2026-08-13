@@ -116,7 +116,9 @@ class TheTitleBarExists(unittest.TestCase):
         self.assertTrue(got["minimize"], "minimize control missing")
         self.assertTrue(got["maximize"], "maximize/restore control missing")
         self.assertTrue(got["close"], "close control missing")
-        self.assertTrue(got["paletteTrigger"], "the palette trigger is missing from the title bar")
+        self.assertTrue(
+            got["paletteTrigger"], "the palette trigger is missing from the title bar"
+        )
 
     def test_window_controls_degrade_honestly_without_the_desktop_bridge(self) -> None:
         # No window.mmweDesktop exists in this jsdom render (the same as a
@@ -126,7 +128,9 @@ class TheTitleBarExists(unittest.TestCase):
             "const btn = q('#studio-window-close');"
             "return { disabled: btn.disabled, title: btn.getAttribute('title') || '' };"
         )
-        self.assertTrue(got["disabled"], "window controls must disable without the desktop bridge")
+        self.assertTrue(
+            got["disabled"], "window controls must disable without the desktop bridge"
+        )
         self.assertIn("desktop app", got["title"].lower())
 
 

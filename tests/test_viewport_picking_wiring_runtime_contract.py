@@ -69,7 +69,9 @@ window.AmuletViewportWebGL = {
 def render(setup_js: str, question: str) -> dict:
     node = shutil.which("node")
     if node is None:
-        raise AssertionError("node is required to execute the wiring and was not found on PATH.")
+        raise AssertionError(
+            "node is required to execute the wiring and was not found on PATH."
+        )
     script = f"""
 const {{ JSDOM }} = require({json.dumps(str((SITE / 'node_modules' / 'jsdom').as_posix()))});
 const fs = require("fs");
@@ -146,7 +148,9 @@ const q = sel => window.document.querySelector(sel);
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "render.cjs"
         path.write_text(script, encoding="utf-8")
-        result = subprocess.run([node, str(path)], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            [node, str(path)], capture_output=True, text=True, timeout=120
+        )
     if result.returncode != 0:
         raise AssertionError(f"rendering failed:\n{result.stdout}\n{result.stderr}")
     return json.loads(result.stdout.strip().splitlines()[-1])
@@ -165,7 +169,9 @@ def _points_expr():
 class LoadsCleanly(unittest.TestCase):
     def test_loads_without_throwing(self) -> None:
         got = render(FAKE_VIEWPORT_WEBGL, "return {};")
-        self.assertEqual(got["loadErrors"], [], "picking/handles/panel threw while loading")
+        self.assertEqual(
+            got["loadErrors"], [], "picking/handles/panel threw while loading"
+        )
 
 
 class ShouldRotateHook(unittest.TestCase):
@@ -223,10 +229,14 @@ class ClickToPick(unittest.TestCase):
         # Both points land on the y=0 ground plane the fixture's solidTest
         # accepts.
         self.assertEqual(first[1], 0)
-        self.assertEqual(first, first[:3] * 2, "the first click sets both points to the same block")
+        self.assertEqual(
+            first, first[:3] * 2, "the first click sets both points to the same block"
+        )
         self.assertEqual(second[1], 0)
         self.assertNotEqual(
-            second[:3], second[3:], "the second click must move point 2 away from point 1"
+            second[:3],
+            second[3:],
+            "the second click must move point 2 away from point 1",
         )
 
 

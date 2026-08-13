@@ -86,9 +86,7 @@ def _drag_to(gate: widgets.KeyGate, value: int, *, release: bool = False) -> Non
     event.SetEventObject(gate.slider)
     gate.slider.GetEventHandler().ProcessEvent(event)
     if release:
-        scroll = wx.ScrollEvent(
-            wx.EVT_SCROLL_THUMBRELEASE.typeId, gate.slider.GetId()
-        )
+        scroll = wx.ScrollEvent(wx.EVT_SCROLL_THUMBRELEASE.typeId, gate.slider.GetId())
         scroll.SetEventObject(gate.slider)
         gate.slider.GetEventHandler().ProcessEvent(scroll)
 
@@ -356,9 +354,9 @@ def test_gate_copy_honours_every_language_mode(frame, mode):
     status = gate.status.GetLabel()
     assert status, f"the status line is empty in {mode} mode"
     if mode in ("cantonese", "bilingual"):
-        assert any("一" <= ch <= "鿿" for ch in status), (
-            f"{mode} mode did not render any Chinese characters: {status!r}"
-        )
+        assert any(
+            "一" <= ch <= "鿿" for ch in status
+        ), f"{mode} mode did not render any Chinese characters: {status!r}"
     if mode == "english":
         assert not any("一" <= ch <= "鿿" for ch in status)
 
@@ -431,7 +429,9 @@ def test_authorized_action_success_path_reports_authorised_status(frame):
 # ---------------------------------------------------------------------------
 
 
-def test_the_gate_photographs_mid_flourish_and_is_not_blank(frame, tmp_path, monkeypatch):
+def test_the_gate_photographs_mid_flourish_and_is_not_blank(
+    frame, tmp_path, monkeypatch
+):
     capture = pytest.importorskip(
         "scripts.capture_surface", reason="the capture harness is unavailable"
     )
@@ -448,9 +448,9 @@ def test_the_gate_photographs_mid_flourish_and_is_not_blank(frame, tmp_path, mon
     outcome = capture.capture_composite(gate, destination)
     assert destination.exists() and destination.stat().st_size > 0
     assert not outcome.get("skipped"), f"holes in the capture: {outcome['skipped']}"
-    assert outcome["uniform_fraction"] < 0.98, (
-        f"the gate photographed as one flat colour: {outcome}"
-    )
+    assert (
+        outcome["uniform_fraction"] < 0.98
+    ), f"the gate photographed as one flat colour: {outcome}"
     assert outcome["colours"] >= capture.MIN_DISTINCT_COLOURS
 
     from PIL import Image

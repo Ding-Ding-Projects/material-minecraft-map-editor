@@ -53,9 +53,7 @@ def _build_world(root: str, radius: int):
     for x in range(-span, span, 2):
         for z in range(-span, span, 2):
             for y in range(60, 70):
-                world.set_version_block(
-                    x, y, z, dimension, ("java", (1, 20, 4)), block
-                )
+                world.set_version_block(x, y, z, dimension, ("java", (1, 20, 4)), block)
     world.save()
     world.close()
     return world_path
@@ -69,7 +67,9 @@ def _timed(label: str, fn, repeats: int = 3):
         result = fn()
         samples.append(time.perf_counter() - start)
     mean = statistics.mean(samples)
-    print(f"{label}: mean={mean * 1000:.2f}ms samples={[f'{s * 1000:.2f}ms' for s in samples]}")
+    print(
+        f"{label}: mean={mean * 1000:.2f}ms samples={[f'{s * 1000:.2f}ms' for s in samples]}"
+    )
     return result, mean
 
 
@@ -89,7 +89,9 @@ def main() -> None:
     radius = int(os.environ.get("BENCH_RADIUS", "2"))
     tmp_root = tempfile.mkdtemp(prefix="amulet-mesh-bench-")
     try:
-        print(f"Building a {radius * 2 + 1}x{radius * 2 + 1}-chunk checkerboard world...")
+        print(
+            f"Building a {radius * 2 + 1}x{radius * 2 + 1}-chunk checkerboard world..."
+        )
         world_path = _build_world(tmp_root, radius)
 
         world = World(world_path, AnvilFormat(world_path))
@@ -146,21 +148,33 @@ def main() -> None:
         def mesh_all():
             return [mesh_one(cx, cz) for cx, cz in chunk_coords]
 
-        all_verts, mesh_all_mean = _timed("mesh all chunks in radius", mesh_all, repeats=1)
+        all_verts, mesh_all_mean = _timed(
+            "mesh all chunks in radius", mesh_all, repeats=1
+        )
         total_bytes = sum(v.nbytes for v in all_verts)
         total_vertices = sum(int(v.size // vert_len) for v in all_verts)
         print(f"  -> {total_vertices} total vertices, {total_bytes} total bytes")
-        print(f"  -> extrapolated per-chunk cost: {mesh_all_mean / len(chunk_coords) * 1000:.2f}ms/chunk")
+        print(
+            f"  -> extrapolated per-chunk cost: {mesh_all_mean / len(chunk_coords) * 1000:.2f}ms/chunk"
+        )
 
         def write_and_read_batched():
-            combined = numpy.concatenate(all_verts) if all_verts else numpy.zeros(0, dtype=numpy.float32)
+            combined = (
+                numpy.concatenate(all_verts)
+                if all_verts
+                else numpy.zeros(0, dtype=numpy.float32)
+            )
             path = os.path.join(tmp_root, "batch.bin")
             combined.tofile(path)
             with open(path, "rb") as fh:
                 fh.read()
             os.remove(path)
 
-        _timed("write+read ALL chunks (one batched file)", write_and_read_batched, repeats=3)
+        _timed(
+            "write+read ALL chunks (one batched file)",
+            write_and_read_batched,
+            repeats=3,
+        )
 
         def write_and_read_per_file_all():
             paths = []
@@ -173,7 +187,11 @@ def main() -> None:
                     fh.read()
                 os.remove(path)
 
-        _timed("write+read ALL chunks (one file per chunk, today)", write_and_read_per_file_all, repeats=3)
+        _timed(
+            "write+read ALL chunks (one file per chunk, today)",
+            write_and_read_per_file_all,
+            repeats=3,
+        )
 
         world.close()
     finally:

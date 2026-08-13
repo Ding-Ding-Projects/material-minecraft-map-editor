@@ -32,7 +32,9 @@ def sidecar():
         proc.close()
 
 
-def test_school_status_starts_disabled_with_no_credential(sidecar: SidecarProcess) -> None:
+def test_school_status_starts_disabled_with_no_credential(
+    sidecar: SidecarProcess,
+) -> None:
     response = sidecar.call("school.status")
     result = response["result"]
     assert result["enabled"] is False
@@ -68,9 +70,7 @@ def test_school_full_lifecycle_set_credential_enable_wrong_unlock_then_right_unl
     assert wrong["result"]["unlocked"] is False
     assert wrong["result"]["enabled"] is True
 
-    right = sidecar.call(
-        "school.unlock", {"credential": "correct-horse"}, request_id=6
-    )
+    right = sidecar.call("school.unlock", {"credential": "correct-horse"}, request_id=6)
     assert right["result"]["unlocked"] is True
     assert right["result"]["enabled"] is False
 
