@@ -99,11 +99,41 @@ def run_adapter(
     try:
         if parent_conn.poll(limits.timeout_seconds):
             status, payload, message = parent_conn.recv()
-        else:
+        elif process.is_alive():
             status, payload, message = (
                 "timeout",
                 b"",
                 (f"Conversion did not finish within {limits.timeout_seconds:.0f}s"),
+            )
+        else:
+            # Silence is not the same as slowness, and telling them apart is
+            # the whole point of reporting a status at all.
+            #
+            # A child that dies before it can send anything -- failing to
+            # unpickle its own arguments on a spawn platform, being killed by
+            # the operating system, exiting on an import error -- also stops
+            # answering, and the poll above cannot tell that from work still in
+            # progress. The old branch called every such silence a timeout, so
+            # a crashing adapter was reported as a slow one: the user is told
+            # to try a smaller file or wait longer, for a conversion that never
+            # ran and never will.
+            #
+            # This surfaced as a test that passed alone and failed inside a
+            # full suite run, where the machine was loaded enough for the
+            # child's own startup to lose the race -- so the misreport only
+            # appeared under exactly the conditions a real user's machine
+            # produces.
+            status, payload, message = (
+                "crashed",
+                b"",
+                (
+                    "Sandbox process exited before returning a result"
+                    + (
+                        f" (exit code {process.exitcode})"
+                        if process.exitcode is not None
+                        else ""
+                    )
+                ),
             )
     except EOFError:
         status, payload, message = "crashed", b"", "Sandbox process ended unexpectedly"
