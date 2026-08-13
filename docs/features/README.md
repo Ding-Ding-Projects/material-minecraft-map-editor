@@ -107,3 +107,20 @@ If you are new to the interface, start with
   the ribbon, breadcrumb, navigator, properties pane and status bar around
   the working 3D viewport, with every ribbon command either wired to the
   real sidecar write path or disabled with an explicit reason
+- [Electron world access](electron-world-access/README.md) — the read-only
+  open/inspect/close path the write path builds on
+- [Electron world editing](electron-editing/README.md) — the write half:
+  fill, replace, undo, redo, save, and every other sidecar write method
+- [Viewport overlays (Electron)](electron-viewport-overlays/README.md) — the
+  selection box, its draggable handles, and the reference grid in the WebGL2
+  viewport
+- [Electron acceptance run](electron-acceptance/README.md) — the
+  eleven-capability check that drives the **packaged** executable, not the
+  development tree
+- [Completeness inventory](completeness-inventory/README.md) — the
+  per-feature register that fails closed when a feature's evidence goes
+  missing
+- [The documentation site](pages-site/README.md) — the Material 3 site
+  under `docs/site/`, published through GitHub Pages
+- [Local personal-vocabulary upload](personal-vocabulary/README.md) — the
+  bounded, local-only JSON replacement contract

@@ -37,13 +37,55 @@ and Bedrock Edition 1.7 and newer.
 > Back up every world before editing it. Close the world in Minecraft and any
 > other editor first. Conversion can overwrite chunks in the destination world.
 
+## Two applications
+
+This repository builds and ships **two working applications** against the
+same Python core, and it is important to be clear about which one is which:
+
+- **The Electron desktop application** (`electron/`, `docs/site/`) is what
+  **CI now publishes as the GitHub release** (`build-electron-windows.yml`).
+  It hosts a Material 3 renderer — the Amulet Studio design — in a frameless
+  window, driving the real Python core through a sidecar process: a
+  versioned, newline-delimited JSON protocol over stdio with roughly ninety
+  registered methods. The write path (fill, replace, undo, redo, save,
+  copy/cut/paste, structure import/export, chunk create/delete/prune, terrain
+  operations, entity placement, `level.dat`/game-rule edits) is real and
+  gated behind a destructive-action confirm. The 3D viewport is WebGL2,
+  meshed by the unmodified Python mesher, with camera input, chunk streaming,
+  a selection box with draggable handles, and click-to-pick ray casting.
+  Roughly a third of its ~150 ribbon commands call a real method; the rest
+  are permanently disabled with a stated reason — see
+  [the Electron migration article](docs/features/electron-migration/README.md)
+  for exactly which is which and why.
+- **The wxPython desktop application** (`amulet_map_editor/api/wx/`,
+  `amulet_map_editor/api/studio/`) is the original, long-running
+  implementation of most of the same feature set — including the 3D viewport,
+  which stays on PyOpenGL and is out of scope for this migration while its
+  own open performance defect is unresolved. `build-windows.yml` still
+  builds and reports its own test results on every push, but it no longer
+  creates or uploads a release.
+
+Both applications are described in this README and in `docs/features/`; a
+section or article that does not say which one it is about is describing the
+wxPython app, since that codebase and its documentation predate the Electron
+work by a large margin. Sections and articles under an `electron-*` name are
+always about the Electron application specifically.
+
 ## One-click Windows builds
 
 From a fresh Windows checkout, `build.bat /s` checks for the Python launcher and, when it is absent, installs user-scoped Python 3.11 through canonical `winget` when available or the official python.org installer when `winget` is missing. It then bootstraps the declared dependencies and installs the editable package without prompts. `build-installer.bat /s` runs that bootstrap, builds `installer/Amulet.spec`, and invokes the same unsigned Squirrel.Windows packaging path used by CI. Omit `/s` for phase output and the final launch choice. Neither script signs, publishes, tags, or creates a release; both report an exact failure if the canonical bootstrap route itself is unavailable.
 
 The one-click paths were exercised locally on Windows from this checkout: `build.bat /s` exited 0 after resolving the declared runtime dependencies, and `build-installer.bat /s` produced `Setup.exe`, `RELEASES`, and `Amulet-0.10.0-dev-local-full.nupkg` under `installer/dist/squirrel/Amulet-0.10.0-dev-local-Windows-x64`. The installer output is unsigned by design; the script prints SHA-256 digests for all three artifacts. This is local packaging evidence, not a replacement for the immutable CI release record.
 
-## Amulet Studio
+## Amulet Studio (the wxPython interface)
+
+This section describes the **wxPython application's** interface, built under
+`amulet_map_editor/api/studio/`. The Electron application also implements an
+Amulet Studio design (`docs/site/studio.html`, `docs/site/studio-*.js`) — a
+separate, independently maintained JavaScript implementation of a similar
+shell against the same sidecar. See
+[the Electron migration article](docs/features/electron-migration/README.md)
+for that one.
 
 The interface is a **project workspace** built from exactly two views, which are
 swapped rather than stacked.
@@ -176,16 +218,27 @@ Relevant source and contracts:
 
 ## Start here
 
-- **Install:** use the verified [unsigned Windows 0.10.0-dev.414 `Setup.exe`](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Setup.exe), [RELEASES feed](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/RELEASES), or [full Squirrel package](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases/download/0.10.0-dev.414/Amulet-0.10.0-dev414-full.nupkg). These immutable assets target `f95695f7cbadecd3272370a1fa694e9b601ab124`.
-- **Learn the interface:** start with [project shell](docs/features/project-shell/README.md), then [backstage](docs/features/backstage/README.md) and [ribbon](docs/features/ribbon/README.md).
+- **Install:** download the current published Windows installer from
+  [all releases](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/releases)
+  — check the release notes for its exact commit and asset list before
+  installing. Every release since `build-electron-windows.yml` took over
+  publishing is the **Electron** app's unsigned Squirrel.Windows `Setup.exe`,
+  `RELEASES`, and full `.nupkg`; older releases tagged before that change are
+  the wxPython/PyInstaller build.
+- **Learn the wxPython interface:** start with [project shell](docs/features/project-shell/README.md), then [backstage](docs/features/backstage/README.md) and [ribbon](docs/features/ribbon/README.md).
+- **Learn the Electron interface:** start with
+  [the Electron migration status](docs/features/electron-migration/README.md),
+  then [world access](docs/features/electron-world-access/README.md),
+  [world editing](docs/features/electron-editing/README.md), and
+  [viewport overlays](docs/features/electron-viewport-overlays/README.md).
 - **Learn the workflows:** follow the [open-world guide](amulet_map_editor/readme.md), [3D editor guide](amulet_map_editor/programs/edit/readme.md), and [conversion guide](amulet_map_editor/programs/convert/readme.md).
 - **Explore the site:** open the dependency-free [Material 3 site source](docs/site/index.html), or visit the [official Amulet website](https://www.amuletmc.com/).
 - **Track the modernization:** see the factual [roadmap](ROADMAP.md) and [handoff](HANDOFF.md).
 - **Track the Electron migration:** see
   [docs/features/electron-migration/README.md](docs/features/electron-migration/README.md)
-  for the honest status — the wxPython app is still the shipping product; an
-  Electron shell renders the real interface and a Python sidecar answers
-  real calls, but the two are not yet wired together.
+  for the honest status — which ribbon commands are wired to a real sidecar
+  method today, which are permanently disabled with a stated reason, and
+  what the wxPython app still does that the Electron one does not yet.
 - **Contribute:** read [Development and contribution](#development-and-contribution), then use [Issues](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues) or [Discussions](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions).
 
 ## What Amulet can do
@@ -204,6 +257,19 @@ Relevant source and contracts:
 | World conversion | Merge source-world chunks into a chosen destination world through Amulet's format translation layer. Destination chunks at matching coordinates are overwritten. |
 | Editing history | Per-project Git-backed history with unlimited undo depth; restoring writes a new revision rather than rewinding. |
 | Delivery | Build PyInstaller bundles and produce unsigned Squirrel.Windows `Setup.exe`, `RELEASES`, and full `.nupkg` assets. |
+
+The table above describes the wxPython application, which implements the
+largest surface. **The Electron application**, which is what CI now
+publishes, covers a real but smaller slice today:
+
+| Area | What the Electron app does today |
+| --- | --- |
+| World access | Open a real world by path, read its identity and per-dimension bounds, browse the recent-projects store, and close it. |
+| Viewport | Render real chunks in WebGL2 from the unmodified Python mesher, with camera movement, frustum-culled batched streaming, a selection box with draggable handles, click-to-pick ray casting against a real occupancy bitset, and a reference grid. |
+| Editing | Fill, replace, undo, redo, save, copy, cut, paste, delete a selection, import/export a structure, create/delete/prune chunks, flatten/sea-level/repaint terrain, place/remove entities, and write `level.dat` fields and game rules — every one gated behind the destructive-action confirm gate. |
+| Analysis | Block histograms, chunk inventory, entity counts, and a block-namespace audit, all read-only. |
+| Settings and security | Preferences, language, appearance presets, per-surface toy locks, and the built-in authenticator, through the same OS credential vault the wx app uses. |
+| Not yet wired | Roughly two-thirds of the ribbon's commands — brushes, most structure-file operations, NBT search, redstone tracing, and most of the rest of the design's twelve editing surfaces — because this build has no terrain generator, shape library, portable biome table, or light-recalculation API to back them. Each renders permanently disabled with its exact reason rather than doing nothing silently. |
 
 ## Screenshots
 

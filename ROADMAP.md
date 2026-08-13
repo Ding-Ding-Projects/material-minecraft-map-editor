@@ -3,7 +3,36 @@
 Legend: ✅ landed and covered by tests · 🏃 in progress · ⏳ waiting on evidence
 this repository cannot produce by itself.
 
-## Amulet Studio interface
+## Electron application
+
+- ✅ CI publishes the Electron app. `build-electron-windows.yml` is the only
+  workflow that creates a GitHub release; `build-windows.yml` still builds
+  and tests the wxPython app on every push but no longer publishes.
+- ✅ Sidecar protocol: a versioned, newline-delimited JSON stdio server with
+  roughly ninety registered methods across nine grouped modules, none of
+  them stubs.
+- ✅ Backstage and the seventeen-tab ribbon workspace are both mounted into
+  the real running page, not merely built and unit-tested in isolation.
+- ✅ A real write path: fill, replace, undo, redo, save, copy/cut/paste,
+  structure import/export, chunk create/delete/prune, terrain operations,
+  entity placement, and `level.dat`/game-rule writes, every one gated
+  behind the destructive-action confirm gate.
+- ✅ A WebGL2 viewport fed by the unmodified Python mesher, with batched
+  streaming, frustum culling, a selection box with draggable handles,
+  click-to-pick ray casting against a real occupancy bitset, and a
+  reference grid.
+- ✅ `scripts/accept_electron_app.js`: an eleven-capability acceptance run
+  against the **packaged** executable, not the development tree.
+- 🏃 The remaining roughly two-thirds of the ribbon's ~150 commands, each
+  disabled with a stated reason (no terrain generator, no shape library, no
+  portable biome table, no light-recalculation API). Wiring each is
+  ordinary work once its backend exists.
+- ⏳ Level-of-detail and depth sorting in the viewport, once there is a
+  large real world to measure against.
+- ⏳ Hosted delta publication and a three-version installed-client update
+  proof, before delta delivery is advertised to Electron-app clients.
+
+## Amulet Studio interface (wxPython)
 
 - ✅ Two-view project shell: `StudioShell` hosts a backstage and a ribbon
   workspace, and `AmuletUI` builds it as the frame's content with the earlier
@@ -76,7 +105,8 @@ this repository cannot produce by itself.
 
 - ✅ One article per feature area under `docs/features/`, each covering
   behaviour, configuration, failure modes, security, and verification, and each
-  ending with related reading. Forty-eight articles are bundled.
+  ending with related reading. Sixty-eight articles are bundled, covering
+  both the wxPython and the Electron applications.
 - ✅ Offline documentation bundle generated from those articles, with a
   completeness check that fails the suite when an article is added without
   regenerating it.
