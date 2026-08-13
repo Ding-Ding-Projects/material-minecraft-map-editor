@@ -1,8 +1,20 @@
 from pathlib import Path
 import unittest
 
+# build-electron-windows.yml is the only workflow that still publishes a
+# GitHub release (see the comment at the top of that file): the publish-job
+# contracts below -- gating, timing, the release-tag identity, the line-scope
+# notes -- moved there with it. build-windows.yml keeps the deploy-job
+# contracts that are still true of it: the delta-base search, the pagination
+# sentinel, and the Squirrel feed shape.
 WORKFLOW = (
     Path(__file__).resolve().parents[1] / ".github" / "workflows" / "build-windows.yml"
+).read_text(encoding="utf-8")
+PUBLISHING_WORKFLOW = (
+    Path(__file__).resolve().parents[1]
+    / ".github"
+    / "workflows"
+    / "build-electron-windows.yml"
 ).read_text(encoding="utf-8")
 SELECTOR = (
     Path(__file__).resolve().parents[1]
@@ -13,27 +25,29 @@ SELECTOR = (
 
 class WindowsWorkflowContractTests(unittest.TestCase):
     def test_publish_requires_a_successful_deploy(self):
-        self.assertIn("needs.deploy.result == 'success'", WORKFLOW)
-        # The release-gating test step was removed from this workflow, so the
-        # publish job is gated on the build succeeding and nothing else. Tests
-        # still run on every push through the Unittests workflow; they no longer
-        # decide whether a build may ship.
-        self.assertNotIn("tests_passed", WORKFLOW)
-        self.assertNotIn("release-gating-tests", WORKFLOW)
+        self.assertIn("needs.deploy.result == 'success'", PUBLISHING_WORKFLOW)
+        # The release-gating test step was removed from the publishing
+        # workflow, so the publish job is gated on the build succeeding and
+        # nothing else. Tests still run on every push through the Unittests
+        # workflow; they no longer decide whether a build may ship.
+        self.assertNotIn("tests_passed", PUBLISHING_WORKFLOW)
+        self.assertNotIn("release-gating-tests", PUBLISHING_WORKFLOW)
 
     def test_duration_is_zero_padded_hh_mm_ss(self):
-        self.assertIn("scripts/release_timing.py --started", WORKFLOW)
-        self.assertIn('--completed "$completed"', WORKFLOW)
+        self.assertIn("scripts/release_timing.py --started", PUBLISHING_WORKFLOW)
+        self.assertIn('--completed "$completed"', PUBLISHING_WORKFLOW)
 
     def test_new_release_timing_is_sampled_after_actual_publication(self):
-        publish = WORKFLOW.index(
+        publish = PUBLISHING_WORKFLOW.index(
             'gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false'
         )
-        completion = WORKFLOW.index("--json publishedAt", publish)
-        duration = WORKFLOW.index("scripts/release_timing.py", completion)
+        completion = PUBLISHING_WORKFLOW.index("--json publishedAt", publish)
+        duration = PUBLISHING_WORKFLOW.index("scripts/release_timing.py", completion)
         self.assertLess(publish, completion)
         self.assertLess(completion, duration)
-        self.assertIn("Release remained a draft after publication", WORKFLOW)
+        self.assertIn(
+            "Release remained a draft after publication", PUBLISHING_WORKFLOW
+        )
 
     def test_only_release_builds_search_for_a_safe_delta_base(self):
         step = WORKFLOW[
@@ -114,45 +128,51 @@ class WindowsWorkflowContractTests(unittest.TestCase):
         self.assertIn("source_tag=$source", resolve)
 
     def test_release_notes_explain_line_scope_and_surviving_attribution(self):
-        self.assertIn("repository-grand-total", WORKFLOW)
-        self.assertIn("surviving git-blame lines", WORKFLOW)
-        self.assertIn("Binary assets are not line-counted", WORKFLOW)
-        publish = WORKFLOW[WORKFLOW.index("publish:") :]
+        self.assertIn("repository-grand-total", PUBLISHING_WORKFLOW)
+        self.assertIn("surviving git-blame lines", PUBLISHING_WORKFLOW)
+        self.assertIn("Binary assets are not line-counted", PUBLISHING_WORKFLOW)
+        publish = PUBLISHING_WORKFLOW[PUBLISHING_WORKFLOW.index("publish:") :]
         checkout = publish[
             publish.index("- name: Checkout release commit") : publish.index(
-                "- name: Download x64 Squirrel artifacts"
+                "- name: Download Squirrel artifacts"
             )
         ]
         self.assertIn("fetch-depth: 0", checkout)
 
     def test_release_tag_is_environment_backed_and_normalized(self):
+        # This workflow has no `release: types: [published]` trigger -- it
+        # creates the release itself rather than reacting to one that already
+        # exists -- so the only input feeding the tag is the manual dispatch.
         self.assertIn(
-            "RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || inputs.release_tag || '' }}",
-            WORKFLOW,
+            "RELEASE_TAG_INPUT: ${{ inputs.release_tag || '' }}",
+            PUBLISHING_WORKFLOW,
         )
-        self.assertIn('tag="$(python3 scripts/normalize_release_tag.py)"', WORKFLOW)
-        self.assertNotIn('tag="${{ github.event.release.tag_name', WORKFLOW)
+        self.assertIn(
+            'tag="$(python3 scripts/normalize_release_tag.py)"', PUBLISHING_WORKFLOW
+        )
+        self.assertNotIn('tag="${{ github.event.release.tag_name', PUBLISHING_WORKFLOW)
+        self.assertNotIn("release:", PUBLISHING_WORKFLOW.split("permissions:", 1)[0])
 
     def test_manual_and_release_publication_share_the_built_canonical_identity(self):
-        self.assertIn("release_tag:", WORKFLOW)
+        self.assertIn("release_tag:", PUBLISHING_WORKFLOW)
         self.assertIn(
             "Optional canonical major.minor.patch or major.minor.0-dev.run tag",
-            WORKFLOW,
+            PUBLISHING_WORKFLOW,
         )
         self.assertIn(
-            "RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag || '' }}",
-            WORKFLOW,
+            "RELEASE_TAG: ${{ inputs.release_tag || '' }}", PUBLISHING_WORKFLOW
         )
         self.assertIn(
-            "RELEASE_TAG_FALLBACK: ${{ needs.deploy.outputs.source_tag }}", WORKFLOW
+            "RELEASE_TAG_FALLBACK: ${{ needs.deploy.outputs.source_tag }}",
+            PUBLISHING_WORKFLOW,
         )
         self.assertIn(
             "RELEASE_TAG_EXPECTED_SOURCE: ${{ needs.deploy.outputs.source_tag }}",
-            WORKFLOW,
+            PUBLISHING_WORKFLOW,
         )
         self.assertIn(
             "RELEASE_TAG_EXPECTED_VERSION: ${{ needs.deploy.outputs.build_version }}",
-            WORKFLOW,
+            PUBLISHING_WORKFLOW,
         )
 
     def test_squirrel_assets_remain_required(self):

@@ -645,10 +645,15 @@ class StudioShell(wx.Panel):
         self.project_open = True
         self.title_bar.set_title(self.doc_title)
         self.workspace.set_project(self.doc_title, self.project_path)
+        # Recorded before the backstage renders its recent list, not after: a
+        # backstage rebuilt from a store that has not been written to yet
+        # shows the project that was open *before* this one, one attach late.
+        # A user who opened exactly one world would never see it in "Recent"
+        # until they opened a second.
+        self._remember_recent()
         self.backstage.set_project(
             True, self.doc_title, self.project_path, self.project_platform
         )
-        self._remember_recent()
         self.show_workspace()
         # Published last, and only once every panel has been told the project
         # is open: the subscribers redraw from the world, and one that redrew

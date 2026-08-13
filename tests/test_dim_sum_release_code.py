@@ -92,7 +92,10 @@ def test_resolver_skips_names_used_by_consumer_releases():
 
 
 def test_workflow_parses_resolver_output_without_eval():
-    workflow = (ROOT / ".github/workflows/build-windows.yml").read_text(
+    # The dim-sum resolver call moved to the publish job in
+    # build-electron-windows.yml, the only workflow that still creates a
+    # release; build-windows.yml no longer resolves a code name at all.
+    workflow = (ROOT / ".github/workflows/build-electron-windows.yml").read_text(
         encoding="utf-8"
     )
     assert 'eval "$(python3 scripts/resolve_dim_sum_code_name.py)"' not in workflow

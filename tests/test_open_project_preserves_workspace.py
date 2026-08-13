@@ -121,7 +121,14 @@ def test_a_second_world_reuses_every_panel_and_widget(shell: "StudioShell") -> N
         shell.workspace.status,
     )
     identities_before = {id(panel) for panel in panels_before}
-    widgets_before = _count_widgets(shell)
+    # Counted from the workspace, not the whole shell: the backstage's own
+    # "Recent" table legitimately grows by one row every time a genuinely new,
+    # distinct project is opened (that is the point of a recent-projects
+    # list), so a count taken from `shell` conflates that honest growth with
+    # the defect this test actually guards -- whether the *workspace* panels
+    # get torn down and rebuilt. Scoping to `shell.workspace` keeps the
+    # assertion about the thing it was written to catch.
+    widgets_before = _count_widgets(shell.workspace)
 
     shell.attach_project("Second World", "C:/fake/second", "java")
     wx.Yield()
@@ -135,7 +142,7 @@ def test_a_second_world_reuses_every_panel_and_widget(shell: "StudioShell") -> N
         shell.workspace.status,
     )
     identities_after = {id(panel) for panel in panels_after}
-    widgets_after = _count_widgets(shell)
+    widgets_after = _count_widgets(shell.workspace)
 
     assert identities_after == identities_before, (
         "opening a second world replaced the workspace's own panels instead of "

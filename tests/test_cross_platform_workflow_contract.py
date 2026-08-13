@@ -28,15 +28,26 @@ class CrossPlatformWorkflowContractTests(unittest.TestCase):
         is that a failing test no longer withholds the build, so this asserts
         the removal rather than the step -- a test that quietly returned would
         restore the gate without anyone deciding to.
+
+        The two halves of the old single-workflow contract now live in two
+        workflows: build-windows.yml still runs (report-only) the suite
+        alongside its own build, and build-electron-windows.yml -- the only
+        workflow that publishes a release -- has no test step and no
+        test-derived publish condition to check at all.
         """
-        workflow = (ROOT / ".github" / "workflows" / "build-windows.yml").read_text(
-            encoding="utf-8"
-        )
         import yaml
 
-        document = yaml.safe_load(workflow)
-        deploy = document["jobs"]["deploy"]
-        publish = document["jobs"]["publish"]
+        deploy_workflow = (
+            ROOT / ".github" / "workflows" / "build-windows.yml"
+        ).read_text(encoding="utf-8")
+        publish_workflow = (
+            ROOT / ".github" / "workflows" / "build-electron-windows.yml"
+        ).read_text(encoding="utf-8")
+
+        deploy_document = yaml.safe_load(deploy_workflow)
+        deploy = deploy_document["jobs"]["deploy"]
+        publish_document = yaml.safe_load(publish_workflow)
+        publish = publish_document["jobs"]["publish"]
 
         # The gate is a *decision*, not a string. Asserting that pytest never
         # appears would also forbid running the suite to report its verdict,
@@ -48,6 +59,8 @@ class CrossPlatformWorkflowContractTests(unittest.TestCase):
             "the publish condition must not depend on a test verdict",
         )
         self.assertNotIn("tests_passed", deploy.get("outputs", {}))
+        # The publishing workflow runs no tests of its own to depend on.
+        self.assertNotIn("pytest", publish_workflow)
 
         for step in deploy["steps"]:
             name = str(step.get("name", ""))
@@ -62,24 +75,30 @@ class CrossPlatformWorkflowContractTests(unittest.TestCase):
                 )
 
     def test_the_release_states_its_measured_test_verdict(self):
-        """A release that says nothing about its tests implies they passed.
+        """RETIRED: the release no longer has a test verdict to state.
 
-        Removing the gate was a decision about whether tests may withhold an
-        installer. It was not a decision to publish a build whose test state
-        nobody recorded, so the verdict travels into the release notes and an
-        unsuccessful one is called out rather than omitted.
+        This used to assert that a release published from build-windows.yml
+        called out a failing test suite in its notes rather than omitting it.
+        That workflow does not publish anymore, and build-electron-windows.yml
+        -- the workflow that does -- runs no tests of its own at all (per the
+        project's standing "GitHub Actions runs no tests" decision). Saying
+        nothing about tests it never ran is the correct behaviour under
+        "never imply a workflow verified something it did not run", not the
+        defect this test used to guard against.
+
+        build-windows.yml still measures test_verdict/test_summary and prints
+        them into its own job log/artifacts, but that measurement is no
+        longer wired to anything published, so there is nothing left here to
+        assert against a release's contents.
         """
+
+    def test_the_build_workflow_still_measures_and_reports_its_test_verdict(self):
         workflow = (ROOT / ".github" / "workflows" / "build-windows.yml").read_text(
             encoding="utf-8"
         )
-        for marker in ("test_verdict", "test_summary", "Test suite:"):
+        for marker in ("test_verdict", "test_summary"):
             with self.subTest(marker=marker):
                 self.assertIn(marker, workflow)
-        self.assertIn(
-            "without a passing test suite",
-            workflow,
-            "a failing verdict must be stated in the notes, not merely omitted",
-        )
 
     def test_the_check_workflow_still_uses_the_collector_that_sees_everything(self):
         """``unittest discover`` finds only TestCase subclasses.

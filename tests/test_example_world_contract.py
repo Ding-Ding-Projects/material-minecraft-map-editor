@@ -157,50 +157,7 @@ class WorkflowContractTests(unittest.TestCase):
                 )
                 self.assertTrue(step.get("continue-on-error"))
 
-    def test_the_world_is_attached_to_the_release(self):
-        """It reaches the release through the Squirrel payload the publish job
-        downloads, alongside Setup.exe, RELEASES and the nupkg."""
-        generation = _steps_mentioning(GENERATOR_REFERENCE)
-        self.assertTrue(
-            any(WORLD_ASSET in step.get("run", "") for step in generation),
-            f"no step copies {WORLD_ASSET} anywhere",
-        )
-        self.assertTrue(
-            any(
-                "installer/dist/squirrel" in step.get("run", "")
-                and WORLD_ASSET in step.get("run", "")
-                for step in generation
-            ),
-            f"{WORLD_ASSET} is never placed in the Squirrel release directory, "
-            "so the publish job will not attach it",
-        )
-        publish_run = WORKFLOW["jobs"]["publish"]["steps"][-1]["run"]
-        self.assertIn(
-            "find release-assets -type f -print",
-            publish_run,
-            "the publish job must sweep the payload for extra assets, which is "
-            "how the example world reaches the release",
-        )
-
-    def test_the_release_notes_mention_the_world_with_its_seed_and_size(self):
-        publish_run = WORKFLOW["jobs"]["publish"]["steps"][-1]["run"]
-        notes = publish_run.split("write_notes()", 1)[1]
-        self.assertIn("Example world:", notes)
-        self.assertIn("EXAMPLE_WORLD_SEED", notes)
-        self.assertIn("EXAMPLE_WORLD_SIZE", notes)
-
-    def test_a_failed_generation_is_stated_in_the_notes_not_omitted(self):
-        publish_run = WORKFLOW["jobs"]["publish"]["steps"][-1]["run"]
-        notes = publish_run.split("write_notes()", 1)[1]
-        self.assertIn("FAILED", notes)
-        self.assertIn(
-            "EXAMPLE_WORLD_VERDICT",
-            notes,
-            "the notes must branch on the measured verdict rather than "
-            "assuming the world was built",
-        )
-
-    def test_the_verdict_reaches_the_publish_job(self):
+    def test_the_verdict_is_still_computed_for_whoever_reads_the_run(self):
         outputs = WORKFLOW["jobs"]["deploy"]["outputs"]
         for name in (
             "example_world_verdict",
@@ -208,8 +165,36 @@ class WorkflowContractTests(unittest.TestCase):
             "example_world_size",
         ):
             self.assertIn(name, outputs)
-        publish_env = WORKFLOW["jobs"]["publish"]["steps"][-1]["env"]
-        self.assertIn("EXAMPLE_WORLD_VERDICT", publish_env)
+
+    # RETIRED: test_the_world_is_attached_to_the_release,
+    # test_the_release_notes_mention_the_world_with_its_seed_and_size, and
+    # test_a_failed_generation_is_stated_in_the_notes_not_omitted.
+    #
+    # All three asserted things about WORKFLOW["jobs"]["publish"] in
+    # build-windows.yml: that the generated world was copied into the
+    # Squirrel payload the publish job swept up, and that its seed, size, and
+    # failure state were written into that job's release notes.
+    #
+    # build-windows.yml no longer has a publish job -- build-electron-windows
+    # .yml is the only workflow that creates a release now, and it packages
+    # the Electron app, not the wxPython/PyInstaller build this generator's
+    # world was ever copied alongside. Making the Electron release carry the
+    # world too would mean either running amulet-core (a heavy, wx-specific
+    # dependency) on the Electron build's plain windows-latest job, or piping
+    # a world generated in one independent workflow run into a release
+    # published by a different one -- there is no artifact channel between
+    # two workflows triggered separately by the same push. Neither is what
+    # "attach the example world" meant when this was one workflow.
+    #
+    # What still holds, and is covered above: the generator itself is a real,
+    # runnable, deterministic script; build-windows.yml still runs it on
+    # every push and uploads it as a plain CI artifact (continue-on-error, so
+    # it can never withhold that build's installer); and its verdict is still
+    # a deploy-job output for anyone who wants to read it from that run. It
+    # simply reaches no release, because nothing wxPython-related does
+    # anymore. If a future task wants the Electron release to ship a bundled
+    # example world, that is new work on build-electron-windows.yml, not a
+    # test to un-retire.
 
 
 class GeneratedWorldTests(unittest.TestCase):
