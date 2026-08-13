@@ -41,13 +41,20 @@ selection box, defined in:
   (point1 and point2 are the two corners the user actually placed; the box's
   min/max are those two points sorted).
 
-This module simplifies one thing relative to the desktop app: instead of the
-full 8-corner-handle system in `handles.py` (used for interactive resizing
-in the desktop editor, ~540 lines of drag/plane-projection math), it draws
-small fixed-size marker cubes at `point1` and `point2` themselves. Resize
-handles and drag interaction are a natural follow-up and are out of scope
-for this pass, which is about the box being *visible* and *correctly
-coloured*, not yet draggable in the web viewport.
+The marker cubes this module draws are stationary: it renders `point1` and
+`point2`, nothing more. **Draggable resizing was the natural follow-up, and
+it has since landed**, as a separate module rather than inside this one.
+`docs/site/viewport-handles.js` is a JS port of `handles.py`'s face/corner
+grab-handle geometry and drag constraints — the same ~540 lines of
+drag/plane-projection math the desktop editor uses, ported rather than
+reimplemented, so the Electron and wx editors cannot disagree about how a
+selection box resizes. It is pure functions with no GPU dependency, tested
+directly against known camera matrices and geometry, and it is paired with
+`docs/site/viewport-picking.js` (cursor to ray, a DDA voxel march against
+the real per-block occupancy bitset, first solid block and entered face) so
+a click on the viewport can both place a selection point and grab a handle.
+See [selection handles](../selection-handles/README.md) for the drag
+behaviour and its keyboard-equivalent routes.
 
 ## Integration call site
 

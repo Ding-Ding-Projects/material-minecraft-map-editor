@@ -1,9 +1,12 @@
 # Electron world access -- the read-only half
 
 The Electron renderer can now open a real Minecraft world, ask it what it
-is, and close it again. This is deliberately half a feature: it is the
-read-only slice, which is the part that is safe to ship before anything can
-write a block back into a save. The implementation is
+is, and close it again. This module is deliberately half a feature: it is
+the read-only slice, which was the part that was safe to ship before
+anything could write a block back into a save. **The write half now exists
+too** — see [Electron world editing](../electron-editing/README.md) — but
+this module's own scope has not changed, and reading it as still describing
+the whole picture would be wrong. The implementation is
 `amulet_map_editor/api/sidecar/world_methods.py`, registered into the
 sidecar's dispatch table by `amulet_map_editor/api/sidecar/methods.py`.
 
