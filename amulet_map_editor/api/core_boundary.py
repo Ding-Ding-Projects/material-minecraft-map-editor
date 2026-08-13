@@ -42,7 +42,10 @@ PORTABLE_CORE_MODULES: tuple[str, ...] = (
     "amulet_map_editor.api.dpi",
     "amulet_map_editor.api.export_actions",
     "amulet_map_editor.api.external_editor",
+    "amulet_map_editor.api.credential_vault",
     "amulet_map_editor.api.lang",
+    "amulet_map_editor.api.item_locks",
+    "amulet_map_editor.api.authenticator",
     "amulet_map_editor.api.local_history",
     "amulet_map_editor.api.material_menu",
     "amulet_map_editor.api.notifications",
@@ -71,18 +74,13 @@ PORTABLE_CORE_MODULES: tuple[str, ...] = (
 # Keeping this list beside the portable one means the next person does not
 # have to rediscover why a plausible-looking module is missing above.
 KNOWN_NOT_PORTABLE: dict[str, str] = {
-    "amulet_map_editor.api.authenticator": (
-        "imports amulet_map_editor.api.forge_accounts for its store-note "
-        "copy helpers, and forge_accounts imports wx directly to build "
-        "ForgeAccountsDialog. The account/token logic and the wx dialog are "
-        "not yet split into separate modules."
-    ),
-    "amulet_map_editor.api.item_locks": (
-        "same forge_accounts coupling as authenticator above."
-    ),
     "amulet_map_editor.api.forge_accounts": (
         "imports wx directly at module scope to define ForgeAccountsDialog "
-        "(wx.Dialog) alongside its account-list data model."
+        "(wx.Dialog) alongside its account-list data model. The credential "
+        "vault it used to own now lives in "
+        "amulet_map_editor.api.credential_vault, which imports no toolkit, so "
+        "nothing that must run without wx has to reach through this module "
+        "any more."
     ),
     "amulet_map_editor.api.resources": (
         "imports amulet_map_editor.api.image, whose __init__ imports wx to "

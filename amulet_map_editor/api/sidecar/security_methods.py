@@ -30,7 +30,7 @@ from typing import Any, Dict
 from amulet_map_editor.api import appearance_presets as PRESETS
 from amulet_map_editor.api import authenticator as AUTH
 from amulet_map_editor.api import item_locks as LOCKS
-from amulet_map_editor.api.forge_accounts import CredentialStoreUnavailable
+from amulet_map_editor.api.credential_vault import CredentialStoreUnavailable
 from amulet_map_editor.api.sidecar.protocol import ERR_INVALID_PARAMS, ProtocolError
 
 MethodHandler = Any

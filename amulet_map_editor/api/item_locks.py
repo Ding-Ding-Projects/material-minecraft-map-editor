@@ -43,7 +43,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from amulet_map_editor.api import config
-from amulet_map_editor.api.forge_accounts import (
+from amulet_map_editor.api.credential_vault import (
     CredentialStoreUnavailable,
     ForgeAccountError,
     credential_store,
