@@ -53,8 +53,8 @@ same Python core, and it is important to be clear about which one is which:
   gated behind a destructive-action confirm. The 3D viewport is WebGL2,
   meshed by the unmodified Python mesher, with camera input, chunk streaming,
   a selection box with draggable handles, and click-to-pick ray casting.
-  Roughly a third of its ~150 ribbon commands call a real method; the rest
-  are permanently disabled with a stated reason — see
+  39 of its 151 ribbon commands call a real method; the other 112 are
+  disabled with a stated reason rather than silently inert — see
   [the Electron migration article](docs/features/electron-migration/README.md)
   for exactly which is which and why.
 - **The wxPython desktop application** (`amulet_map_editor/api/wx/`,
