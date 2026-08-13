@@ -1,8 +1,20 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "27f45053723a6f4d0a5669893e2136b666b4b96b",
+  "source_revision": "e6c74af78ae0b0249e065dbcdcabcad74e26ea99",
   "entries": [
+    {
+      "version": "0.11.0-dev.24",
+      "released_on": "2026-08-13",
+      "commit_sha": "27f45053723a6f4d0a5669893e2136b666b4b96b",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Count the wired ribbon commands instead of estimating them",
+          "commit_sha": "27f45053723a6f4d0a5669893e2136b666b4b96b"
+        }
+      ]
+    },
     {
       "version": "0.11.0-dev.23",
       "released_on": "2026-08-13",

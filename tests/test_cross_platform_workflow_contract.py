@@ -100,17 +100,43 @@ class CrossPlatformWorkflowContractTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, workflow)
 
-    def test_the_check_workflow_still_uses_the_collector_that_sees_everything(self):
-        """``unittest discover`` finds only TestCase subclasses.
+    def test_no_workflow_runs_the_test_suite(self):
+        """CI runs no tests here, and this is what keeps that true.
 
-        It silently skipped the majority of this suite once already, so the
-        workflow that does still run the tests has to keep using pytest.
+        The rule is standing policy for this project: workflows build,
+        package and publish; nothing in CI gates a release on a test verdict.
+        Checking happens locally, before the push, where a person is watching.
+
+        The workflow that used to run the suite is deleted rather than
+        disabled, and it is worth recording WHY, because deleting a test job
+        normally deserves suspicion. It had not produced a verdict in its
+        entire history on this branch: `cancel-in-progress` plus a steady
+        stream of pushes meant every single run was cancelled by the next one.
+        Five consecutive cancellations, each showing in the checks list as a
+        grey circle that reads, at a glance, like a check that exists. A gate
+        that cannot report is worse than no gate, because the checks list
+        implies coverage nobody has.
+
+        The replacement is not nothing: the suite is run locally and its real
+        numbers go into the release notes. This test exists so that a future
+        change cannot quietly reintroduce a CI test job and restore the
+        illusion.
         """
-        checks = (ROOT / ".github" / "workflows" / "unittests.yml").read_text(
-            encoding="utf-8"
+        workflows = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+        self.assertTrue(workflows, "no workflows found at all -- has the path moved?")
+        offenders = []
+        for path in workflows:
+            body = path.read_text(encoding="utf-8")
+            for marker in ("python -m pytest", "python -m unittest", "pytest tests"):
+                if marker in body and "report" not in body.split(marker)[0][-200:]:
+                    offenders.append(f"{path.name}: runs `{marker}`")
+        self.assertEqual(
+            offenders,
+            [],
+            "a workflow runs the test suite again; CI in this project builds "
+            "and publishes, and does not gate on a release with a test "
+            "verdict. Offenders: " + "; ".join(offenders),
         )
-        self.assertIn("python -m pytest tests", checks)
-        self.assertNotIn("python -m unittest discover", checks)
 
 
 if __name__ == "__main__":
