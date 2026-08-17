@@ -1,0 +1,529 @@
+name: Deploy Material 3 documentation to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A Pages publication must finish once it starts; later runs wait their turn.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-pages:
+    name: Validate and package the static site
+    # This Linux job only prepares dependency-free static documentation.
+    # Windows remains the sole application build and release target.
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the exact source commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Require the main branch for publication
+        shell: bash
+        env:
+          REQUESTED_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ "$REQUESTED_REF" != "refs/heads/main" ]]; then
+            printf 'Pages publication requires refs/heads/main; received %s\n' \
+              "$REQUESTED_REF" >&2
+            exit 1
+          fi
+
+      - name: Validate dependency-free site source
+        shell: bash
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/pages-evidence
+          {
+            actual_commit="$(git rev-parse HEAD)"
+            if [[ "$actual_commit" != "$EXPECTED_COMMIT" ]]; then
+              printf 'Checked-out commit %s does not match requested commit %s\n' \
+                "$actual_commit" "$EXPECTED_COMMIT" >&2
+              exit 1
+            fi
+            python - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+
+          source = Path("docs/site")
+          index_entries = subprocess.run(
+              ["git", "ls-files", "-s", "--", str(source)],
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout.splitlines()
+          index_symlinks = [entry for entry in index_entries if entry.startswith("120000 ")]
+          runtime_symlinks = []
+          for directory, child_directories, files in os.walk(source, followlinks=False):
+              for name in [*child_directories, *files]:
+                  candidate = Path(directory) / name
+                  if candidate.is_symlink():
+                      runtime_symlinks.append(str(candidate))
+          if index_symlinks or runtime_symlinks:
+              raise SystemExit(
+                  "site source must not contain symlinks: "
+                  + ", ".join([*index_symlinks, *runtime_symlinks])
+              )
+          print(f"Verified {len(index_entries)} tracked site entries without symlinks")
+          PY
+            node --check docs/site/app.js
+            python -m unittest -v \
+              tests.test_pages_workflow_contract \
+              tests.test_site_publication_contract
+            python - <<'PY'
+          from tests.test_site_m3_surface_tokens_contract import (
+              test_site_cards_and_search_fields_use_semantic_surface_tokens,
+          )
+          from tests.test_site_palette_inventory_contract import (
+              test_site_palette_indexes_every_feature_and_setting_card,
+          )
+
+          test_site_cards_and_search_fields_use_semantic_surface_tokens()
+          test_site_palette_indexes_every_feature_and_setting_card()
+          print("Focused Material 3 site contracts passed")
+          PY
+            python scripts/prepare_site_bundle.py \
+              --source docs/site \
+              --output build/pages \
+              --base-url ./
+            python scripts/verify_site_release_manifest.py build/pages
+          } 2>&1 | tee build/pages-evidence/validation.log
+
+      - name: Validate local links and bundled resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import re
+          from urllib.parse import unquote, urlsplit
+
+          root = Path("build/pages").resolve()
+          index = root / "index.html"
+          html_files = sorted(root.rglob("*.html"))
+          if html_files != [index]:
+              raise SystemExit(
+                  "the Pages bundle must contain exactly one HTML entry point: index.html"
+              )
+
+          class SiteParser(HTMLParser):
+              def __init__(self):
+                  super().__init__(convert_charrefs=True)
+                  self.ids = set()
+                  self.references = []
+                  self.inline_styles = []
+                  self._style_depth = 0
+
+              def handle_starttag(self, tag, attrs):
+                  tag = tag.lower()
+                  values = dict(attrs)
+                  if values.get("id"):
+                      self.ids.add(values["id"])
+                  if values.get("style"):
+                      self.inline_styles.append(values["style"])
+                  if tag == "style":
+                      self._style_depth += 1
+                  if tag == "a" and values.get("href"):
+                      self.references.append((tag, "href", values["href"], False))
+                  if tag == "link" and values.get("href"):
+                      self.references.append((tag, "href", values["href"], True))
+                  for attribute in ("src", "poster"):
+                      if values.get(attribute):
+                          self.references.append(
+                              (tag, attribute, values[attribute], True)
+                          )
+                  if values.get("srcset"):
+                      for candidate in values["srcset"].split(","):
+                          parts = candidate.strip().split()
+                          if not parts:
+                              raise ValueError("srcset contains an empty candidate")
+                          self.references.append((tag, "srcset", parts[0], True))
+
+              def handle_endtag(self, tag):
+                  if tag.lower() == "style":
+                      self._style_depth = max(0, self._style_depth - 1)
+
+              def handle_data(self, data):
+                  if self._style_depth:
+                      self.inline_styles.append(data)
+
+          parser = SiteParser()
+          parser.feed(index.read_text(encoding="utf-8"))
+          parser.close()
+
+          stylesheet_paths = set()
+          for tag, attribute, raw, resource in parser.references:
+              parsed = urlsplit(raw)
+              if parsed.scheme or parsed.netloc:
+                  if (
+                      resource
+                      or parsed.scheme != "https"
+                      or not parsed.netloc
+                      or parsed.username
+                      or parsed.password
+                  ):
+                      raise SystemExit(
+                          f"remote resource or unsafe link is forbidden: "
+                          f"{tag}[{attribute}]={raw!r}"
+                      )
+                  continue
+              if parsed.path.startswith("/"):
+                  raise SystemExit(f"root-absolute site link is forbidden: {raw!r}")
+              if not parsed.path:
+                  if parsed.fragment and parsed.fragment not in parser.ids:
+                      raise SystemExit(f"missing local anchor: {raw!r}")
+                  continue
+              target = (root / unquote(parsed.path)).resolve()
+              try:
+                  target.relative_to(root)
+              except ValueError as error:
+                  raise SystemExit(f"site link escapes the bundle: {raw!r}") from error
+              if not target.is_file():
+                  raise SystemExit(f"missing bundled target: {raw!r}")
+              if tag == "link" and target.suffix.lower() == ".css":
+                  stylesheet_paths.add(target)
+
+          def validate_css(css, label, base):
+              css_without_comments = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+              if "\\" in css_without_comments:
+                  raise SystemExit(f"{label} contains an unsupported escaped token")
+              if re.search(r"@import\b", css_without_comments, re.IGNORECASE):
+                  raise SystemExit(f"{label} contains a forbidden import")
+              url_starts = re.findall(r"url\s*\(", css_without_comments, re.IGNORECASE)
+              url_tokens = list(
+                  re.finditer(
+                      r"url\s*\(\s*([^)]*?)\s*\)",
+                      css_without_comments,
+                      re.IGNORECASE,
+                  )
+              )
+              if len(url_tokens) != len(url_starts):
+                  raise SystemExit(f"{label} contains a malformed url() token")
+              for match in url_tokens:
+                  value = match.group(1).strip()
+                  if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                      value = value[1:-1].strip()
+                  if not value or "\\" in value:
+                      raise SystemExit(f"{label} contains an empty or escaped resource URL")
+                  parsed_resource = urlsplit(value)
+                  if (
+                      parsed_resource.scheme
+                      or parsed_resource.netloc
+                      or parsed_resource.path.startswith("/")
+                      or parsed_resource.query
+                      or parsed_resource.fragment
+                  ):
+                      raise SystemExit(
+                          f"{label} contains a non-local resource URL: {value!r}"
+                      )
+                  css_target = (base / unquote(parsed_resource.path)).resolve()
+                  try:
+                      css_target.relative_to(root)
+                  except ValueError as error:
+                      raise SystemExit(
+                          f"{label} resource escapes the bundle: {value!r}"
+                      ) from error
+                  if not css_target.is_file():
+                      raise SystemExit(f"missing {label} resource: {value!r}")
+
+          for stylesheet in sorted(stylesheet_paths):
+              validate_css(
+                  stylesheet.read_text(encoding="utf-8"),
+                  stylesheet.relative_to(root).as_posix(),
+                  stylesheet.parent,
+              )
+          for index_number, inline_style in enumerate(parser.inline_styles, start=1):
+              validate_css(inline_style, f"inline style {index_number}", root)
+          print(
+              f"Validated {len(parser.references)} HTML references, "
+              f"{len(stylesheet_paths)} stylesheets, and "
+              f"{len(parser.inline_styles)} inline styles without a network fetch"
+          )
+          PY
+          } 2>&1 | tee -a build/pages-evidence/validation.log
+
+      - name: Record exact deployment source
+        shell: bash
+        env:
+          DEPLOY_COMMIT: ${{ github.sha }}
+          DEPLOY_REF: ${{ github.ref }}
+          DEPLOY_REPOSITORY: ${{ github.repository }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}
+          DEPLOY_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          commit = os.environ["DEPLOY_COMMIT"]
+          repository = os.environ["DEPLOY_REPOSITORY"]
+          run_id = os.environ["DEPLOY_RUN_ID"]
+          run_attempt = os.environ["DEPLOY_RUN_ATTEMPT"]
+          if not re.fullmatch(r"[0-9a-f]{40}", commit):
+              raise SystemExit("DEPLOY_COMMIT is not a full Git commit SHA")
+          if not re.fullmatch(r"[1-9][0-9]*", run_id):
+              raise SystemExit("DEPLOY_RUN_ID is invalid")
+          if not re.fullmatch(r"[1-9][0-9]*", run_attempt):
+              raise SystemExit("DEPLOY_RUN_ATTEMPT is invalid")
+
+          evidence = {
+              "schemaVersion": 1,
+              "repository": repository,
+              "commit": commit,
+              "ref": os.environ["DEPLOY_REF"],
+              "runId": int(run_id),
+              "runAttempt": int(run_attempt),
+              "sourceUrl": f"https://github.com/{repository}/commit/{commit}",
+          }
+          path = Path("build/pages/deployment-evidence.json")
+          path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open(
+              "a", encoding="utf-8"
+          ) as summary:
+              summary.write(f"## Pages source\n\nExact commit: [`{commit}`]({evidence['sourceUrl']})\n")
+          PY
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/pages
+
+      - name: Collect safe build evidence
+        if: ${{ always() }}
+        shell: bash
+        env:
+          BUILD_OUTCOME: ${{ job.status }}
+          DEPLOY_COMMIT: ${{ github.sha }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}
+          DEPLOY_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -u
+          mkdir -p build/pages-evidence
+          {
+            printf 'job_status=%s\n' "$BUILD_OUTCOME"
+            printf 'commit=%s\n' "$DEPLOY_COMMIT"
+            printf 'run_id=%s\n' "$DEPLOY_RUN_ID"
+            printf 'run_attempt=%s\n' "$DEPLOY_RUN_ATTEMPT"
+          } > build/pages-evidence/build-context.txt
+
+      - name: Upload safe build evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-build-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/pages
+            build/pages-evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  deploy-pages:
+    name: Deploy the validated site
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: build-pages
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Verify the deployed commit evidence
+        id: verify
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_COMMIT: ${{ github.sha }}
+          EXPECTED_REF: ${{ github.ref }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+          EXPECTED_RUN_ID: ${{ github.run_id }}
+          EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/pages-deployment-evidence
+          python - <<'PY' 2>&1 | tee build/pages-deployment-evidence/verification.log
+          import json
+          import os
+          import time
+          from urllib.error import HTTPError, URLError
+          from urllib.parse import urlencode, urljoin, urlsplit
+          from urllib.request import Request, urlopen
+
+          page_url = os.environ["DEPLOYMENT_URL"]
+          parsed = urlsplit(page_url)
+          if parsed.scheme != "https" or not parsed.netloc:
+              raise SystemExit("Pages deployment did not return an absolute HTTPS URL")
+          if parsed.username or parsed.password or parsed.query or parsed.fragment:
+              raise SystemExit("Pages deployment URL contains forbidden URL components")
+          evidence_path = urljoin(
+              page_url.rstrip("/") + "/", "deployment-evidence.json"
+          )
+          evidence_url = evidence_path + "?" + urlencode(
+              {
+                  "run_id": os.environ["EXPECTED_RUN_ID"],
+                  "run_attempt": os.environ["EXPECTED_RUN_ATTEMPT"],
+              }
+          )
+
+          last_error = None
+          for attempt in range(1, 13):
+              try:
+                  request = Request(
+                      evidence_url,
+                      headers={
+                          "Accept": "application/json",
+                          "Cache-Control": "no-cache",
+                          "Pragma": "no-cache",
+                          "User-Agent": "pages-proof",
+                      },
+                  )
+                  with urlopen(request, timeout=10) as response:
+                      final_url = urlsplit(response.geturl())
+                      canonical_url = urlsplit(evidence_path)
+                      if (
+                          final_url.scheme,
+                          final_url.netloc,
+                          final_url.path,
+                      ) != (
+                          canonical_url.scheme,
+                          canonical_url.netloc,
+                          canonical_url.path,
+                      ):
+                          raise ValueError(
+                              "deployed evidence redirected away from the Pages origin or path"
+                          )
+                      payload = response.read(65537)
+                  if len(payload) > 65536:
+                      raise ValueError("deployed evidence exceeds 64 KiB")
+                  evidence = json.loads(payload.decode("utf-8"))
+                  if evidence.get("schemaVersion") != 1:
+                      raise ValueError("deployed evidence schemaVersion is not 1")
+                  if evidence.get("commit") != os.environ["EXPECTED_COMMIT"]:
+                      raise ValueError("deployed evidence commit does not match github.sha")
+                  if evidence.get("ref") != os.environ["EXPECTED_REF"]:
+                      raise ValueError("deployed evidence ref does not match github.ref")
+                  if evidence.get("repository") != os.environ["EXPECTED_REPOSITORY"]:
+                      raise ValueError(
+                          "deployed evidence repository does not match github.repository"
+                      )
+                  if evidence.get("runId") != int(os.environ["EXPECTED_RUN_ID"]):
+                      raise ValueError("deployed evidence runId does not match github.run_id")
+                  if evidence.get("runAttempt") != int(
+                      os.environ["EXPECTED_RUN_ATTEMPT"]
+                  ):
+                      raise ValueError(
+                          "deployed evidence runAttempt does not match github.run_attempt"
+                      )
+                  expected_source_url = (
+                      "https://github.com/"
+                      + os.environ["EXPECTED_REPOSITORY"]
+                      + "/commit/"
+                      + os.environ["EXPECTED_COMMIT"]
+                  )
+                  if evidence.get("sourceUrl") != expected_source_url:
+                      raise ValueError(
+                          "deployed evidence sourceUrl does not identify the exact commit"
+                      )
+                  print(
+                      f"Verified {evidence_url} at exact commit "
+                      f"{evidence['commit']} on attempt {attempt}"
+                  )
+                  break
+              except (
+                  HTTPError,
+                  URLError,
+                  TimeoutError,
+                  UnicodeError,
+                  ValueError,
+                  json.JSONDecodeError,
+              ) as error:
+                  last_error = error
+                  if attempt == 12:
+                      raise SystemExit(
+                          f"deployed commit evidence was not verifiable after {attempt} attempts: "
+                          f"{last_error}"
+                      ) from error
+                  time.sleep(5)
+          PY
+
+      - name: Record deployment result
+        if: ${{ always() }}
+        shell: bash
+        env:
+          DEPLOYMENT_OUTCOME: ${{ steps.deployment.outcome }}
+          VERIFICATION_OUTCOME: ${{ steps.verify.outcome }}
+          DEPLOYMENT_URL: ${{ steps.deployment.outputs.page_url }}
+          DEPLOY_COMMIT: ${{ github.sha }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}
+          DEPLOY_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -u
+          mkdir -p build/pages-deployment-evidence
+          {
+            printf 'deployment_outcome=%s\n' "$DEPLOYMENT_OUTCOME"
+            printf 'verification_outcome=%s\n' "$VERIFICATION_OUTCOME"
+            printf 'page_url=%s\n' "$DEPLOYMENT_URL"
+            printf 'commit=%s\n' "$DEPLOY_COMMIT"
+            printf 'run_id=%s\n' "$DEPLOY_RUN_ID"
+            printf 'run_attempt=%s\n' "$DEPLOY_RUN_ATTEMPT"
+          } > build/pages-deployment-evidence/deployment-context.txt
+          {
+            printf '## Pages deployment\n\n'
+            printf 'Outcome: `%s`  \n' "$DEPLOYMENT_OUTCOME"
+            printf 'Evidence verification: `%s`  \n' "$VERIFICATION_OUTCOME"
+            printf 'Exact commit: `%s`  \n' "$DEPLOY_COMMIT"
+            if [[ -n "$DEPLOYMENT_URL" ]]; then
+              printf 'Published URL: %s\n' "$DEPLOYMENT_URL"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload safe deployment evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-deployment-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/pages-deployment-evidence
+          if-no-files-found: warn
+          retention-days: 14

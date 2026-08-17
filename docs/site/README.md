@@ -4,21 +4,26 @@ This directory is the Material Design 3 landing and documentation source for Amu
 
 ## Local preview
 
-From the repository root, run a local static server (for example `python -m http.server 8000 --directory docs/site`) and open `http://localhost:8000`. For an owner-controlled deployment, run `docker compose up -d --build` in this directory and place HTTPS in front of port `8080`. The site has four keyboard-accessible tabs, a feature search field, responsive layouts, focus states, and reduced-motion support.
+From the repository root, run a local static server (for example `python -m http.server 8000 --directory docs/site`) and open `http://localhost:8000`. For an owner-controlled deployment, run `docker compose up -d --build` in this directory and place HTTPS in front of port `8080`. The site has five keyboard-accessible tabs, a feature search field, responsive layouts, focus states, and reduced-motion support.
 
-## Owner-controlled static publication
+## Static publication
 
-This site is designed to be served from an owner-controlled static host. The
-canonical source is a complete static bundle containing `index.html`,
-`styles.css`, `app.js`, `site-config.json`, and `release-manifest.json`. Copy
-the bundle to the web root without rewriting asset paths and enable HTTPS.
-There is no GitHub Pages publication claim or hard-coded public hostname in
-this repository.
+The canonical source is a complete static bundle containing `index.html`,
+`styles.css`, `app.js`, `site-config.json`, and `release-manifest.json`. The
+`Deploy Material 3 documentation to GitHub Pages` workflow is configured to
+validate and deploy that bundle after a push to `main` or a manual dispatch on
+`main`. Publication remains pending until repository Pages is enabled and a
+workflow run verifies the deployed `deployment-evidence.json` against its exact
+commit, run, and ref. This document therefore does not claim a live URL yet.
+
+The same bundle may be served from an owner-controlled static host. Copy it to
+the web root without rewriting asset paths and enable HTTPS.
 
 `site-config.json` carries the deployment base URL. It defaults to `./`, which
-works at a domain root and at a relative static preview. The publication
-workflow accepts an explicit HTTPS base URL through its `workflow_dispatch`
-input and writes that value into the generated bundle. A base URL must be
+works at a domain root and at a relative static preview. The artifact-only
+`Material 3 site` workflow accepts an explicit HTTPS base URL through its
+`workflow_dispatch` input and writes that value into the generated bundle. A
+base URL must be
 root-relative (`./`) or an owner-verified HTTPS URL ending in `/`; it cannot
 contain credentials, a query, or a fragment.
 
@@ -33,9 +38,15 @@ non-release path. Never replace this contract with a guessed or candidate URL.
 The `Material 3 site` workflow validates `index.html`, `app.js`, the settings
 and regex-builder accessibility contract, and the release manifest on every
 branch push and manual dispatch. It emits both an Nginx image and the exact
-static bundle as artifacts. These are transport packages, not proof that a
-public hostname has been configured; the repository makes no live-host claim
-until an owner supplies and verifies that endpoint.
+static bundle as owner-hosted transport artifacts.
+
+The separate Pages workflow uses least-privileged Pages permissions, serializes
+deployments without cancelling an in-flight publication, validates all bundled
+links and resources without fetching a CDN, and uploads safe diagnostic
+artifacts even when validation or deployment fails. A successful deployment is
+not accepted from the action result alone: the workflow reads the published
+evidence file back over bounded HTTPS retries and requires its repository,
+commit, ref, run ID, and run attempt to match the current workflow context.
 
 The feature, settings, and command-palette searches treat ordinary input as
 literal text (metacharacters are escaped), cap all patterns at 256 characters,
@@ -54,4 +65,4 @@ control, HEX/RGB/HSL translators, and live contrast readout.
 
 ## Content boundary
 
-The feature inventory links to the repository's source, Releases, Actions, wiki, issues, discussions, and contributing guide. It documents the current Windows-only delivery inventory: the appearance editor, browser-style tabs, safe updater, offline documentation, local history, external editor, optional narrator, Squirrel packaging, and command palette. Update the inventory when a feature or supported platform changes.
+The feature inventory links to the repository's source, Releases, Actions, wiki, issues, discussions, and contributing guide. It documents the current Windows-only delivery inventory: the appearance editor, browser-style tabs, safe updater, offline documentation, local history, external editor, optional narrator, Squirrel packaging, searchable Material command menus, and command palette. Update the inventory when a feature or supported platform changes.

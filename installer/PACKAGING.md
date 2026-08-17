@@ -19,10 +19,10 @@ source tag and numeric package version before any release API call. The resolved
 consistently for the package, `RELEASES`, `Setup.exe` directory, and uploaded
 asset names.
 Each architecture produces `Setup.exe`, `RELEASES`, and a full `.nupkg`; delta
-packages are emitted when a prior feed is safely available. Push and manual
-release runs choose the nearest semantically older release within the explicit
-`automated` or `stable` channel, then download its `RELEASES` and full package
-together. The pair
+packages are emitted when a prior feed is safely available. Push and
+manual-dispatch runs choose the nearest semantically older
+release within the explicit `automated` or `stable` channel, then download its
+`RELEASES` and full package together. The pair
 is accepted only when the index has exactly one matching filename whose SHA-1
 and byte size match the local package, and the NuGet archive has the `Amulet`
 identity, a filename-matched metadata version, and a version strictly older
@@ -40,8 +40,10 @@ current full package. The delta is intentionally not advertised to installed
 clients until a three-version update proof passes. A release without a feed
 pair may be skipped without weakening the first-release full-package contract;
 a selected pair with inconsistent metadata or content, or one that produces no
-delta, blocks packaging. CI also checks every generated executable and DLL with
-`Get-AuthenticodeSignature`, which must report `NotSigned`.
+delta, blocks packaging. CI checks every top-level executable and DLL in the
+release directory with `Get-AuthenticodeSignature`, which must report
+`NotSigned`; the packaging script also validates the required `Setup.exe`
+header and unsigned status before it reports success.
 
 Candidate discovery requests at most 501 releases, using the final record only
 as a truncation sentinel for the selector's 500-release and 1 MiB bounds, and
@@ -67,9 +69,16 @@ New automatic releases are assembled as drafts, then published once. The
 workflow reads GitHub's resulting `publishedAt` value before calculating the
 duration from the first deploy job. Final notes therefore report actual
 publication completion rather than a timestamp sampled before the release API
-call. The same notes include the committed line counter's generated, excluded,
-project-total, repository-grand-total, and surviving agent/person attribution
-rows.
+call. The same notes include every uploaded asset basename and SHA-256, verified
+against the hosted asset digest, plus the committed line counter's generated,
+excluded, project-total, repository-grand-total, and surviving agent/person
+attribution rows.
+
+The root `build-installer.bat` records its start, completion, elapsed duration,
+and intended Git commit, then confirms the commit did not change while
+packaging. It checks each `certutil` exit status and validates that exactly one
+64-digit SHA-256 was produced for each required artifact. The unsigned status
+is printed in silent mode as well as interactive mode.
 
 The runtime bridge in
 `amulet_map_editor/api/framework/squirrel_update.py` validates an HTTPS feed,

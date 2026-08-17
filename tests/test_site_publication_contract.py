@@ -110,6 +110,19 @@ class SitePublicationContractTests(unittest.TestCase):
         self.assertNotIn("macOS, Debian, Flatpak, and Docker workflows", html)
         self.assertIn("verified Windows release", html)
 
+    def test_landing_page_links_every_feature_article(self):
+        html = (SITE / "index.html").read_text(encoding="utf-8")
+        self.assertTrue((ROOT / "CONTRIBUTING.md").is_file())
+        self.assertIn("blob/main/CONTRIBUTING.md", html)
+        article_slugs = sorted(
+            path.parent.name
+            for path in (ROOT / "docs" / "features").glob("*/README.md")
+        )
+        self.assertEqual(len(article_slugs), 20)
+        for slug in article_slugs:
+            with self.subTest(slug=slug):
+                self.assertIn(f"docs/features/{slug}/README.md", html)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -59,6 +59,67 @@ function Get-Sha1([string] $Path) {
     finally { $sha.Dispose() }
 }
 
+function Assert-PeFile([string] $Path) {
+    $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+        if ($stream.Length -lt 128) {
+            throw "PE file is too small: $Path"
+        }
+        $reader = [IO.BinaryReader]::new($stream)
+        try {
+            if ($reader.ReadByte() -ne 0x4d -or $reader.ReadByte() -ne 0x5a) {
+                throw "Invalid DOS signature in PE file: $Path"
+            }
+            $stream.Position = 0x3c
+            $peOffset = $reader.ReadInt32()
+            $coffHeaderSize = 20
+            if ($peOffset -lt 64 -or $peOffset -gt ($stream.Length - 4 - $coffHeaderSize)) {
+                throw "Invalid PE header offset in file: $Path"
+            }
+            $stream.Position = $peOffset
+            if ($reader.ReadByte() -ne 0x50 -or $reader.ReadByte() -ne 0x45 -or
+                $reader.ReadByte() -ne 0x00 -or $reader.ReadByte() -ne 0x00) {
+                throw "Invalid PE signature in file: $Path"
+            }
+
+            $machine = $reader.ReadUInt16()
+            $numberOfSections = $reader.ReadUInt16()
+            [void]$reader.ReadUInt32() # TimeDateStamp
+            [void]$reader.ReadUInt32() # PointerToSymbolTable
+            [void]$reader.ReadUInt32() # NumberOfSymbols
+            $optionalHeaderSize = $reader.ReadUInt16()
+            $characteristics = $reader.ReadUInt16()
+            if ($machine -notin @(0x014c, 0x8664)) {
+                throw "Unsupported PE machine 0x$($machine.ToString('x4')) in file: $Path"
+            }
+            if ($numberOfSections -lt 1 -or $numberOfSections -gt 96) {
+                throw "Invalid PE section count $numberOfSections in file: $Path"
+            }
+            if (($characteristics -band 0x0002) -eq 0) {
+                throw "PE executable characteristic is missing in file: $Path"
+            }
+            if ($optionalHeaderSize -lt 2 -or $optionalHeaderSize -gt 4096) {
+                throw "Invalid PE optional-header size $optionalHeaderSize in file: $Path"
+            }
+            $optionalHeaderStart = $stream.Position
+            $sectionTableEnd = $optionalHeaderStart + $optionalHeaderSize + (40L * $numberOfSections)
+            if ($sectionTableEnd -gt $stream.Length) {
+                throw "PE headers extend beyond the file: $Path"
+            }
+            $optionalMagic = $reader.ReadUInt16()
+            if ($optionalMagic -notin @(0x010b, 0x020b)) {
+                throw "Unsupported PE optional-header magic 0x$($optionalMagic.ToString('x4')) in file: $Path"
+            }
+            $minimumOptionalHeaderSize = if ($optionalMagic -eq 0x010b) { 96 } else { 112 }
+            if ($optionalHeaderSize -lt $minimumOptionalHeaderSize) {
+                throw "PE optional header is truncated for magic 0x$($optionalMagic.ToString('x4')) in file: $Path"
+            }
+        }
+        finally { $reader.Dispose() }
+    }
+    finally { $stream.Dispose() }
+}
+
 function Get-SignatureStatus([string] $Path) {
     # Windows PowerShell 5.1 can fail to autoload Microsoft.PowerShell.Security
     # on stripped-down runners.  The signed-file API is available in the base
@@ -300,6 +361,7 @@ try {
         throw 'Squirrel output has no Setup.exe to verify'
     }
     foreach ($file in $signatureTargets) {
+        Assert-PeFile $file.FullName
         $signatureStatus = Get-SignatureStatus $file.FullName
         if ($signatureStatus -ne 'NotSigned') {
             throw "Unsigned policy violated: $($file.Name) reports $signatureStatus"

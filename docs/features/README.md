@@ -13,6 +13,7 @@ and verification evidence.
 - [External editor](external-editor/README.md)
 - [Local history](local-history/README.md)
 - [Material application shell](material-shell/README.md)
+- [Material command menu](material-menu/README.md)
 - [Notification centre](notification-centre/README.md)
 - [Non-blocking error reporting](non-blocking-error-reporting/README.md)
 - [Offline documentation](offline-documentation/README.md)

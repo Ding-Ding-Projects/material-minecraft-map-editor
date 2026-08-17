@@ -18,14 +18,15 @@ stable source tags that enter the reserved range fail closed so their package
 identity cannot collide with an automated build.
 Only canonical `major.minor.patch` and `major.minor.0-dev.run` tags may enter
 packaging or publication. Push fallback, optional manual-dispatch input, and
-release-event tags use the same validator. Publication repeats the validation
+manual-dispatch tags use the same validator. Publication repeats the validation
 against the deploy job's exact canonical source tag and numeric package version,
 so an alias or collision cannot label assets that installed clients reject.
 
-Push and release builds request a bounded 501-entry inventory: 500 selectable
-records plus one truncation sentinel. The selector accepts at most 500 entries
-and 1 MiB, then considers at most eight candidates from the build's explicit `automated` or `stable`
-channel, ordered by semantic version rather than publication time. A candidate
+Push and manual-dispatch builds request a bounded 501-entry
+inventory: 500 selectable records plus one truncation sentinel. The selector
+accepts at most 500 entries and 1 MiB, then considers at most eight candidates
+from the build's explicit `automated` or `stable` channel, ordered by semantic
+version rather than publication time. A candidate
 becomes a delta base only when its `RELEASES` index
 contains exactly one row matching the downloaded full package's filename,
 SHA-1, and byte size, and the package is a valid `Amulet` NuGet archive with a
@@ -44,7 +45,9 @@ safe. The prior package and historical rows remain build inputs only.
 Automatic publication starts as a draft carrying the recursion marker, then is
 published exactly once. The workflow reads the resulting `publishedAt`
 timestamp and calculates elapsed time from the first deploy job. Final notes
-include that verified interval and the committed line-count table.
+include that verified interval, every uploaded asset basename and SHA-256, and
+the committed line-count table. Publication checks each recorded hash against
+the GitHub-hosted asset digest before the job succeeds.
 
 ## Configuration
 
@@ -65,13 +68,15 @@ unattributed `git blame` lines.
   candidate.
 - A stable tag in patch range `100000..999999`, an automated tag with a nonzero
   source patch, or an automated run above `899999` fails closed.
-- A noncanonical build, manual, or release-event tag alias; a source/package
+- A noncanonical build or manual tag alias; a source/package
   identity mismatch; a repeated semantic version; or inventory beyond the
   500-record selector ceiling fails closed.
 - Once a safe pair is selected, a missing current delta, hash/size mismatch, or
   delta row in the client feed fails packaging.
 - A missing first-job or publication timestamp fails release-note publication
   instead of inventing a duration.
+- A missing, malformed, or hosted-mismatched asset SHA-256 fails publication
+  instead of leaving unverifiable release notes.
 - Existing immutable asset names are never overwritten.
 - An attribution or total arithmetic mismatch makes the committed counter fail.
 
@@ -85,8 +90,9 @@ package downloads are limited to 128 MiB, 20,000 archive members, 512 MiB per
 member, and 1 GiB extracted content. The workflow validates GitHub's SHA-256
 asset digest when the API supplies it, then validates the strict UTF-8 index,
 local basename, SHA-1, byte size, NuGet identity, metadata version, archive
-paths, and semantic ordering. Executables and DLLs must report `NotSigned`;
-the workflow never requests or invokes signing.
+paths, and semantic ordering. Top-level release-directory executables and DLLs
+must report `NotSigned`, and the required `Setup.exe` must pass the packaging
+script's PE-header check; the workflow never requests or invokes signing.
 
 ## Verification
 

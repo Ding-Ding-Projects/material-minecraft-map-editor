@@ -6,8 +6,8 @@
 
 **A free, open-source Minecraft world editor and converter for Java and Bedrock worlds.**
 
-[![Windows build](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/build-windows.yml/badge.svg?branch=0.10)](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/build-windows.yml)
-[![Unit tests](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/unittests.yml/badge.svg?branch=0.10)](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/unittests.yml)
+[![Windows build](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/build-windows.yml/badge.svg?branch=main)](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/build-windows.yml)
+[![Unit tests](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/unittests.yml/badge.svg?branch=main)](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/actions/workflows/unittests.yml)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](setup.cfg)
 [![Material Design 3 migration](https://img.shields.io/badge/UI-Material%20Design%203%20migration-6750A4)](ROADMAP.md)
 
@@ -86,6 +86,9 @@ include:
   staged per-property or appearance-only global reset controls;
 - a tabbed native Preferences dialog with searchable settings, a bounded Python
   `re` builder, and a `Ctrl+Shift+F` command palette;
+- app-owned, searchable Material 3 command menus with bounded literal matching,
+  keyboard navigation, focus restoration, and existing wx command-event
+  compatibility;
 - a shared School-mode presentation lock with a renamed label, salted unlock
   verifier, and native controls that remove inapplicable language settings;
 - a persisted notification history with search, bulk dismissal, and Markdown
@@ -119,6 +122,8 @@ Relevant source and contracts:
 
 - [`amulet_map_editor/api/wx/material3.py`](amulet_map_editor/api/wx/material3.py)
 - [`docs/features/material-shell/README.md`](docs/features/material-shell/README.md)
+- [`amulet_map_editor/api/material_menu.py`](amulet_map_editor/api/material_menu.py)
+- [`docs/features/material-menu/README.md`](docs/features/material-menu/README.md)
 - [`amulet_map_editor/api/wx/ui/preferences.py`](amulet_map_editor/api/wx/ui/preferences.py)
 - [`amulet_map_editor/api/regex_builder.py`](amulet_map_editor/api/regex_builder.py)
 - [`docs/features/external-editor/README.md`](docs/features/external-editor/README.md)

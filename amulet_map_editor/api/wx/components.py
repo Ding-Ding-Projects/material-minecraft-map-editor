@@ -10,6 +10,7 @@ from amulet_map_editor.api.material_menu import (
     MaterialMenuItem,
     MenuSelection,
     filter_menu_items,
+    fit_menu_command_viewport,
 )
 from amulet_map_editor.api.wx.material3 import (
     _active_palette,
@@ -592,8 +593,34 @@ class MaterialMenu(wx.PopupTransientWindow):
         if display_index == wx.NOT_FOUND:
             display_index = 0
         area = wx.Display(display_index).GetClientArea()
-        width = min(max(320, best.width), min(520, area.width))
-        height = min(max(180, best.height), min(620, area.height))
+        command_content_height = (
+            max(0, self._buttons_sizer.GetMinSize().height) if self._visible else 0
+        )
+        # A scrolled window's best size describes its native viewport, not its
+        # virtual children.  On packaged Windows wx this was 24 px, so the
+        # popup fitted the title/search chrome and clipped every command below
+        # a scrollbar-width strip.  Separate the measured chrome from that
+        # provisional viewport and explicitly reserve a bounded command area.
+        provisional_viewport_height = max(0, self._scroll.GetSize().height)
+        if self._visible and provisional_viewport_height <= 0:
+            provisional_viewport_height = max(0, self._scroll.GetBestSize().height)
+        chrome_height = max(0, best.height - provisional_viewport_height)
+        viewport_layout = fit_menu_command_viewport(
+            chrome_height=chrome_height,
+            command_content_height=command_content_height,
+            area_height=area.height,
+        )
+        scrollbar_width = (
+            max(0, wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X, self))
+            if command_content_height > viewport_layout.command_viewport_height
+            else 0
+        )
+        width = min(max(320, best.width + scrollbar_width), min(520, area.width))
+        height = viewport_layout.popup_height
+        if self._visible:
+            self._scroll.SetMinSize(
+                wx.Size(300, viewport_layout.command_viewport_height)
+            )
         x = min(max(area.x, screen_position.x), area.GetRight() - width + 1)
         if screen_position.y + height <= area.GetBottom() + 1:
             y = screen_position.y
@@ -606,6 +633,8 @@ class MaterialMenu(wx.PopupTransientWindow):
         self.SetPosition(wx.Point(x, y))
         self.Layout()
         self._card.Layout()
+        self._scroll.Layout()
+        self._scroll.FitInside()
         self.Popup(self._search.text)
         wx.CallAfter(self._search.SetFocus)
 
@@ -692,6 +721,7 @@ class MaterialMenu(wx.PopupTransientWindow):
         self._selection.reset(enabled)
         self._scroll.Layout()
         self._scroll.FitInside()
+        self._scroll.Scroll(0, 0)
         self._card.Layout()
         self.Layout()
         self.SendSizeEvent()

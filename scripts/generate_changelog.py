@@ -55,13 +55,6 @@ def generate_catalog(repo: Path, repository_url: str) -> dict[str, object]:
     entries = []
     for tag in tags:
         revision = _git(repo, ["rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}"])
-        # A release workflow creates its lightweight tag after the source
-        # commit has already been built.  A tag pointing at this exact
-        # checkout therefore describes publication *after* this catalog
-        # snapshot, not a release that was reachable when the snapshot was
-        # generated.  Ancestor tags remain required and are included below.
-        if revision == head:
-            continue
         record = _git(
             repo,
             ["show", "-s", "--format=%cs%x1f%s", "--end-of-options", revision],

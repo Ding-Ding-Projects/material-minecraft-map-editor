@@ -9,8 +9,6 @@ on:
         description: Optional canonical major.minor.patch or major.minor.0-dev.run tag
         required: false
         type: string
-  release:
-    types: [published]
 
 permissions:
   contents: read
@@ -24,7 +22,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->') }}
     outputs:
       build_version: ${{ steps.resolve-version.outputs.build_version }}
       build_channel: ${{ steps.resolve-version.outputs.build_channel }}
@@ -57,7 +54,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install twine pyinstaller~=6.18 build pytest pytest-timeout
+        pip install pyinstaller~=6.18 build pytest
 
     - name: Build Wheels
       shell: pwsh
@@ -95,7 +92,7 @@ jobs:
       id: resolve-version
       shell: pwsh
       env:
-        RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag || '' }}
+        RELEASE_TAG: ${{ inputs.release_tag || '' }}
         RUN_NUMBER: ${{ github.run_number }}
       run: |
         $raw = $env:RELEASE_TAG
@@ -122,7 +119,6 @@ jobs:
         "source_tag=$source" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
     - name: Fetch previous Squirrel feed for delta
-      if: github.event_name == 'release'
       shell: pwsh
       env:
         GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
@@ -272,19 +268,18 @@ jobs:
         if ($difference.Count -ne 0) {
           throw "RELEASES must advertise only the current full package: $($releaseNames -join ', ')"
         }
-        Get-ChildItem $releaseDir -File -Include '*.exe', '*.dll' | ForEach-Object {
+        $signatureTargets = @(
+          Get-ChildItem -LiteralPath $releaseDir -File |
+            Where-Object { $_.Extension -in @('.exe', '.dll') }
+        )
+        if ($signatureTargets.Count -eq 0) {
+          throw "No executable signature targets were found in $releaseDir"
+        }
+        $signatureTargets | ForEach-Object {
           $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName
           if ($signature.Status -ne 'NotSigned') { throw "Unsigned policy violated for $($_.Name): $($signature.Status)" }
         }
         Write-Host "Unsigned Squirrel.Windows artifacts verified: $releaseDir"
-
-    - name: Publish to PyPi
-      if: github.event_name == 'release'
-      env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.AMULET_MAP_EDITOR_PYPI_PASSWORD }}
-      run: |
-        twine upload dist/amulet[_-]map[_-]editor*.tar.gz --skip-existing
 
     - name: Upload Release Asset
       uses: actions/upload-artifact@v6
@@ -299,11 +294,7 @@ jobs:
   publish:
     name: Publish unsigned Squirrel release
     needs: deploy
-    # A release created by this job emits a `published` event of its own.  The
-    # marker in our notes prevents that event from trying to upload the same
-    # immutable assets a second time, while still allowing manually published
-    # releases to use this path.
-    if: ${{ needs.deploy.result == 'success' && needs.deploy.outputs.tests_passed == 'true' && (github.event_name != 'release' || !contains(github.event.release.body, '<!-- amulet-auto-release -->')) }}
+    if: ${{ needs.deploy.result == 'success' && needs.deploy.outputs.tests_passed == 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -325,102 +316,11 @@ jobs:
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
-          RELEASE_TAG_INPUT: ${{ github.event.release.tag_name || inputs.release_tag || '' }}
+          RELEASE_TAG_INPUT: ${{ inputs.release_tag || '' }}
           RELEASE_TAG_FALLBACK: ${{ needs.deploy.outputs.source_tag }}
           RELEASE_TAG_EXPECTED_SOURCE: ${{ needs.deploy.outputs.source_tag }}
           RELEASE_TAG_EXPECTED_VERSION: ${{ needs.deploy.outputs.build_version }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
           RUN_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          setup_path="$(find release-assets -type f -name 'Setup.exe' -print -quit)"
-          releases_path="$(find release-assets -type f -name 'RELEASES' -print -quit)"
-          nupkg_path="$(find release-assets -type f -name '*-full.nupkg' -print -quit)"
-          test -n "$setup_path" || { echo 'Setup.exe was not found in the downloaded artifact'; exit 1; }
-          test -n "$releases_path" || { echo 'RELEASES was not found in the downloaded artifact'; exit 1; }
-          test -n "$nupkg_path" || { echo 'full Squirrel package was not found in the downloaded artifact'; exit 1; }
-          if [[ "$setup_path" != "release-assets/Setup.exe" ]]; then cp -- "$setup_path" release-assets/Setup.exe; fi
-          if [[ "$releases_path" != "release-assets/RELEASES" ]]; then cp -- "$releases_path" release-assets/RELEASES; fi
-          nupkg_name="$(basename -- "$nupkg_path")"
-          if [[ "$nupkg_path" != "release-assets/$nupkg_name" ]]; then cp -- "$nupkg_path" "release-assets/$nupkg_name"; fi
-          # Both event data and the fallback stay in environment variables;
-          # the helper validates them before the value reaches the release API.
-          tag="$(python3 scripts/normalize_release_tag.py)"
-          started="$(gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name | startswith("deploy")) | .started_at' | sed -n '1p')"
-          test -n "$started" || { echo 'Could not resolve the deploy job start time for release timing notes'; exit 1; }
-          line_table="$(python3 scripts/count_lines.py)"
-          while IFS='=' read -r key value; do
-            case "$key" in
-              DIM_SUM_CODE_NAME) DIM_SUM_CODE_NAME="$value" ;;
-              DIM_SUM_PHOTO_URL) DIM_SUM_PHOTO_URL="$value" ;;
-            esac
-          done < <(python3 scripts/resolve_dim_sum_code_name.py)
-          test -n "${DIM_SUM_CODE_NAME:-}" || { echo 'Dim-sum code name was not resolved'; exit 1; }
-          test -n "${DIM_SUM_PHOTO_URL:-}" || { echo 'Dim-sum public photo URL was not resolved'; exit 1; }
-          notes_file="$(mktemp)"
-          trap 'rm -f "$notes_file"' EXIT
-          write_notes() {
-            local completed="$1"
-            local duration="$2"
-            {
-              printf '%s\n' '<!-- amulet-auto-release -->'
-              printf '%s\n' "Unsigned Squirrel.Windows release. Code signing is intentionally disabled; the operating system may show an unknown-publisher warning."
-              printf '%s\n' "Workflow started: $started"
-              printf '%s\n' "Workflow completed: $completed"
-              printf '%s\n\n' "Workflow duration: $duration"
-              printf '%s\n' "Line count and surviving attribution (CI, scripts/count_lines.py):"
-              printf '%s\n' '```csv'
-              printf '%s\n' "$line_table"
-              printf '%s\n\n' '```'
-              printf '%s\n' "Generated text and deliberately excluded text are separate rows; repository-grand-total is every tracked line-oriented text file counted. Binary assets are not line-counted."
-              printf '%s\n' "Agent attribution uses surviving git-blame lines whose commit author or Co-Authored-By trailer identifies an automation agent; person and unattributed lines are reported separately."
-              printf '%s\n' "Dim-sum code name: $DIM_SUM_CODE_NAME"
-              printf '%s\n' "Dim-sum public photo: $DIM_SUM_PHOTO_URL"
-            } > "$notes_file"
-          }
-          upload_paths=("release-assets/Setup.exe" "release-assets/RELEASES" "release-assets/$nupkg_name")
-          while IFS= read -r path; do
-            case "$(basename -- "$path")" in
-              Setup.exe|RELEASES|"$nupkg_name") ;;
-              *) upload_paths+=("$path") ;;
-            esac
-          done < <(find release-assets -type f -print)
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            while IFS= read -r existing; do
-              for path in "${upload_paths[@]}"; do
-                if [[ "$existing" == "$(basename -- "$path")" ]]; then
-                  echo "Refusing to replace immutable release asset: $existing"
-                  exit 1
-                fi
-              done
-            done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-            gh release upload "$tag" "${upload_paths[@]}" --repo "$GITHUB_REPOSITORY"
-            # A manually published release already exists.  Its workflow
-            # completion is the point at which this run finishes attaching
-            # the verified assets, not a timestamp sampled before the upload.
-            completed="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          else
-            # Keep the marker in draft notes so the published event generated
-            # below cannot start a duplicate packaging run.  Timing stays
-            # explicitly pending until GitHub confirms actual publication.
-            write_notes 'publication-pending' 'publication-pending'
-            gh release create "$tag" "${upload_paths[@]}" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "Amulet Map Editor $tag" \
-              --notes-file "$notes_file" \
-              --target "$RUN_SHA" \
-              --draft
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
-            completed="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq '.publishedAt')"
-            test -n "$completed" || { echo 'GitHub did not report a publication completion timestamp'; exit 1; }
-          fi
-          duration="$(python3 scripts/release_timing.py --started "$started" --completed "$completed")"
-          write_notes "$completed" "$duration"
-          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
-
-          is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
-          test "$is_draft" = 'false' || { echo 'Release remained a draft after publication'; exit 1; }
-          final_body="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')"
-          grep -Fqx "Workflow completed: $completed" <<< "$final_body"
-          grep -Fqx "Workflow duration: $duration" <<< "$final_body"
+        run: bash scripts/publish_release.sh release-assets

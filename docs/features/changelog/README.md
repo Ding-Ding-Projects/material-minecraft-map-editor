@@ -7,11 +7,15 @@ foundation used by the native `ChangelogDialog`. The desktop View menu and
 `Ctrl+Shift+F` command palette expose the browser with local filters and
 Markdown export. The repository still makes no live wx screenshot claim.
 
-The bundled `changelog_catalog.json` is generated from every release tag
-reachable from the source revision recorded in that file. Each release entry
-uses the tag name, tagged commit date, full commit SHA, and unedited Git commit
-subject. The catalog therefore does not invent release prose or claim that a
-tag-tip subject is a complete set of historical release notes.
+The bundled `changelog_catalog.json` is generated from every release tag whose
+peeled commit is reachable from the source revision recorded in that file,
+including a tag that points at the source revision itself when that tag already
+exists. An automatic release tag created after the source snapshot is absent
+from that immutable snapshot and enters the next generated catalog. Each
+release entry uses the tag name, tagged commit date, full commit SHA, and
+unedited Git commit subject. The catalog therefore does not invent release
+prose or claim that a tag-tip subject is a complete set of historical release
+notes.
 
 ## Behavior
 
@@ -42,9 +46,9 @@ From the repository root, run:
 py -3 scripts/generate_changelog.py
 ```
 
-The generator walks reachable tags, peels annotated tags to commits, preserves
-their subjects unchanged, and writes deterministic UTF-8 JSON. Its action
-categories are intentionally mechanical and documented:
+The generator walks tags reachable from `HEAD`, peels annotated tags to
+commits, preserves their subjects unchanged, and writes deterministic UTF-8
+JSON. Its action categories are intentionally mechanical and documented:
 
 - subjects beginning with add/enable/implement/introduce map to `added`;
 - fix/repair/correct map to `fixed`;
@@ -56,8 +60,8 @@ only a filter hook.
 
 ## Failure modes
 
-- A new reachable tag makes the completeness test fail until the catalog is
-  regenerated and reviewed.
+- A new tag reachable from the catalog's recorded source revision makes the
+  completeness test fail until the catalog is regenerated and reviewed.
 - A missing or non-commit object makes commit-link validation fail.
 - A newer schema fails closed with `UnsupportedChangelogVersion`; it is not
   silently interpreted as schema 1.
@@ -83,10 +87,11 @@ Run the focused suite:
 py -3 -m unittest -v tests.test_changelog
 ```
 
-It checks reachable-tag completeness, local commit-object resolution, composed
-date/action/text filters, bounded regex integration, derived action counts,
-Markdown export, explicit empty results, and strict schema rejection. These are
-source and unit-test claims only; no wx runtime or screenshot claim is made.
+It checks source-snapshot tag completeness, local commit-object resolution,
+composed date/action/text filters, bounded regex integration, derived action
+counts, Markdown export, explicit empty results, and strict schema rejection.
+These are source and unit-test claims only; no wx runtime or screenshot claim
+is made.
 
 ## Suggested articles
 

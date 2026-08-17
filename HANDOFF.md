@@ -7,12 +7,13 @@ the searchable local-history browser, persisted tab/group manager, and bounded
 per-element appearance editor,
 an unsigned Squirrel.Windows packaging workflow, the owned Material 3 site
 source, and README screenshot evidence. The main shell now uses compact
-owner-drawn caption controls, an app-owned command bar, a single responsive
-start card, and an immediately usable startup path with no acknowledgement or
-purchase gate. Local syntax and diff checks pass.
-Hosted Windows CI and release publication are proven for earlier integrated
-SHAs; the newest workflow may still be running. wxPython runtime capture and
-live site hosting remain external verification gates. The tab manager and
+owner-drawn caption controls, an app-owned command bar with bounded searchable
+Material popups, a single responsive start card, and an immediately usable
+startup path with no acknowledgement or purchase gate. Focused menu, site, and
+documentation contracts pass on the current closeout working tree. The final
+integrated SHA, hosted CI verdict, and release evidence are pending this
+closeout and must be recorded here when they are available. wxPython runtime
+capture and live site hosting remain external verification gates. The tab manager and
 element editor are currently the persisted organisation/discovery surface; the
 notebook's visual edge/group projection and full Word-depth typography remain
 explicit follow-ups. The site remains an incomplete landing shell and has no
@@ -22,7 +23,7 @@ owner-controlled host are actually verified.
 ## Release contract repair
 
 The Windows workflow now downloads a prior `RELEASES` index and full package as
-one matched pair on pushes and release events. It checks filename, SHA-1, byte
+one matched pair on pushes and manual dispatches. It checks filename, SHA-1, byte
 size, NuGet identity, metadata version, and strict version ordering before
 Squirrel receives a single-row staging feed. Candidate selection is bounded,
 semantic, and channel-specific; downloaded size and GitHub SHA-256 metadata are
@@ -45,6 +46,18 @@ and sends only the exact immutable project release route to the immediate
 matching immutable release-notes URL through the ready state, and exposes that
 validated URL from the responsive Material banner. These are local tests until
 the integration build and installed-client path are proven.
+
+## Material command menu completion
+
+The application command bar now opens app-owned Material 3 popups instead of
+native command menus. The wx-independent model provides Unicode-normalised
+literal search, stable ranking, fixed query/result bounds, and disabled-item
+selection rules. The native popup provides keyboard navigation, focus return,
+viewport clamping, scrolling, and the existing `wx.CommandEvent` callback
+contract. `tests/test_material_menu.py`,
+`tests/test_m3_completion_contract.py`, and
+`scripts/validate-m3-completion.py` cover the source contract. Final integrated
+SHA and hosted runtime/release evidence: **pending closeout verification**.
 
 The latest local correction follows the pinned Squirrel.Windows 2.0.1 command
 shape: check output is bounded progress followed by strict final JSON, update
@@ -91,5 +104,5 @@ with explicit bounded regex mode, and resolves internal article links locally.
 `DocumentationDialog` is exposed from the View menu and command palette; it
 renders only the bundled Markdown subset and never fetches remote content.
 `tests/test_docs_browser.py` proves completeness, search, link resolution, and
-wx-independent loading. Record the final integrated SHA here when this lane
-lands.
+wx-independent loading. The article bundle is integrated; the final closeout
+SHA remains pending the release-grade verification described above.

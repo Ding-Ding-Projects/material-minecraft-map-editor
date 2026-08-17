@@ -1,8 +1,32 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "31600ae0678efc08a4360f50ee27867d86174233",
+  "source_revision": "1edd69fe5b40cadf622c3fdb59f3fc9a700629d1",
   "entries": [
+    {
+      "version": "0.10.0-dev.477",
+      "released_on": "2026-08-10",
+      "commit_sha": "c08470c01dd5569b92d75fcaadb3f213d1e275d5",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Normalize M3 completion formatting",
+          "commit_sha": "c08470c01dd5569b92d75fcaadb3f213d1e275d5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.473",
+      "released_on": "2026-08-10",
+      "commit_sha": "31600ae0678efc08a4360f50ee27867d86174233",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Refresh offline docs and changelog catalogs",
+          "commit_sha": "31600ae0678efc08a4360f50ee27867d86174233"
+        }
+      ]
+    },
     {
       "version": "0.10.0-dev.471",
       "released_on": "2026-08-10",

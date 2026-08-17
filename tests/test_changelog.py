@@ -2,8 +2,10 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from datetime import date
+from pathlib import Path
 
 from amulet_map_editor.api.changelog import (
     ChangelogCatalog,
@@ -17,6 +19,7 @@ from amulet_map_editor.api.changelog import (
     validate_commit_links,
 )
 from amulet_map_editor.api.regex_builder import RegexBuilder
+from scripts.generate_changelog import generate_catalog
 
 
 class ChangelogTestCase(unittest.TestCase):
@@ -25,36 +28,54 @@ class ChangelogTestCase(unittest.TestCase):
         cls.catalog = load_bundled_catalog()
 
     def test_catalog_covers_every_reachable_release_tag(self):
-        head = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        ).stdout.strip()
         tags = subprocess.run(
-            ["git", "tag", "--merged", "HEAD", "--format=%(refname:strip=2)"],
+            [
+                "git",
+                "tag",
+                "--merged",
+                self.catalog.source_revision,
+                "--format=%(refname:strip=2)",
+            ],
             check=True,
             capture_output=True,
             text=True,
             encoding="utf-8",
         ).stdout.splitlines()
-        source_snapshot_tags = {
-            tag
-            for tag in tags
-            if subprocess.run(
-                ["git", "rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}"],
-                check=True,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-            ).stdout.strip()
-            != head
-        }
+        source_snapshot_tags = set(tags)
         self.assertEqual(
             source_snapshot_tags, {entry.version for entry in self.catalog.entries}
         )
         self.assertEqual(len(source_snapshot_tags), len(self.catalog.entries))
+
+    def test_generator_includes_a_release_tag_at_its_source_revision(self):
+        with tempfile.TemporaryDirectory(prefix="amulet-changelog-") as temporary:
+            repo = Path(temporary)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Catalog Fixture"],
+                cwd=repo,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "fixture@example.invalid"],
+                cwd=repo,
+                check=True,
+            )
+            (repo / "fixture.txt").write_text("release\n", encoding="utf-8")
+            subprocess.run(["git", "add", "fixture.txt"], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-q", "-m", "Add release fixture"],
+                cwd=repo,
+                check=True,
+            )
+            subprocess.run(["git", "tag", "0.10.0-dev.1"], cwd=repo, check=True)
+
+            catalog = generate_catalog(repo, "https://example.invalid/repo")
+
+        self.assertEqual(
+            ["0.10.0-dev.1"],
+            [entry["version"] for entry in catalog["entries"]],
+        )
 
     def test_every_commit_link_resolves_to_a_reachable_local_commit(self):
         result = subprocess.run(
