@@ -13,6 +13,10 @@ import unicodedata
 
 MAX_QUERY_CHARS = 256
 MAX_RESULTS = 200
+MIN_POPUP_HEIGHT = 180
+MAX_POPUP_HEIGHT = 620
+MIN_COMMAND_VIEWPORT_HEIGHT = 120
+MAX_COMMAND_VIEWPORT_HEIGHT = 360
 
 
 def visible_menu_label(label: str) -> str:
@@ -81,6 +85,51 @@ class MaterialMenuItem:
             _normalise(self.shortcut),
             *(_normalise(keyword) for keyword in self.keywords),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class MenuViewportLayout:
+    """Bounded popup height and the command viewport it leaves available."""
+
+    popup_height: int
+    command_viewport_height: int
+
+
+def fit_menu_command_viewport(
+    *,
+    chrome_height: int,
+    command_content_height: int,
+    area_height: int,
+) -> MenuViewportLayout:
+    """Reserve a useful command viewport inside a display-bounded popup.
+
+    ``wx.ScrolledWindow`` deliberately does not report the full virtual content
+    height as its best height.  Treating the control's small default best size
+    as the popup's desired viewport can therefore leave only a scrollbar-width
+    strip for every command.  This calculation keeps the title and search
+    chrome intact, requests a useful viewport for non-empty command content,
+    and still caps the complete popup to the active display.
+    """
+
+    available_height = max(1, min(int(area_height), MAX_POPUP_HEIGHT))
+    bounded_chrome_height = max(0, int(chrome_height))
+    bounded_content_height = max(0, int(command_content_height))
+    if bounded_content_height:
+        desired_viewport_height = max(
+            MIN_COMMAND_VIEWPORT_HEIGHT,
+            min(bounded_content_height, MAX_COMMAND_VIEWPORT_HEIGHT),
+        )
+    else:
+        desired_viewport_height = 0
+
+    popup_height = min(
+        max(MIN_POPUP_HEIGHT, bounded_chrome_height + desired_viewport_height),
+        available_height,
+    )
+    command_viewport_height = (
+        max(0, popup_height - bounded_chrome_height) if bounded_content_height else 0
+    )
+    return MenuViewportLayout(popup_height, command_viewport_height)
 
 
 def _item_score(item: MaterialMenuItem, tokens: Sequence[str]) -> tuple[int, int]:
@@ -173,10 +222,16 @@ class MenuSelection:
 
 
 __all__ = [
+    "MAX_COMMAND_VIEWPORT_HEIGHT",
+    "MAX_POPUP_HEIGHT",
     "MAX_QUERY_CHARS",
     "MAX_RESULTS",
+    "MIN_COMMAND_VIEWPORT_HEIGHT",
+    "MIN_POPUP_HEIGHT",
     "MaterialMenuItem",
     "MenuSelection",
+    "MenuViewportLayout",
     "filter_menu_items",
+    "fit_menu_command_viewport",
     "visible_menu_label",
 ]
