@@ -255,9 +255,7 @@ def test_git_python_inventory_ignores_hostile_git_index(
         ["git", "-C", str(tmp_path), "add", "good.py", "hidden.py"], check=True
     )
     (tmp_path / ".gitignore").write_text("hidden.py\n", encoding="utf-8")
-    subprocess.run(
-        ["git", "-C", str(tmp_path), "add", ".gitignore"], check=True
-    )
+    subprocess.run(["git", "-C", str(tmp_path), "add", ".gitignore"], check=True)
 
     alternate_index = tmp_path / "alternate.index"
     alternate_env = os.environ.copy()
