@@ -43,6 +43,7 @@ def notify(
 ) -> notifications.Notification | None:
     """Record an informational result without halting the active workflow."""
 
+    safe_title = _escape_unsupported_controls(str(title).strip(), multiline=False)
     full_body = str(body).strip() or notification_copy.notification_text(
         "fallback.empty"
     )
@@ -69,7 +70,7 @@ def notify(
     details = _bound_details(details)
     item: notifications.Notification | None = None
     try:
-        item = notifications.add(severity, title, safe_body, details=details)
+        item = notifications.add(severity, safe_title, safe_body, details=details)
     except Exception:
         # A notification must not turn its caller's wx callback into an
         # exception path when its optional durable-history store is unavailable.
@@ -82,7 +83,7 @@ def notify(
     except AttributeError:
         pass
     try:
-        top.SetStatusText(f"{title}: {safe_body}")
+        top.SetStatusText(f"{safe_title}: {safe_body}")
     except Exception:
         # Best-effort by design, and the guard has to be broad: a frame with no
         # status bar raises wx.wxAssertionError, which is neither AttributeError
@@ -91,7 +92,7 @@ def notify(
         # notification was reporting in the first place.
         log.debug("Status-bar notification fallback unavailable", exc_info=True)
     try:
-        top.show_notification(title, safe_body, severity=severity)
+        top.show_notification(safe_title, safe_body, severity=severity)
     except (AttributeError, RuntimeError):
         # Non-shell and closing wx owners retain the diagnostic fallback.
         pass
