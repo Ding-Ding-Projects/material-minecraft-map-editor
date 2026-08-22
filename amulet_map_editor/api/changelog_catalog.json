@@ -1,8 +1,68 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "c4e452b3513f12cc9d9bc2ebd98c51e5d7c17ae7",
+  "source_revision": "4061806f98646555548b0b4f69810f89a853c6e7",
   "entries": [
+    {
+      "version": "0.11.0-dev.31",
+      "released_on": "2026-08-22",
+      "commit_sha": "2ef3e980cabcaf972b9f9b7da8ac7eab319c7bb7",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Wire Entity counts to the real analyze backend",
+          "commit_sha": "2ef3e980cabcaf972b9f9b7da8ac7eab319c7bb7"
+        }
+      ]
+    },
+    {
+      "version": "0.11.0-dev.30",
+      "released_on": "2026-08-22",
+      "commit_sha": "dbf144f7266105b2af4e303bc6a1b218844023d9",
+      "changes": [
+        {
+          "action": "added",
+          "summary": "Add searchable context menus to the studio workspace shell",
+          "commit_sha": "dbf144f7266105b2af4e303bc6a1b218844023d9"
+        }
+      ]
+    },
+    {
+      "version": "0.11.0-dev.29",
+      "released_on": "2026-08-22",
+      "commit_sha": "0158fd3e74c980cad1e070e54b1a1d4babbffa01",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Surface real local history in the studio shell / 工作室殼終於睇到真歷史",
+          "commit_sha": "0158fd3e74c980cad1e070e54b1a1d4babbffa01"
+        }
+      ]
+    },
+    {
+      "version": "0.11.0-dev.28",
+      "released_on": "2026-08-22",
+      "commit_sha": "9be853474a003b1e88202ddad6895b0c28153cef",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Remove Stylecheck workflow and the report-only test step",
+          "commit_sha": "9be853474a003b1e88202ddad6895b0c28153cef"
+        }
+      ]
+    },
+    {
+      "version": "0.11.0-dev.27",
+      "released_on": "2026-08-21",
+      "commit_sha": "c4e452b3513f12cc9d9bc2ebd98c51e5d7c17ae7",
+      "changes": [
+        {
+          "action": "fixed",
+          "summary": "Fix Black formatting drift across three files",
+          "commit_sha": "c4e452b3513f12cc9d9bc2ebd98c51e5d7c17ae7"
+        }
+      ]
+    },
     {
       "version": "0.11.0-dev.26",
       "released_on": "2026-08-20",
