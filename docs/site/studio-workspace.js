@@ -1098,7 +1098,6 @@
     };
 
     // -------------------------------------------------------------- DOM
-    var ribbonTabsRow = el("div", { className: "sw-ribbon-tabs", onContextmenu: function (e) { e.preventDefault(); } });
     var ribbonGroupsRow = el("div", { className: "sw-ribbon-groups" });
     var ribbonSearchInput = el("input", {
       placeholder: "Search this tab's commands",
@@ -1125,7 +1124,12 @@
       actions.toggleRibbon();
     });
 
-    var ribbonRow = el("div", { className: "sw-ribbon-tabs" });
+    var ribbonRow = el("div", {
+      className: "sw-ribbon-tabs",
+      onContextmenu: function (e) {
+        openRibbonMenu(e);
+      },
+    });
     RIBBON_TAB_DEFS.forEach(function (tab) {
       var tabBtn = el(
         "button",
@@ -1177,6 +1181,87 @@
     ]);
     viewportColumn.appendChild(viewportHost);
     viewportColumn.appendChild(statusBar);
+
+    viewportHost.addEventListener("contextmenu", function (event) {
+      openViewportMenu(event);
+    });
+
+    // The shared searchable context menu (docs/site/context-menu.js). Each
+    // surface registers only actions that already exist in this module or in
+    // the viewport panel it drives -- a menu row is never a second, invented
+    // command with its own idea of what it does.
+    function ribbonMenuItems() {
+      return [
+        RIBBON_TAB_DEFS.map(function (tab) {
+          return {
+            label: "Tab: " + tab.label,
+            run: function () {
+              state.ribbonTab = tab.key;
+              render();
+            },
+          };
+        }),
+        [
+          { separator: true },
+          { label: "Toggle ribbon", shortcut: "", run: function () { actions.toggleRibbon(); } },
+          { label: "Toggle properties pane", run: function () { actions.togglePane(); } },
+          { label: "Toggle navigator", run: function () { actions.toggleNavigator(); } },
+          {
+            label: "Open command palette",
+            shortcut: "Ctrl+Shift+F",
+            run: function () {
+              var trigger = document.getElementById("palette-open");
+              if (trigger && typeof trigger.click === "function") trigger.click();
+            },
+          },
+        ],
+      ].reduce(function (out, list) {
+        return out.concat(list);
+      }, []);
+    }
+
+    function openRibbonMenu(event) {
+      if (!window.AmuletSite || typeof window.AmuletSite.contextMenu !== "function") {
+        event.preventDefault();
+        return;
+      }
+      window.AmuletSite.contextMenu(ribbonMenuItems(), event, "Ribbon commands");
+    }
+
+    function viewportMenuItems() {
+      var vp = viewportPanel();
+      return [
+        { label: "Undo", shortcut: "Ctrl+Z", disabled: !vp || typeof vp.runUndo !== "function", reason: UNWIRED_REASON, run: vp ? vp.runUndo : null },
+        { label: "Redo", shortcut: "Ctrl+Y", disabled: !vp || typeof vp.runRedo !== "function", reason: UNWIRED_REASON, run: vp ? vp.runRedo : null },
+        { label: "Save world", shortcut: "Ctrl+S", disabled: !vp || typeof vp.runSave !== "function", reason: UNWIRED_REASON, run: vp ? vp.runSave : null },
+        { separator: true },
+        { label: "Copy selection", disabled: !vp || typeof vp.runCopySelection !== "function", reason: NO_WORLD_REASON, run: vp ? vp.runCopySelection : null },
+        { label: "Cut selection", disabled: !vp || typeof vp.runCutSelection !== "function", reason: NO_WORLD_REASON, run: vp ? vp.runCutSelection : null },
+        { label: "Paste at point 1", disabled: !vp || typeof vp.runPasteSelection !== "function", reason: NO_WORLD_REASON, run: vp ? vp.runPasteSelection : null },
+        { label: "Delete selection", disabled: !vp || typeof vp.runDeleteSelection !== "function", reason: NO_WORLD_REASON, run: vp ? vp.runDeleteSelection : null },
+        { separator: true },
+        {
+          label: "Select chunk under camera",
+          disabled: !vp || typeof vp.selectChunkUnderCamera !== "function",
+          reason: UNWIRED_REASON,
+          run: vp ? vp.selectChunkUnderCamera : null,
+        },
+        {
+          label: "Toggle reference grid",
+          disabled: !vp || typeof vp.setGridVisible !== "function",
+          reason: NO_WORLD_REASON,
+          run: function () { actions.toggleGrid(); },
+        },
+      ];
+    }
+
+    function openViewportMenu(event) {
+      if (!window.AmuletSite || typeof window.AmuletSite.contextMenu !== "function") {
+        event.preventDefault();
+        return;
+      }
+      window.AmuletSite.contextMenu(viewportMenuItems(), event, "Viewport actions");
+    }
 
     // The navigator's own listener on the SAME open button, so choosing a
     // world path once populates both the 3D viewport (via
@@ -1311,6 +1396,9 @@
 
     function renderNavigator() {
       navigatorEl.innerHTML = "";
+      navigatorEl.addEventListener("contextmenu", function (event) {
+        openNavigatorMenu(event);
+      });
       navigatorEl.appendChild(
         el("div", { className: "sw-nav-header" }, [el("span", { style: "flex:1" }, ["Navigator"])])
       );
@@ -1397,6 +1485,51 @@
         );
       }
       navigatorEl.appendChild(boxesList);
+    }
+
+    function navigatorMenuItems() {
+      var items = [];
+      state.dimensions.forEach(function (d) {
+        var meta = navigatorLabel(d.dimension);
+        items.push({
+          label: "Go to " + meta.label + " · " + d.dimension,
+          disabled: false,
+          run: function () {
+            state.navSelected = d.dimension;
+            renderNavigator();
+            renderBreadcrumb();
+          },
+        });
+      });
+      items.push({ separator: true });
+      var vp = viewportPanel();
+      items.push({
+        label: "Copy selection",
+        disabled: !vp || typeof vp.runCopySelection !== "function",
+        reason: NO_WORLD_REASON,
+        run: vp ? vp.runCopySelection : null,
+      });
+      items.push({
+        label: "Delete selection",
+        disabled: !vp || typeof vp.runDeleteSelection !== "function",
+        reason: NO_WORLD_REASON,
+        run: vp ? vp.runDeleteSelection : null,
+      });
+      items.push({
+        label: "Fill selection",
+        disabled: !vp || typeof vp.runFill !== "function",
+        reason: NO_WORLD_REASON,
+        run: vp ? vp.runFill : null,
+      });
+      return items;
+    }
+
+    function openNavigatorMenu(event) {
+      if (!window.AmuletSite || typeof window.AmuletSite.contextMenu !== "function") {
+        event.preventDefault();
+        return;
+      }
+      window.AmuletSite.contextMenu(navigatorMenuItems(), event, "Navigator actions");
     }
 
     function fieldsRow(fields) {
