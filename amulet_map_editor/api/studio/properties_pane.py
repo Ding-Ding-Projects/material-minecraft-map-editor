@@ -2321,14 +2321,26 @@ class PropertiesPane(wx.Panel):
 
     def _on_anchor_chosen(self, label: str) -> None:
         """Remember which point the Position boxes name, and re-read them."""
+        # The option list carries the pane's own bilingual labels, but a caller
+        # may hand back either language alone -- the runtime contract drives
+        # this control with the plain English label, and a user typing into the
+        # popup's search sees the same string.  Accept every name the anchor is
+        # known by rather than quietly falling back to the centre.
         chosen = next(
             (
                 key
                 for key, _name in editor_tools.ANCHORS
-                if self._anchor_option_label(key) == label
+                if label
+                in (
+                    self._anchor_option_label(key),
+                    editor_tools.anchor_label(key),
+                    editor_tools.anchor_label_cantonese(key),
+                )
             ),
-            editor_tools.ANCHOR_CENTRE,
+            None,
         )
+        if chosen is None:
+            chosen = editor_tools.ANCHOR_CENTRE
         if chosen == self.position_anchor:
             return
         self.position_anchor = chosen
