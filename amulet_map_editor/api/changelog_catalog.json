@@ -1,8 +1,32 @@
 {
   "schema_version": 1,
   "repository_url": "https://github.com/Ding-Ding-Projects/material-minecraft-map-editor",
-  "source_revision": "e6c74af78ae0b0249e065dbcdcabcad74e26ea99",
+  "source_revision": "c4e452b3513f12cc9d9bc2ebd98c51e5d7c17ae7",
   "entries": [
+    {
+      "version": "0.11.0-dev.26",
+      "released_on": "2026-08-20",
+      "commit_sha": "53d10cf067a10942a6f616f02e9fa633115f1162",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Integrate reviewed release-closeout salvage",
+          "commit_sha": "53d10cf067a10942a6f616f02e9fa633115f1162"
+        }
+      ]
+    },
+    {
+      "version": "0.11.0-dev.25",
+      "released_on": "2026-08-13",
+      "commit_sha": "60eb2e3e0d07bb3aa0ec8e493b40790faa3522c4",
+      "changes": [
+        {
+          "action": "removed",
+          "summary": "Delete the test workflow that never once produced a verdict",
+          "commit_sha": "60eb2e3e0d07bb3aa0ec8e493b40790faa3522c4"
+        }
+      ]
+    },
     {
       "version": "0.11.0-dev.24",
       "released_on": "2026-08-13",
@@ -732,6 +756,18 @@
           "action": "changed",
           "summary": "Update the banner-wrap test to check the resize call that actually ships",
           "commit_sha": "b65d6887797aedb106db52933c2743733ec3e8d5"
+        }
+      ]
+    },
+    {
+      "version": "0.10.0-dev.734",
+      "released_on": "2026-08-12",
+      "commit_sha": "0d85fc6189f1c9c05f0432c0f98aa0230f277cf2",
+      "changes": [
+        {
+          "action": "changed",
+          "summary": "Preserve, do not merge: a re-added inert Draw range and a blinded guard",
+          "commit_sha": "0d85fc6189f1c9c05f0432c0f98aa0230f277cf2"
         }
       ]
     },
