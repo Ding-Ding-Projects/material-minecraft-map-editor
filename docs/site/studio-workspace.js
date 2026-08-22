@@ -143,7 +143,7 @@
           btn("Undo", "↶", "Undo the last edit against the open world.", actions.undo, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Redo", "↷", "Redo the last undone edit.", actions.redo, { requiresSidecar: true, requiresWorld: true }),
           btn("Save", "▣", "Write pending changes to disk.", actions.save, { requiresSidecar: true, requiresWorld: true }),
-          btn("History", "⟲", "Project history -- per-project Git repository."),
+          btn("History", "⟲", "Local version history -- opens the History tab.", actions.openHistory),
           btn("Goto", "⌖", "Teleport the camera to a coordinate."),
           btn("Select all", "▩", "Select All."),
           btn("Inspect", "⌕", "Inspect block -- opens the NBT editor."),
@@ -421,7 +421,7 @@
           // this just presses that real button rather than building a
           // second notification surface.
           btn("Notifications", "◉", "Notification history -- opens the notification drawer.", actions.openNotifications),
-          btn("History", "⟲", "Version history. The Surfaces view that hosts local history is not switched into by this build's view router yet."),
+          btn("History", "⟲", "Local version history -- opens the History tab.", actions.openHistory),
           btn("Release notes", "♧", "Release notes. This build has no in-app changelog viewer yet -- see the documentation site's own changelog."),
         ]),
         group("Memory", [
@@ -528,6 +528,13 @@
       workshopRunning: false,
       workshopError: null,
       workshopResult: null, // { command, rows: [[label, value], ...] }
+      // The sidecar's app-wide local Git-backed history
+      // (amulet_map_editor/api/local_history.py), loaded once a world is
+      // open so the properties pane's History tab and the breadcrumb pill
+      // read real records rather than a hardcoded placeholder.
+      historyEvents: [],
+      historyError: null,
+      historyLoading: false,
     };
 
     root.setAttribute("data-studio-workspace", "1");
@@ -620,6 +627,11 @@
       openNotifications: function () {
         var openBtn = document.getElementById("notif-open");
         if (openBtn && typeof openBtn.click === "function") openBtn.click();
+      },
+      openHistory: function () {
+        state.paneOpen = true;
+        state.paneTab = "history";
+        render();
       },
       togglePane: function () {
         state.paneOpen = !state.paneOpen;
@@ -1228,7 +1240,25 @@
             state.navSelected = state.dimensions[0].dimension;
           }
           renderNavigator();
+          loadHistory();
         });
+      });
+    }
+
+    function loadHistory() {
+      state.historyLoading = true;
+      state.historyError = null;
+      sidecarCall("history.events", { limit: 50 }).then(function (resp) {
+        state.historyLoading = false;
+        if (!resp.ok) {
+          state.historyEvents = [];
+          state.historyError =
+            (resp.error && resp.error.message) || "history.events failed.";
+          render();
+          return;
+        }
+        state.historyEvents = resp.result.events || [];
+        render();
       });
     }
 
@@ -1251,7 +1281,7 @@
       });
       breadcrumbRow.appendChild(el("div", { className: "sw-breadcrumb-fill" }));
       var vp = viewportPanel();
-      var revisionKnown = false; // this build has no per-project Git repository read path yet
+      var revisionKnown = !!(state.worldId || state.dimensions.length);
       breadcrumbRow.appendChild(
         el(
           "button",
@@ -1259,7 +1289,10 @@
             type: "button",
             className: "sw-revision-pill",
             disabled: !revisionKnown,
-            title: revisionKnown ? "Project history" : UNWIRED_REASON,
+            onClick: revisionKnown ? actions.openHistory : null,
+            title: revisionKnown
+              ? "Open local version history"
+              : "Open a world first -- then this opens its local version history.",
           },
           [el("span", { className: "sw-revision-dot" }), revisionKnown ? "head revision" : "no project history yet"]
         )
@@ -1632,15 +1665,97 @@
           ])
         );
       } else if (state.paneTab === "history") {
-        body.appendChild(
-          el("p", { className: "sw-pane-empty" }, [
-            "This build has no per-project Git repository read path yet, so recent revisions " +
-              "cannot be shown. " +
-              UNWIRED_REASON,
-          ])
-        );
+        renderHistoryPane(body);
       }
       paneEl.appendChild(body);
+    }
+
+    function renderHistoryPane(body) {
+      if (!hasSidecar()) {
+        body.appendChild(el("p", { className: "sw-pane-empty" }, [NO_SIDECAR_REASON]));
+        return;
+      }
+      if (!state.worldId && !state.dimensions.length) {
+        body.appendChild(
+          el("p", { className: "sw-pane-empty" }, [
+            "No world open yet. Open a world in the viewport below to load its local history.",
+          ])
+        );
+        return;
+      }
+      if (state.historyLoading) {
+        body.appendChild(el("p", { className: "sw-pane-empty" }, ["Loading history…"]));
+        return;
+      }
+      if (state.historyError) {
+        body.appendChild(el("p", { className: "sw-pane-empty" }, [state.historyError]));
+        return;
+      }
+      if (!state.historyEvents.length) {
+        body.appendChild(
+          el("p", { className: "sw-pane-empty" }, [
+            "No history recorded yet. Every saved change appears here.",
+          ])
+        );
+        return;
+      }
+      state.historyEvents.forEach(function (event) {
+        var card = el("div", { className: "sw-history-card" });
+        var head = el("div", { className: "sw-history-head" });
+        head.appendChild(
+          el("span", { className: "sw-mono" }, [String(event.event_id).slice(0, 8)])
+        );
+        head.appendChild(
+          el("span", {}, [
+            event.record_type + " · " + event.action + " · " + event.timestamp,
+          ])
+        );
+        var btnRow = el("div", {});
+        btnRow.appendChild(
+          el("button", {
+            type: "button",
+            text: "Diff",
+            onClick: function () {
+              window.alert(
+                "Before:\n" +
+                  JSON.stringify(event.before, null, 2) +
+                  "\n\nAfter:\n" +
+                  JSON.stringify(event.after, null, 2)
+              );
+            },
+          })
+        );
+        btnRow.appendChild(
+          el("button", {
+            type: "button",
+            text: "Restore",
+            onClick: function () {
+              var site = window.AmuletSite;
+              var run = function () {
+                sidecarCall("history.restore", { event_id: event.event_id }).then(function (resp) {
+                  if (!resp.ok) return;
+                  loadHistory();
+                });
+              };
+              if (site && typeof site.confirmDestructive === "function") {
+                site.confirmDestructive({
+                  title: "Restore history record",
+                  detail:
+                    "Restores " + event.record_type + " " + event.record_id +
+                    " to the state recorded by this history event.",
+                  confirm: "Restore",
+                  onConfirm: run,
+                });
+              } else {
+                run();
+              }
+            },
+          })
+        );
+        card.appendChild(head);
+        card.appendChild(btnRow);
+        body.appendChild(card);
+      });
     }
 
     function appendSections(body, sections) {
