@@ -283,7 +283,7 @@
         group("Counts", [
           btn("Histogram", "▧", "Block counts and percentages in the selection.", actions.analyzeBlockHistogram, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Chunk inspector", "▦", "Per-chunk status, entity, and block-entity counts in the selection.", actions.analyzeChunkInventory, { requiresSidecar: true, requiresWorld: true }),
-          btn("Biome map", "❋", "Biome distribution across the selection."),
+          btn("Entity counts", "☰", "Entities actually inside the selection, counted by type.", actions.analyzeEntityCounts, { requiresSidecar: true, requiresWorld: true }),
         ]),
         group("Integrity", [
           btn("Validate", "✓", "Audit the selection for blocks outside the universal_minecraft namespace (a translation-failure signal); does not repair region data.", actions.analyzeBlockAudit, { primary: true, requiresSidecar: true, requiresWorld: true }),
@@ -782,6 +782,29 @@
                   " block entities",
               ]);
             });
+            return rows;
+          }
+        );
+      },
+      // "Entity counts" (Analyze tab) calls the real analyze.entity_counts
+      // backend -- strictly read-only, exactly like every other command on
+      // this tab, so it threads through the same shared runner rather than
+      // inventing a second result path.
+      analyzeEntityCounts: function () {
+        actions.runAnalyzeCommand(
+          "Entity counts",
+          function (analyze, worldId, dimension, min, max) {
+            return analyze.entityCounts(worldId, dimension, min, max);
+          },
+          function (result) {
+            var rows = [
+              ["Entities found", String(result.entities_found)],
+              ["Distinct types", String(result.distinct_entity_types)],
+            ];
+            (result.entities || []).slice(0, 8).forEach(function (entry) {
+              rows.push([entry.entity, String(entry.count)]);
+            });
+            if (!result.entities_found) rows.push(["Result", "No entities inside the selection."]);
             return rows;
           }
         );

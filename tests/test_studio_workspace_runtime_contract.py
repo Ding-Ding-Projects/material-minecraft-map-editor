@@ -395,15 +395,39 @@ class TheAnalyzeTabCallsTheRealBridge(unittest.TestCase):
             "clicking Histogram with no selection must report an honest error, not silently do nothing",
         )
 
-    def test_biome_map_is_still_honestly_unwired(self) -> None:
+    def test_entity_counts_is_wired_like_the_other_analyze_commands(self) -> None:
         got = render(
-            FAKE_SIDECAR + self.ANALYZE_FIXTURE,
+            FAKE_SIDECAR
+            + """
+            window.AmuletSite = { electronSidecar: { analyze: {
+              entityCounts: function (worldId, dimension, min, max) {
+                window.__entityCountsCalledWith = Array.prototype.slice.call(arguments);
+                return Promise.resolve({
+                  entities_found: 2,
+                  distinct_entity_types: 1,
+                  entities: [{ entity: "minecraft:cow", count: 2 }],
+                });
+              },
+            } } };
+            window.__AmuletViewportPanel = { isStreaming: () => true,
+              getWorldId: () => "fixture-world-id",
+              getDimension: () => "minecraft:overworld",
+              edit: { readPoints: () => ({ point1: [1, 2, 3], point2: [4, 5, 6] }) } };
+            """,
             "all('.sw-ribbon-tab').find(b => b.textContent === 'Analyze').click();"
-            "const biome = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Biome map') !== -1);"
-            "return { disabled: biome.disabled, title: biome.title };",
+            "const counts = all('.sw-ribbon-btn').find(b => b.textContent.indexOf('Entity counts') !== -1);"
+            "counts.click();"
+            "await new Promise(r => setTimeout(r, 20));"
+            "const rows = [...all('.sw-pane-section-title'), ...all('.sw-pane-row-value')].map(e => e.textContent);"
+            "return { disabled: counts.disabled, calledWith: window.__entityCountsCalledWith, rows };",
         )
-        self.assertTrue(got["disabled"])
-        self.assertIn("Not yet wired to the desktop sidecar", got["title"])
+        self.assertFalse(got["disabled"])
+        self.assertEqual(
+            got["calledWith"],
+            ["fixture-world-id", "minecraft:overworld", [1, 2, 3], [4, 5, 6]],
+        )
+        self.assertIn("Entity counts", "".join(got["rows"]))
+        self.assertIn("212", "".join(got["rows"]))
 
 
 class TheTerrainEntitiesAndDataTabsCallTheRealBridge(unittest.TestCase):
