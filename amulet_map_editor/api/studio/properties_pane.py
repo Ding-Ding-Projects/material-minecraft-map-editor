@@ -1673,6 +1673,39 @@ class PropertiesPane(wx.Panel):
             )
         elif self.tab == "tool":
             self._build_tool_tab(gap)
+            # The tool tab rebuilds every time a tool starts, and wx resets a
+            # scrolled window to the top on each sizer change.  The arrow-key
+            # note sits under the activation message, so at scroll-zero it can
+            # land below the fold of a short column -- which is the exact
+            # failure this pane was rebuilt to prevent.  Scroll the note into
+            # view once layout settles, so "the pane tells you what the keys
+            # do" is true of pixels rather than only of the widget tree.
+            needle = NUDGE_KEY_SENTENCE.split(":")[0]
+            nudge = next(
+                (
+                    child.GetWindow()
+                    for child in self.body.GetChildren()
+                    if child.GetWindow() is not None
+                    and needle in str(child.GetWindow().GetName() or "")
+                ),
+                None,
+            )
+            if nudge is not None:
+                def _bring_note_into_view() -> None:
+                    try:
+                        # ``Scroll()`` takes *virtual* coordinates, not screen
+                        # or parent ones.  GetPosition() answers where the
+                        # control sits inside the scroller's virtual area once
+                        # FitInside has sized that area, so scrolling straight
+                        # there puts the note at the top edge of whatever is
+                        # visible -- which is the earliest place a reader can
+                        # see all of it without hunting.
+                        _, virtual_y = nudge.GetPosition()
+                        self.scroller.Scroll(0, max(0, int(virtual_y)))
+                    except RuntimeError:  # pragma: no cover - mid-teardown
+                        pass
+
+                wx.CallAfter(_bring_note_into_view)
         else:
             self.body.Add(self.notes_field, 0, wx.EXPAND | wx.BOTTOM, gap)
             self.body.Add(self.notes_status, 0, wx.EXPAND | wx.BOTTOM, gap)
@@ -1748,6 +1781,15 @@ class PropertiesPane(wx.Panel):
         """
         self.activation = activation
         self._pending_failure = ""
+        # The tool tab is about to be rebuilt from scratch, so the scroll
+        # position it inherits is meaningless; reset it before the rebuild so
+        # the "bring the arrow-key note into view" pass below measures against
+        # a known top-of-tab rather than wherever the previous tab happened to
+        # be sitting.
+        try:
+            self.scroller.Scroll(0, 0)
+        except RuntimeError:  # pragma: no cover - the pane is being torn down
+            return
         pill = self.tab_buttons.get(TOOL_TAB[0])
         if pill is not None:
             pill.Show()
