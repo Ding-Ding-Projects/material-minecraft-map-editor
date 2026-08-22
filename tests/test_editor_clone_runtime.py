@@ -30,6 +30,7 @@ the assertion here walks the whole ancestor chain instead of asking the panel.
 from __future__ import annotations
 
 import pathlib
+import os
 import shutil
 import time
 import zipfile
@@ -304,6 +305,15 @@ def session(app, tmp_path_factory) -> Iterator[Session]:
     workspace = tmp_path_factory.mktemp("clone-runtime")
     record.path = _prepare_world(workspace)
 
+    # A clean profile, not the developer's own.  The real profile on this
+    # machine carries ui_scale=2.0, which doubles every token height and
+    # makes the pending controls physically taller than the viewport they
+    # float over -- a state no fresh CI runner or new user ever sees.  The
+    # runtime contract tests the shipped geometry, so it ships with the
+    # shipped scale.
+    config_dir = tmp_path_factory.mktemp("clone-config")
+    os.environ["CONFIG_DIR"] = str(config_dir)
+
     level = amulet.load_level(record.path)
     try:
         record.marker_before = _marker_points(level)
@@ -546,6 +556,9 @@ def _drive_arrow_key(record: "Session") -> None:
         record.notes.append("no properties pane is hosting the tool options")
         return
     record.nudge_sentence_shown = _pane_says(pane, pane_module.NUDGE_KEY_SENTENCE)
+    # The pane scrolls the arrow-key note into view on a deferred callback,
+    # so give that callback a chance to land before measuring anything.
+    _pump(0.5)
     note = _pane_widget_saying(pane, pane_module.NUDGE_KEY_SENTENCE)
     if note is not None:
         record.nudge_note_rect = _rect(note)
