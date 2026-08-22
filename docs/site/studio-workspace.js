@@ -106,6 +106,11 @@
     }
   }
 
+  /* The ribbon search's own regex state. attach() is called once the search
+   * wrap is in the document (see mount()); until then this stays null and
+   * matchesQuery falls back to plain-text containment. */
+  var ribbonRegexHandle = null;
+
   // ------------------------------------------------------------- ribbon
   // btn(label, glyph, hint, run, opts) mirrors the design file's own `btn`
   // helper. `run === null` means "the design specifies this command, and
@@ -1093,10 +1098,24 @@
       "aria-label": "Search this tab's commands",
     });
     var ribbonToggleBtn = el("button", { type: "button", className: "sw-ribbon-toggle", title: "Collapse or expand the command ribbon" }, ["⌃"]);
+    var ribbonRegexOpen = el("button", {
+      type: "button",
+      className: "sw-regex-btn",
+      title: "Regex builder for this tab's command search",
+      "aria-label": "Regex builder for this tab's command search",
+      "aria-expanded": "false",
+    }, [".*"]);
+    var ribbonRegexPanel = el(
+      "details",
+      { className: "sw-regex-panel", id: "studio-workspace-ribbon-regex" },
+      [el("summary", { className: "sw-regex-summary", text: "Search options" })],
+      el("div", { "data-regex-controls": "studio-workspace-ribbon" })
+    );
     var ribbonSearchWrap = el("div", { className: "sw-ribbon-search" }, [
       ribbonSearchInput,
-      el("button", { type: "button", className: "sw-regex-btn", title: "Regex builder for this tab's command search" }, [".*"]),
+      ribbonRegexOpen,
     ]);
+    ribbonSearchWrap.appendChild(ribbonRegexPanel);
 
     var breadcrumbRow = el("div", { className: "sw-breadcrumb" });
     var navigatorEl = el("div", { className: "sw-navigator" });
@@ -1109,6 +1128,26 @@
       state.ribbonSearch = ribbonSearchInput.value;
       renderRibbonGroups();
     });
+    if (window.Site && typeof window.Site.regex === "object") {
+      ribbonRegexHandle = window.Site.regex.attach({
+        name: "studio-workspace-ribbon",
+        input: ribbonSearchInput,
+        openButton: ribbonRegexOpen,
+        panel: ribbonRegexPanel,
+        sample: "Fill selection · Undo",
+        onChange: function (regexState) {
+          state.ribbonSearch = regexState && typeof regexState.query === "string"
+            ? regexState.query
+            : ribbonSearchInput.value;
+          renderRibbonGroups();
+        },
+      });
+    } else if (ribbonRegexOpen && ribbonRegexPanel) {
+      // attach() is unavailable: keep the button honest rather than inert.
+      ribbonRegexOpen.addEventListener("click", function () {
+        ribbonRegexPanel.open = !ribbonRegexPanel.open;
+      });
+    }
     ribbonToggleBtn.addEventListener("click", function () {
       actions.toggleRibbon();
     });
@@ -1434,10 +1473,16 @@
 
       var ribbon = buildRibbonByTab(actions);
       var groups = ribbon[state.ribbonTab] || ribbon.home;
-      var query = state.ribbonSearch;
+      var regexState = ribbonRegexHandle && ribbonRegexHandle.state
+        ? ribbonRegexHandle.state()
+        : null;
+      var query = regexState && typeof regexState.query === "string"
+        ? regexState.query
+        : state.ribbonSearch;
+      var useRegex = !!(regexState && regexState.regex && regexState.valid);
       groups.forEach(function (g) {
         var visibleItems = g.items.filter(function (item) {
-          return matchesQuery(query, false, item.label + " " + item.hint);
+          return matchesQuery(query, useRegex, item.label + " " + item.hint);
         });
         if (!visibleItems.length && !g.fields && !g.select && query) return;
         var groupEl = el("div", { className: "sw-ribbon-group" });

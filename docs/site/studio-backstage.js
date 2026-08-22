@@ -299,6 +299,15 @@
     throw new Error("world.open_status stayed pending");
   }
 
+  function showWorkspaceView() {
+    // The shell owns the view state; this is only a request. A shell that
+    // has not loaded yet, or one hosting the backstage on its own, simply
+    // stays put rather than inventing a workspace out of nothing.
+    if (window.AmuletStudio && typeof window.AmuletStudio.showView === "function") {
+      window.AmuletStudio.showView("workspace");
+    }
+  }
+
   async function openWorldAtPath(rawPath) {
     var validated = validatePath(rawPath);
     if (!validated.ok) {
@@ -345,6 +354,7 @@
           /* a shell hook that throws must not break the backstage */
         }
       }
+      showWorkspaceView();
     } catch (error) {
       setState({ openBusy: false, openMessage: t("Could not open that world: ", "打唔開嗰個世界：") + String(error) });
     }
@@ -392,6 +402,19 @@
       nav.appendChild(button);
       return { key: item.key, node: button, label: item.label };
     });
+    // Last so callers that look for the backstage "Open" tab by label still
+    // reach that tab rather than this workspace route.
+    nav.appendChild(el(
+      "button",
+      {
+        type: "button",
+        class: "sb-nav-item sb-nav-item--workspace",
+        "aria-label": t("Open workspace", "打開工作區"),
+        onClick: showWorkspaceView,
+      },
+      el("span", { class: "sb-nav-glyph", "aria-hidden": "true" }, "→"),
+      el("span", { class: "sb-nav-label", text: t("Open workspace", "打開工作區") })
+    ));
     root.appendChild(nav);
 
     // ---------------------------------------------------------------- body

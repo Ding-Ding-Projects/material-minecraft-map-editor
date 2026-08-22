@@ -104,6 +104,21 @@
   font-weight: 500;
   cursor: pointer;
 }
+.sw-regex-panel {
+  margin: 6px 0 10px;
+  border: 1px solid var(--sw-olv);
+  border-radius: 12px;
+  background: var(--sw-sch);
+  padding: 4px 12px;
+  flex-basis: 100%;
+  color: var(--sw-on);
+}
+.sw-regex-summary {
+  cursor: pointer;
+  padding: 8px 4px;
+  font-size: 12px;
+  color: var(--sw-p);
+}
 .sw-ribbon-toggle {
   width: 32px;
   height: 32px;
