@@ -14,9 +14,9 @@ permissions:
   contents: read
 
 # build-electron-windows.yml is the only workflow that publishes a GitHub
-# release now -- this workflow still builds and (report-only) tests the
-# wxPython/PyInstaller app so that build does not silently rot, but it no
-# longer creates or uploads a release. Do not "fix" that back.
+# release now -- this workflow builds the wxPython/PyInstaller app so that
+# build does not silently rot, but it no longer creates or uploads a release.
+# Do not "fix" that back.
 #
 # It also no longer runs on `release: [published]`, and that removal is load
 # bearing rather than tidying. While it published its own releases, reacting to
@@ -38,8 +38,6 @@ jobs:
   deploy:
     outputs:
       build_version: ${{ steps.resolve-version.outputs.build_version }}
-      test_verdict: ${{ steps.report-tests.outputs.verdict }}
-      test_summary: ${{ steps.report-tests.outputs.summary }}
       build_channel: ${{ steps.resolve-version.outputs.build_channel }}
       source_tag: ${{ steps.resolve-version.outputs.source_tag }}
       example_world_verdict: ${{ steps.example-world.outputs.verdict }}
@@ -85,50 +83,10 @@ jobs:
       run: |
         python -m pip install dist/amulet_map_editor-*.whl --upgrade
 
-    # The changelog catalog is generated content the packaged build embeds, so
-    # it is still rebuilt here even though this workflow no longer runs tests.
+    # The changelog catalog is generated content the packaged build embeds.
     - name: Generate the changelog catalog
       run: |
         python scripts/generate_changelog.py
-
-    # Reporting only. The user's decision is that a failing test must not
-    # withhold an installer, so this step never blocks: `continue-on-error`
-    # keeps the build going whatever the verdict. What it must not do is let a
-    # release ship silently implying a test state nobody measured, so the exact
-    # result is carried into the release notes below.
-    - name: Run the test suite (report only)
-      id: report-tests
-      continue-on-error: true
-      shell: bash
-      run: |
-        set +e
-        python -m pip install --quiet pytest pytest-timeout pyyaml
-        python -m pytest tests -q --timeout=600 > test-report.txt 2>&1
-        status=$?
-        tail -40 test-report.txt
-        summary="$(grep -E '[0-9]+ (passed|failed)' test-report.txt | tail -1)"
-        if [ -z "$summary" ]; then
-          summary="the suite produced no summary line"
-        fi
-        if [ "$status" -eq 0 ]; then
-          verdict="passed"
-        else
-          verdict="FAILED"
-        fi
-        echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
-        echo "summary=$summary" >> "$GITHUB_OUTPUT"
-        echo "Test verdict: $verdict -- $summary"
-        exit 0
-
-    - name: Upload the test report
-      uses: actions/upload-artifact@v6
-      if: ${{ always() }}
-      continue-on-error: true
-      with:
-        name: test-report-${{ matrix.cfg.architecture }}
-        path: test-report.txt
-        if-no-files-found: warn
-        retention-days: 7
 
     - name: PyInstaller build
       run: |
@@ -323,7 +281,7 @@ jobs:
 
     # The example world is a bonus asset, not a deliverable. `continue-on-error`
     # keeps a generator failure from withholding an installer, exactly like the
-    # test-report step above. It runs after the installer contract is verified
+    # installer contract above. It runs after the installer contract is verified
     # so nothing it writes can disturb that check, and the measured result is
     # carried into the release notes rather than the line being dropped.
     - name: Generate the example world
