@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-08-12T21:47:20.943Z",
+  "generatedAt": "2026-08-22T23:26:35.222Z",
   "results": [
     {
       "name": "1. window created and interface loads",
-      "ok": true,
-      "detail": "url=file:///C:/Users/cntow/Documents/GitHub/material-minecraft-map-editor/dist/electron/win-unpacked/resources/app.asar/docs/site/index.html#home bodyTextLength=4816"
+      "ok": false,
+      "detail": "url=file:///C:/Users/cntow/Documents/GitHub/material-minecraft-map-editor/dist/electron/win-unpacked/resources/app.asar/docs/site/studio.html bodyTextLength=881"
     },
     {
       "name": "2. preload bridge exposes only the narrow surface",
@@ -29,7 +29,7 @@
     {
       "name": "6. changelog.entries / docs.articles return real catalogs",
       "ok": true,
-      "detail": "changelog entries=352 docs articles=62"
+      "detail": "changelog entries=374 docs articles=68"
     },
     {
       "name": "7. converter.formats + a real nbt->json conversion",
@@ -39,12 +39,12 @@
     {
       "name": "8. world.open reports real identity and dimensions",
       "ok": true,
-      "detail": "identity={\"status\":\"ready\",\"world_id\":\"e2191242-11d5-4862-9308-52d5e460b1a2\",\"path\":\"C:\\\\Users\\\\cntow\\\\AppData\\\\Local\\\\Temp\\\\mmwe-accept-fixture-kZ8tGx\\\\world\",\"name\":\"World Created By Amulet\",\"platform\":\"java\",\"version\":3700,\"dimensions\":[\"minecraft:overworld\",\"minecraft:the_nether\",\"minecraft:the_end\"]} dimensions={\"world_id\":\"e2191242-11d5-4862-9308-52d5e460b1a2\",\"dimensions\":[{\"dimension\":\"minecraft:overworld\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_nether\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_end\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}}]}"
+      "detail": "identity={\"status\":\"ready\",\"world_id\":\"8c1f50ab-de8e-4695-ab2b-12e9e351a37e\",\"path\":\"C:\\\\Users\\\\cntow\\\\AppData\\\\Local\\\\Temp\\\\mmwe-accept-fixture-qwBicm\\\\world\",\"name\":\"World Created By Amulet\",\"platform\":\"java\",\"version\":3700,\"dimensions\":[\"minecraft:overworld\",\"minecraft:the_nether\",\"minecraft:the_end\"]} dimensions={\"world_id\":\"8c1f50ab-de8e-4695-ab2b-12e9e351a37e\",\"dimensions\":[{\"dimension\":\"minecraft:overworld\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_nether\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}},{\"dimension\":\"minecraft:the_end\",\"bounds\":{\"min\":[-30000000,0,-30000000],\"max\":[30000000,256,30000000]}}]}"
     },
     {
       "name": "9. viewport streams and draws at least one chunk",
       "ok": true,
-      "detail": "chunkCount signal=1 lastStatus=World open (World Created By Amulet). Building resource pack, this can take a while on first run..."
+      "detail": "chunkCount signal=1 lastStatus=Streaming chunks. Drag to look, scroll or WASD to move."
     },
     {
       "name": "10. selection overlay draws (with vs without differ)",

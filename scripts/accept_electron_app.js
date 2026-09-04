@@ -192,7 +192,11 @@ async function main() {
 
     const url = await evalJSON(client, "location.href");
     const bodyLen = await evalJSON(client, "document.body ? document.body.innerText.length : -1");
-    const ok1 = /index\.html(#.*)?$/i.test(String(url)) && bodyLen > 0;
+    // The shell's entry point moved from docs/site/index.html to
+    // docs/site/studio.html when the Amulet Studio workspace became the
+    // product surface; the acceptance check has to follow the real entry.
+    const ok1 =
+      /(studio|index)\.html(#.*)?$/i.test(String(url)) && bodyLen > 0;
     record("1. window created and interface loads", ok1, `url=${url} bodyTextLength=${bodyLen}`);
 
     // --- 2. preload bridge present, narrow surface only ---
