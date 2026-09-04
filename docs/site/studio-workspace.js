@@ -106,6 +106,11 @@
     }
   }
 
+  /* The ribbon search's own regex state. attach() is called once the search
+   * wrap is in the document (see mount()); until then this stays null and
+   * matchesQuery falls back to plain-text containment. */
+  var ribbonRegexHandle = null;
+
   // ------------------------------------------------------------- ribbon
   // btn(label, glyph, hint, run, opts) mirrors the design file's own `btn`
   // helper. `run === null` means "the design specifies this command, and
@@ -143,7 +148,7 @@
           btn("Undo", "↶", "Undo the last edit against the open world.", actions.undo, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Redo", "↷", "Redo the last undone edit.", actions.redo, { requiresSidecar: true, requiresWorld: true }),
           btn("Save", "▣", "Write pending changes to disk.", actions.save, { requiresSidecar: true, requiresWorld: true }),
-          btn("History", "⟲", "Project history -- per-project Git repository."),
+          btn("History", "⟲", "Local version history -- opens the History tab.", actions.openHistory),
           btn("Goto", "⌖", "Teleport the camera to a coordinate."),
           btn("Select all", "▩", "Select All."),
           btn("Inspect", "⌕", "Inspect block -- opens the NBT editor."),
@@ -283,7 +288,7 @@
         group("Counts", [
           btn("Histogram", "▧", "Block counts and percentages in the selection.", actions.analyzeBlockHistogram, { primary: true, requiresSidecar: true, requiresWorld: true }),
           btn("Chunk inspector", "▦", "Per-chunk status, entity, and block-entity counts in the selection.", actions.analyzeChunkInventory, { requiresSidecar: true, requiresWorld: true }),
-          btn("Biome map", "❋", "Biome distribution across the selection."),
+          btn("Entity counts", "☰", "Entities actually inside the selection, counted by type.", actions.analyzeEntityCounts, { requiresSidecar: true, requiresWorld: true }),
         ]),
         group("Integrity", [
           btn("Validate", "✓", "Audit the selection for blocks outside the universal_minecraft namespace (a translation-failure signal); does not repair region data.", actions.analyzeBlockAudit, { primary: true, requiresSidecar: true, requiresWorld: true }),
@@ -421,7 +426,7 @@
           // this just presses that real button rather than building a
           // second notification surface.
           btn("Notifications", "◉", "Notification history -- opens the notification drawer.", actions.openNotifications),
-          btn("History", "⟲", "Version history. The Surfaces view that hosts local history is not switched into by this build's view router yet."),
+          btn("History", "⟲", "Local version history -- opens the History tab.", actions.openHistory),
           btn("Release notes", "♧", "Release notes. This build has no in-app changelog viewer yet -- see the documentation site's own changelog."),
         ]),
         group("Memory", [
@@ -528,6 +533,13 @@
       workshopRunning: false,
       workshopError: null,
       workshopResult: null, // { command, rows: [[label, value], ...] }
+      // The sidecar's app-wide local Git-backed history
+      // (amulet_map_editor/api/local_history.py), loaded once a world is
+      // open so the properties pane's History tab and the breadcrumb pill
+      // read real records rather than a hardcoded placeholder.
+      historyEvents: [],
+      historyError: null,
+      historyLoading: false,
     };
 
     root.setAttribute("data-studio-workspace", "1");
@@ -620,6 +632,11 @@
       openNotifications: function () {
         var openBtn = document.getElementById("notif-open");
         if (openBtn && typeof openBtn.click === "function") openBtn.click();
+      },
+      openHistory: function () {
+        state.paneOpen = true;
+        state.paneTab = "history";
+        render();
       },
       togglePane: function () {
         state.paneOpen = !state.paneOpen;
@@ -770,6 +787,29 @@
                   " block entities",
               ]);
             });
+            return rows;
+          }
+        );
+      },
+      // "Entity counts" (Analyze tab) calls the real analyze.entity_counts
+      // backend -- strictly read-only, exactly like every other command on
+      // this tab, so it threads through the same shared runner rather than
+      // inventing a second result path.
+      analyzeEntityCounts: function () {
+        actions.runAnalyzeCommand(
+          "Entity counts",
+          function (analyze, worldId, dimension, min, max) {
+            return analyze.entityCounts(worldId, dimension, min, max);
+          },
+          function (result) {
+            var rows = [
+              ["Entities found", String(result.entities_found)],
+              ["Distinct types", String(result.distinct_entity_types)],
+            ];
+            (result.entities || []).slice(0, 8).forEach(function (entry) {
+              rows.push([entry.entity, String(entry.count)]);
+            });
+            if (!result.entities_found) rows.push(["Result", "No entities inside the selection."]);
             return rows;
           }
         );
@@ -1086,17 +1126,30 @@
     };
 
     // -------------------------------------------------------------- DOM
-    var ribbonTabsRow = el("div", { className: "sw-ribbon-tabs", onContextmenu: function (e) { e.preventDefault(); } });
     var ribbonGroupsRow = el("div", { className: "sw-ribbon-groups" });
     var ribbonSearchInput = el("input", {
       placeholder: "Search this tab's commands",
       "aria-label": "Search this tab's commands",
     });
     var ribbonToggleBtn = el("button", { type: "button", className: "sw-ribbon-toggle", title: "Collapse or expand the command ribbon" }, ["⌃"]);
+    var ribbonRegexOpen = el("button", {
+      type: "button",
+      className: "sw-regex-btn",
+      title: "Regex builder for this tab's command search",
+      "aria-label": "Regex builder for this tab's command search",
+      "aria-expanded": "false",
+    }, [".*"]);
+    var ribbonRegexPanel = el(
+      "details",
+      { className: "sw-regex-panel", id: "studio-workspace-ribbon-regex" },
+      [el("summary", { className: "sw-regex-summary", text: "Search options" })],
+      el("div", { "data-regex-controls": "studio-workspace-ribbon" })
+    );
     var ribbonSearchWrap = el("div", { className: "sw-ribbon-search" }, [
       ribbonSearchInput,
-      el("button", { type: "button", className: "sw-regex-btn", title: "Regex builder for this tab's command search" }, [".*"]),
+      ribbonRegexOpen,
     ]);
+    ribbonSearchWrap.appendChild(ribbonRegexPanel);
 
     var breadcrumbRow = el("div", { className: "sw-breadcrumb" });
     var navigatorEl = el("div", { className: "sw-navigator" });
@@ -1109,11 +1162,36 @@
       state.ribbonSearch = ribbonSearchInput.value;
       renderRibbonGroups();
     });
+    if (window.Site && typeof window.Site.regex === "object") {
+      ribbonRegexHandle = window.Site.regex.attach({
+        name: "studio-workspace-ribbon",
+        input: ribbonSearchInput,
+        openButton: ribbonRegexOpen,
+        panel: ribbonRegexPanel,
+        sample: "Fill selection · Undo",
+        onChange: function (regexState) {
+          state.ribbonSearch = regexState && typeof regexState.query === "string"
+            ? regexState.query
+            : ribbonSearchInput.value;
+          renderRibbonGroups();
+        },
+      });
+    } else if (ribbonRegexOpen && ribbonRegexPanel) {
+      // attach() is unavailable: keep the button honest rather than inert.
+      ribbonRegexOpen.addEventListener("click", function () {
+        ribbonRegexPanel.open = !ribbonRegexPanel.open;
+      });
+    }
     ribbonToggleBtn.addEventListener("click", function () {
       actions.toggleRibbon();
     });
 
-    var ribbonRow = el("div", { className: "sw-ribbon-tabs" });
+    var ribbonRow = el("div", {
+      className: "sw-ribbon-tabs",
+      onContextmenu: function (e) {
+        openRibbonMenu(e);
+      },
+    });
     RIBBON_TAB_DEFS.forEach(function (tab) {
       var tabBtn = el(
         "button",
@@ -1165,6 +1243,87 @@
     ]);
     viewportColumn.appendChild(viewportHost);
     viewportColumn.appendChild(statusBar);
+
+    viewportHost.addEventListener("contextmenu", function (event) {
+      openViewportMenu(event);
+    });
+
+    // The shared searchable context menu (docs/site/context-menu.js). Each
+    // surface registers only actions that already exist in this module or in
+    // the viewport panel it drives -- a menu row is never a second, invented
+    // command with its own idea of what it does.
+    function ribbonMenuItems() {
+      return [
+        RIBBON_TAB_DEFS.map(function (tab) {
+          return {
+            label: "Tab: " + tab.label,
+            run: function () {
+              state.ribbonTab = tab.key;
+              render();
+            },
+          };
+        }),
+        [
+          { separator: true },
+          { label: "Toggle ribbon", shortcut: "", run: function () { actions.toggleRibbon(); } },
+          { label: "Toggle properties pane", run: function () { actions.togglePane(); } },
+          { label: "Toggle navigator", run: function () { actions.toggleNavigator(); } },
+          {
+            label: "Open command palette",
+            shortcut: "Ctrl+Shift+F",
+            run: function () {
+              var trigger = document.getElementById("palette-open");
+              if (trigger && typeof trigger.click === "function") trigger.click();
+            },
+          },
+        ],
+      ].reduce(function (out, list) {
+        return out.concat(list);
+      }, []);
+    }
+
+    function openRibbonMenu(event) {
+      if (!window.AmuletSite || typeof window.AmuletSite.contextMenu !== "function") {
+        event.preventDefault();
+        return;
+      }
+      window.AmuletSite.contextMenu(ribbonMenuItems(), event, "Ribbon commands");
+    }
+
+    function viewportMenuItems() {
+      var vp = viewportPanel();
+      return [
+        { label: "Undo", shortcut: "Ctrl+Z", disabled: !vp || typeof vp.runUndo !== "function", reason: UNWIRED_REASON, run: vp ? vp.runUndo : null },
+        { label: "Redo", shortcut: "Ctrl+Y", disabled: !vp || typeof vp.runRedo !== "function", reason: UNWIRED_REASON, run: vp ? vp.runRedo : null },
+        { label: "Save world", shortcut: "Ctrl+S", disabled: !vp || typeof vp.runSave !== "function", reason: UNWIRED_REASON, run: vp ? vp.runSave : null },
+        { separator: true },
+        { label: "Copy selection", disabled: !vp || typeof vp.runCopySelection !== "function", reason: NO_WORLD_REASON, run: vp ? vp.runCopySelection : null },
+        { label: "Cut selection", disabled: !vp || typeof vp.runCutSelection !== "function", reason: NO_WORLD_REASON, run: vp ? vp.runCutSelection : null },
+        { label: "Paste at point 1", disabled: !vp || typeof vp.runPasteSelection !== "function", reason: NO_WORLD_REASON, run: vp ? vp.runPasteSelection : null },
+        { label: "Delete selection", disabled: !vp || typeof vp.runDeleteSelection !== "function", reason: NO_WORLD_REASON, run: vp ? vp.runDeleteSelection : null },
+        { separator: true },
+        {
+          label: "Select chunk under camera",
+          disabled: !vp || typeof vp.selectChunkUnderCamera !== "function",
+          reason: UNWIRED_REASON,
+          run: vp ? vp.selectChunkUnderCamera : null,
+        },
+        {
+          label: "Toggle reference grid",
+          disabled: !vp || typeof vp.setGridVisible !== "function",
+          reason: NO_WORLD_REASON,
+          run: function () { actions.toggleGrid(); },
+        },
+      ];
+    }
+
+    function openViewportMenu(event) {
+      if (!window.AmuletSite || typeof window.AmuletSite.contextMenu !== "function") {
+        event.preventDefault();
+        return;
+      }
+      window.AmuletSite.contextMenu(viewportMenuItems(), event, "Viewport actions");
+    }
 
     // The navigator's own listener on the SAME open button, so choosing a
     // world path once populates both the 3D viewport (via
@@ -1228,7 +1387,25 @@
             state.navSelected = state.dimensions[0].dimension;
           }
           renderNavigator();
+          loadHistory();
         });
+      });
+    }
+
+    function loadHistory() {
+      state.historyLoading = true;
+      state.historyError = null;
+      sidecarCall("history.events", { limit: 50 }).then(function (resp) {
+        state.historyLoading = false;
+        if (!resp.ok) {
+          state.historyEvents = [];
+          state.historyError =
+            (resp.error && resp.error.message) || "history.events failed.";
+          render();
+          return;
+        }
+        state.historyEvents = resp.result.events || [];
+        render();
       });
     }
 
@@ -1251,7 +1428,7 @@
       });
       breadcrumbRow.appendChild(el("div", { className: "sw-breadcrumb-fill" }));
       var vp = viewportPanel();
-      var revisionKnown = false; // this build has no per-project Git repository read path yet
+      var revisionKnown = !!(state.worldId || state.dimensions.length);
       breadcrumbRow.appendChild(
         el(
           "button",
@@ -1259,7 +1436,10 @@
             type: "button",
             className: "sw-revision-pill",
             disabled: !revisionKnown,
-            title: revisionKnown ? "Project history" : UNWIRED_REASON,
+            onClick: revisionKnown ? actions.openHistory : null,
+            title: revisionKnown
+              ? "Open local version history"
+              : "Open a world first -- then this opens its local version history.",
           },
           [el("span", { className: "sw-revision-dot" }), revisionKnown ? "head revision" : "no project history yet"]
         )
@@ -1278,6 +1458,9 @@
 
     function renderNavigator() {
       navigatorEl.innerHTML = "";
+      navigatorEl.addEventListener("contextmenu", function (event) {
+        openNavigatorMenu(event);
+      });
       navigatorEl.appendChild(
         el("div", { className: "sw-nav-header" }, [el("span", { style: "flex:1" }, ["Navigator"])])
       );
@@ -1366,6 +1549,51 @@
       navigatorEl.appendChild(boxesList);
     }
 
+    function navigatorMenuItems() {
+      var items = [];
+      state.dimensions.forEach(function (d) {
+        var meta = navigatorLabel(d.dimension);
+        items.push({
+          label: "Go to " + meta.label + " · " + d.dimension,
+          disabled: false,
+          run: function () {
+            state.navSelected = d.dimension;
+            renderNavigator();
+            renderBreadcrumb();
+          },
+        });
+      });
+      items.push({ separator: true });
+      var vp = viewportPanel();
+      items.push({
+        label: "Copy selection",
+        disabled: !vp || typeof vp.runCopySelection !== "function",
+        reason: NO_WORLD_REASON,
+        run: vp ? vp.runCopySelection : null,
+      });
+      items.push({
+        label: "Delete selection",
+        disabled: !vp || typeof vp.runDeleteSelection !== "function",
+        reason: NO_WORLD_REASON,
+        run: vp ? vp.runDeleteSelection : null,
+      });
+      items.push({
+        label: "Fill selection",
+        disabled: !vp || typeof vp.runFill !== "function",
+        reason: NO_WORLD_REASON,
+        run: vp ? vp.runFill : null,
+      });
+      return items;
+    }
+
+    function openNavigatorMenu(event) {
+      if (!window.AmuletSite || typeof window.AmuletSite.contextMenu !== "function") {
+        event.preventDefault();
+        return;
+      }
+      window.AmuletSite.contextMenu(navigatorMenuItems(), event, "Navigator actions");
+    }
+
     function fieldsRow(fields) {
       var wrap = el("div", { className: "sw-pane-row" });
       return wrap;
@@ -1434,10 +1662,16 @@
 
       var ribbon = buildRibbonByTab(actions);
       var groups = ribbon[state.ribbonTab] || ribbon.home;
-      var query = state.ribbonSearch;
+      var regexState = ribbonRegexHandle && ribbonRegexHandle.state
+        ? ribbonRegexHandle.state()
+        : null;
+      var query = regexState && typeof regexState.query === "string"
+        ? regexState.query
+        : state.ribbonSearch;
+      var useRegex = !!(regexState && regexState.regex && regexState.valid);
       groups.forEach(function (g) {
         var visibleItems = g.items.filter(function (item) {
-          return matchesQuery(query, false, item.label + " " + item.hint);
+          return matchesQuery(query, useRegex, item.label + " " + item.hint);
         });
         if (!visibleItems.length && !g.fields && !g.select && query) return;
         var groupEl = el("div", { className: "sw-ribbon-group" });
@@ -1632,15 +1866,97 @@
           ])
         );
       } else if (state.paneTab === "history") {
-        body.appendChild(
-          el("p", { className: "sw-pane-empty" }, [
-            "This build has no per-project Git repository read path yet, so recent revisions " +
-              "cannot be shown. " +
-              UNWIRED_REASON,
-          ])
-        );
+        renderHistoryPane(body);
       }
       paneEl.appendChild(body);
+    }
+
+    function renderHistoryPane(body) {
+      if (!hasSidecar()) {
+        body.appendChild(el("p", { className: "sw-pane-empty" }, [NO_SIDECAR_REASON]));
+        return;
+      }
+      if (!state.worldId && !state.dimensions.length) {
+        body.appendChild(
+          el("p", { className: "sw-pane-empty" }, [
+            "No world open yet. Open a world in the viewport below to load its local history.",
+          ])
+        );
+        return;
+      }
+      if (state.historyLoading) {
+        body.appendChild(el("p", { className: "sw-pane-empty" }, ["Loading history…"]));
+        return;
+      }
+      if (state.historyError) {
+        body.appendChild(el("p", { className: "sw-pane-empty" }, [state.historyError]));
+        return;
+      }
+      if (!state.historyEvents.length) {
+        body.appendChild(
+          el("p", { className: "sw-pane-empty" }, [
+            "No history recorded yet. Every saved change appears here.",
+          ])
+        );
+        return;
+      }
+      state.historyEvents.forEach(function (event) {
+        var card = el("div", { className: "sw-history-card" });
+        var head = el("div", { className: "sw-history-head" });
+        head.appendChild(
+          el("span", { className: "sw-mono" }, [String(event.event_id).slice(0, 8)])
+        );
+        head.appendChild(
+          el("span", {}, [
+            event.record_type + " · " + event.action + " · " + event.timestamp,
+          ])
+        );
+        var btnRow = el("div", {});
+        btnRow.appendChild(
+          el("button", {
+            type: "button",
+            text: "Diff",
+            onClick: function () {
+              window.alert(
+                "Before:\n" +
+                  JSON.stringify(event.before, null, 2) +
+                  "\n\nAfter:\n" +
+                  JSON.stringify(event.after, null, 2)
+              );
+            },
+          })
+        );
+        btnRow.appendChild(
+          el("button", {
+            type: "button",
+            text: "Restore",
+            onClick: function () {
+              var site = window.AmuletSite;
+              var run = function () {
+                sidecarCall("history.restore", { event_id: event.event_id }).then(function (resp) {
+                  if (!resp.ok) return;
+                  loadHistory();
+                });
+              };
+              if (site && typeof site.confirmDestructive === "function") {
+                site.confirmDestructive({
+                  title: "Restore history record",
+                  detail:
+                    "Restores " + event.record_type + " " + event.record_id +
+                    " to the state recorded by this history event.",
+                  confirm: "Restore",
+                  onConfirm: run,
+                });
+              } else {
+                run();
+              }
+            },
+          })
+        );
+        card.appendChild(head);
+        card.appendChild(btnRow);
+        body.appendChild(card);
+      });
     }
 
     function appendSections(body, sections) {

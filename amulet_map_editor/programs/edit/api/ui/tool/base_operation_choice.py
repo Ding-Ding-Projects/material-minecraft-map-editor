@@ -430,13 +430,22 @@ class BaseOperationChoiceToolUI(wx.BoxSizer, BaseToolUI):
         self._operation_panel.SetVirtualSize(sizer_min)
         self._operation_panel.Layout()
         panel_size = self._operation_panel.GetBestSize()
-        canvas_height = self.canvas.GetSize().GetHeight()
-        allowed_canvas_height = canvas_height - 60 - settings_panel_size.GetHeight()
+        # The panel is positioned at y ``30 + settings_panel_size.height``
+        # inside the viewport that hosts the canvas, so the height it may
+        # occupy is whatever is left *below that offset* -- not the canvas's
+        # whole size less a guess.  Measuring from GetSize() also double-counts
+        # the strip this tool's own floating panels are reserved out of; the
+        # parent's client area is the space the panel actually lives in.
+        host_client = self.canvas.GetParent().GetClientSize()
+        panel_top_offset = 30 + settings_panel_size.GetHeight()
+        allowed_canvas_height = (
+            host_client.GetHeight() - panel_top_offset
+        )
         ideal_path_height = panel_size.GetHeight()
         panel_height = min(ideal_path_height, allowed_canvas_height)
         panel_width = panel_size.GetWidth()
         self._operation_panel.SetSize(
-            wx.Rect(0, 30 + settings_panel_size.GetHeight(), panel_width, panel_height)
+            wx.Rect(0, panel_top_offset, panel_width, panel_height)
         )
         # A panel short enough to need vertical scrolling grows a scrollbar,
         # which eats into its *client* width -- narrower than the

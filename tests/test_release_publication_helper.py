@@ -8,7 +8,6 @@ import tempfile
 import textwrap
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 HELPER = ROOT / "scripts" / "publish_release.sh"
 RUN_SHA = "a" * 40
@@ -324,7 +323,9 @@ class ReleasePublicationHelperTests(unittest.TestCase):
         )
         stdout_path = temp_root / "stdout.txt"
         stderr_path = temp_root / "stderr.txt"
-        with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
+        with stdout_path.open("wb") as stdout_file, stderr_path.open(
+            "wb"
+        ) as stderr_file:
             result = subprocess.run(
                 [self.bash, "--noprofile", "--norc", "-c", command],
                 check=False,
@@ -406,7 +407,9 @@ class ReleasePublicationHelperTests(unittest.TestCase):
     def test_existing_release_is_never_mutated(self):
         result, state = self._run("existing_release")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Refusing to mutate existing release", result.stdout + result.stderr)
+        self.assertIn(
+            "Refusing to mutate existing release", result.stdout + result.stderr
+        )
         log = self._gh_log(state)
         self.assertNotIn("release create", log)
         self.assertNotIn("PATCH", log)

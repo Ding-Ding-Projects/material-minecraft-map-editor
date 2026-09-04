@@ -196,9 +196,7 @@ def _sanitized_python_env(*, pythonpath: Path | None = None) -> dict[str, str]:
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.upper().startswith(
-            ("PYTEST_", "PYTHON", "COVERAGE_", "COV_CORE_")
-        )
+        if not key.upper().startswith(("PYTEST_", "PYTHON", "COVERAGE_", "COV_CORE_"))
     }
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"

@@ -104,6 +104,21 @@
   font-weight: 500;
   cursor: pointer;
 }
+.sw-regex-panel {
+  margin: 6px 0 10px;
+  border: 1px solid var(--sw-olv);
+  border-radius: 12px;
+  background: var(--sw-sch);
+  padding: 4px 12px;
+  flex-basis: 100%;
+  color: var(--sw-on);
+}
+.sw-regex-summary {
+  cursor: pointer;
+  padding: 8px 4px;
+  font-size: 12px;
+  color: var(--sw-p);
+}
 .sw-ribbon-toggle {
   width: 32px;
   height: 32px;
@@ -424,3 +439,97 @@
   line-height: 1.6;
   color: var(--sw-onv);
 }
+
+/* ------------------------------------------------------- context menu --
+ * One shared right-click menu for every workspace surface. The host div
+ * lives in studio.html (#context-menu); this paints its own surface so it
+ * never reads the text behind it, and bounds itself to the viewport with
+ * an internal scrollbar rather than clipping items. */
+.sw-context-menu {
+  position: fixed;
+  z-index: 90;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 240px;
+  max-width: min(360px, calc(100vw - 16px));
+  max-height: min(60vh, 440px);
+  padding: 6px;
+  border: 1px solid var(--sw-olv, #BFC9C7);
+  border-radius: 12px;
+  background: var(--sw-sc, #EDF3F2);
+  color: var(--sw-on, #171D1C);
+  box-shadow: var(--sw-e2, 0 2px 6px rgba(14, 21, 20, .10), 0 8px 24px rgba(14, 21, 20, .08));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sw-menu-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.sw-menu-search input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--sw-olv, #BFC9C7);
+  border-radius: 8px;
+  background: var(--sw-s, #F7FAF9);
+  color: var(--sw-on, #171D1C);
+  font-size: 12px;
+  outline: none;
+}
+.sw-menu-search input:focus-visible {
+  outline: 2px solid var(--sw-p, #006A63);
+  outline-offset: 1px;
+}
+.sw-regex-btn {
+  width: 30px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--sw-sch, #E1EAE8);
+  color: var(--sw-p, #006A63);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.sw-regex-btn[aria-expanded="true"] {
+  outline: 2px solid var(--sw-p, #006A63);
+  outline-offset: 1px;
+}
+.sw-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.sw-menu-item:hover:not([aria-disabled="true"]) {
+  background: var(--sw-sch, #E1EAE8);
+}
+.sw-menu-item:focus-visible {
+  outline: 2px solid var(--sw-p, #006A63);
+  outline-offset: -2px;
+}
+.sw-menu-item-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-menu-shortcut {
+  flex: 0 0 auto;
+  color: var(--sw-onv, #3F4948);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.sw-menu-item[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }

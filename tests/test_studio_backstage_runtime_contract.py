@@ -151,7 +151,11 @@ class ThePageExecutesCleanly(unittest.TestCase):
             "        templates: all('.sb-template').length};"
         )
         self.assertGreater(got["children"], 0, "the backstage mounted nothing")
-        self.assertEqual(got["nav"], 5, "expected the five backstage nav destinations")
+        self.assertEqual(
+            got["nav"],
+            6,
+            "expected the five backstage nav destinations plus the workspace route",
+        )
         self.assertEqual(
             got["templates"], 5, "expected the five template gallery cards"
         )
