@@ -1,5 +1,13 @@
 # Handoff
 
+## Closeout baseline: 2026-09-18
+
+- The primary checkout is on `main` at `4516917fd5238b5f09c768f4441affdf9a621d6c`, and the fetched `origin/main` ref resolves to the same commit.
+- The repository has one checkout, no linked worktrees, no additional local branches, no stashes, no unmerged index entries, and no uncommitted files.
+- An external archive was created and fully integrity-tested before cleanup review. The archive contains the Git administrative directory, every tracked file, and every nonignored untracked file. The verified archive is `material-minecraft-map-editor-20260918T171929Z.7z`, 55,976,293 bytes, with 2,185 listed filesystem entries. The source inventory was 2,041 tracked files and zero nonignored untracked files.
+- No task-owned redundant checkout, branch, or stash met the deletion conditions. Nothing was removed.
+- The open issue about Squirrel delta releases remains outside this closeout because this pass did not include unrelated release work.
+
 ## Current state
 
 There are two working applications in this repository, built against the

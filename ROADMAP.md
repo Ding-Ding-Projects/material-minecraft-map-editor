@@ -3,6 +3,10 @@
 Legend: ✅ landed and covered by tests · 🏃 in progress · ⏳ waiting on evidence
 this repository cannot produce by itself.
 
+## Repository maintenance
+
+- ✅ 2026-09-18 closeout baseline: fetched `origin`, preserved all recoverable work, verified the primary checkout is clean and aligned with `origin/main`, and completed the external archive integrity check. No redundant checkout, branch, or stash was safe to remove.
+
 ## Electron application
 
 - ✅ CI publishes the Electron app. `build-electron-windows.yml` is the only
