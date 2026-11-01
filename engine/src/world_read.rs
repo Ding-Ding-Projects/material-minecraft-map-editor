@@ -215,6 +215,13 @@ pub fn chunk_summary(path: &Path, dimension: &str, x: i32, z: i32) -> nbt::Resul
     let Some(file) = file else {
         return Ok(absent());
     };
+    let before_open = fs::metadata(&file).map_err(|_| "region unavailable")?;
+    if !before_open.is_file() {
+        return Err("region is not a regular file");
+    }
+    if before_open.len() > MAX_REGION_BYTES {
+        return Err("region byte budget exceeded");
+    }
     let handle = File::open(file).map_err(|_| "region unavailable")?;
     let metadata = handle.metadata().map_err(|_| "region unavailable")?;
     if !metadata.is_file() || metadata.len() > MAX_REGION_BYTES {
@@ -446,6 +453,15 @@ mod tests {
             json!({"version":1,"id":1,"method":"world.chunk_summary","params":{"path":"unused","dimension":"minecraft:overworld","chunkX":2147483648i64,"chunkZ":0}}),
         );
         assert_eq!(result["error"]["code"], "invalid_params");
+    }
+    #[test]
+    fn static_nonregular_region_is_rejected_before_open() {
+        let fixture = Fixture::new();
+        fs::create_dir_all(fixture.0.join("region/r.0.0.mca")).unwrap();
+        assert_eq!(
+            chunk_summary(&fixture.0, "minecraft:overworld", 0, 0).unwrap_err(),
+            "region is not a regular file"
+        );
     }
     #[test]
     fn coordinate_mismatch_and_region_size_limit() {
