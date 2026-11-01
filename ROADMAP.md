@@ -6,7 +6,8 @@
 - [x] Record 48 official embedded data versions and six explicit metadata gaps.
 - [x] Verify bounded in-memory region editing and stable-snapshot copy foundations.
 - [ ] Finish working-copy confidentiality, recovery and user-facing workflow.
-- [ ] Validate selected block states against pinned official registries.
+- [x] Validate selected block states against pinned vanilla 1.20.1 registries.
+- [ ] Extend registry admission and editing evidence to all other frozen releases.
 - [x] Implement and test bounded read-only Rust format foundations.
 - [x] Independently review the first native-shell design contract.
 - [x] Build the experimental native target on the current Windows host.

@@ -1873,3 +1873,9 @@ repository-local rules, and higher-priority safety requirements take precedence
 over this summary.
 
 </details>
+
+## Experimental native replacement
+
+The separate native development candidate uses Qt Quick/PySide6 and an independent Rust Java engine. It currently supports read-only world/chunk inspection, a section slice and exact block inspection. In-memory edits require pinned vanilla 1.20.1 registry membership; no GUI save action is delivered. Protected working-copy foundations are tested, while coherent saving, recovery and real-world acceptance remain unfinished.
+
+The frozen target is 54 stable Java releases from 1.12 through 26.3. Official metadata identifies 48 data versions and leaves six explicit gaps; this is not all-version support. See [compatibility evidence](docs/compatibility/README.md), [engine boundaries](engine/README.md), [native development](native/README.md) and the [3D design proposal](design/native-rebuild/terrain-workspace.md). Existing releases and historical images do not prove the new implementation.
