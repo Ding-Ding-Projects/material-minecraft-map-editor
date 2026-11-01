@@ -20,10 +20,11 @@ def encode_request(identifier: str, method: str, params: dict | None = None) -> 
 
 
 class Decoder:
-    def __init__(self, max_frame=MAX_FRAME):
+    def __init__(self, max_frame=MAX_FRAME, before_decode=None):
         self.buffer = bytearray()
         self.max_frame = max_frame
         self.last_frame_sizes = []
+        self.before_decode = before_decode
 
     def feed(self, data: bytes) -> list[dict]:
         self.last_frame_sizes = []
@@ -41,7 +42,16 @@ class Decoder:
                 break
             payload = bytes(self.buffer[4:length + 4])
             del self.buffer[:length + 4]
-            response = json.loads(payload)
+            if self.before_decode is not None:
+                self.before_decode(length)
+            def unique_object(pairs):
+                result = {}
+                for key, value in pairs:
+                    if key in result:
+                        raise ValueError("Duplicate response JSON field")
+                    result[key] = value
+                return result
+            response = json.loads(payload, object_pairs_hook=unique_object)
             if (not isinstance(response, dict) or type(response.get("version")) is not int
                     or response.get("version") != 1):
                 raise ValueError("Invalid response envelope")

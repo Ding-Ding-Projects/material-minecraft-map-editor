@@ -32,6 +32,19 @@ class FramingTests(unittest.TestCase):
         self.assertEqual(len(request) - 4, int.from_bytes(request[:4], "big"))
         self.assertEqual(json.loads(request[4:])["params"]["path"], 'C:/world "quoted"')
 
+    def test_duplicate_raw_keys_rejected_before_dictionary_creation(self):
+        for payload in (b'{"version":1,"version":1,"result":{}}',
+                        b'{"version":1,"result":{"stateId":0,"stateId":1}}'):
+            with self.assertRaises(ValueError):Decoder().feed(len(payload).to_bytes(4,'big')+payload)
+
+    def test_custom_frame_cap_and_actual_bytes(self):
+        value={'version':1,'id':'a','result':{}}
+        raw=framed(value)
+        decoder=Decoder(128)
+        self.assertEqual(decoder.feed(raw),[value])
+        self.assertEqual(decoder.last_frame_sizes,[len(raw)-4])
+        with self.assertRaises(ValueError):Decoder(8).feed(raw)
+
     def test_stale_reply_identity_and_generation(self):
         reply = {"id": "2:probe"}
         self.assertTrue(accepts_reply(reply, "2:probe", 2, 2, "world", "world"))

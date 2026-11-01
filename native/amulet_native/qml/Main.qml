@@ -122,13 +122,15 @@ ApplicationWindow {
             Layout.minimumHeight: 56
             Layout.preferredHeight: 56
             Layout.maximumHeight: 56
-            Label { text: "World inspector"; font.pixelSize: 28; color: window.ink; Layout.fillWidth: true }
+            Label { text: backend.viewMode === "terrain" ? "Terrain workspace" : "World inspector"; font.pixelSize: 28; color: window.ink; Layout.fillWidth: true }
+            MdButton { text: "Section slice"; primary: backend.viewMode === "slice"; onClicked: backend.setViewMode("slice") }
+            MdButton { text: "3D terrain"; primary: backend.viewMode === "terrain"; onClicked: backend.setViewMode("terrain") }
             MdButton { id: openButton; text: "Open world…"; primary: true; onClicked: folder.open() }
             MdButton { text: "Cancel probe"; visible: backend.busy; onClicked: backend.cancel() }
         }
         RowLayout {
             objectName: "worldBodyLayout"
-            visible: backend.explorer.dimensionIds.length === 0
+            visible: backend.viewMode === "slice" && backend.explorer.dimensionIds.length === 0
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 320
@@ -246,10 +248,20 @@ ApplicationWindow {
             }
         }
         ChunkWorkspace {
-            visible: backend.explorer.dimensionIds.length > 0
+            visible: backend.viewMode === "slice" && backend.explorer.dimensionIds.length > 0
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 320
+        }
+        Loader {
+            objectName: "terrainWorkspaceLoader"
+            active: backend.viewMode === "terrain"
+            visible: active
+            source: "TerrainWorkspace.qml"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 320
+            onStatusChanged: if (status === Loader.Error) backend.rendererUnavailable("Qt Quick 3D workspace could not load; section inspection remains available.")
         }
         Label {
             objectName: "provenanceFooter"

@@ -19,4 +19,5 @@ def destroy_presentation(engine, backend):
                 delete(root)
         delete(engine)
     if isValid(backend):
+        backend.terrain.dispose()
         delete(backend)

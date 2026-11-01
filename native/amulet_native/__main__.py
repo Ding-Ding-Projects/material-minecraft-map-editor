@@ -32,6 +32,7 @@ def main():
         engine.load(QUrl.fromLocalFile(str(Path(__file__).parent / "qml" / "Main.qml")))
         if not engine.rootObjects():
             return 1
+        controller.terrain.attach_window(engine.rootObjects()[0])
         return application.exec()
     finally:
         # QML bindings and destruction handlers still use the controller.

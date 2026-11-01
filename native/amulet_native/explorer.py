@@ -21,6 +21,7 @@ class Explorer(QObject):
         self.section = 0
         self.local_y = 0
         self.selected = 0
+        self.source_digest = None
         self._status = "Open a world to discover dimensions."
         self._dimension_filter = SelectorFilter(self)
         self._section_filter = SelectorFilter(self)
@@ -86,6 +87,7 @@ class Explorer(QObject):
 
     def clear(self, message):
         self.chunk = None
+        self.source_digest = None
         self.section = self.local_y = self.selected = 0
         self._status = message
         self._section_filter.set_items([])
@@ -126,15 +128,24 @@ class Explorer(QObject):
         self.clear(f"Reading {request.dimension}, chunk {request.x}, {request.z}…")
         self.readRequested.emit(request)
 
-    def accept_chunk(self, result, request):
+    def accept_chunk(self, result, request, source_digest=None):
         chunk = parse_chunk(result, request)
+        self._install_chunk(chunk,source_digest)
+
+    def accept_snapshot_chunk(self,chunk,source_digest):
+        self._install_chunk(chunk,source_digest)
+
+    def _install_chunk(self,chunk,source_digest):
+        request=chunk.request
         if request.dimension != self._dimension:
             raise ValueError("Dimension changed during chunk inspection")
         self.chunk = chunk
+        self.source_digest = source_digest
         self.section = self.local_y = self.selected = 0
         self._status = (f"Chunk {request.x}, {request.z} · read-only" if chunk.sections else
                         "No decoded sections available." if chunk.available else
                         f"Chunk not stored at {request.x}, {request.z}.")
+        if source_digest:self._status += ' Same accepted terrain snapshot; current source freshness unverified.'
         self._section_filter.set_items(self.sectionLabels)
         self.changed.emit()
 

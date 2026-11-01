@@ -1,6 +1,7 @@
 """Asynchronous, process-owned read-only engine integration."""
 
 from pathlib import Path
+import uuid
 
 from PySide6.QtCore import QObject, Property, QProcess, QSettings, QTimer, QUrl, Signal, Slot
 
@@ -8,6 +9,9 @@ from .framing import Decoder, accepts_reply, encode_request, probe_facts, world_
 from .explorer import Explorer
 from .references import ReferenceSettings
 from .engine_coordinator import EngineCoordinator
+from .terrain_model import TerrainModel
+from .terrain_scene import TerrainRequest
+from .chunks import coordinate,ChunkRequest
 
 
 class Controller(QObject):
@@ -37,6 +41,9 @@ class Controller(QObject):
         self.pending = None
         self.closing = False
         self.close_announced = False
+        self._closing_dispatch = False
+        self._world_id = uuid.uuid4().hex
+        self._view_mode = 'slice'
         self.stopping = False
         self.decoder = Decoder()
         self.diagnostic_bytes = 0
@@ -45,6 +52,8 @@ class Controller(QObject):
         self.timer.timeout.connect(self._timeout)
         self.coordinator.changed.connect(self._coordinator_changed)
         self._references.effectiveChanged.connect(self._references_changed)
+        self._terrain = TerrainModel(engine_path,self.coordinator,self._references,self)
+        self._terrain.changed.connect(self._helpers_changed)
 
     @Property(str, notify=changed)
     def state(self): return self._state
@@ -54,6 +63,18 @@ class Controller(QObject):
 
     @Property(QObject, constant=True)
     def references(self): return self._references
+
+    @Property(QObject, constant=True)
+    def terrain(self): return self._terrain
+
+    @Property(str, notify=changed)
+    def viewMode(self): return self._view_mode
+
+    @Property('QVariantMap', notify=changed)
+    def terrainDraft(self):
+        chunk=self._explorer.chunk
+        return {'x':str(chunk.request.x) if chunk else '0','z':str(chunk.request.z) if chunk else '0',
+                'section':str(chunk.sections[self._explorer.section].y) if self._explorer.ready else '0'}
 
     @Property(str, notify=changed)
     def message(self): return self._message
@@ -68,7 +89,7 @@ class Controller(QObject):
     def engineVersion(self): return self._engine
 
     @Property(bool, notify=changed)
-    def busy(self): return self.coordinator.busy or self._explorer.helpers_busy
+    def busy(self): return self.coordinator.busy or self._explorer.helpers_busy or self._terrain.busy
 
     @Property(bool, notify=changed)
     def dark(self): return self._dark
@@ -93,6 +114,8 @@ class Controller(QObject):
         if self.closing:
             return
         self.generation += 1
+        self._terrain.invalidate()
+        self._world_id = uuid.uuid4().hex
         self.pending = None
         self.identity = ""
         self._facts = {}
@@ -199,6 +222,7 @@ class Controller(QObject):
                                        ("world.probe", "world.dimensions", "world.chunk_summary"))):
                         raise ValueError("Engine does not support the required read-only protocol")
                     self._engine = str(result.get("version", "Unavailable"))[:80]
+                    self._references.accept_summary(result.get("reference"))
                     if self.chunk_request is None:
                         self._next_request(process, "probe", "world.probe", {"path": self.active_identity})
                         self._message = "Reading level.dat without changing world files…"
@@ -216,7 +240,7 @@ class Controller(QObject):
                 elif self.phase == "dimensions":
                     self._explorer.accept_dimensions(result)
                     self._state = "result"
-                    self._message = "World opened read-only. Choose a dimension and chunk. 3D terrain, editing and saving remain unavailable."
+                    self._message = "World opened read-only. Terrain availability is checked separately; editing and saving remain unavailable."
                     self._stop()
                     self.changed.emit()
                     break
@@ -315,6 +339,7 @@ class Controller(QObject):
         self.generation += 1
         self.pending = None
         self._explorer.shutdown()
+        self._terrain.cancel()
         if self.process:
             self._message = "Cancel requested. Waiting for the read-only engine to stop…"
             self._stop()
@@ -324,11 +349,13 @@ class Controller(QObject):
     def requestClose(self):
         self.closing = True
         self.close_announced = False
+        self._closing_dispatch = True
         self._explorer.shutdown()
+        self._terrain.cancel()
         if self.process:
             self.cancel()
-        else:
-            self._maybe_close()
+        self._closing_dispatch = False
+        self._maybe_close()
         if self.busy:
             self._message = "Waiting for owned inspection and regex workers to acknowledge stopping."
             self.changed.emit()
@@ -344,7 +371,7 @@ class Controller(QObject):
         self._maybe_close()
 
     def _maybe_close(self):
-        if self.closing and not self.busy and not self.close_announced:
+        if self.closing and not self._closing_dispatch and not self.busy and not self.close_announced:
             self.close_announced = True
             self.closeReady.emit()
 
@@ -354,6 +381,7 @@ class Controller(QObject):
 
     def _references_changed(self):
         self.cancel()
+        self._terrain.invalidate()
         self._message = "Reference directory changed. Engine verification occurs on the next request."
         self.changed.emit()
 
@@ -362,3 +390,53 @@ class Controller(QObject):
         if not self.coordinator.busy and self.pending is not None and not self.closing:
             QTimer.singleShot(0, self._start_pending)
         self._maybe_close()
+
+    @Slot(str)
+    def setViewMode(self,mode):
+        if mode in ('slice','terrain'):
+            scene=self._terrain.scene
+            same_context=bool(scene and scene.request.world_id==self._world_id and scene.request.dimension==self._explorer.dimension)
+            if mode=='slice' and same_context:
+                selected=self._terrain.selected
+                keys=sorted(scene.section_cells)
+                cx,cz=(selected['world'][0]//16,selected['world'][2]//16) if selected else ((keys[0][0],keys[0][1]) if keys else (scene.request.bounds['chunkXMin'],scene.request.bounds['chunkZMin']))
+                self._explorer.accept_snapshot_chunk(scene.project_chunk(cx,cz),scene.manifest['readSetDigest'])
+                if selected and self._explorer.ready:
+                    x,y,z=selected['world']
+                    index=next((i for i,s in enumerate(self._explorer.chunk.sections) if s.y==y//16),None)
+                    if index is not None:
+                        self._explorer.selectSection(index);self._explorer.setLocalY(y%16);self._explorer.selectCell((z%16)*16+x%16)
+            elif mode=='terrain' and same_context and self._explorer.ready and self._explorer.source_digest==scene.manifest['readSetDigest']:
+                chunk=self._explorer.chunk
+                self._terrain.select_coordinate(chunk.request.x*16+self._explorer.selected%16,
+                    chunk.sections[self._explorer.section].y*16+self._explorer.local_y,
+                    chunk.request.z*16+self._explorer.selected//16)
+            self._view_mode=mode;self.changed.emit()
+            if mode=='terrain':self._terrain.require_submission()
+
+    @Slot(str,str,str,int,int,bool)
+    def loadTerrain(self,x,z,section,horizontal,vertical,around_camera):
+        if self.closing:return
+        try:
+            if not self.identity or not self._explorer.dimension:raise ValueError('Open a world and choose a discovered dimension first.')
+            if horizontal not in (0,1) or vertical not in (0,1):raise ValueError('Load radius must be zero or one.')
+            if around_camera:
+                import math
+                eye=self._terrain.camera.eye
+                cx,cz,sy=math.floor(eye[0]/16),math.floor(eye[2]/16),math.floor(eye[1]/16)
+            else:cx,cz,sy=coordinate(x),coordinate(z),coordinate(section)
+            bounds={'chunkXMin':cx-horizontal,'chunkXMax':cx+horizontal,'chunkZMin':cz-horizontal,'chunkZMax':cz+horizontal,
+                    'sectionYMin':sy-vertical,'sectionYMax':sy+vertical}
+            if not -128<=bounds['sectionYMin']<=bounds['sectionYMax']<=127:raise ValueError('Requested Y sections are outside -128 through 127.')
+            if any(not -2**31<=bounds[k]<=2**31-1 for k in ('chunkXMin','chunkXMax','chunkZMin','chunkZMax')):raise ValueError('Requested chunk bounds overflow the supported domain.')
+            self.cancel()
+            self.generation+=1
+            request=TerrainRequest(self.identity,self._world_id,self._explorer.dimension,self.generation,bounds)
+            self._terrain.request(request)
+        except ValueError as error:
+            self._terrain._status=str(error);self._terrain.changed.emit()
+
+    @Slot(str)
+    def rendererUnavailable(self,message):
+        self._terrain.cancel();self._terrain._status='Native 3D renderer unavailable: '+message[:300]
+        self._view_mode='slice';self._terrain.changed.emit();self.changed.emit()
