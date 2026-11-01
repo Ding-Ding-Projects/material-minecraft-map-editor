@@ -855,5 +855,9 @@
   "archiveBytesVerified": 2490196767,
   "inspectionNote": "Actual central-directory records counted before ZIP parsing; unsupported ZIP64 rejected. Cached archives revalidated without network acquisition.",
   "verifiedAt": "2026-11-01T10:52:05.080565+00:00",
-  "maximumConcurrentAcquisitions": 3
+  "maximumConcurrentAcquisitions": 3,
+  "manifestRepositoryRevision": "1f872030912cc8413b6304ce93ad5c75498af22c",
+  "manifestPath": "docs/compatibility/java-releases.json",
+  "manifestWorkingFileLineEndings": "CRLF",
+  "manifestGitBlobSha256": "02ee7dedda82d221a85de9b6f243bb0e2e7e8c26660e705255d503520d4af0a9"
 }
