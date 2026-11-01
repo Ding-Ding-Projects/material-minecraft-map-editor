@@ -113,6 +113,7 @@ pub fn pack_padded(indices: &[u16], palette_len: usize) -> Result<Vec<i64>> {
 }
 pub fn replace_section_blocks(
     root: &NamedTag,
+    registry: &crate::registry::Registry,
     section_y: i8,
     replacements: &[BlockReplacement],
 ) -> Result<EditResult> {
@@ -132,6 +133,22 @@ pub fn replace_section_blocks(
     let Blocks::Palette { states, indices } = &section.blocks else {
         return Err("selected section must use palette states");
     };
+    if registry.data_version() != 3465 {
+        return Err("registry version mismatch");
+    }
+    let mut checked = HashSet::new();
+    for replacement in replacements {
+        let index = Section::index(replacement.x, replacement.y, replacement.z)?;
+        if !checked.insert(index) {
+            return Err("duplicate selected block");
+        }
+        validate(&replacement.state)?;
+        registry.membership(&replacement.state)?;
+    }
+    let used: HashSet<u16> = indices.iter().copied().collect();
+    for index in used {
+        registry.membership(&states[index as usize])?;
+    }
     let mut states = states.clone();
     let mut indices = indices.clone();
     let mut lookup: HashMap<_, u16> = HashMap::new();
@@ -225,6 +242,22 @@ mod tests {
         nbt::{self, Limits},
         region::{Region, RegionEdit},
     };
+    fn replace_section_blocks(
+        root: &NamedTag,
+        y: i8,
+        replacements: &[BlockReplacement],
+    ) -> Result<EditResult> {
+        let mut names = (0..1000)
+            .map(|i| format!("minecraft:block_{i}"))
+            .collect::<Vec<_>>();
+        names.extend([
+            "minecraft:granite".into(),
+            "minecraft:stone".into(),
+            "minecraft:new_state".into(),
+        ]);
+        let registry = crate::registry::Registry::test_propertyless(&names);
+        super::replace_section_blocks(root, &registry, y, replacements)
+    }
     fn named(name: &str, tag: Tag) -> NamedTag {
         NamedTag {
             name: name.as_bytes().to_vec(),
@@ -240,7 +273,7 @@ mod tests {
     fn fixture(palette_len: usize) -> NamedTag {
         let palette = (0..palette_len)
             .map(|n| {
-                let mut tag = state_tag(&state(&format!("block_{n}")));
+                let mut tag = state_tag(&state(&format!("block_{}", n % 1000)));
                 let Tag::Compound(v) = &mut tag else {
                     unreachable!()
                 };
@@ -460,7 +493,7 @@ mod tests {
             replace_section_blocks(&original, -4, &[replacement(0, 0, 0, "new_state")]).is_err()
         );
         assert_eq!(
-            replace_section_blocks(&original, -4, &[replacement(0, 0, 0, "block_4095")])
+            replace_section_blocks(&original, -4, &[replacement(0, 0, 0, "block_999")])
                 .unwrap()
                 .changed_blocks,
             1
