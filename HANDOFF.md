@@ -1,5 +1,18 @@
 # Handoff
 
+## Protected changelog input repair, 2026-11-01
+
+Embedded private replacement inventories were removed from public generation
+code and tests. Maintainer generation now requires bounded protected standard
+input, with normalized coverage and matching and no raw-history fallback.
+Trusted workflows generate the catalogue before dependency installation using
+isolated Python, then discard the protected environment value. Thirty focused
+checks passed, including malformed transport and normalization regressions;
+structural workflow validation passed. A real 635-tag catalogue was generated
+through the private input route and accepted by the tightened validator.
+Hosted execution remains unverified. The native Qt/Rust rebuild continues on
+its separate candidate branch and is not activated by this source repair.
+
 ## Closeout baseline: 2026-09-18
 
 - The primary checkout is on `main` at `4516917fd5238b5f09c768f4441affdf9a621d6c`, and the fetched `origin/main` ref resolves to the same commit.

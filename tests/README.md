@@ -24,9 +24,11 @@ them against their sources:
   An article added without regenerating fails `test_docs_browser.py`, which is
   the point: it cannot ship missing from the in-app browser.
 - `amulet_map_editor/api/changelog_catalog.json` — rebuilt by
-  `python scripts/generate_changelog.py` from the reachable tags. `conftest.py`
-  regenerates it automatically when the checkout has moved on, so a developer
-  does not have to know about an undocumented preparation step.
+  `python scripts/generate_changelog.py --policy-stdin` from reachable tags and
+  approved protected input. `conftest.py` retains the checked-in catalogue and
+  reports that protected regeneration is unavailable during ordinary local
+  tests. Synthetic tests verify mechanics; complete historical publication
+  approval requires the external policy and complete scan.
 
 ## Hand-written lists, and why they are not generated
 

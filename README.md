@@ -1764,15 +1764,17 @@ rebuilt when their sources change:
 
 ```powershell
 python scripts/build_docs_bundle.py
-python scripts/generate_changelog.py
+python scripts/generate_changelog.py --policy-stdin
 ```
 
 The first rebuilds the offline documentation bundle from every
 `docs/features/*/README.md`; a stale bundle fails `tests/test_docs_browser.py`
 by design, so an article added without regenerating cannot ship missing from the
 in-app browser. The second rebuilds the changelog catalog from the reachable
-tags, and the test session regenerates it automatically when the checkout has
-moved on.
+tags using approved publication data supplied through a trusted private input
+pipe. Missing input stops generation before writing. Ordinary local tests retain
+the checked-in catalogue rather than constructing an incomplete replacement
+policy. See the [changelog guide](docs/features/changelog/README.md).
 
 </details>
 
