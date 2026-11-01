@@ -241,3 +241,9 @@ The revised terrain-workspace design is preserved under design/native-rebuild/te
 ## Registry integration
 
 Independent review accepted the pinned vanilla 1.20.1 membership boundary, integrated through c547eb90. The integrated tree passed 60 ordinary Rust tests and one compile-fail test, with the external-report test explicitly ignored by default. Its separate invocation passed using the retained official reports, after proving identical engine tree 93c6dacb824db4a9c2339638d80a95ed3104ad75. Exact build.bat /native and all 39 native tests passed afterward. The loader validates 1003 blocks, 24135 states and 66 registries; edits validate every replacement and selected used state. No lighting, derived-data or final-save claim follows. The final three terrain-contract corrections are preserved pending reviewer acceptance.
+
+## Next implementation boundary
+
+The independently reviewed terrain contract now records cube-shapes-v1 and explicit local reference provisioning. Initial geometry is restricted to verified propertyless stone/cobblestone shapes, with all six faces and no neighbor occlusion. It is a bounded development increment, not a reduced completion target. Next implement the reference resolver and persistent bounded engine terrain session, then the native Qt Quick 3D consumer and real runtime evidence. Full materials, shape coverage, editing/save/recovery and the original release criteria remain required.
+
+The public progress and titled handoff record is https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues/8; its stored body was read back exactly. Existing issue 4 is unrelated to this bounded integration and was left untouched. Current reference metadata uses explicit LF attributes and retains original producer provenance without redistributing reports or archives.

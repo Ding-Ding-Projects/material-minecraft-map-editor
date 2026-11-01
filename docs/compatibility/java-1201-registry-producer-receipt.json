@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "release": "1.20.1",
+  "dataVersion": 3465,
+  "serverSha256": "3af73a9dc5a102e38147946360dd27d4d70bae7055bf91cf2151cd5d121b79e0",
+  "javaVersion": "17.0.19",
+  "generator": {
+    "launcherArguments": [
+      "-DbundlerMainClass=net.minecraft.data.Main",
+      "-jar",
+      "server.jar",
+      "--reports",
+      "--output",
+      "extracted-reports"
+    ],
+    "exitCode": 0,
+    "evidence": "controller-observed-exit-and-local-log",
+    "logSha256": "31890bb7385e49eef5ac0f2a53f65ef0b86514d973d3e03e5b28eff5fb193090"
+  },
+  "reports": {
+    "blocks": {
+      "bytes": 4915308,
+      "sha256": "f10d5da83ec8cd995d4f484b788c5b1467a490728e687c629a681450e3253017"
+    },
+    "registries": {
+      "bytes": 381349,
+      "sha256": "3702ca0119f46233c387dda959b42c549daa42b759fc049d834e1012028323f4"
+    }
+  },
+  "generationTimestamp": null
+}

@@ -15,3 +15,7 @@ Bedrock, snapshots, future versions and arbitrary mod-specific semantics are out
 ## Initial geometry references
 
 `java-geometry-reference-evidence.json` records the pinned official 1.20.1 client archive and ten bounded model/blockstate member hashes. All inspected stone and cobblestone variants resolve to full-cube geometry. This is limited geometry provenance, not opacity, collision, lighting, complete renderer or world-edit acceptance. No client/model assets are redistributed.
+
+## Original registry producer receipt
+
+`java-1201-registry-producer-receipt.json` retains the original observed generation attestation as reviewed metadata only. Its explicit LF representation is 864 bytes; the original local 895-byte representation remains preserved. Neither this record nor matching report hashes claim that a later user executed the generator. The reference resolver requires exact pinned bytes and does not rewrite incoming files to force a match. Official report and client/server archive assets are not bundled here.
