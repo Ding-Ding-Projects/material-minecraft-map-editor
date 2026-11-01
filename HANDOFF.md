@@ -10,6 +10,19 @@ The initial native shell provides real read-only world probing, cancellation, st
 
 The repaired candidate passed a complete publication scan with 811 text files, 1266 binary files and no findings, using independently reviewed content-bound technical exceptions and strict binary-icon interpretation. It was preserved as a single inactive development commit `71d4d3f551a9f3f8c9d413c40b2dcef02b93b812` on `ai/feature/20261101-native-candidate`, with the original local development history retained. Automatic release publication was skipped for that preservation commit. The generic changelog consumer requires explicit protected policy input through standard input. Production build/workflow integration of that input remains pending; no unsanitized-history fallback is permitted. Historical image links remain intact. No default-branch integration, native release or complete runtime acceptance is claimed.
 
+## Protected changelog input repair, 2026-11-01
+
+Embedded private replacement inventories were removed from public generation
+code and tests. Maintainer generation now requires bounded protected standard
+input, with normalized coverage and matching and no raw-history fallback.
+Trusted workflows generate the catalogue before dependency installation using
+isolated Python, then discard the protected environment value. Thirty focused
+checks passed, including malformed transport and normalization regressions;
+structural workflow validation passed. A real 635-tag catalogue was generated
+through the private input route and accepted by the tightened validator.
+Hosted execution remains unverified. The native Qt/Rust rebuild continues on
+its separate candidate branch and is not activated by this source repair.
+
 ## Closeout baseline: 2026-09-18
 
 - The primary checkout is on `main` at `4516917fd5238b5f09c768f4441affdf9a621d6c`, and the fetched `origin/main` ref resolves to the same commit.
