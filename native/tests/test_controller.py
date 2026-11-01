@@ -105,6 +105,24 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.controller.explorer.status, self.controller.message)
         self.assertIn("before a complete response", self.controller.explorer.status)
 
+    def test_invalid_saved_reference_does_not_block_structural_read(self):
+        self.controller.references.saved = "relative-reference-directory"
+        self.controller.openWorld(QUrl.fromLocalFile(str(self.world)))
+        self.wait_idle()
+        self.assertEqual(self.controller.state, "result")
+        self.assertIn("Geometry unavailable", self.controller.references.status)
+
+    def test_releasing_another_lease_wakes_queued_inspection(self):
+        owner=object()
+        process=self.controller.coordinator.acquire(owner)
+        self.controller.openWorld(QUrl.fromLocalFile(str(self.world)))
+        self.assertIsNotNone(self.controller.pending)
+        self.assertIsNone(self.controller.process)
+        self.controller.coordinator.release(owner,process)
+        self.wait_idle()
+        self.assertEqual(self.controller.state,"result")
+        self.assertIsNone(self.controller.pending)
+
 
 if __name__ == "__main__":
     unittest.main()

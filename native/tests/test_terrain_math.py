@@ -1,6 +1,8 @@
 import math
 import struct
 import unittest
+from dataclasses import asdict
+import copy
 
 from native.amulet_native.terrain_math import Camera, FACE_CORNERS, FACE_NORMALS, camera_coordinate, cross, sub, dot, pack_faces
 
@@ -39,3 +41,24 @@ class TerrainMathTests(unittest.TestCase):
         camera.back();self.assertEqual(camera.eye,previous)
         with self.assertRaises(ValueError): pack_faces([(0,0,0,"xp",0)]*2049,{0:(1,1,1,1)},(0,0,0))
         with self.assertRaises(ValueError): pack_faces([(9000,0,0,"xp",0)],{0:(1,1,1,1)},(0,0,0))
+
+    def test_rejected_camera_operations_leave_every_field_unchanged(self):
+        actions=(lambda c:c.orbit(float('nan'),0),lambda c:c.orbit(0,float('inf')),
+                 lambda c:c.go((34359738368,0,0)),lambda c:c.go((True,0,0)),
+                 lambda c:c.pan(float('nan'),0),lambda c:c.dolly(float('inf')),
+                 lambda c:c.frame(((0,0,0),(100000,1,1))))
+        for action in actions:
+            camera=Camera();before=copy.deepcopy(asdict(camera))
+            with self.assertRaises(ValueError):action(camera)
+            self.assertEqual(asdict(camera),before)
+
+    def test_edge_orbit_rejects_absolute_eye_overflow_atomically(self):
+        camera=Camera();camera.go((34359738367,0,0));before=copy.deepcopy(asdict(camera))
+        with self.assertRaises(ValueError):camera.orbit(90,0)
+        self.assertEqual(asdict(camera),before)
+
+    def test_mesh_rejects_nonfinite_positions_and_colors(self):
+        for faces,colors,origin in (([(0,0,0,'xp',0)],{0:(float('nan'),1,1,1)},(0,0,0)),
+                                     ([(float('nan'),0,0,'xp',0)],{0:(1,1,1,1)},(0,0,0)),
+                                     ([(0,0,0,'xp',0)],{0:(1,1,1,1)},(0,float('inf'),0))):
+            with self.assertRaises(ValueError):pack_faces(faces,colors,origin)

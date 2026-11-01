@@ -59,7 +59,7 @@ ApplicationWindow {
         contentItem: ColumnLayout {
             Label { text: backend.references.status; textFormat: Text.PlainText; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             Label { text: backend.references.root.length ? backend.references.root : "No reference directory selected"; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
-            Label { text: "Choose a prepared directory containing reports/blocks.json, reports/registries.json and the two pinned metadata files. The engine verifies all inputs. No download or generator runs automatically."; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            Label { text: "Choose a prepared directory containing reports/blocks.json, reports/registries.json and the two pinned metadata files. Geometry remains unavailable until the engine explicitly acknowledges successful validation. Selection alone is not verification. No download or generator runs automatically."; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             MdButton { text: "Select directory…"; onClicked: referenceFolder.open() }
             MdButton { text: "Clear saved selection"; onClicked: backend.references.clear() }
         }

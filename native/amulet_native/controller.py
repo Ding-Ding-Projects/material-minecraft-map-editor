@@ -43,7 +43,7 @@ class Controller(QObject):
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._timeout)
-        self.coordinator.changed.connect(self.changed)
+        self.coordinator.changed.connect(self._coordinator_changed)
         self._references.effectiveChanged.connect(self._references_changed)
 
     @Property(str, notify=changed)
@@ -128,14 +128,14 @@ class Controller(QObject):
         if not self.engine_path.is_file():
             self._state = "unsupported"
             self._message = "Engine executable unavailable. Build the native engine before opening a world."
+            self._explorer.clear(self._message)
             self.changed.emit()
             return
         try:
             arguments = self._references.engine_arguments()
         except ValueError as error:
-            self._state, self._message = "unsupported", str(error)
-            self.changed.emit()
-            return
+            arguments = []
+            self._references.report(str(error) + " Geometry unavailable; structural inspection remains available.")
         process = self.coordinator.acquire(self)
         self.process = process
         self.stopping = False
@@ -356,3 +356,9 @@ class Controller(QObject):
         self.cancel()
         self._message = "Reference directory changed. Engine verification occurs on the next request."
         self.changed.emit()
+
+    def _coordinator_changed(self):
+        self.changed.emit()
+        if not self.coordinator.busy and self.pending is not None and not self.closing:
+            QTimer.singleShot(0, self._start_pending)
+        self._maybe_close()
