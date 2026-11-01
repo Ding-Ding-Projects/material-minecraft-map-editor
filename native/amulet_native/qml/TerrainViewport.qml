@@ -8,6 +8,8 @@ FocusScope {
     id: viewport
     objectName: "terrainViewport"
     property string mode: "orbit"
+    property int attachmentEpoch: 0
+    property bool attachmentInitialized: false
     property bool forwardHeld: false
     property bool backHeld: false
     property bool leftHeld: false
@@ -25,11 +27,35 @@ FocusScope {
         if (input) input.capturing = false
         backend.terrain.lookCapture(false)
     }
-    Connections { target: viewport.Window.window; function onActiveChanged() { if (!viewport.Window.window.active) viewport.releaseInput() } }
+    Connections {
+        target: viewport.Window.window
+        function onActiveChanged() { if (!viewport.Window.window.active) viewport.releaseInput() }
+        function onVisibilityChanged() { if (viewport.attachmentInitialized) viewport.attachView() }
+    }
     onActiveFocusChanged: if (!activeFocus) releaseInput()
-    onVisibleChanged: if (!visible) releaseInput()
+    function attachView() {
+        let window = viewport.Window.window
+        if (!visible || !window || !window.visible || window.visibility === Window.Minimized) {
+            releaseInput()
+            if (attachmentEpoch > 0) backend.terrain.viewportDetached(attachmentEpoch)
+            return
+        }
+        attachmentEpoch = backend.terrain.viewportAttached(viewport)
+        backend.terrain.viewportChanged(attachmentEpoch, sceneView.effectiveTextureSize.width, sceneView.effectiveTextureSize.height)
+    }
+    onVisibleChanged: {
+        if (!visible) {
+            releaseInput()
+            if (attachmentEpoch > 0) backend.terrain.viewportDetached(attachmentEpoch)
+        } else if (attachmentInitialized) attachView()
+    }
     onModeChanged: releaseInput()
-    Component.onDestruction: releaseInput()
+    Component.onCompleted: { attachmentInitialized = true; attachView() }
+    Component.onDestruction: {
+        attachmentInitialized = false
+        releaseInput()
+        if (attachmentEpoch > 0) backend.terrain.viewportDetached(attachmentEpoch)
+    }
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) { releaseInput(); backend.terrain.cancelSelection(); event.accepted = true; return }
         if (event.key === Qt.Key_Return) { inspectRequested(); event.accepted = true; return }
@@ -84,7 +110,7 @@ FocusScope {
         explicitTextureWidth: Math.max(1, Math.floor(pixelWidth * targetScale))
         explicitTextureHeight: Math.max(1, Math.floor(pixelHeight * targetScale))
         camera: backend.terrain.projection === "orthographic" ? orthographic : perspective
-        onEffectiveTextureSizeChanged: backend.terrain.viewportChanged(effectiveTextureSize.width, effectiveTextureSize.height)
+        onEffectiveTextureSizeChanged: backend.terrain.viewportChanged(viewport.attachmentEpoch, effectiveTextureSize.width, effectiveTextureSize.height)
         environment: SceneEnvironment {
             backgroundMode: SceneEnvironment.Color
             clearColor: backend.dark ? "#151B14" : "#EDF3E8"

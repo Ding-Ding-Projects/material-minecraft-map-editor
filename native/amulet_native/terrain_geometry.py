@@ -7,7 +7,23 @@ import struct
 from .terrain_math import world_to_render
 
 
-class TerrainGeometry(QQuick3DGeometry):
+class SceneGeometry(QQuick3DGeometry):
+    def rearm_for_scene(self):
+        """Repopulate a newly attached scene node from retained CPU data.
+
+        Qt 6.12.0's full-buffer setters unconditionally mark geometry data
+        changed, even for equal QByteArrays. update() alone does not do that.
+        Keep the implicitly shared buffers, attributes, bounds and identity.
+        """
+        if QThread.currentThread() != self.thread():
+            raise RuntimeError('Geometry reattachment requires its GUI thread')
+        vertices, indices = self.vertexData(), self.indexData()
+        self.setVertexData(vertices)
+        self.setIndexData(indices)
+        self.update()
+
+
+class TerrainGeometry(SceneGeometry):
     def __init__(self,parent=None):
         super().__init__(parent)
         self.payload_bytes=0
@@ -34,7 +50,7 @@ class TerrainGeometry(QQuick3DGeometry):
         self.update()
 
 
-class SelectionGeometry(QQuick3DGeometry):
+class SelectionGeometry(SceneGeometry):
     """Explicit selection/unsupported-cell annotation, never terrain content."""
     def set_box(self,cell,origin):
         self.set_bounds(cell,cell,origin)

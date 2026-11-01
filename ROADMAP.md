@@ -140,3 +140,8 @@ this repository cannot produce by itself.
   with the application remains open.
 - ⏳ Screenshots of the Studio interface for the README, the articles, and the
   site. Every image currently tracked shows a superseded build and says so.
+
+## Native preservation follow-up
+
+- [ ] Complete the unfinished viewport reattachment repair, adapt attachment-epoch tests and repeat actual load/slice/3D verification.
+

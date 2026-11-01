@@ -39,3 +39,9 @@ Actual world generation requires explicit user EULA acceptance through the produ
 A scoped project is formally linked to this repository; its task item remains In Progress. Existing issue 4 and the older implementation discussion remain unchanged. Path-bearing UI evidence, generated announcement images and official reference binaries remain private/ignored. Active branches and working directories remain retained.
 
 Operational status reporting requires SSH. The deployed service rejects the current validation metadata, so no delivered status or service upgrade is claimed. Account allowance is unknown. The goal remains active.
+
+## Incomplete preservation handoff
+
+The account-preservation boundary has been reached. The full native rebuild remains incomplete. The settled reattachment edits in terrain_geometry.py, terrain_model.py and TerrainViewport.qml have not been tested after editing. The existing model tests still use the prior frameSubmitted and viewportChanged signatures and require adaptation. Actual restoration after load -> slice -> 3D remains unverified. Preserve these edits as unfinished work; do not apply earlier passing results to this head.
+
+The 101ca705 baseline passed 98 native tests and all three explicit real-engine cases, but actual GUI verification confirmed terrain disappearance after a view round trip. The latest repair proposes equal-data geometry rearming and attachment-bound frame receipts. Focused tests, QML checks and actual before/after verification remain pending. Public gallery publication is also incomplete because the existing capture receipts do not meet its promotion contract. Active work and failed evidence remain retained; no cleanup or release is claimed.

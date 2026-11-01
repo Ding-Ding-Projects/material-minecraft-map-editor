@@ -16,21 +16,24 @@ from .terrain_picking import pick_shape,selection_counts
 
 
 class FrameReceipt(QObject):
-    submitted=Signal(int)
+    submitted=Signal(int,int)
 
     def __init__(self,parent=None):
         super().__init__(parent)
-        self._lock=threading.Lock();self.requested=0;self.synchronized=0
+        self._lock=threading.Lock();self.requested=None;self.synchronized=None
 
-    def expect(self,serial):
-        with self._lock:self.requested=serial
+    def expect(self,epoch,serial):
+        with self._lock:self.requested=(epoch,serial)
+
+    def disarm(self):
+        with self._lock:self.requested=None
 
     def synchronize(self):
         with self._lock:self.synchronized=self.requested
 
     def frame_end(self):
-        with self._lock:serial=self.synchronized
-        self.submitted.emit(serial)
+        with self._lock:receipt=self.synchronized
+        if receipt is not None:self.submitted.emit(*receipt)
 
 
 class TerrainModel(QObject):
@@ -51,6 +54,7 @@ class TerrainModel(QObject):
         self._pending_mesh=False;self._queued_request=None;self._window=None
         self._look_capture=False
         self._view_dimensions=None
+        self._viewport_owner=None;self._attachment_epoch=0;self._owner_connection=None
         self._frame=FrameReceipt(self);self._frame.submitted.connect(self.frameSubmitted,Qt.ConnectionType.QueuedConnection)
         self.deadline=QTimer(self);self.deadline.setSingleShot(True);self.deadline.timeout.connect(self._timeout)
 
@@ -116,18 +120,58 @@ class TerrainModel(QObject):
     def _render_failure(self,message):
         self.cancel();self._status='Native renderer unavailable: '+str(message)[:300];self.changed.emit()
 
+    def _view_attached(self):
+        owner=self._viewport_owner
+        if owner is None or not isValid(owner) or owner.property('visible') is not True:return False
+        dimensions=(owner.property('width'),owner.property('height'))
+        return bool(all(type(v) in (int,float) and math.isfinite(v) and v>0 for v in dimensions)
+                    and (self._window is None or (isValid(self._window) and self._window.isVisible())))
+
+    def _disconnect_owner(self):
+        if self._owner_connection is not None:
+            QObject.disconnect(self._owner_connection)
+            self._owner_connection=None
+
+    @Slot(QObject,result=int)
+    def viewportAttached(self,owner):
+        if owner is None or not isValid(owner) or owner.property('visible') is not True:
+            return 0
+        self._disconnect_owner()
+        self._attachment_epoch+=1
+        epoch=self._attachment_epoch;self._viewport_owner=owner;self._view_dimensions=None
+        self._owner_connection=owner.destroyed.connect(lambda *unused:self.viewportDetached(epoch))
+        self._ready=False;self.awaiting_frame=False;self._frame.disarm()
+        for geometry in self._geometries:
+            geometry.rearm_for_scene()
+        self._selection_geometry.rearm_for_scene()
+        self._invalidate_frame()
+        if self.awaiting_frame and not self.deadline.isActive():self.deadline.start(30000)
+        self.changed.emit()
+        return epoch
+
+    @Slot(int)
+    def viewportDetached(self,epoch):
+        if epoch!=self._attachment_epoch:return
+        self.lookCapture(False)
+        self._disconnect_owner()
+        self._viewport_owner=None;self._attachment_epoch+=1;self._view_dimensions=None
+        self._ready=False;self.awaiting_frame=False;self._frame.disarm()
+        if not self.session.busy and self.worker is None:self.deadline.stop()
+        self.changed.emit()
+
     def _invalidate_frame(self):
-        if self._geometries and not self.worker:
-            self.render_serial+=1;self._frame.expect(self.render_serial)
+        self._ready=False;self.awaiting_frame=False;self._frame.disarm()
+        if self._geometries and not self.worker and self._view_attached():
+            self.render_serial+=1;self._frame.expect(self._attachment_epoch,self.render_serial)
             self.awaiting_frame=True;self._ready=False
             if self._window and isValid(self._window):self._window.update()
 
     def require_submission(self):
         self._invalidate_frame();self.changed.emit()
 
-    @Slot(int,int)
-    def viewportChanged(self,width,height):
-        if width>0 and height>0 and self._view_dimensions!=(width,height):
+    @Slot(int,int,int)
+    def viewportChanged(self,epoch,width,height):
+        if epoch==self._attachment_epoch and self._view_attached() and width>0 and height>0 and self._view_dimensions!=(width,height):
             self._view_dimensions=(width,height);self._invalidate_frame();self.changed.emit()
 
     def request(self,request):
@@ -164,6 +208,7 @@ class TerrainModel(QObject):
     def _begin_mesh(self):
         if not self.scene:return
         self._ready=False;self.awaiting_frame=False
+        self._frame.disarm()
         if not self.deadline.isActive():self.deadline.start(30000)
         if self.worker:
             self.worker.cancel();self._pending_mesh=True;return
@@ -207,17 +252,18 @@ class TerrainModel(QObject):
             self._status=result.get('error','Mesh canceled.')
         else:
             old=self._geometries;self._geometries=self._pending_geometries;self._pending_geometries=[]
-            self.render_serial+=1;self._frame.expect(self.render_serial);self.awaiting_frame=True
-            self._status='Geometry accepted by GUI; awaiting frame submission.'
             self.changed.emit();self._retire(old)
-            if self._window and isValid(self._window):self._window.update()
+            self._invalidate_frame()
+            self._status=('Geometry accepted by GUI; awaiting this viewport attachment frame.' if self.awaiting_frame
+                          else 'Geometry retained. Return to the terrain view to display it.')
+            if not self._view_attached():self.deadline.stop()
         if self._pending_mesh:
             self._pending_mesh=False;self._begin_mesh()
         self._advance();self.changed.emit()
 
-    @Slot(int)
-    def frameSubmitted(self,serial):
-        if self.awaiting_frame and serial==self.render_serial and self.scene:
+    @Slot(int,int)
+    def frameSubmitted(self,epoch,serial):
+        if self.awaiting_frame and epoch==self._attachment_epoch and self._view_attached() and serial==self.render_serial and self.scene:
             self.awaiting_frame=False;self._ready=True;self.deadline.stop()
             totals=self.scene.manifest['totals']
             unavailable=sum(row['availability']!='present' for row in self.scene.coverage.values())
@@ -237,6 +283,7 @@ class TerrainModel(QObject):
     def _release_charge(self,charge):self._charged-=charge
     def _clear_geometry(self):
         old=self._geometries;self._geometries=[];self.awaiting_frame=False;self._ready=False
+        self._frame.disarm()
         self.changed.emit();self._retire(old)
 
     def cancel(self):
