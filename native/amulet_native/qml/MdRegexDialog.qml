@@ -32,7 +32,7 @@ MdDialog {
                 MdButton { text: "Insert"; onClicked: { dialog.filterModel.insertLiteral(literal.text); literal.clear() } }
             }
             Label { text: "Test text (maximum 4096 characters)" }
-            TextArea { text: dialog.filterModel.sample; Layout.fillWidth: true; Layout.preferredHeight: 96; wrapMode: TextEdit.Wrap; Accessible.name: "Regex sample text"; onTextChanged: if (activeFocus) dialog.filterModel.setSample(text) }
+            TextArea { text: dialog.filterModel.sample; textFormat: TextEdit.PlainText; Layout.fillWidth: true; Layout.preferredHeight: 96; wrapMode: TextEdit.Wrap; Accessible.name: "Regex sample text"; onTextChanged: if (activeFocus) dialog.filterModel.setSample(text) }
             Label { text: dialog.filterModel.status; textFormat: Text.PlainText; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Repeater {
                 model: dialog.filterModel.matches
