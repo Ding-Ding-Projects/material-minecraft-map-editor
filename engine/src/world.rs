@@ -15,7 +15,13 @@ pub fn probe(path: &Path) -> nbt::Result<Value> {
     if data.len() > limits.bytes {
         return Err("compressed byte budget exceeded");
     }
-    let bytes = region::decompress(1, &data, limits.bytes)?;
+    probe_compressed(&data, limits)
+}
+pub(crate) fn probe_compressed(data: &[u8], limits: Limits) -> nbt::Result<Value> {
+    if data.len() > limits.bytes {
+        return Err("compressed byte budget exceeded");
+    }
+    let bytes = region::decompress(1, data, limits.bytes)?;
     let root = nbt::parse(&bytes, limits)?;
     let Tag::Compound(root) = root.tag else {
         return Err("invalid world root");

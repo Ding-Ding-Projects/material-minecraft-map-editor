@@ -4,5 +4,6 @@ pub mod mutf8;
 pub mod nbt;
 pub mod protocol;
 pub mod region;
+pub mod working_copy;
 pub mod world;
 pub mod world_read;
