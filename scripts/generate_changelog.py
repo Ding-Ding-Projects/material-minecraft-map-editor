@@ -9,6 +9,9 @@ import sys
 import subprocess
 from pathlib import Path
 from typing import Sequence
+
+# Isolated Python excludes the script directory; import only this trusted sibling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from publication_policy import PublicationPolicy, PublicationPolicyError, read_policy
 
 SCHEMA_VERSION = 1

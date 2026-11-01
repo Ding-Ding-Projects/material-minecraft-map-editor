@@ -64,10 +64,16 @@ jobs:
         fetch-depth: 0
 
     - name: Set up Python ${{ matrix.cfg.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
       with:
         python-version: ${{ matrix.cfg.python-version }}
         architecture: ${{ matrix.cfg.architecture }}
+
+    - name: Generate the changelog catalog
+      if: github.repository == 'Ding-Ding-Projects/material-minecraft-map-editor'
+      env:
+        PUBLICATION_LANGUAGE_DATA: ${{ secrets.PUBLICATION_LANGUAGE_DATA }}
+      run: python -I -S scripts/run_protected_changelog.py
 
     - name: Install dependencies
       run: |
@@ -82,11 +88,6 @@ jobs:
     - name: Install Wheels
       run: |
         python -m pip install dist/amulet_map_editor-*.whl --upgrade
-
-    # The changelog catalog is generated content the packaged build embeds.
-    - name: Generate the changelog catalog
-      run: |
-        python scripts/generate_changelog.py
 
     - name: PyInstaller build
       run: |

@@ -69,7 +69,7 @@ def test_generator_sanitises_fixture_history_and_blocks_leftovers(tmp_path):
     git("tag", "v1")
     git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-m", "Next")
     output = tmp_path / "out.json"
-    command = [sys.executable, str(ROOT / "scripts/generate_changelog.py"), "--repo", str(tmp_path), "--output", str(output), "--policy-stdin"]
+    command = [sys.executable, "-I", "-S", str(ROOT / "scripts/generate_changelog.py"), "--repo", str(tmp_path), "--output", str(output), "--policy-stdin"]
     data = json.dumps({"version": 1, "replacements": [["amber widget", "review step"]], "forbidden": ["amber widget"]}).encode()
     result = subprocess.run(command, input=data, capture_output=True)
     assert result.returncode == 0
