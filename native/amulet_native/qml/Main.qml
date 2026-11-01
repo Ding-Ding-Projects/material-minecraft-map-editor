@@ -109,6 +109,7 @@ ApplicationWindow {
         }
         RowLayout {
             objectName: "worldBodyLayout"
+            visible: backend.explorer.dimensionIds.length === 0
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 320
@@ -224,6 +225,12 @@ ApplicationWindow {
                     }
                 }
             }
+        }
+        ChunkWorkspace {
+            visible: backend.explorer.dimensionIds.length > 0
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 320
         }
         Label {
             objectName: "provenanceFooter"

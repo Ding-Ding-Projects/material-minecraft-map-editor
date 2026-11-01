@@ -85,6 +85,26 @@ class ControllerTests(unittest.TestCase):
         self.wait_idle()
         self.assertEqual(closed, [True])
 
+    def test_failed_start_reports_visible_explorer_state(self):
+        invalid = self.world / "invalid-engine.exe"
+        invalid.write_bytes(b"not an executable")
+        self.controller.engine_path = invalid
+        self.controller.openWorld(QUrl.fromLocalFile(str(self.world)))
+        self.wait_idle()
+        self.assertEqual(self.controller.state, "unsupported")
+        self.assertEqual(self.controller.explorer.status, self.controller.message)
+        self.assertFalse(self.controller.explorer.ready)
+
+    def test_early_exit_reports_visible_explorer_state(self):
+        self.controller.engine_path = Path(sys.executable)
+        self.controller.openWorld(QUrl.fromLocalFile(str(self.world)))
+        owned_child = self.controller.process
+        owned_child.closeWriteChannel()
+        self.wait_idle()
+        self.assertEqual(self.controller.state, "unsupported")
+        self.assertEqual(self.controller.explorer.status, self.controller.message)
+        self.assertIn("before a complete response", self.controller.explorer.status)
+
 
 if __name__ == "__main__":
     unittest.main()

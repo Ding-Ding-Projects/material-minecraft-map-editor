@@ -16,6 +16,10 @@ The initial implementation now lives under `native/amulet_native/qml/`. This tab
 
 The implementation must retain the installed Qt source/version and licensing receipts before acceptance. Pinning a requirement alone is not that receipt. Remaining primitives retain their proposed paths and unfinished states. The first shell does not enable editing controls from the schematic workspace.
 
+### Read-only chunk increment registrations
+
+`native/amulet_native/qml/ChunkWorkspace.qml` owns the Qt Quick Controls Material dimension/section selectors, signed coordinate fields, local-Y stepper, read action and inspector dialog. `ChunkSlice.qml` owns the native categorical data grid, keyboard cell selection, local X/Z steppers and zoom. `BlockInspector.qml` owns exact text/property presentation. Existing `MdButton.qml` supplies action anatomy. The slice's rectangles are data cells, not a substitute for Material chrome. All new runtime/layout/component conformance evidence is pending. The reviewed repair adds MdNumericField, MdSelect, MdSpinBox, MdProgress, MdDialog and MdRegexDialog registrations. See native/COMPONENTS.md for exact installed Qt source hashes, anatomy, states and limits. Owned filtering, a bounded supported regex subset and per-field help/clear are implemented; full regex parity, localization and rendered conformance remain unfinished.
+
 ## Sources and provenance
 
 The normative design family is [Material Design 3 components](https://m3.material.io/components), including the [buttons reference](https://m3.material.io/components/buttons/overview). The official page requires JavaScript in the text retrieval route, so detailed current anatomy has not been independently retrieved through that route. Full official-spec comparison remains a required review step; these author-defined anatomy contracts cannot masquerade as that evidence.

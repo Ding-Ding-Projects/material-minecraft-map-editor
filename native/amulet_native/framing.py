@@ -39,7 +39,8 @@ class Decoder:
             payload = bytes(self.buffer[4:length + 4])
             del self.buffer[:length + 4]
             response = json.loads(payload)
-            if not isinstance(response, dict) or response.get("version") != 1:
+            if (not isinstance(response, dict) or type(response.get("version")) is not int
+                    or response.get("version") != 1):
                 raise ValueError("Invalid response envelope")
             if ("result" in response) == ("error" in response):
                 raise ValueError("Expected exactly one response outcome")

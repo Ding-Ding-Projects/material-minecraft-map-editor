@@ -22,7 +22,7 @@ class FramingTests(unittest.TestCase):
         for length in (0, MAX_FRAME + 1):
             with self.assertRaises(ValueError):
                 Decoder().feed(length.to_bytes(4, "big"))
-        for value in ([], {"version": 2, "result": {}},
+        for value in ([], {"version": 2, "result": {}}, {"version": True, "result": {}},
                       {"version": 1, "result": {}, "error": {}}):
             with self.assertRaises(ValueError):
                 Decoder().feed(framed(value))

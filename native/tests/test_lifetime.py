@@ -73,6 +73,15 @@ QtObject {
         # This deliberately broken order is the negative regression only.
         # Production always calls destroy_presentation with a live backend.
 
+    def test_teardown_rejects_pending_worker_before_destroying_roots(self):
+        self.backend.explorer.dimensionFilter.setRegexMode(True)
+        with self.assertRaises(RuntimeError):
+            destroy_presentation(self.engine, self.backend)
+        self.assertTrue(isValid(self.engine.rootObjects()[0]))
+        self.assertTrue(isValid(self.backend))
+        self.backend.explorer.shutdown()
+        destroy_presentation(self.engine, self.backend)
+
 
 if __name__ == "__main__":
     unittest.main()
