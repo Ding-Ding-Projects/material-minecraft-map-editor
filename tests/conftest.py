@@ -1,15 +1,8 @@
-"""Session setup shared by the whole test suite.
+"""Session setup retains checked-in generated fixtures.
 
-Some suite fixtures are *generated* rather than committed in a form that stays
-current — the changelog catalog is built from reachable Git tags and history, so
-a checkout that has moved on since the catalog was last written no longer
-matches it.  Continuous integration already regenerates it immediately before
-running the tests, but a developer typing ``pytest tests`` does not, and the
-result is 248 subtest failures that say nothing about the code under test and
-bury the one failure that does.
-
-Regenerating it here means the suite behaves the same way in both places, and
-nobody has to know about an undocumented preparation step.
+Changelog regeneration requires an external protected policy through standard
+input. This shared fixture never substitutes empty rules or raw history. Its
+status does not certify publication safety or generated-catalog freshness.
 """
 
 from __future__ import annotations
@@ -97,26 +90,14 @@ def _regenerate_changelog_catalog() -> str:
     if head is None:
         return "not a Git checkout; leaving the committed catalog in place"
     if _catalog_revision() == head and _catalog_covers_every_tag():
-        return "changelog catalog already matches HEAD and every reachable tag"
-    completed = subprocess.run(
-        [sys.executable, str(GENERATOR)],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if completed.returncode:
-        detail = (completed.stderr or completed.stdout).strip()[:400]
-        # A failure here is reported rather than raised: the changelog tests
-        # will fail with their own specific message, which is more useful than
-        # collapsing the whole session at collection time.
-        return f"changelog regeneration failed: {detail}"
-    return f"changelog catalog regenerated for {head[:8]}"
+        return "catalog revision matches HEAD; external publication approval remains required"
+    return ("changelog regeneration unavailable: protected standard-input publication policy required; "
+            "retaining checked-in catalog without claiming freshness or publication approval")
 
 
 @pytest.fixture(scope="session", autouse=True)
 def generated_fixtures(request: pytest.FixtureRequest) -> None:
-    """Bring generated suite fixtures up to date before anything runs."""
+    """Report generated fixture availability without inventing private policy."""
     message = _regenerate_changelog_catalog()
     reporter = request.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is not None:

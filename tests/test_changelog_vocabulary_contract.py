@@ -1,77 +1,82 @@
-"""Private working shorthand must never reach a user-facing surface.
+"""Synthetic publication-rule mechanics, not complete private-data approval.
 
-The shorthand this project's authors use in conversation is for conversation.
-A commit subject carrying one is a mistake that has already happened here --
-`d7cc7c21` shipped one -- and a published commit message cannot be corrected
-without rewriting history.  Everything downstream of it can be, and the
-generated changelog catalog is downstream: the in-application changelog viewer
-renders it to users.
-
-So the guard is on the artifact, not on the commit: whatever a subject says, the
-catalog the application ships must read as ordinary technical English.
+Real catalog generation and publication require the external protected policy
+producer plus its complete source scan. No private inventory is bundled here.
 """
-
 from __future__ import annotations
 
+import io
 import json
+import subprocess
 import sys
 from pathlib import Path
-
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-CATALOG = REPO_ROOT / "amulet_map_editor" / "api" / "changelog_catalog.json"
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
-
-from generate_changelog import (  # noqa: E402
-    PRIVATE_TERM_REPLACEMENTS,
-    sanitise_subject,
-)
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from generate_changelog import sanitise_subject
+from publication_policy import PublicationPolicyError, read_policy, validate_policy
 
 
-def test_every_private_term_is_replaced_with_ordinary_english():
-    """Each shorthand becomes the plain technical term it stands for."""
-    for term, replacement in PRIVATE_TERM_REPLACEMENTS:
-        rendered = sanitise_subject(f"Change the {term} today")
-        assert (
-            term.lower() not in rendered.lower()
-        ), f"{term!r} survived sanitisation: {rendered!r}"
-        assert replacement.lower() in rendered.lower()
+def synthetic_policy():
+    return validate_policy({"version": 1, "replacements": [["amber widget", "review step"], ["violet marker", "release"]], "forbidden": ["amber widget", "violet marker", "blocked sample"]})
 
 
-def test_an_ordinary_subject_is_left_exactly_alone():
-    """Sanitising must not rewrite prose that was never shorthand."""
-    for subject in (
-        "Fix the chunk builder",
-        "Add a review step",
-        "Normalize repository Python formatting",
-        "Reduce the widget redraw cost",
-    ):
-        assert sanitise_subject(subject) == subject
+def test_boundaries_case_and_longest_literal_matching():
+    policy = synthetic_policy()
+    assert sanitise_subject("Amber widget and VIOLET MARKER", policy) == "Review step and Release"
+    subject = "amber widgetry and preamber widget remain"
+    assert sanitise_subject(subject, policy) == subject
+    assert sanitise_subject("(amber widget)", policy) == "(review step)"
+    assert sanitise_subject("Fix the chunk builder", policy) == "Fix the chunk builder"
+    special = validate_policy({"version": 1, "replacements": [["sample.*", "literal"]], "forbidden": ["sample.*"]})
+    assert sanitise_subject("sampleXYZ", special) == "sampleXYZ"
+    assert sanitise_subject("sample.*", special) == "literal"
 
 
-def test_capitalisation_survives_the_substitution():
-    """A sanitised subject still reads as a sentence."""
-    assert sanitise_subject("Dewed the branch").startswith("Pushed")
+def test_known_blocked_leftover_is_not_raw_fallback():
+    with pytest.raises(PublicationPolicyError, match="Blocked publication content"):
+        sanitise_subject("contains blocked sample", synthetic_policy())
+    with pytest.raises(TypeError):
+        sanitise_subject("ordinary subject")
 
 
-@pytest.mark.skipif(not CATALOG.is_file(), reason="catalog has not been generated")
-def test_the_shipped_catalog_contains_no_private_shorthand():
-    """The artifact users actually read is the one that has to be clean."""
-    payload = json.loads(CATALOG.read_text(encoding="utf-8"))
-    offenders = []
-    for entry in payload.get("entries", []):
-        for change in entry.get("changes", []):
-            summary = str(change.get("summary", ""))
-            for term, _ in PRIVATE_TERM_REPLACEMENTS:
-                # Whole-word only: "reviewer" must not trip on a term inside it.
-                words = {word.strip(".,:;()[]").lower() for word in summary.split()}
-                if term.lower() in words or term.lower() in summary.lower().split(
-                    " and "
-                ):
-                    if term.lower() in summary.lower():
-                        offenders.append((entry.get("tag"), summary, term))
-    assert not offenders, (
-        "the shipped changelog carries private working shorthand, which the "
-        f"in-application viewer renders to users: {offenders[:5]}"
-    )
+@pytest.mark.parametrize("payload", [None, {}, {"version": True, "replacements": [], "forbidden": ["sample"]}, {"version": 2, "replacements": [], "forbidden": ["sample"]}, {"version": 1, "replacements": [], "forbidden": []}, {"version": 1, "replacements": [["sample", "ok"]], "forbidden": ["other"]}, {"version": 1, "replacements": [["sample", "sample"]], "forbidden": ["sample"]}])
+def test_invalid_policies_fail_closed(payload):
+    with pytest.raises(PublicationPolicyError):
+        validate_policy(payload)
+
+
+def test_stdin_bounds_duplicate_fields_and_invalid_json():
+    for data in [b"", b"{", b"\xff", b" " * 1_048_577, b'{"version":1,"version":1,"replacements":[],"forbidden":["sample"]}']:
+        with pytest.raises(PublicationPolicyError):
+            read_policy(io.BytesIO(data))
+
+
+def test_generator_does_not_write_without_valid_policy(tmp_path):
+    output = tmp_path / "nested" / "catalog.json"
+    for arguments, data in [([], b""), (["--policy-stdin"], b"{}")]:
+        result = subprocess.run([sys.executable, str(ROOT / "scripts/generate_changelog.py"), "--output", str(output), *arguments], input=data, capture_output=True)
+        assert result.returncode != 0
+        assert not output.parent.exists()
+
+
+def test_generator_sanitises_fixture_history_and_blocks_leftovers(tmp_path):
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+    git("init")
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-m", "Add amber widget")
+    git("tag", "v1")
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-m", "Next")
+    output = tmp_path / "out.json"
+    command = [sys.executable, str(ROOT / "scripts/generate_changelog.py"), "--repo", str(tmp_path), "--output", str(output), "--policy-stdin"]
+    data = json.dumps({"version": 1, "replacements": [["amber widget", "review step"]], "forbidden": ["amber widget"]}).encode()
+    result = subprocess.run(command, input=data, capture_output=True)
+    assert result.returncode == 0
+    assert json.loads(output.read_text())["entries"][0]["changes"][0]["summary"] == "Add review step"
+    output.write_text("preserved")
+    data = json.dumps({"version": 1, "replacements": [], "forbidden": ["amber widget"]}).encode()
+    result = subprocess.run(command, input=data, capture_output=True)
+    assert result.returncode != 0
+    assert output.read_text() == "preserved"
+    assert b"amber widget" not in result.stderr.lower()
