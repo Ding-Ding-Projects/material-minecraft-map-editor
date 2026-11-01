@@ -11,3 +11,7 @@ Bedrock, snapshots, future versions and arbitrary mod-specific semantics are out
 ## Official metadata evidence
 
 `java-reference-evidence.json` records verified official archive sizes and hashes for all 54 frozen releases. Embedded metadata supplies 48 data versions; the six releases from 1.12 through 1.13.2 remain explicitly unknown in this evidence set. `java-releases.json` links those facts without changing any fixture, read, edit or round-trip verdict. Archive identity is not world compatibility.
+
+## Initial geometry references
+
+`java-geometry-reference-evidence.json` records the pinned official 1.20.1 client archive and ten bounded model/blockstate member hashes. All inspected stone and cobblestone variants resolve to full-cube geometry. This is limited geometry provenance, not opacity, collision, lighting, complete renderer or world-edit acceptance. No client/model assets are redistributed.
