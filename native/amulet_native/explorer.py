@@ -68,6 +68,14 @@ class Explorer(QObject):
     def selectedBlock(self):
         return self.chunk.cell(self.section, self.selected % 16, self.local_y, self.selected // 16) if self.ready else {}
 
+    @Property("QVariantMap", notify=changed)
+    def inspection(self):
+        # One value carries validity and its data together, so QML never mixes
+        # a new ready flag with the previous selectedBlock binding.
+        if not self.ready:
+            return {"valid": False, "block": None, "message": "Select a decoded block"}
+        return {"valid": True, "block": self.selectedBlock, "message": ""}
+
     @Property(str, notify=changed)
     def worldY(self): return str(self.chunk.sections[self.section].y * 16 + self.local_y) if self.ready else "Unavailable"
 

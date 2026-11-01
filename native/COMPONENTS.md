@@ -28,6 +28,8 @@ Runtime package: PySide6 6.12.0, verified in the isolated project environment. S
 
 The source contract is [Qt Material Style](https://doc.qt.io/qt-6/qtquickcontrols-material.html), reviewed alongside the installed files. [Material Design 3 components](https://m3.material.io/components) remain the visual reference; complete rendered comparison is outstanding.
 
+Dialog accessibility uses the native Qt Quick Controls implementation rather than attaching `Accessible` to a Popup QObject. The pinned [Qt 6.12.0 QQuickDialog source](https://github.com/qt/qtdeclarative/blob/v6.12.0/src/quicktemplates/qquickdialog.cpp) returns `QAccessible::Dialog`, forwards `title` to its popup item/window and sets the accessible name from that title when accessibility activates. `MdDialog` retains that title/role path. Native accessibility-tree readback remains required; source confirmation alone is not a screen-reader interaction verdict.
+
 ## Regex capability boundary
 
 Each dimension and section selector has its own `SelectorFilter` QObject. Plain text is default. Mode, pattern, flags, validation, filtered results and sample matches remain owned by that selector and synchronize with its workbench. Supported execution is the running interpreter's Python `re`, named with its exact version in successful results. Patterns are limited to 512 characters, samples to 4096, items to 256 with 256 characters each, sample matches to 64, input/output to 64 KiB and isolated worker execution to 750 ms after startup. A 2-second startup timeout is separate. Superseded requests are killed and cannot publish stale results.

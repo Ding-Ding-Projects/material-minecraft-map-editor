@@ -10,6 +10,7 @@ ColumnLayout {
     property color ink: backend.dark ? "#E1E5DC" : "#191D18"
     function focusGrid() { gridFrame.forceActiveFocus() }
     function revealSelection() {
+        if (!explorer.ready || scroll.availableWidth <= 0 || scroll.availableHeight <= 0) return
         let position = explorer.revealCell(zoom.value, scroll.availableWidth, scroll.availableHeight,
                                           flick.contentX, flick.contentY)
         flick.contentX = position.x
@@ -27,6 +28,8 @@ ColumnLayout {
     Label { text: "X increases right · Z increases down · Block categories, not textures"; color: slice.ink; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
     ScrollView {
         id: scroll
+        onAvailableWidthChanged: Qt.callLater(slice.revealSelection)
+        onAvailableHeightChanged: Qt.callLater(slice.revealSelection)
         Layout.fillWidth: true
         Layout.fillHeight: true
         // At the minimum client height, preserve every control and scroll the

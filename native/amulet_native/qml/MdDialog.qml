@@ -7,5 +7,6 @@ Dialog {
     padding: 24
     Material.roundedScale: Material.ExtraLargeScale
     standardButtons: Dialog.Close
-    Accessible.name: title
+    // QQuickDialog supplies QAccessible::Dialog and forwards title to its
+    // accessible popup item. Accessible cannot attach to this Popup QObject.
 }
