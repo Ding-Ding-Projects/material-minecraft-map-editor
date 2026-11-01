@@ -200,3 +200,5 @@ mod tests {
         assert!(decompress(4, &b, 1000).is_err());
     }
 }
+mod write;
+pub use write::RegionEdit;

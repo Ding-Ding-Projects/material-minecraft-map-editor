@@ -1,12 +1,12 @@
 # Java world engine foundation
 
-This Rust crate is an independent, read-only structural foundation. It does not import or invoke Amulet packages. It does not yet replace the existing editor backend.
+This Rust crate is an independent structural foundation with a read-only process interface and isolated in-memory edit APIs. It does not import or invoke Amulet packages. It does not yet replace the existing editor backend.
 
 ## Current behavior
 
 - All twelve Java NBT payload types with big-endian reading and writing. Compound ordering, duplicate names, string bytes (including modified UTF-8), unknown application fields and floating-point bit patterns survive round trips. Unknown tag type IDs are rejected because their payload lengths cannot be determined safely.
 - NBT defaults: 64 MiB input/output, depth 64, one million aggregate element budget. Negative lengths, invalid list types, truncation and trailing bytes are rejected. Strings remain bytes rather than incorrectly interpreting modified UTF-8 as standard UTF-8; text decoding is not provided yet.
-- Region header validation checks sector alignment, bounds, reserved header sectors, missing-location consistency and overlapping allocations. Indexed chunk reading checks declared length, compression and bounded NBT. Compression 1 (gzip), 2 (zlib) and 3 (uncompressed) are supported. External `.mcc` streams and compression 4 (LZ4) are explicitly unsupported. No region writes are available.
+- Region header validation checks sector alignment, bounds, reserved header sectors, missing-location consistency and overlapping allocations. Indexed chunk reading checks declared length, compression and bounded NBT. Compression 1 (gzip), 2 (zlib) and 3 (uncompressed) are supported. External `.mcc` streams and compression 4 (LZ4) are explicitly unsupported. Region serialization is available only as a new in-memory byte buffer; no filesystem save operation is available.
 - `level.dat` probe accepts gzip NBT, requires one compound `Data` and reports optional integer `DataVersion`. The probe reads at most 64 MiB compressed and decompressed. It does not claim that a structurally readable world is semantically supported for editing. It performs no world writes and returns no world names or filesystem paths.
 
 ## Protocol version 1
@@ -66,3 +66,19 @@ Response frames are capped at the same 1 MiB as requests. Oversized successful r
 Synthetic filesystem fixtures write real zlib `.mca` records and verify negative coordinates, 31/32 boundaries, nested custom discovery, missing regions/chunks, malformed region data, unknown versions, mismatched stored coordinates, region byte limits and response bounds. Canonical parent escape and a real outside junction were rejected on the current Windows test host. Unix symlink coverage is present but was not executed on this host. These tests do not constitute a real user-world or all-version acceptance corpus.
 
 Before opening a region path, metadata must identify a regular file within the byte budget. Open-handle metadata is then checked again. This rejects static directories and special files before a potentially blocking open; it does not remove the documented concurrent path-replacement race. A nonregular-directory fixture passed on the current Windows host. No FIFO open or Unix runtime proof was attempted.
+
+## Isolated in-memory editing foundation
+
+The process protocol remains read-only and continues to report `editingSupported: false`. The following library APIs construct new memory values only. They do not open source files, save worlds, acquire world locks or perform atomic transactions.
+
+`Region::rebuild(&[RegionEdit], Limits)` produces a separate region byte buffer. Each edit explicitly supplies a chunk index, new named NBT root and timestamp. Invalid indices and duplicate edits fail. Unchanged allocated sectors, including their exact compressed/opaque bytes and sector padding, and timestamps are preserved byte-for-byte. Allocations may move within the new buffer. Timestamp entries for unallocated chunks are retained. Empty or semantically identical edits with matching timestamps return the complete original bytes, including free sectors. A nontrivial rebuild does not retain unallocated free-sector contents.
+
+Changed chunks use zlib with bounded output. The NBT limits apply before compression; a chunk may occupy at most 255 sectors, and the new region is capped at 256 MiB. Rebuilt allocation headers are reparsed before returning. Unsupported unchanged compression payloads are copied opaquely, never interpreted or rewritten. There is no deletion API, external-stream writer, timestamp inference or source filesystem mutation.
+
+`edit::replace_section_blocks` takes a named chunk root, a signed section Y and at most 4,096 explicit local block replacements. It admits only DataVersion `3465` for this initial fixture-bound vertical slice. Missing sections, malformed source palettes, duplicate positions, invalid local coordinates, unsupported versions and palette capacity overflow fail without altering the input. Replacement state names/properties receive bounded structural validation; there is no version-specific block registry or proof that an arbitrary named state exists in the game.
+
+The edit operates on cloned NBT. Existing palette entries retain their original unknown fields and ordering. New states append to the palette; padded words are re-encoded for the resulting bit width, including singleton-to-two and sixteen-to-seventeen transitions. The palette is bounded at 4,096 entries and is not compacted to rescue an overflowing append. No-op edits retain complete NBT byte identity. Entities, biomes, lighting, unknown fields and other sections remain unchanged.
+
+An actual state change returns `changed_blocks`, `relighting_required: true` and `derived_data_stale: true`. Lighting, heightmaps, block entities, scheduled ticks, structures, POIs and other dependent data are not repaired or validated. Unchanged block-entity data can be incompatible with the replacement block. These outputs are incomplete edit candidates, not valid finished world saves. No-op results set both flags false. No world-save protocol method is exposed until the missing consistency, relighting, transaction, backup/recovery and real-world validation work is implemented.
+
+Focused tests prove no-op region/NBT byte identity, unchanged chunk bytes/timestamps (including opaque payloads), changed readback, bounded incompressible encoding, negative section Y, property/unknown-data preservation, palette growth and capacity, malformed arrays, unsupported versions and invalid/duplicate selections. All edit fixtures are in memory; no user world was touched. Real-world DataVersion `3465` editing acceptance remains unverified.
