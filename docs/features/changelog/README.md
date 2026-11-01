@@ -9,8 +9,8 @@ Markdown export. The repository still makes no live wx screenshot claim.
 
 The bundled `changelog_catalog.json` is generated from every release tag
 reachable from the source revision recorded in that file. Each release entry
-uses the tag name, tagged commit date, full commit SHA, and unedited Git commit
-subject. The catalog therefore does not invent release prose or claim that a
+uses the tag name, tagged commit date, full commit SHA, and publication-reviewed
+commit subject. The catalog therefore does not invent release prose or claim that a
 tag-tip subject is a complete set of historical release notes.
 
 ## Behavior
@@ -36,14 +36,29 @@ tag-tip subject is a complete set of historical release notes.
 
 ## Regenerating the catalog
 
-From the repository root, run:
+Maintainer automation supplies the approved policy on standard input. The
+generator never bundles private replacement data and never falls back to raw
+history when protected input is missing. The local consumer command is:
 
 ```powershell
-py -3 scripts/generate_changelog.py
+py -3.11 scripts/generate_changelog.py --policy-stdin
 ```
 
-The generator walks reachable tags, peels annotated tags to commits, preserves
-their subjects unchanged, and writes deterministic UTF-8 JSON. Its action
+Supply the input through a trusted private pipe, never command arguments, a
+tracked file or a local environment variable. This command is a consumer, not
+a policy producer. It accepts a bounded policy or the approved raw/compressed
+publication envelope containing its optional `changelog` field. Missing,
+invalid, incomplete or untranslatable input fails before output is written.
+Existing checked-in catalogue data remains available to ordinary builds.
+
+Trusted workflows use `run_protected_changelog.py` with the platform-managed
+`PUBLICATION_LANGUAGE_DATA` secret. The wrapper removes that input and unrelated
+credential variables from its child's environment and forwards only the
+bounded stdin payload. It does not print the protected value. Fork workflows
+retain the checked-in catalogue; no private data is supplied to fork code.
+
+The generator walks reachable tags, peels annotated tags to commits, sanitizes
+subjects with the approved mappings, and writes deterministic UTF-8 JSON. Its action
 categories are intentionally mechanical and documented:
 
 - subjects beginning with add/enable/implement/introduce map to `added`;
@@ -51,8 +66,9 @@ categories are intentionally mechanical and documented:
 - remove/delete/drop/disable map to `removed`; and
 - every other subject maps to the neutral `changed` category.
 
-The original subject remains the displayed and exported fact. The category is
-only a filter hook.
+Dates, versions, commit identities and links remain unchanged. The reviewed
+subject is displayed and exported; its category is only a filter hook. An
+unavailable mapping blocks generation instead of silently emitting raw text.
 
 ## Failure modes
 
