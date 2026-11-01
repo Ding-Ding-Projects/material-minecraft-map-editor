@@ -1,5 +1,13 @@
 # Handoff
 
+## Integrated native candidate evidence, 2026-11-01
+
+The native candidate now integrates the reviewed in-memory section edits, independent region rebuild, official reference acquisition and stable-snapshot working-copy foundation through 1f872030. Verification on that integrated tree: 49 Rust unit tests, one compile-fail test and 25 reference-acquisition tests passed. The latter emits one expected duplicate-ZIP warning. Six native process-lifecycle tests passed after using the exact Windows structure field name. Working-copy creation remains unavailable in the GUI pending confidentiality hardening and its review. No safe-save or world-consistency claim is made.
+
+Real hidden-desktop chunk interaction at 1eda9a53 opened the synthetic fixture through the native chooser, selected cell 52 at world (-12,-62,-13), displayed numeric ID 5 and metadata 7, retained selection through resize, and cleared absent-chunk state. Source fixture hashes were unchanged; startup, transitions and normal-close diagnostics totaled zero bytes. Native accessibility semantics, complete visual matrix and real-world acceptance remain unverified.
+
+The frozen release inventory now records 48 metadata-proven data versions and six explicit gaps from java-reference-evidence.json. All 54 read/edit/round-trip verdicts remain unverified. The current default branch contains the protected-publication repair; the native candidate is still an inactive development branch, not a released replacement.
+
 ## Native rebuild in progress, 2026-11-01
 
 The requested replacement uses PySide6 Qt Quick and an independent Rust Java engine. The existing applications remain preserved. The native target is not yet the released editor. The compatibility target is frozen at 54 stable Java releases from 1.12 through 26.3 in `docs/compatibility/java-releases.json`; no all-version support is claimed.
@@ -40,7 +48,7 @@ same Python core.
 publishes as the GitHub release. `build-electron-windows.yml` is the only
 workflow that creates one; `build-windows.yml` (the wxPython/PyInstaller
 build) still runs on every push and reports its own test results, but its
-`publish:` job is gone — it is an ordinary, cancellable, non-releasing check
+`publish:` job is gone â€” it is an ordinary, cancellable, non-releasing check
 now (`6c44bbe8`).
 
 The Electron shell hosts the Amulet Studio design
@@ -50,7 +58,7 @@ stdio. `amulet_map_editor/api/sidecar/methods.py` plus nine grouped modules
 (`analyze_methods.py`, `edit_methods.py`, `entity_methods.py`,
 `mesh_methods.py`, `security_methods.py`, `selection_methods.py`,
 `surface_methods.py`, `terrain_methods.py`, `world_methods.py`) register
-roughly ninety real methods — none of them stubs. Both the backstage
+roughly ninety real methods â€” none of them stubs. Both the backstage
 (`docs/site/studio-backstage.js`) and the workspace
 (`docs/site/studio-workspace.js`, mounted into `studio.html`'s
 `#studio-workspace` element by `d4ab1861`) are actually mounted into the
@@ -59,7 +67,7 @@ running page, not merely built and unit-tested in isolation.
 **The wxPython application** (`amulet_map_editor/api/wx/`,
 `amulet_map_editor/api/studio/`) is the original, longer-running
 implementation of most of the same feature set, including the 3D viewport,
-which stays on PyOpenGL — porting it is out of scope for this migration
+which stays on PyOpenGL â€” porting it is out of scope for this migration
 while its own open performance defect (reported around 3 fps) is unresolved.
 It remains the larger of the two applications by surface area and is not
 being deleted; CI simply no longer publishes it as a release.
@@ -82,7 +90,7 @@ calls it" was its own piece of work, done in `4c887bf9`: five methods
 (`entities.place`, `entities.remove`, `data.level_write`,
 `data.game_rules_write`, and `sea_level`'s drain mode) were real and tested
 against a live sidecar process for a while with no edit-panel fields to
-drive them from — the largest single "built, tested, unreachable" gap the
+drive them from â€” the largest single "built, tested, unreachable" gap the
 project had.
 
 ## The 3D viewport
@@ -97,8 +105,8 @@ WebGL2, fed by the **unmodified Python mesher**. What exists:
   translucency (`6d49b2aa`).
 - **A selection box with draggable handles**, a JS port of `handles.py`'s
   face/corner drag geometry, plus **click-to-pick ray casting**
-  (`viewport-picking.js`: cursor → ray → DDA voxel march) against a real
-  per-sub-chunk occupancy bitset — 512 bytes, one bit per block — that rides
+  (`viewport-picking.js`: cursor â†’ ray â†’ DDA voxel march) against a real
+  per-sub-chunk occupancy bitset â€” 512 bytes, one bit per block â€” that rides
   in the same `viewport.chunk_mesh_batch` response as the mesh (`21143469`).
   Before that, picking could only test a ray against the reference grid's
   `y = 0` plane; a per-step IPC round trip was never viable, since a DDA
@@ -112,13 +120,13 @@ WebGL2, fed by the **unmodified Python mesher**. What exists:
 sites reference a real `actions.*` handler for roughly a third of them; the
 rest are built with `run: null` and render **permanently disabled with an
 explicit reason**, both in their title and in a properties-pane reason line
-— never silently inert. The stated reasons are, plainly: this build has no
+â€” never silently inert. The stated reasons are, plainly: this build has no
 terrain generator, no shape library, no portable biome table, and no
 light-recalculation API, so brushes, most structure-file operations, NBT
 search, redstone tracing, and most of the design's twelve editing surfaces
 have nothing to call. Outside Electron entirely (no
-`window.mmweDesktop`), every command — including purely local ones like tab
-switching — shows a desktop-only reason instead, so the ribbon does not look
+`window.mmweDesktop`), every command â€” including purely local ones like tab
+switching â€” shows a desktop-only reason instead, so the ribbon does not look
 half-broken in a plain browser tab.
 
 ## Verified on this machine
@@ -126,8 +134,8 @@ half-broken in a plain browser tab.
 **Command run:** `py -3 -m pytest tests -q` from the repository root.
 
 The Studio (wxPython) tests import without wx by design for their data
-layer — the surface index, the command registry, every surface description,
-the shared search state, the NBT model, and the Memory Console's content —
+layer â€” the surface index, the command registry, every surface description,
+the shared search state, the NBT model, and the Memory Console's content â€”
 and skip cleanly, with the reason stated, wherever a check genuinely needs a
 display.
 
@@ -140,7 +148,7 @@ python scripts/generate_changelog.py    # tagged-release catalog
 
 ## Documentation
 
-`docs/features/` holds one article per feature area — the wxPython
+`docs/features/` holds one article per feature area â€” the wxPython
 interface, the Electron application, settings, safety and history, builds
 and delivery. Articles named `electron-*` are always specifically about the
 Electron application; an article with no such prefix predates the Electron
@@ -156,7 +164,7 @@ of what is delivered, enforced fail-closed by
 `tests/test_feature_completeness_inventory.py`: a row may not regress from
 complete to incomplete. It is a statement about the rows a person has typed
 into it, not a claim that either application is finished. It has already
-caught real defects by being checked rather than trusted — rows it once
+caught real defects by being checked rather than trusted â€” rows it once
 marked incomplete turned out to be features that existed only on the
 documentation site, or an engine with no surface reachable from the running
 application.
@@ -164,7 +172,7 @@ application.
 ## Things that cost real time, so nobody pays twice
 
 - **`Page.captureScreenshot` hangs indefinitely against a WebGL2 canvas**,
-  with no error and no timeout. Read the canvas with `toDataURL()` instead —
+  with no error and no timeout. Read the canvas with `toDataURL()` instead â€”
   and read it in the **same frame as the draw**, because the drawing buffer
   is cleared after compositing unless `preserveDrawingBuffer` is set. A
   capture taken one tick late returns a blank image indistinguishable from a
@@ -188,7 +196,7 @@ application.
   twice**, both times invisibly to a dev run: once by omitting
   `sidecar-client.js` (the packaged app crashed before creating a window),
   and once by never bundling `amulet_map_editor/` at all while `main.js`
-  computed the sidecar's working directory as a path *inside* `app.asar` — a
+  computed the sidecar's working directory as a path *inside* `app.asar` â€” a
   virtual archive no interpreter can enter, so every sidecar call failed
   with `sidecar_unavailable` while the window opened and rendered normally.
   `scripts/accept_electron_app.js` exists because of exactly this: it drives
@@ -201,9 +209,9 @@ application.
   lockfile too, which meant `setup-node`'s npm cache and `npm ci` had
   nothing to key off and the release workflow could not start (`14eafe58`).
 - **A crashing child process looks exactly like a slow one.** The converter
-  sandbox reported a crashed adapter — one that dies before it can send
+  sandbox reported a crashed adapter â€” one that dies before it can send
   anything, from a spawn-platform unpickling failure, an OS kill, or an
-  import error — as a `timeout`, because silence and slowness are
+  import error â€” as a `timeout`, because silence and slowness are
   indistinguishable to a poll. Fixed in `20d7a324` by distinguishing "no
   response yet" from "the process is gone."
 
@@ -211,7 +219,7 @@ application.
 
 1. Wire more of the ribbon's ~150 buttons to real methods as the missing
    backends (a terrain generator, a shape library, a portable biome table, a
-   light-recalculation API) get built — see `docs/features/electron-migration/README.md`
+   light-recalculation API) get built â€” see `docs/features/electron-migration/README.md`
    for the exact list of what each disabled command is waiting on.
 2. Level-of-detail and depth sorting in the viewport, once there is a large
    real world to measure against rather than a fixture chunk.

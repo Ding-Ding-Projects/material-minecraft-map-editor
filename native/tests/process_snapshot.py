@@ -11,7 +11,7 @@ def snapshot(with_names=False):
 
     class Entry(ctypes.Structure):
         _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
-                    ("pid", wintypes.DWORD), ("heap", ctypes.c_size_t),
+                    ("pid", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
                     ("module", wintypes.DWORD), ("threads", wintypes.DWORD),
                     ("parent", wintypes.DWORD), ("priority", wintypes.LONG),
                     ("flags", wintypes.DWORD), ("exe", wintypes.WCHAR * 260)]
