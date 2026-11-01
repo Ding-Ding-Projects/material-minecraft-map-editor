@@ -225,3 +225,9 @@ application.
    real world to measure against rather than a fixture chunk.
 3. Hosted delta publication and a three-version installed-client update
    proof, before delta delivery is advertised to Electron-app clients.
+
+## Confidentiality integration evidence
+
+The independently reviewed working-copy protection is integrated at f7cf8b49. The integrated tree passed 53 Rust unit tests and one compile-fail test; the exact build.bat /native entrypoint and all 39 native tests also passed. New staging, payload and recovery entries receive protected current-user and LocalSystem permissions at creation with native readback. Unsupported named streams and encryption attributes are rejected. Actual other-user access, EFS, broader filesystem metadata, hostile path replacement and full crash recovery remain unverified. No GUI save/copy action is exposed yet.
+
+Official acquisition provenance now binds the original CRLF manifest hash and immutable Git-blob hash separately through 09258294. The 3D design is undergoing independent architectural revision; no renderer implementation or design acceptance is claimed.
