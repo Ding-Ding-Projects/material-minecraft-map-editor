@@ -391,3 +391,146 @@ fn cancellation_during_hash_verification_retains_full_staging() {
     );
     assert!(!destination.exists());
 }
+
+fn powershell_acl(path: &Path) -> String {
+    use std::os::windows::process::CommandExt;
+    use std::process::{Command, Stdio};
+    let raw = path.to_str().unwrap();
+    let normal = if let Some(unc) = raw.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{unc}")
+    } else {
+        raw.strip_prefix(r"\\?\").unwrap_or(raw).to_owned()
+    };
+    let literal = normal.replace('\'', "''");
+    let script =
+        format!("$ErrorActionPreference='Stop'; Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1') -ErrorAction Stop; (Get-Acl -LiteralPath '{literal}').Sddl\n");
+    let mut child = Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", "-"])
+        .creation_flags(0x08000000)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(script.as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(output.status.success(), "independent ACL readback failed");
+    String::from_utf8(output.stdout).unwrap().trim().to_owned()
+}
+#[test]
+fn private_acls_are_read_back_independently_and_parent_permissions_stay_unchanged() {
+    let fixture = Fixture::new();
+    let source = fixture.source();
+    let parent_before = powershell_acl(&fixture.0);
+    let source_before = powershell_acl(&source);
+    let destination = fixture.0.join("private-copy");
+    let receipt = build(
+        &source,
+        &destination,
+        CopyLimits::default(),
+        &mut keep_going,
+    )
+    .unwrap();
+    let stage_acl = powershell_acl(&receipt.staging);
+    assert!(stage_acl.contains("D:P"), "staging DACL is not protected");
+    for path in [
+        &receipt.staging,
+        &destination,
+        &destination.join("level.dat"),
+        &destination.join("unknown.bin"),
+        &receipt.staging.join("recovery-000001.json"),
+    ] {
+        security::verify_private(path).unwrap();
+        let actual = powershell_acl(path);
+        assert!(actual.contains("D:P"), "private output DACL not protected");
+        assert_eq!(
+            actual.matches("(A;").count(),
+            2,
+            "unexpected ACL principal count"
+        );
+        assert!(actual.contains(";;;SY)"), "SYSTEM principal absent");
+    }
+    assert!(
+        parent_before == powershell_acl(&fixture.0),
+        "caller parent ACL changed"
+    );
+    assert!(
+        source_before == powershell_acl(&source),
+        "source ACL changed"
+    );
+    assert!(
+        security::verify_private(&fixture.0).is_err(),
+        "broad caller ACL was incorrectly accepted as private"
+    );
+}
+#[test]
+fn zone_origin_and_other_named_streams_are_rejected_without_source_changes() {
+    for stream in ["Zone.Identifier", "fixture-metadata"] {
+        let fixture = Fixture::new();
+        let source = fixture.source();
+        let stream_path = source.join(format!("unknown.bin:{stream}"));
+        fs::write(&stream_path, b"[ZoneTransfer]\r\nZoneId=3\r\n").unwrap();
+        let source_bytes = fs::read(source.join("unknown.bin")).unwrap();
+        let error = build(
+            &source,
+            &fixture.0.join("rejected"),
+            CopyLimits::default(),
+            &mut keep_going,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.reason,
+            "named streams and security-origin metadata unsupported"
+        );
+        assert_eq!(
+            fs::read(&stream_path).unwrap(),
+            b"[ZoneTransfer]\r\nZoneId=3\r\n"
+        );
+        assert_eq!(fs::read(source.join("unknown.bin")).unwrap(), source_bytes);
+        assert!(!error.staging.as_ref().unwrap().join("payload").exists());
+        assert!(error.recovery_recorded);
+    }
+}
+
+#[test]
+fn staging_and_initial_record_are_private_before_payload_creation() {
+    let fixture = Fixture::new();
+    let source = fixture.source();
+    let mut inspected = false;
+    let error = build(
+        &source,
+        &fixture.0.join("cancel-before-payload"),
+        CopyLimits::default(),
+        &mut |progress| {
+            if progress.phase == Phase::InventoryReady {
+                let stage = fs::read_dir(&fixture.0)
+                    .unwrap()
+                    .map(|e| e.unwrap().path())
+                    .find(|p| {
+                        p.file_name()
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .starts_with(".world-copy-")
+                    })
+                    .unwrap();
+                security::verify_private(&stage).unwrap();
+                security::verify_private(&stage.join("recovery-000001.json")).unwrap();
+                assert!(!stage.join("payload").exists());
+                inspected = true;
+                Control::Cancel
+            } else {
+                Control::Continue
+            }
+        },
+    )
+    .unwrap_err();
+    assert!(inspected);
+    assert_eq!(error.reason, "cancelled");
+    assert!(error.recovery_recorded);
+}

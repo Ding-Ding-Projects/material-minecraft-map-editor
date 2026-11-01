@@ -2,13 +2,14 @@
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
 mod inventory;
 mod publish;
+mod security;
 use inventory::{inventory, open_checked, stamp, Entry};
 #[derive(Clone, Copy)]
 pub struct CopyLimits {
@@ -94,12 +95,13 @@ impl Write for BoundedWriter {
 impl Run {
     fn record(&mut self, status: &str, reason: Option<&str>) -> bool {
         self.sequence += 1;
-        let record = json!({"schemaVersion":1,"status":status,"reason":reason,"source":self.source,"destination":self.destination,"payload":"payload","filesCopied":self.completed.len(),"bytesCopied":self.bytes,"files":self.completed.iter().map(|f|json!({"path":f.path,"bytes":f.bytes,"sha256":f.sha256})).collect::<Vec<_>>(),"liveSnapshotConsistencyClaim":false,"automaticResumeSupported":false});
+        let record = json!({"schemaVersion":1,"status":status,"reason":reason,"source":self.source,"destination":self.destination,"payload":"payload","filesCopied":self.completed.len(),"bytesCopied":self.bytes,"files":self.completed.iter().map(|f|json!({"path":f.path,"bytes":f.bytes,"sha256":f.sha256})).collect::<Vec<_>>(),"liveSnapshotConsistencyClaim":false,"automaticResumeSupported":false,"outputConfidentiality":"current-process-user-and-local-system","recordAclReadbackVerified":true});
         let result = (|| {
-            let file = OpenOptions::new().create_new(true).write(true).open(
-                self.stage
-                    .join(format!("recovery-{:06}.json", self.sequence)),
-            )?;
+            let path = self
+                .stage
+                .join(format!("recovery-{:06}.json", self.sequence));
+            let file = security::private_file(&path)?;
+            security::verify_private(&path).map_err(std::io::Error::other)?;
             let mut out = BoundedWriter {
                 file,
                 left: MANIFEST_LIMIT,
@@ -174,7 +176,7 @@ fn setup(source: &Path, destination: &Path) -> Result<Run, &'static str> {
             ".world-copy-{}-{time}-{suffix}",
             std::process::id()
         ));
-        match fs::create_dir(&stage) {
+        match security::private_dir(&stage) {
             Ok(()) => {
                 chosen = Some(stage);
                 break;
@@ -254,7 +256,8 @@ fn copy_entry(
     let target = run.payload.join(&entry.path);
     if entry.directory {
         if !entry.path.as_os_str().is_empty() {
-            fs::create_dir(&target).map_err(|_| "staging directory creation failed")?;
+            security::private_dir(&target).map_err(|_| "staging directory creation failed")?;
+            security::verify_private(&target)?;
         }
         return Ok(());
     }
@@ -262,11 +265,8 @@ fn copy_entry(
     if stamp(&input)? != entry.stamp {
         return Err("source changed before copy");
     }
-    let mut output = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&target)
-        .map_err(|_| "staging file creation failed")?;
+    let mut output = security::private_file(&target).map_err(|_| "staging file creation failed")?;
+    security::verify_private(&target)?;
     let mut hash = Sha256::new();
     let mut copied = 0u64;
     let mut buffer = [0u8; 65536];
@@ -312,6 +312,13 @@ pub fn build(
     limits: CopyLimits,
     observer: &mut impl FnMut(Progress) -> Control,
 ) -> Result<CopyReceipt, CopyFailure> {
+    if !cfg!(windows) {
+        return Err(CopyFailure {
+            reason: "private working-copy creation unsupported on this platform",
+            staging: None,
+            recovery_recorded: false,
+        });
+    }
     if limits.max_entries == 0
         || limits.max_entries > 100000
         || limits.max_depth > 128
@@ -329,6 +336,9 @@ pub fn build(
         staging: None,
         recovery_recorded: false,
     })?;
+    if security::verify_private(&run.stage).is_err() {
+        return Err(run.failed("staging confidentiality verification failed"));
+    }
     if !run.record("created", None) {
         return Err(run.failed("initial recovery record failed"));
     }
@@ -343,7 +353,8 @@ pub fn build(
             return Err("cancelled");
         }
         validate_level(&run.source).map_err(|_| "invalid source level.dat")?;
-        fs::create_dir(&run.payload).map_err(|_| "payload creation failed")?;
+        security::private_dir(&run.payload).map_err(|_| "payload creation failed")?;
+        security::verify_private(&run.payload)?;
         for entry in &before {
             copy_entry(&mut run, entry, observer)?;
             if !entry.directory
@@ -411,6 +422,10 @@ pub fn build(
         {
             return Err("staging inventory changed");
         }
+        security::verify_private(&run.stage)?;
+        for entry in &staged {
+            security::verify_private(&run.payload.join(&entry.path))?;
+        }
         publish::no_replace(&run.payload, &run.destination)
             .map_err(|_| "destination publication failed")?;
         Ok(())
@@ -427,5 +442,5 @@ pub fn build(
         final_recovery_recorded: recorded,
     })
 }
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests;

@@ -38,6 +38,7 @@ pub(super) fn open_checked(root: &Path, relative: &Path) -> Result<File, &'stati
     if linked(&metadata) || (!metadata.is_file() && !metadata.is_dir()) {
         return Err("linked or nonregular source entry");
     }
+    super::security::source_safe(&path, &metadata)?;
     let resolved = fs::canonicalize(&path).map_err(|_| "source entry unavailable")?;
     if !resolved.starts_with(root) {
         return Err("source entry escapes root");
@@ -63,6 +64,7 @@ pub(super) fn open_checked(root: &Path, relative: &Path) -> Result<File, &'stati
     if linked(&metadata) || (!metadata.is_file() && !metadata.is_dir()) {
         return Err("linked or nonregular source entry");
     }
+    super::security::source_safe(&path, &metadata)?;
     stamp(&file)?;
     Ok(file)
 }
