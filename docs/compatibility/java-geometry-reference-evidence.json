@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "release": "1.20.1",
+  "dataVersion": 3465,
+  "clientUrl": "https://piston-data.mojang.com/v1/objects/0c3ec587af28e5a785c0b4a7b8a30f9a8f78f838/client.jar",
+  "clientSha1": "0c3ec587af28e5a785c0b4a7b8a30f9a8f78f838",
+  "clientSha256": "56b71336d2b4fdffd197f56595b0da93e32a946f78f382a299b8f4b92758bb0f",
+  "clientBytes": 23028853,
+  "executed": false,
+  "assetsRedistributed": false,
+  "members": [
+    {
+      "path": "assets/minecraft/blockstates/stone.json",
+      "sha256": "34476f2bb98e7abec029c07c3cbfd8ba3a0141c0df3f02ff255018dbec625bbc",
+      "bytes": 324
+    },
+    {
+      "path": "assets/minecraft/blockstates/cobblestone.json",
+      "sha256": "2f97205b9cd9cc167bd2f2ad8036237707a48ee1deb032273bd96565aff64c77",
+      "bytes": 84
+    },
+    {
+      "path": "assets/minecraft/models/block/stone.json",
+      "sha256": "c0734082e7f1e2f44809737b2fbe1136fc7304bde7232e45fbe921884a4a327e",
+      "bytes": 98
+    },
+    {
+      "path": "assets/minecraft/models/block/stone_mirrored.json",
+      "sha256": "f6127c3048b1812b664209825271553c71c2b2dae9d6a19933702b6fdbe34370",
+      "bytes": 107
+    },
+    {
+      "path": "assets/minecraft/models/block/cobblestone.json",
+      "sha256": "dee026b80b7b77c5d540d75b91cfaec770245a2e7affb53555e9e4ad3ddb551f",
+      "bytes": 104
+    },
+    {
+      "path": "assets/minecraft/models/block/cube_all.json",
+      "sha256": "be3205d629ffb9e03834c3d1d083f8a2c62e9f9ae80820755129408634e9144a",
+      "bytes": 227
+    },
+    {
+      "path": "assets/minecraft/models/block/cube.json",
+      "sha256": "3e4aacd02e816aeba38f83076596e18ded4cf49c01e17c62d1fce79850ffb84e",
+      "bytes": 584
+    },
+    {
+      "path": "assets/minecraft/models/block/cube_mirrored_all.json",
+      "sha256": "eb0682e3126d537e8a15af343bc40e32339baa63f4f541143ed969e25e9231e0",
+      "bytes": 236
+    },
+    {
+      "path": "assets/minecraft/models/block/cube_mirrored.json",
+      "sha256": "e0a7b21709196c8641177e68a0a5e2a25d1de8f82e7ece75120dd38ed5d7a0fa",
+      "bytes": 687
+    },
+    {
+      "path": "assets/minecraft/models/block/block.json",
+      "sha256": "3ef6c442f1ab55d2a57fa58e28bb831268159052659f12b453b637b31ded1da8",
+      "bytes": 997
+    }
+  ],
+  "observations": [
+    {
+      "block": "minecraft:cobblestone",
+      "properties": {},
+      "shape": "unit-cube",
+      "variantCount": 1
+    },
+    {
+      "block": "minecraft:stone",
+      "properties": {},
+      "shape": "unit-cube",
+      "variantCount": 4
+    }
+  ],
+  "evidenceScope": "All referenced variants for these two propertyless blocks resolve to one axis-aligned element spanning model coordinates 0 through 16 on every axis, with all six faces. Stone variants differ by texture mirroring and 180-degree Y rotation, which preserve these bounds. No other block geometry, texture rendering, opacity, lighting, collision or complete world-rendering claim."
+}

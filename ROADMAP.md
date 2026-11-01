@@ -1,5 +1,24 @@
 # Roadmap
 
+## Native replacement, 2026-11-01
+
+- [x] Freeze the 54-release Java compatibility target without claiming support.
+- [x] Record 48 official embedded data versions and six explicit metadata gaps.
+- [x] Verify bounded in-memory region editing and stable-snapshot copy foundations.
+- [ ] Finish working-copy confidentiality, recovery and user-facing workflow.
+- [x] Validate selected block states against pinned vanilla 1.20.1 registries.
+- [ ] Extend registry admission and editing evidence to all other frozen releases.
+- [x] Implement and test bounded read-only Rust format foundations.
+- [x] Independently review the first native-shell design contract.
+- [x] Build the experimental native target on the current Windows host.
+- [x] Verify real process probing and cancellation through focused native tests.
+- [ ] Verify actual native rendering, accessibility and Material Design 3 anatomy.
+- [ ] Complete world rendering, selection, edits, save-copy and recovery vertical slice.
+- [ ] Verify every frozen Java version and supported conversion pairing.
+- [ ] Complete required features, documentation companions and current runtime evidence.
+- [ ] Repair inherited publication findings and wire protected generation data.
+- [ ] Deliver the native installer, release and supported installed update.
+
 Legend: ✅ landed and covered by tests · 🏃 in progress · ⏳ waiting on evidence
 this repository cannot produce by itself.
 
@@ -121,3 +140,7 @@ this repository cannot produce by itself.
   with the application remains open.
 - ⏳ Screenshots of the Studio interface for the README, the articles, and the
   site. Every image currently tracked shows a superseded build and says so.
+
+## Native preservation follow-up
+
+- [ ] Complete the unfinished viewport reattachment repair, adapt attachment-epoch tests and repeat actual load/slice/3D verification.
