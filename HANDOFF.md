@@ -251,3 +251,11 @@ The public progress and titled handoff record is https://github.com/Ding-Ding-Pr
 ## Reference preparation implementation
 
 The independently reviewed scripts/prepare_native_references.py validates all pinned inputs before exclusive destination creation, reads back exact output bytes and retains incomplete new output without deleting caller content. Eleven focused tests passed. An actual pinned report pair prepared four files totaling 5300402 bytes in ignored local runtime evidence; no download or generator execution occurred. Native/engine terrain implementation is active in its assigned lanes. The helper assumes stable caller-controlled ancestors and does not claim atomic publication or complete crash durability.
+
+## Resolver and generation milestone
+
+The reviewed engine resolver is integrated at ef16dd82. It accepts explicit startup reference arguments, reports readiness only after four pinned inputs pass, and preserves existing read-only world methods when references are unavailable. Integrated verification passed 64 normal tests, one compile-fail test and two explicitly invoked reference tests. Exact build.bat /native passed; two selected-sector helper methods remain temporarily unused pending terrain integration.
+
+The native foundation at df56cbce received independent review. Camera atomicity/domain and mesh finite-value defects were repaired at ae3b5222; 15 focused checks passed and independent fixed-source probes confirmed the original reproductions closed. Reference selection remains distinct from readiness acknowledgement. Native terrain/session work is still active.
+
+The reviewed generate_native_references.py helper passed 20 combined generation/preparation checks and actual pinned Java data-generator execution on this host. Four outputs totaling 5300402 bytes matched their pins and passed the two engine reference tests from the new directory. No server was started, no EULA was accepted, and original/new producer records remain separate. Logs and partial outputs are retained; actual Java cancellation, fresh-tool installation and complete crash recovery remain unverified.
