@@ -46,6 +46,24 @@ ApplicationWindow {
         title: "Choose a Java world directory"
         onAccepted: backend.openWorld(selectedFolder)
     }
+    FolderDialog {
+        id: referenceFolder
+        title: "Select the prepared reference directory"
+        onAccepted: backend.references.select(selectedFolder)
+    }
+    MdDialog {
+        id: referenceSettings
+        title: "Verified geometry references"
+        anchors.centerIn: parent
+        width: 640
+        contentItem: ColumnLayout {
+            Label { text: backend.references.status; textFormat: Text.PlainText; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            Label { text: backend.references.root.length ? backend.references.root : "No reference directory selected"; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
+            Label { text: "Choose a prepared directory containing reports/blocks.json, reports/registries.json and the two pinned metadata files. The engine verifies all inputs. No download or generator runs automatically."; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            MdButton { text: "Select directory…"; onClicked: referenceFolder.open() }
+            MdButton { text: "Clear saved selection"; onClicked: backend.references.clear() }
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -80,6 +98,7 @@ ApplicationWindow {
                 }
             }
             MdButton { text: "Accessibility"; onClicked: accessibility.open() }
+            MdButton { text: "References"; onClicked: referenceSettings.open() }
             MdButton { text: backend.dark ? "Light theme" : "Dark theme"; onClicked: backend.setDark(!backend.dark) }
             MdWindowButton { actionName: "Minimize"; text: "−"; onClicked: window.showMinimized() }
             MdWindowButton {

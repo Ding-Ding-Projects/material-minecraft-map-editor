@@ -6,16 +6,20 @@ from PySide6.QtCore import QObject, Property, QProcess, QSettings, QTimer, QUrl,
 
 from .framing import Decoder, accepts_reply, encode_request, probe_facts, world_identity
 from .explorer import Explorer
+from .references import ReferenceSettings
+from .engine_coordinator import EngineCoordinator
 
 
 class Controller(QObject):
     changed = Signal()
     closeReady = Signal()
 
-    def __init__(self, engine_path: Path):
+    def __init__(self, engine_path: Path, reference_root_override=None):
         super().__init__()
         self.engine_path = engine_path
         self.settings = QSettings("MaterialMapEditor", "NativeInspector")
+        self._references = ReferenceSettings(self.settings, reference_root_override, self)
+        self.coordinator = EngineCoordinator(self)
         self._dark = self.settings.value("appearance/dark", True, type=bool)
         self._large = self.settings.value("accessibility/largeText", False, type=bool)
         self._state = "empty"
@@ -39,12 +43,17 @@ class Controller(QObject):
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._timeout)
+        self.coordinator.changed.connect(self.changed)
+        self._references.effectiveChanged.connect(self._references_changed)
 
     @Property(str, notify=changed)
     def state(self): return self._state
 
     @Property(QObject, constant=True)
     def explorer(self): return self._explorer
+
+    @Property(QObject, constant=True)
+    def references(self): return self._references
 
     @Property(str, notify=changed)
     def message(self): return self._message
@@ -59,7 +68,7 @@ class Controller(QObject):
     def engineVersion(self): return self._engine
 
     @Property(bool, notify=changed)
-    def busy(self): return self.process is not None or self._explorer.helpers_busy
+    def busy(self): return self.coordinator.busy or self._explorer.helpers_busy
 
     @Property(bool, notify=changed)
     def dark(self): return self._dark
@@ -112,6 +121,8 @@ class Controller(QObject):
     def _start_pending(self):
         if self.pending is None or self.closing:
             return
+        if self.coordinator.busy:
+            return
         generation, identity, chunk_request = self.pending
         self.pending = None
         if not self.engine_path.is_file():
@@ -119,7 +130,13 @@ class Controller(QObject):
             self._message = "Engine executable unavailable. Build the native engine before opening a world."
             self.changed.emit()
             return
-        process = QProcess(self)
+        try:
+            arguments = self._references.engine_arguments()
+        except ValueError as error:
+            self._state, self._message = "unsupported", str(error)
+            self.changed.emit()
+            return
+        process = self.coordinator.acquire(self)
         self.process = process
         self.stopping = False
         self.decoder = Decoder()
@@ -129,7 +146,7 @@ class Controller(QObject):
         self.chunk_request = chunk_request
         self.active_generation, self.active_identity = generation, identity
         process.setProgram(str(self.engine_path))
-        process.setArguments([])
+        process.setArguments(arguments)
         process.setProcessChannelMode(QProcess.ProcessChannelMode.SeparateChannels)
         # Drain diagnostics without displaying or retaining paths/user metadata.
         process.readyReadStandardError.connect(lambda: self._drain_diagnostics(process))
@@ -283,7 +300,7 @@ class Controller(QObject):
             self._explorer.clear(self._message)
         self.process = None
         self.stopping = False
-        process.deleteLater()
+        self.coordinator.release(self, process)
         if self.closing:
             self._maybe_close()
         elif self.pending:
@@ -334,3 +351,8 @@ class Controller(QObject):
     def assert_stopped(self):
         if self.busy:
             raise RuntimeError("Cannot destroy presentation while owned workers remain unacknowledged")
+
+    def _references_changed(self):
+        self.cancel()
+        self._message = "Reference directory changed. Engine verification occurs on the next request."
+        self.changed.emit()

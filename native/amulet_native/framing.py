@@ -20,19 +20,22 @@ def encode_request(identifier: str, method: str, params: dict | None = None) -> 
 
 
 class Decoder:
-    def __init__(self):
+    def __init__(self, max_frame=MAX_FRAME):
         self.buffer = bytearray()
+        self.max_frame = max_frame
+        self.last_frame_sizes = []
 
     def feed(self, data: bytes) -> list[dict]:
+        self.last_frame_sizes = []
         # The transport supplies bounded chunks. A peer cannot build an
         # unlimited backlog of completed or incomplete frames here.
-        if len(self.buffer) + len(data) > MAX_FRAME + 4:
+        if len(self.buffer) + len(data) > self.max_frame + 4:
             raise ValueError("Response buffer exceeds limit")
         self.buffer.extend(data)
         result = []
         while len(self.buffer) >= 4:
             length = int.from_bytes(self.buffer[:4], "big")
-            if not 0 < length <= MAX_FRAME:
+            if not 0 < length <= self.max_frame:
                 raise ValueError("Invalid response frame length")
             if len(self.buffer) < length + 4:
                 break
@@ -45,6 +48,7 @@ class Decoder:
             if ("result" in response) == ("error" in response):
                 raise ValueError("Expected exactly one response outcome")
             result.append(response)
+            self.last_frame_sizes.append(length)
         return result
 
 

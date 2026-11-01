@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from chunk_fixture import snapshot, write_world
+from chunk_fixture import snapshot, write_world, write_terrain_world
 import test_controller as support
 
 
@@ -74,6 +74,26 @@ class ChunkProtocolTests(unittest.TestCase):
         self.wait_idle()
         self.assertEqual(explorer.dimension, "minecraft:the_nether")
         self.assertFalse(explorer.ready)
+
+    def test_terrain_fixture_is_real_3465_with_exact_mixed_states(self):
+        from PySide6.QtCore import QUrl
+        with tempfile.TemporaryDirectory() as directory:
+            world=Path(directory)
+            receipt=write_terrain_world(world)
+            before=snapshot(world)
+            self.assertEqual(receipt["expectedShapeFaces"],6312)
+            self.controller.openWorld(QUrl.fromLocalFile(str(world)));self.wait_idle()
+            explorer=self.controller.explorer
+            explorer.readChunk("-1","-1");self.wait_idle()
+            self.assertTrue(explorer.ready,self.controller.message)
+            explorer.setLocalY(6);explorer.selectCell(4*16+4)
+            self.assertEqual(explorer.selectedBlock["name"],"minecraft:cobblestone")
+            self.assertEqual(explorer.selectedBlock["properties"],[])
+            explorer.selectCell(10*16+10)
+            self.assertEqual(explorer.selectedBlock["name"],"minecraft:glass")
+            explorer.selectCell(0)
+            self.assertEqual(explorer.selectedBlock["name"],"minecraft:air")
+            self.assertEqual(snapshot(world),before)
 
 
 if __name__ == "__main__": unittest.main()
