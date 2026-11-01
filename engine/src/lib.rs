@@ -12,3 +12,5 @@ mod terrain_read;
 pub mod working_copy;
 pub mod world;
 pub mod world_read;
+
+pub mod terrain;

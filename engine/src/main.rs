@@ -8,13 +8,14 @@ fn main() {
             }
         };
     let reference = material_world_engine::reference::Availability::load(options);
-    if material_world_engine::protocol::serve_with_reference(
-        std::io::stdin().lock(),
-        std::io::stdout().lock(),
-        &reference,
-    )
-    .is_err()
+    let session = material_world_engine::terrain::Session::new(reference);
+    if let Err(error) =
+        material_world_engine::terrain::serve(std::io::stdin(), std::io::stdout().lock(), session)
     {
+        if error.kind() == std::io::ErrorKind::TimedOut {
+            eprintln!("Engine terrain session timed out");
+            std::process::exit(3);
+        }
         eprintln!("Engine protocol transport stopped");
         std::process::exit(1);
     }

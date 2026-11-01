@@ -353,6 +353,32 @@ impl Registry {
             registry_count: all_registries.len(),
         })
     }
+    pub(crate) fn memory_charge(&self) -> usize {
+        fn pairs(p: &Properties) -> usize {
+            p.capacity() * std::mem::size_of::<(String, String)>()
+                + p.iter()
+                    .map(|(k, v)| k.capacity() + v.capacity())
+                    .sum::<usize>()
+        }
+        let mut total = self.blocks.capacity() * 2 * std::mem::size_of::<(String, Block)>() + 4096;
+        for (name, block) in &self.blocks {
+            total += name.capacity()
+                + 4096
+                + block.properties.len() * 2 * std::mem::size_of::<(String, HashSet<String>)>();
+            for (key, values) in &block.properties {
+                total += key.capacity()
+                    + 4096
+                    + values.capacity() * 2 * std::mem::size_of::<String>()
+                    + values.iter().map(String::capacity).sum::<usize>();
+            }
+            total += block.states.capacity() * 2 * std::mem::size_of::<(Properties, u32)>() + 4096;
+            for key in block.states.keys() {
+                total += pairs(key);
+            }
+            total += pairs(&block.default);
+        }
+        total
+    }
     pub fn data_version(&self) -> i32 {
         DATA_VERSION
     }
@@ -442,4 +468,8 @@ mod tests;
 
 pub(crate) fn parse_reference_metadata(bytes: &[u8]) -> Result<Value> {
     json::parse_with_string_limit(bytes, 65536, 1024)
+}
+
+pub(crate) fn parse_protocol(bytes: &[u8]) -> Result<Value> {
+    json::parse_with_limits(bytes, crate::protocol::MAX_FRAME, 32768, 10000)
 }

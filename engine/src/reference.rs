@@ -50,7 +50,9 @@ impl Options {
 }
 pub struct Reference {
     pub(crate) registry: Registry,
+    pub(crate) memory_charge: usize,
 }
+#[derive(Clone)]
 pub enum Availability {
     Ready(Arc<Reference>),
     Unavailable(&'static str),
@@ -95,7 +97,14 @@ impl Availability {
             let registry = Registry::load(&blocks, &registries, &receipt)
                 .map_err(|_| "strict_registry_invalid")?;
             validate_shape(&shape)?;
-            Ok(Reference { registry })
+            let memory_charge = registry.memory_charge();
+            if memory_charge > 32 * 1024 * 1024 {
+                return Err("reference_memory_budget");
+            }
+            Ok(Reference {
+                registry,
+                memory_charge,
+            })
         })();
         match loaded {
             Ok(r) => Self::Ready(Arc::new(r)),

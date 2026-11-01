@@ -88,6 +88,14 @@ pub(super) fn parse_with_string_limit(
     limit: usize,
     max_string: usize,
 ) -> Result<Value, &'static str> {
+    parse_with_limits(bytes, limit, max_string, 500000)
+}
+pub(super) fn parse_with_limits(
+    bytes: &[u8],
+    limit: usize,
+    max_string: usize,
+    mut nodes: usize,
+) -> Result<Value, &'static str> {
     if bytes.len() > limit {
         return Err("registry JSON byte limit exceeded");
     }
@@ -117,7 +125,7 @@ pub(super) fn parse_with_string_limit(
     }
     let mut d = serde_json::Deserializer::from_slice(bytes);
     let value = Seed {
-        left: &mut 500000,
+        left: &mut nodes,
         max_string,
     }
     .deserialize(&mut d)

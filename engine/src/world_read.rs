@@ -523,13 +523,34 @@ mod tests {
     }
 }
 
-pub(crate) fn resolve_dimension(path: &Path, id: &str) -> nbt::Result<std::path::PathBuf> {
+pub(crate) fn resolve_dimension(path: &Path, id: &str) -> nbt::Result<PathBuf> {
     if !valid_id(id) {
         return Err("invalid dimension identifier");
     }
-    discover(path)?
-        .into_iter()
-        .find(|d| d.id == id)
-        .map(|d| d.path)
-        .ok_or("dimension unavailable")
+    let root = root(path)?;
+    let relative = match id {
+        "minecraft:overworld" => PathBuf::new(),
+        "minecraft:the_nether" => PathBuf::from("DIM-1"),
+        "minecraft:the_end" => PathBuf::from("DIM1"),
+        _ => {
+            let (namespace, name) = id.split_once(':').ok_or("invalid dimension identifier")?;
+            if name
+                .split('/')
+                .skip(1)
+                .any(|part| ["region", "entities", "poi", "data"].contains(&part))
+            {
+                return Err("dimension unavailable");
+            }
+            PathBuf::from("dimensions").join(namespace).join(name)
+        }
+    };
+    let dimension = if relative.as_os_str().is_empty() {
+        root.clone()
+    } else {
+        child(&root, &root.join(relative))?.ok_or("dimension unavailable")?
+    };
+    if !dimension.is_dir() || !has_region(&dimension)? {
+        return Err("dimension unavailable");
+    }
+    Ok(dimension)
 }
