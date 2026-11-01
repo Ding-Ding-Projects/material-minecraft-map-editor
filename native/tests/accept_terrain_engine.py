@@ -26,7 +26,7 @@ from native.amulet_native.references import ReferenceSettings
 from native.amulet_native.terrain_scene import TerrainRequest
 from native.amulet_native.terrain_session import TerrainSession
 from native.tests.chunk_fixture import write_terrain_world
-from native.tests.process_snapshot import snapshot, descendants, process_identity
+from native.tests.process_snapshot import snapshot, descendants, process_identity, system_directory
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -100,9 +100,96 @@ def child_start_receipt(pid):
     tree = snapshot()
     if tree.get(pid) != os.getpid():
         raise AssertionError("Compiled engine was not observed as a direct child")
+    hosts = observed_console_hosts(pid, identity['creationTimeFileTime'], tree)
     return {'pid': pid, 'creationTimeFileTime': identity['creationTimeFileTime'],
             'imagePathMatchesEngine': True, 'parentMatched': True,
-            'initialObservedReachableChildren': len(descendants(pid, tree))}
+            'initialObservedReachableChildren': len(hosts), 'observedConsoleHosts': hosts}
+
+
+def observed_console_hosts(engine_pid, engine_created, tree):
+    """Admit only the observed direct OS console host, never arbitrary children."""
+    children = sorted(descendants(engine_pid, tree))
+    if len(children) > 1:
+        raise AssertionError('Unexpected number of observed engine children')
+    expected = os.path.normcase(str((Path(system_directory()) / 'conhost.exe').resolve(strict=True)))
+    hosts = []
+    for pid in children:
+        if tree.get(pid) != engine_pid:
+            raise AssertionError('An observed engine child is not a direct console host')
+        identity = process_identity(pid)
+        observed = os.path.normcase(str(Path(identity['imagePath']).resolve(strict=True)))
+        if observed != expected:
+            raise AssertionError('Unexpected child executable; only the actual system console host is admitted')
+        if identity['creationTimeFileTime'] < engine_created:
+            raise AssertionError('Console-host creation identity predates the owned engine')
+        hosts.append({'pid': pid, 'parentPid': engine_pid,
+                      'creationTimeFileTime': identity['creationTimeFileTime'],
+                      'imagePathMatchesSystemConsoleHost': True})
+    return hosts
+
+
+def process_exit_observation(receipt):
+    """Compare recorded identities, reporting PID reuse without touching replacements."""
+    if (not receipt.get('finished') or not receipt.get('imagePathMatchesEngine')
+            or type(receipt.get('pid')) is not int or not 1 <= receipt['pid'] <= 2**32 - 1
+            or type(receipt.get('creationTimeFileTime')) is not int
+            or receipt['creationTimeFileTime'] <= 0):
+        raise AssertionError('Recorded engine identity or QProcess exit acknowledgement is incomplete')
+    hosts = receipt.get('observedConsoleHosts')
+    if (not isinstance(hosts, list) or len(hosts) > 1
+            or type(receipt.get('initialObservedReachableChildren')) is not int
+            or receipt.get('initialObservedReachableChildren') != len(hosts)):
+        raise AssertionError('Observed child inventory is incomplete')
+    tree = snapshot()
+
+    def gone(record):
+        pid = record['pid']
+        if pid not in tree:
+            return {'pid': pid, 'state': 'absent', 'originalIdentityAbsent': True, 'pidReused': False}
+        try:
+            current = process_identity(pid)
+        except OSError:
+            # An exit may race the query. Absence requires another complete
+            # inventory, not treating the query error itself as success.
+            if pid not in snapshot():
+                return {'pid': pid, 'state': 'absent-after-resnapshot', 'originalIdentityAbsent': True, 'pidReused': False}
+            raise
+        if current['creationTimeFileTime'] != record['creationTimeFileTime']:
+            return {'pid': pid, 'state': 'pid-reused', 'originalIdentityAbsent': True, 'pidReused': True,
+                    'replacementCreationTimeFileTime': current['creationTimeFileTime']}
+        return {'pid': pid, 'state': 'still-running', 'originalIdentityAbsent': False, 'pidReused': False}
+
+    engine = gone(receipt)
+    tracked = set()
+    observations = []
+    for host in hosts:
+        if (host.get('parentPid') != receipt['pid'] or host.get('imagePathMatchesSystemConsoleHost') is not True
+                or type(host.get('pid')) is not int or not 1 <= host['pid'] <= 2**32 - 1
+                or host['pid'] == receipt['pid']
+                or type(host.get('creationTimeFileTime')) is not int or host['creationTimeFileTime'] <= 0
+                or host.get('pid') in tracked):
+            raise AssertionError('Recorded console-host identity is invalid')
+        tracked.add(host['pid'])
+        observations.append(gone(host))
+    reachable = descendants(receipt['pid'], tree)
+    if reachable - tracked:
+        raise AssertionError('Unexpected observed child remains after engine exit')
+    if engine['pidReused'] and reachable:
+        raise AssertionError('Parent links under a reused engine PID cannot be attributed safely')
+    return {'completeInventory': True, 'observerSeen': os.getpid() in tree,
+            'engine': engine, 'consoleHosts': observations,
+            'complete': engine['originalIdentityAbsent'] and all(item['originalIdentityAbsent'] for item in observations),
+            'observedReachableChildren': len(reachable), 'historicalOrphansVerified': False}
+
+
+def wait_for_process_exit_observation(receipt, milliseconds=3000):
+    observations = {}
+    def complete():
+        observations['latest'] = process_exit_observation(receipt)
+        receipt['exitObservation'] = observations['latest']
+        return observations['latest']['complete']
+    wait_for(complete, milliseconds)
+    return observations['latest']
 
 
 def wait_for(predicate, milliseconds=35000):
@@ -116,13 +203,22 @@ def wait_for(predicate, milliseconds=35000):
     poll.setInterval(5)
     deadline = QTimer()
     deadline.setSingleShot(True)
-    poll.timeout.connect(lambda: loop.quit() if predicate() else None)
+    failure = []
+    def check():
+        try:
+            if predicate(): loop.quit()
+        except BaseException as error:
+            failure.append(error)
+            loop.quit()
+    poll.timeout.connect(check)
     deadline.timeout.connect(loop.quit)
     poll.start()
     deadline.start(milliseconds)
     loop.exec()
     poll.stop()
     deadline.stop()
+    if failure:
+        raise failure[0]
     if not predicate():
         raise AssertionError("The owned terrain operation did not acknowledge completion within the bounded wait")
 
@@ -189,17 +285,13 @@ def reference_hashes(root):
     return result
 
 
-def assert_process_absent(test, receipt):
+def assert_process_absent(test, receipt, milliseconds=3000):
     test.assertIsNotNone(receipt.get("pid"), "The compiled engine did not start")
     test.assertTrue(receipt.get("finished"), "Engine exit was not acknowledged")
     test.assertTrue(receipt.get('imagePathMatchesEngine'), 'Engine image identity was not verified')
     test.assertGreater(receipt.get('creationTimeFileTime', 0), 0)
-    tree = snapshot()
-    test.assertNotIn(receipt["pid"], tree, "Owned engine PID remains present after exit acknowledgement")
-    test.assertEqual(descendants(receipt["pid"], tree), set(), "Observed parent links still reach the exited engine PID")
-    receipt['exitObservation'] = {'completeInventory': True, 'observerSeen': os.getpid() in tree,
-                                  'directPidAbsent': True, 'observedReachableChildren': 0,
-                                  'historicalOrphansVerified': False}
+    receipt['exitObservation'] = wait_for_process_exit_observation(receipt, milliseconds)
+    test.assertTrue(receipt['exitObservation']['complete'])
 
 
 class ObservedSession(TerrainSession):
@@ -300,12 +392,10 @@ class TerrainEngineAcceptance(unittest.TestCase):
             reference = result.get("reference", {})
             if reference.get("status") != "ready" or reference.get("availableGeometryEvidence") != ["cube-shapes-v1"]:
                 raise AssertionError("Actual engine has not admitted the explicit pinned geometry references")
-            tree = snapshot()
-            if receipt["pid"] in tree or descendants(receipt["pid"], tree):
-                raise AssertionError("Completed inventory still contains the capability PID or a reachable parent-link chain")
+            receipt['exitObservation'] = wait_for_process_exit_observation(receipt)
             record_receipt({"case": "capabilities", **receipt,
                             "engineSha256": cls.engine_fingerprint["sha256"],
-                            "directPidAbsentAfterExit": True, 'receiptScope': RECEIPT_SCOPE,
+                            "directIdentityAbsentAfterExit": True, 'receiptScope': RECEIPT_SCOPE,
                             'historicalOrphansVerified': False})
         except BaseException as error:
             failure = {'errorType': type(error).__name__, 'error': str(error)[:1000]}
@@ -451,7 +541,7 @@ class TerrainEngineAcceptance(unittest.TestCase):
     def assert_preserved_and_stopped(self):
         self.assertEqual(world_hashes(self.world), self.before, "Synthetic world bytes or inventory changed")
         self.assertTrue(self.receipt.get("parentMatched"), "Engine PID was not observed as a direct owned child")
-        self.assertEqual(self.receipt.get("initialObservedReachableChildren"), 0)
+        self.assertEqual(self.receipt.get("initialObservedReachableChildren"), len(self.receipt.get('observedConsoleHosts', [])))
         assert_process_absent(self, self.receipt)
 
     def test_present_scene_real_stream_and_source_preservation(self):
@@ -487,7 +577,7 @@ class TerrainEngineAcceptance(unittest.TestCase):
         self.assert_preserved_and_stopped()
         record_receipt({"case": "present", **self.receipt, "totals": dict(totals),
                         "sourceHashesBefore": self.before, "sourceHashesAfter": world_hashes(self.world),
-                        "readSetDigest": scene.manifest["readSetDigest"], "directPidAbsentAfterExit": True,
+                        "readSetDigest": scene.manifest["readSetDigest"], "directIdentityAbsentAfterExit": True,
                         'receiptScope': RECEIPT_SCOPE, 'historicalOrphansVerified': False})
         self._case_verified = True
 
@@ -512,7 +602,7 @@ class TerrainEngineAcceptance(unittest.TestCase):
         self.assert_preserved_and_stopped()
         record_receipt({"case": "absent-region", **self.receipt,
                         "coverage": dict(row), "sourceHashesBefore": self.before,
-                        "sourceHashesAfter": world_hashes(self.world), "directPidAbsentAfterExit": True,
+                        "sourceHashesAfter": world_hashes(self.world), "directIdentityAbsentAfterExit": True,
                         'receiptScope': RECEIPT_SCOPE, 'historicalOrphansVerified': False})
         self._case_verified = True
 
@@ -540,7 +630,7 @@ class TerrainEngineAcceptance(unittest.TestCase):
         record_receipt({"case": "canceled-after-manifest", **self.receipt,
                         "cancellation": cancellation, "acceptedScenes": 0,
                         "sourceHashesBefore": self.before, "sourceHashesAfter": world_hashes(self.world),
-                        "directPidAbsentAfterExit": True, 'receiptScope': RECEIPT_SCOPE,
+                        "directIdentityAbsentAfterExit": True, 'receiptScope': RECEIPT_SCOPE,
                         'historicalOrphansVerified': False})
         self._case_verified = True
 

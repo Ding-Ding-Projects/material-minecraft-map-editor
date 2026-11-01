@@ -4,9 +4,31 @@ import ctypes
 from ctypes import wintypes
 import os
 import sys
+from pathlib import Path
 
 ERROR_NO_MORE_FILES = 18
 MAX_PROCESS_ENTRIES = 65536
+
+
+def system_directory():
+    """Resolve the native system directory through the supported OS API."""
+    if os.name != 'nt':
+        raise RuntimeError('Native Windows system-directory lookup required')
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.GetSystemDirectoryW.argtypes = [wintypes.LPWSTR, wintypes.UINT]
+    kernel.GetSystemDirectoryW.restype = wintypes.UINT
+    capacity = 32768
+    buffer = ctypes.create_unicode_buffer(capacity)
+    ctypes.set_last_error(0)
+    length = kernel.GetSystemDirectoryW(buffer, capacity)
+    if length == 0:
+        raise OSError(ctypes.get_last_error(), 'System directory lookup failed')
+    if length >= capacity:
+        raise RuntimeError('System directory exceeds the bounded buffer')
+    path = Path(buffer.value)
+    if not path.is_absolute() or not path.is_dir():
+        raise RuntimeError('System directory lookup returned an invalid directory')
+    return str(path.resolve(strict=True))
 
 
 def snapshot(with_names=False):

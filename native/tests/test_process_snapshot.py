@@ -168,4 +168,127 @@ class ProcessSnapshotTests(unittest.TestCase):
             PRESERVED_FAILURES[:] = [r for r in PRESERVED_FAILURES if r['root'] != str(case.owned_root)]
 
 
+@unittest.skipUnless(os.name == 'nt', 'Native console-host identity contract required')
+class ConsoleHostReceiptTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from PySide6.QtCore import QCoreApplication
+        cls.app = QCoreApplication.instance() or QCoreApplication([])
+
+    def setUp(self):
+        from native.tests import accept_terrain_engine
+        self.acceptance = accept_terrain_engine
+        self.temporary = tempfile.TemporaryDirectory(prefix='mwe-console-receipt-')
+        self.root = Path(self.temporary.name)
+        self.engine = self.root / 'engine.exe'; self.engine.write_bytes(b'not executable test data')
+        self.system = self.root / 'system'; self.system.mkdir()
+        self.host = self.system / 'conhost.exe'; self.host.write_bytes(b'not executable test data')
+        self.engine_pid, self.host_pid = 2000000001, 2000000002
+        self.tree = {os.getpid(): 0, self.engine_pid: os.getpid(), self.host_pid: self.engine_pid}
+        self.identities = {
+            self.engine_pid: {'pid': self.engine_pid, 'creationTimeFileTime': 100, 'imagePath': str(self.engine)},
+            self.host_pid: {'pid': self.host_pid, 'creationTimeFileTime': 101, 'imagePath': str(self.host)},
+        }
+
+    def tearDown(self): self.temporary.cleanup()
+
+    def admitted(self):
+        with patch.object(self.acceptance, 'ENGINE', self.engine), \
+             patch.object(self.acceptance, 'snapshot', return_value=self.tree), \
+             patch.object(self.acceptance, 'process_identity', side_effect=lambda pid: self.identities[pid]), \
+             patch.object(self.acceptance, 'system_directory', return_value=str(self.system)):
+            receipt = self.acceptance.child_start_receipt(self.engine_pid)
+        receipt['finished'] = True
+        return receipt
+
+    def test_known_system_host_requires_path_parent_and_creation_identity(self):
+        receipt = self.admitted()
+        self.assertEqual(receipt['initialObservedReachableChildren'], 1)
+        self.assertEqual(receipt['observedConsoleHosts'], [{
+            'pid': self.host_pid, 'parentPid': self.engine_pid, 'creationTimeFileTime': 101,
+            'imagePathMatchesSystemConsoleHost': True,
+        }])
+
+    def test_same_basename_outside_system_directory_is_rejected(self):
+        other = self.root / 'conhost.exe'; other.write_bytes(b'not executable test data')
+        self.identities[self.host_pid]['imagePath'] = str(other)
+        with self.assertRaises(AssertionError): self.admitted()
+
+    def test_unexpected_nested_child_or_older_identity_is_rejected(self):
+        self.tree[2000000003] = self.host_pid
+        with self.assertRaises(AssertionError): self.admitted()
+        del self.tree[2000000003]
+        self.identities[self.host_pid]['creationTimeFileTime'] = 99
+        with self.assertRaises(AssertionError): self.admitted()
+
+    def test_observed_host_exit_is_required_after_engine_exit(self):
+        receipt = self.admitted()
+        remaining = {os.getpid(): 0, self.host_pid: self.engine_pid}
+        with patch.object(self.acceptance, 'snapshot', return_value=remaining), \
+             patch.object(self.acceptance, 'process_identity', side_effect=lambda pid: self.identities[pid]):
+            result = self.acceptance.process_exit_observation(receipt)
+            self.assertFalse(result['complete'])
+            self.assertEqual(result['consoleHosts'][0]['state'], 'still-running')
+            with self.assertRaises(AssertionError):
+                self.acceptance.assert_process_absent(self, receipt, milliseconds=1)
+        with patch.object(self.acceptance, 'snapshot', return_value={os.getpid(): 0}):
+            result = self.acceptance.process_exit_observation(receipt)
+            self.assertTrue(result['complete'])
+            self.assertFalse(result['historicalOrphansVerified'])
+
+    def test_host_pid_reuse_is_reported_without_touching_replacement(self):
+        receipt = self.admitted()
+        replacement = dict(self.identities[self.host_pid], creationTimeFileTime=202,
+                           imagePath=str(self.root / 'unrelated-replacement.exe'))
+        with patch.object(self.acceptance, 'snapshot', return_value={os.getpid(): 0, self.host_pid: 77}), \
+             patch.object(self.acceptance, 'process_identity', return_value=replacement) as query:
+            result = self.acceptance.process_exit_observation(receipt)
+            self.assertTrue(result['complete'])
+            self.assertTrue(result['consoleHosts'][0]['pidReused'])
+            self.assertEqual(result['consoleHosts'][0]['replacementCreationTimeFileTime'], 202)
+            query.assert_called_once_with(self.host_pid)
+
+    def test_engine_pid_reuse_is_not_reported_as_pid_absence(self):
+        receipt = self.admitted()
+        replacement = dict(self.identities[self.engine_pid], creationTimeFileTime=303,
+                           imagePath=str(self.root / 'unrelated-replacement.exe'))
+        with patch.object(self.acceptance, 'snapshot', return_value={os.getpid(): 0, self.engine_pid: 77}), \
+             patch.object(self.acceptance, 'process_identity', return_value=replacement):
+            result = self.acceptance.process_exit_observation(receipt)
+            self.assertTrue(result['complete'])
+            self.assertEqual(result['engine']['state'], 'pid-reused')
+            self.assertTrue(result['engine']['originalIdentityAbsent'])
+            self.assertTrue(result['engine']['pidReused'])
+
+    def test_new_unexpected_child_at_exit_fails_closed(self):
+        receipt = self.admitted()
+        with patch.object(self.acceptance, 'snapshot', return_value={os.getpid(): 0, 2000000003: self.engine_pid}):
+            with self.assertRaises(AssertionError): self.acceptance.process_exit_observation(receipt)
+
+    def test_query_error_requires_complete_resnapshot_absence(self):
+        receipt = self.admitted()
+        remaining = {os.getpid(): 0, self.host_pid: self.engine_pid}
+        with patch.object(self.acceptance, 'snapshot', side_effect=[remaining, {os.getpid(): 0}]), \
+             patch.object(self.acceptance, 'process_identity', side_effect=OSError(87, 'query raced exit')):
+            self.assertTrue(self.acceptance.process_exit_observation(receipt)['complete'])
+        with patch.object(self.acceptance, 'snapshot', return_value=remaining), \
+             patch.object(self.acceptance, 'process_identity', side_effect=OSError(5, 'identity unavailable')):
+            with self.assertRaises(OSError): self.acceptance.process_exit_observation(receipt)
+
+    def test_poll_callback_error_cannot_disappear_before_final_observation(self):
+        calls = []
+        def predicate():
+            calls.append(len(calls) + 1)
+            if len(calls) == 1: return False
+            if len(calls) == 2: raise AssertionError('unexpected observed child')
+            return True
+        with self.assertRaisesRegex(AssertionError, 'unexpected observed child'):
+            self.acceptance.wait_for(predicate, 100)
+
+    def test_actual_system_directory_api_returns_existing_console_host(self):
+        path = Path(process_snapshot.system_directory())
+        self.assertTrue(path.is_absolute())
+        self.assertTrue((path / 'conhost.exe').is_file())
+
+
 if __name__ == "__main__": unittest.main()
