@@ -7,6 +7,7 @@ pub mod protocol;
 pub mod reference;
 pub mod region;
 pub mod registry;
+pub mod terrain_codec;
 pub mod working_copy;
 pub mod world;
 pub mod world_read;
