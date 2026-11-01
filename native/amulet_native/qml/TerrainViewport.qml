@@ -159,7 +159,7 @@ FocusScope {
     Label {
         anchors.centerIn: parent
         visible: backend.terrain.geometries.length === 0
-        text: "No submitted terrain geometry.\nLoad an explicit area from a verified world."
+        text: "No terrain loaded.\nOpen a Java world, then choose an area to load."
         horizontalAlignment: Text.AlignHCenter
         color: backend.dark ? "#C2C9BD" : "#424940"
         font.pixelSize: 18

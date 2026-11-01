@@ -22,7 +22,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Layout.minimumHeight: 48; Layout.maximumHeight: 48
-        Label { text: backend.terrain.busy ? "Loading read-only terrain…" : backend.terrain.ready ? "Shape-only view; opacity, textures and lighting not represented" : backend.terrain.hasGeometry ? "Updating displayed view; picking waits for frame submission" : "No submitted terrain; see status details"; color: workspace.ink; Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 14 }
+        Label { text: backend.terrain.busy ? "Loading read-only terrain…" : backend.terrain.ready ? "Shape-only view; opacity, textures and lighting not represented" : backend.terrain.hasGeometry ? "Updating the view; selection is temporarily unavailable" : "No terrain loaded; open a world and choose an area"; color: workspace.ink; Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 14 }
         MdButton { text: "Status details…"; onClicked: statusDialog.open() }
     }
     TerrainViewport {
