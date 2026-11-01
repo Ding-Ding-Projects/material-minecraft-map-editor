@@ -1,55 +1,41 @@
 # Native rebuild continuation
 
-The complete native Qt Quick/Rust rebuild remains active and incomplete. Preserve the 54-release target, Windows-first delivery, native productive interface and existing user data.
+## Current verified state
 
-The candidate integrates engine foundations through 1f872030 and metadata/runtime evidence through 92cdc087. Current integrated evidence: 49 Rust unit tests, one compile-fail test, 25 reference tests and six focused native lifecycle tests passed. Real synthetic chunk interaction at 1eda9a53 retained fixture hashes and zero diagnostic bytes; full accessibility and visual acceptance remain open. Official metadata identifies 48 data versions, with six explicit gaps; no compatibility verdict changed.
+The complete Windows-first Qt Quick/PySide6 and Rust rebuild remains active and unfinished. The candidate branch `ai/feature/20261101-native-candidate` is remotely verified through `8a3121c3dc74839a99e693dd172191cfc37a4b7b`. It is an inactive development checkpoint, not a completed default-branch integration or native release. Existing released applications remain preserved.
 
-Working-copy confidentiality hardening is active in the separate engine branch. Do not expose save/copy in the GUI before independent review. Registry validation and 3D workspace design are the next bounded slices. Derived world data, real-world round trips, all-version compatibility, complete required features, documentation companions, installer, release and installed update remain unfinished.
+| Area | Verified evidence and boundary |
+| --- | --- |
+| Engine | Bounded NBT/region readers, pinned 1.20.1 registry membership, protected working-copy foundations, explicit reference resolver, cross-language terrain codec and selected-sector reader are integrated. 75 ordinary tests, one compile-fail test and two explicitly selected reference tests passed. Persistent terrain RPC is still being implemented separately. |
+| Native consumer | 75 tests passed at 8a3121c3. Scene/page validation, geometry buffers, cancellation and camera math are implemented. Camera mutation defects were repaired and independently reviewed. Translation-only coordinates preserve handedness. Full real-engine terrain exchange remains pending. |
+| Actual UI | Hidden startup, References dialog, empty 3D view and normal close passed with zero diagnostic bytes at 8a3121c3. All owned processes and the desktop were removed. No world was opened, no reference handshake ran in that UI check and no terrain geometry was rendered. |
+| Reference provisioning | Reviewed preparation/generation helpers passed 20 focused tests and actual pinned Java data-generator execution. Four files totaling 5300402 bytes matched their pins and passed engine admission. No server was started and no EULA was accepted. Original producer provenance and new execution receipts remain separate. |
+| Publication | The complete 8a3121c3 scan passed 891 text files and 1266 binary files with zero findings. Hosted execution, full protected-branch enforcement and release acceptance remain separate unfinished work. |
 
-The default branch holds the protected-publication repair at 4ebfe517. Native work stays on ai/feature/20261101-native-candidate until acceptance allows integration. Preserve active branches, ignored reference caches and private runtime evidence. Do not publish private operational material. Status reporting uses SSH only; deployed validation rejects the current client, so no delivered status is claimed.
+## Next bounded integration
 
-## Confidentiality integration evidence
+1. Review and integrate the engine's persistent begin/page/end session, strict raw JSON admission, retained-scene budget and timeout behavior.
+2. Run the explicit native real-engine acceptance module against the generated pinned reference directory and synthetic 3465 fixture. Missing methods must fail rather than skip.
+3. Build through the exact root entrypoint, freeze the candidate, then verify actual hidden rendering, asymmetric projection/picking, cancellation, stale scenes, resource retirement and close.
+4. Preserve the first real vertical slice, then expand geometry/material coverage, coherent editing/saving/recovery and version-specific acceptance without reducing the full target.
 
-The independently reviewed working-copy protection is integrated at f7cf8b49. The integrated tree passed 53 Rust unit tests and one compile-fail test; the exact build.bat /native entrypoint and all 39 native tests also passed. New staging, payload and recovery entries receive protected current-user and LocalSystem permissions at creation with native readback. Unsupported named streams and encryption attributes are rejected. Actual other-user access, EFS, broader filesystem metadata, hostile path replacement and full crash recovery remain unverified. No GUI save/copy action is exposed yet.
+The current geometry capability is limited to verified propertyless stone/cobblestone shapes. It emits all six faces and makes no opacity, texture, lighting or collision claim. Independent research identified additional conservative cube candidates, but that research has not expanded runtime admission.
 
-Official acquisition provenance now binds the original CRLF manifest hash and immutable Git-blob hash separately through 09258294. The 3D design is undergoing independent architectural revision; no renderer implementation or design acceptance is claimed.
+## Full remaining objective
 
-## Latest bounded accessibility and design evidence
+The frozen target remains 54 stable Java releases from 1.12 through 26.3. Official embedded metadata identifies 48 data versions and six explicit gaps; every release's read/edit/round-trip acceptance remains unverified. Full materials and shapes, coherent saves, recovery, all-version compatibility, required features, documentation companions, native installer, normal release and installed update remain unfinished. Bedrock, snapshots, later releases, arbitrary mod semantics and unrelated backlog remain excluded.
 
-At d34ff5bb, an actual hidden runtime reported Qt Role.Dialog/name Accessibility, Role.CheckBox/name Larger text and Role.Button/name Close. Real Tab focused Close and Escape removed the visible dialog. Read-only QAccessible traversal was activated in an ignored launcher; this is internal Qt semantic proof, not OS screen-reader acceptance. Owned processes and desktop were removed; diagnostic output remained zero bytes.
+Actual world generation requires explicit user EULA acceptance through the product workflow. The report-generation route does not grant that acceptance. Never modify user worlds to manufacture test evidence.
 
-The revised terrain-workspace design is preserved under design/native-rebuild/terrain-workspace.md and awaits second independent review. It specifies persistent scene ownership, selected-sector reads, bounded state/cell/face pages and Qt Quick 3D geometry ownership. Ten official model member hashes establish only stone/cobblestone full-cube geometry. Renderer implementation and full shape coverage remain pending. The engine registry-validation lane is still active separately.
+## Evidence and tracking
 
-## Registry integration
+- [Rolling progress discussion](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions/9)
+- [Task and titled handoff issue](https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues/8)
+- [Terrain architecture](design/native-rebuild/terrain-workspace.md)
+- [Frozen wire examples](engine/docs/terrain-wire-v1.md)
+- [Compatibility and reference evidence](docs/compatibility/README.md)
+- [Historical development notes](docs/history/development-handoff-through-8a3121c3.md)
 
-Independent review accepted the pinned vanilla 1.20.1 membership boundary, integrated through c547eb90. The integrated tree passed 60 ordinary Rust tests and one compile-fail test, with the external-report test explicitly ignored by default. Its separate invocation passed using the retained official reports, after proving identical engine tree 93c6dacb824db4a9c2339638d80a95ed3104ad75. Exact build.bat /native and all 39 native tests passed afterward. The loader validates 1003 blocks, 24135 states and 66 registries; edits validate every replacement and selected used state. No lighting, derived-data or final-save claim follows. The final three terrain-contract corrections are preserved pending reviewer acceptance.
+A scoped project is formally linked to this repository; its task item remains In Progress. Existing issue 4 and the older implementation discussion remain unchanged. Path-bearing UI evidence, generated announcement images and official reference binaries remain private/ignored. Active branches and working directories remain retained.
 
-## Next implementation boundary
-
-The independently reviewed terrain contract now records cube-shapes-v1 and explicit local reference provisioning. Initial geometry is restricted to verified propertyless stone/cobblestone shapes, with all six faces and no neighbor occlusion. It is a bounded development increment, not a reduced completion target. Next implement the reference resolver and persistent bounded engine terrain session, then the native Qt Quick 3D consumer and real runtime evidence. Full materials, shape coverage, editing/save/recovery and the original release criteria remain required.
-
-The public progress and titled handoff record is https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/issues/8; its stored body was read back exactly. Existing issue 4 is unrelated to this bounded integration and was left untouched. Current reference metadata uses explicit LF attributes and retains original producer provenance without redistributing reports or archives.
-
-## Reference preparation implementation
-
-The independently reviewed scripts/prepare_native_references.py validates all pinned inputs before exclusive destination creation, reads back exact output bytes and retains incomplete new output without deleting caller content. Eleven focused tests passed. An actual pinned report pair prepared four files totaling 5300402 bytes in ignored local runtime evidence; no download or generator execution occurred. Native/engine terrain implementation is active in its assigned lanes. The helper assumes stable caller-controlled ancestors and does not claim atomic publication or complete crash durability.
-
-## Resolver and generation milestone
-
-The reviewed engine resolver is integrated at ef16dd82. It accepts explicit startup reference arguments, reports readiness only after four pinned inputs pass, and preserves existing read-only world methods when references are unavailable. Integrated verification passed 64 normal tests, one compile-fail test and two explicitly invoked reference tests. Exact build.bat /native passed; two selected-sector helper methods remain temporarily unused pending terrain integration.
-
-The native foundation at df56cbce received independent review. Camera atomicity/domain and mesh finite-value defects were repaired at ae3b5222; 15 focused checks passed and independent fixed-source probes confirmed the original reproductions closed. Reference selection remains distinct from readiness acknowledgement. Native terrain/session work is still active.
-
-The reviewed generate_native_references.py helper passed 20 combined generation/preparation checks and actual pinned Java data-generator execution on this host. Four outputs totaling 5300402 bytes matched their pins and passed the two engine reference tests from the new directory. No server was started, no EULA was accepted, and original/new producer records remain separate. Logs and partial outputs are retained; actual Java cancellation, fresh-tool installation and complete crash recovery remain unverified.
-
-## Terrain codec and tracking
-
-The independently reviewed cross-language codec is integrated at 512183ce. Four focused Rust codec checks passed against independently generated Python vectors for read-set bytes, canonical payload hashes, exact full-envelope lengths and separate runtime identities. Fixed terrain request IDs make advertised envelope lengths deterministic. Raw JSON duplicate-key rejection and full session/scene validation remain required before terrain activation; synthetic vectors are not runtime rendering evidence.
-
-The dedicated rolling General discussion is https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions/9. Its opening body was read back exactly and links the existing issue 8 handoff. A scoped project was formally linked to the repository and its task item was read back as In Progress; unrelated projects and the older implementation discussion were left unchanged.
-
-## Selected-sector reader and coordinate correction
-
-The independently reviewed reader foundation is integrated at 097f347b. The integrated engine passed 75 ordinary tests, one compile-fail test and both explicitly selected external-reference tests. It hashes region files incrementally, reads selected extents, charges retained/reallocation NBT payloads and rejects detected source changes. Its 96 MiB accounted temporary-payload ceiling is not measured RSS or a live-world snapshot guarantee. RPC session wiring remains in progress, with expected unused-code warnings until that integration.
-
-Independent coordinate review corrected the earlier unnecessary Z reflection: both coordinate systems are right-handed, so the contract now requires translation-only mapping, unchanged normals and original winding. Exact Top is north-up/east-right. The native lane reports mathematical projection, signed-volume and rebase checks; actual rendered projection/picking remains pending. A queued-cancellation completion race was reproduced and repaired in the in-progress native model; its fixed-source review and real GUI verification remain pending.
+Operational status reporting requires SSH. The deployed service rejects the current validation metadata, so no delivered status or service upgrade is claimed. Account allowance is unknown. The goal remains active.
