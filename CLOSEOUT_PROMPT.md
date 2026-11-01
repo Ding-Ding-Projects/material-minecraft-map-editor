@@ -41,3 +41,9 @@ The reviewed engine resolver is integrated at ef16dd82. It accepts explicit star
 The native foundation at df56cbce received independent review. Camera atomicity/domain and mesh finite-value defects were repaired at ae3b5222; 15 focused checks passed and independent fixed-source probes confirmed the original reproductions closed. Reference selection remains distinct from readiness acknowledgement. Native terrain/session work is still active.
 
 The reviewed generate_native_references.py helper passed 20 combined generation/preparation checks and actual pinned Java data-generator execution on this host. Four outputs totaling 5300402 bytes matched their pins and passed the two engine reference tests from the new directory. No server was started, no EULA was accepted, and original/new producer records remain separate. Logs and partial outputs are retained; actual Java cancellation, fresh-tool installation and complete crash recovery remain unverified.
+
+## Terrain codec and tracking
+
+The independently reviewed cross-language codec is integrated at 512183ce. Four focused Rust codec checks passed against independently generated Python vectors for read-set bytes, canonical payload hashes, exact full-envelope lengths and separate runtime identities. Fixed terrain request IDs make advertised envelope lengths deterministic. Raw JSON duplicate-key rejection and full session/scene validation remain required before terrain activation; synthetic vectors are not runtime rendering evidence.
+
+The dedicated rolling General discussion is https://github.com/Ding-Ding-Projects/material-minecraft-map-editor/discussions/9. Its opening body was read back exactly and links the existing issue 8 handoff. A scoped project was formally linked to the repository and its task item was read back as In Progress; unrelated projects and the older implementation discussion were left unchanged.
