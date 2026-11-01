@@ -142,14 +142,13 @@ fn fixed_provenance_is_required_not_a_structural_fallback() {
 #[test]
 #[ignore = "requires pinned ignored official reports and controller provenance receipt"]
 fn official_1201_report_membership() {
-    use std::path::Path;
-    let base = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("build/java-reference/1.20.1");
-    let b = std::fs::read(base.join("extracted-reports/reports/blocks.json"))
+    let base = std::path::PathBuf::from(
+        std::env::var_os("MWE_TEST_REFERENCE_ROOT").expect("explicit test reference root required"),
+    );
+    assert!(base.is_absolute(), "test reference root must be absolute");
+    let b = std::fs::read(base.join("reports/blocks.json"))
         .expect("official blocks report unavailable");
-    let r = std::fs::read(base.join("extracted-reports/reports/registries.json"))
+    let r = std::fs::read(base.join("reports/registries.json"))
         .expect("official registries report unavailable");
     let source = std::fs::read(base.join("registry-source-receipt.json"))
         .expect("producer receipt unavailable");

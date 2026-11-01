@@ -2,9 +2,11 @@ use serde::de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor};
 use serde_json::{Map, Number, Value};
 struct Seed<'a> {
     left: &'a mut usize,
+    max_string: usize,
 }
 struct Bounded<'a> {
     left: &'a mut usize,
+    max_string: usize,
 }
 impl<'de> DeserializeSeed<'de> for Seed<'_> {
     type Value = Value;
@@ -13,7 +15,10 @@ impl<'de> DeserializeSeed<'de> for Seed<'_> {
             .left
             .checked_sub(1)
             .ok_or_else(|| D::Error::custom("JSON node limit"))?;
-        d.deserialize_any(Bounded { left: self.left })
+        d.deserialize_any(Bounded {
+            left: self.left,
+            max_string: self.max_string,
+        })
     }
 }
 impl<'de> Visitor<'de> for Bounded<'_> {
@@ -39,7 +44,7 @@ impl<'de> Visitor<'de> for Bounded<'_> {
         Ok(Value::Null)
     }
     fn visit_str<E: Error>(self, v: &str) -> Result<Value, E> {
-        if v.len() > 256 {
+        if v.len() > self.max_string {
             return Err(E::custom("string limit"));
         }
         Ok(Value::String(v.into()))
@@ -49,7 +54,10 @@ impl<'de> Visitor<'de> for Bounded<'_> {
     }
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Value, A::Error> {
         let mut out = Vec::new();
-        while let Some(value) = seq.next_element_seed(Seed { left: self.left })? {
+        while let Some(value) = seq.next_element_seed(Seed {
+            left: self.left,
+            max_string: self.max_string,
+        })? {
             if out.len() == 65536 {
                 return Err(A::Error::custom("array limit"));
             }
@@ -60,16 +68,26 @@ impl<'de> Visitor<'de> for Bounded<'_> {
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Value, A::Error> {
         let mut out = Map::new();
         while let Some(key) = map.next_key::<String>()? {
-            if key.len() > 256 || out.len() == 65536 || out.contains_key(&key) {
+            if key.len() > self.max_string || out.len() == 65536 || out.contains_key(&key) {
                 return Err(A::Error::custom("invalid or duplicate key"));
             }
-            let value = map.next_value_seed(Seed { left: self.left })?;
+            let value = map.next_value_seed(Seed {
+                left: self.left,
+                max_string: self.max_string,
+            })?;
             out.insert(key, value);
         }
         Ok(Value::Object(out))
     }
 }
 pub(super) fn parse(bytes: &[u8], limit: usize) -> Result<Value, &'static str> {
+    parse_with_string_limit(bytes, limit, 256)
+}
+pub(super) fn parse_with_string_limit(
+    bytes: &[u8],
+    limit: usize,
+    max_string: usize,
+) -> Result<Value, &'static str> {
     if bytes.len() > limit {
         return Err("registry JSON byte limit exceeded");
     }
@@ -98,9 +116,12 @@ pub(super) fn parse(bytes: &[u8], limit: usize) -> Result<Value, &'static str> {
         }
     }
     let mut d = serde_json::Deserializer::from_slice(bytes);
-    let value = Seed { left: &mut 500000 }
-        .deserialize(&mut d)
-        .map_err(|_| "invalid, duplicate-key or oversized registry JSON")?;
+    let value = Seed {
+        left: &mut 500000,
+        max_string,
+    }
+    .deserialize(&mut d)
+    .map_err(|_| "invalid, duplicate-key or oversized registry JSON")?;
     d.end().map_err(|_| "trailing registry JSON")?;
     Ok(value)
 }

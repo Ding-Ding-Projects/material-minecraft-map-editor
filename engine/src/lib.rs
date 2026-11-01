@@ -1,8 +1,10 @@
 pub mod chunk;
 pub mod edit;
+mod file_source;
 pub mod mutf8;
 pub mod nbt;
 pub mod protocol;
+pub mod reference;
 pub mod region;
 pub mod registry;
 pub mod working_copy;

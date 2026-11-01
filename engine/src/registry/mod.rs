@@ -439,3 +439,7 @@ impl Registry {
 }
 #[cfg(test)]
 mod tests;
+
+pub(crate) fn parse_reference_metadata(bytes: &[u8]) -> Result<Value> {
+    json::parse_with_string_limit(bytes, 65536, 1024)
+}

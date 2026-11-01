@@ -1,7 +1,18 @@
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 pub const MAX_FRAME: usize = 1024 * 1024;
-pub fn serve(mut input: impl Read, mut output: impl Write) -> std::io::Result<()> {
+pub fn serve(input: impl Read, output: impl Write) -> std::io::Result<()> {
+    serve_with_reference(
+        input,
+        output,
+        &crate::reference::Availability::Unavailable("reference_root_missing"),
+    )
+}
+pub fn serve_with_reference(
+    mut input: impl Read,
+    mut output: impl Write,
+    reference: &crate::reference::Availability,
+) -> std::io::Result<()> {
     loop {
         let mut header = [0; 4];
         match input.read(&mut header[..1])? {
@@ -18,7 +29,7 @@ pub fn serve(mut input: impl Read, mut output: impl Write) -> std::io::Result<()
         let mut bytes = vec![0; n];
         input.read_exact(&mut bytes)?;
         let response = match serde_json::from_slice::<Value>(&bytes) {
-            Ok(request) => dispatch(request),
+            Ok(request) => dispatch_with_reference(request, Some(reference)),
             Err(_) => {
                 json!({"version":1,"id":null,"error":{"code":"invalid_json","message":"Invalid JSON request"}})
             }
@@ -30,6 +41,12 @@ pub fn serve(mut input: impl Read, mut output: impl Write) -> std::io::Result<()
     }
 }
 pub fn dispatch(request: Value) -> Value {
+    dispatch_with_reference(request, None)
+}
+pub fn dispatch_with_reference(
+    request: Value,
+    reference: Option<&crate::reference::Availability>,
+) -> Value {
     let id = request.get("id").cloned().unwrap_or(Value::Null);
     let fail = |code: &str, message: &str| json!({"version":1,"id":id,"error":{"code":code,"message":message}});
     if !request.is_object()
@@ -41,7 +58,7 @@ pub fn dispatch(request: Value) -> Value {
     }
     let result = match request.get("method").and_then(Value::as_str) {
         Some("engine.info") => {
-            json!({"name":"material-world-engine","version":env!("CARGO_PKG_VERSION"),"protocolVersion":1,"methods":["engine.info","world.probe","world.dimensions","world.chunk_summary"],"editingSupported":false,"formats":["java-nbt","java-region-structural"]})
+            json!({"name":"material-world-engine","version":env!("CARGO_PKG_VERSION"),"protocolVersion":1,"methods":["engine.info","world.probe","world.dimensions","world.chunk_summary"],"editingSupported":false,"formats":["java-nbt","java-region-structural"],"reference":reference.map(|r|r.summary()).unwrap_or_else(||json!({"status":"unavailable","reasonCode":"reference_root_missing"}))})
         }
         Some("world.probe") => {
             let Some(path) = request.pointer("/params/path").and_then(Value::as_str) else {
