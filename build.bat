@@ -1,5 +1,7 @@
 @echo off
 setlocal EnableExtensions
+if /I "%~1"=="/native" goto :native_build
+if /I "%~1"=="--native" goto :native_build
 set "SILENT_MODE=0"
 if /I "%~1"=="/s" set "SILENT_MODE=1"
 if /I "%~1"=="--silent" set "SILENT_MODE=1"
@@ -30,3 +32,7 @@ if "%SILENT_MODE%"=="0" (
 )
 :build_done
 exit /b 0
+
+:native_build
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build-native.ps1"
+exit /b %errorlevel%

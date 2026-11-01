@@ -1,5 +1,19 @@
 # Roadmap
 
+## Native replacement, 2026-11-01
+
+- [x] Freeze the 54-release Java compatibility target without claiming support.
+- [x] Implement and test bounded read-only Rust format foundations.
+- [x] Independently review the first native-shell design contract.
+- [x] Build the experimental native target on the current Windows host.
+- [x] Verify real process probing and cancellation through focused native tests.
+- [ ] Verify actual native rendering, accessibility and Material Design 3 anatomy.
+- [ ] Complete world rendering, selection, edits, save-copy and recovery vertical slice.
+- [ ] Verify every frozen Java version and supported conversion pairing.
+- [ ] Complete required features, documentation companions and current runtime evidence.
+- [ ] Repair inherited publication findings and wire protected generation data.
+- [ ] Deliver the native installer, release and supported installed update.
+
 Legend: ✅ landed and covered by tests · 🏃 in progress · ⏳ waiting on evidence
 this repository cannot produce by itself.
 

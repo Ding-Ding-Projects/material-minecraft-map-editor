@@ -1,5 +1,15 @@
 # Handoff
 
+## Native rebuild in progress, 2026-11-01
+
+The requested replacement uses PySide6 Qt Quick and an independent Rust Java engine. The existing applications remain preserved. The native target is not yet the released editor. The compatibility target is frozen at 54 stable Java releases from 1.12 through 26.3 in `docs/compatibility/java-releases.json`; no all-version support is claimed.
+
+The engine currently provides bounded lossless NBT, region reads, metadata probing, selected synthetic-tested chunk layouts, and framed local communication. Reviewed allocation mutation and property-cost defects were repaired. Focused engine verification reached 18 unit tests and one compile-fail documentation test.
+
+The initial native shell provides real read-only world probing, cancellation, stale-result rejection, window actions and persisted appearance choices. Nine native tests passed, including the real Rust process and unchanged fixture bytes. `build.bat /native` completed on the current Windows host with isolated PySide6 6.12.0. GUI rendering, keyboard interaction, Material Design 3 conformance, terrain, edits, transactional saves, complete version fixtures, installer and release remain unverified or unimplemented.
+
+Publication is held pending repair and full classification of inherited publication-policy findings. The generic changelog consumer now requires explicit protected policy input through standard input. Production build/workflow integration of that input remains pending; no unsanitized-history fallback is permitted. Historical image links must remain intact. No public rebuild release or runtime completion is claimed.
+
 ## Closeout baseline: 2026-09-18
 
 - The primary checkout is on `main` at `4516917fd5238b5f09c768f4441affdf9a621d6c`, and the fetched `origin/main` ref resolves to the same commit.
