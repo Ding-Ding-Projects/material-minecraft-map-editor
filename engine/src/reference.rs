@@ -63,6 +63,7 @@ fn read(root: &Path, name: &str, size: usize, hash: &str) -> Result<Vec<u8>, &'s
         Error::Budget => "reference_size_mismatch",
         Error::Changed => "reference_hash_or_change_mismatch",
         Error::Identity => "reference_identity_unavailable",
+        Error::Timeout => "reference_read_unavailable",
         Error::Io => "reference_read_unavailable",
     })
 }

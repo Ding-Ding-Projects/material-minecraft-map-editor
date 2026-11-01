@@ -476,3 +476,7 @@ mod tests {
         assert!(summarize(&property_fixture(64, true)).is_err());
     }
 }
+
+pub(crate) fn nested_palette_view(section: &Tag) -> Result<Blocks> {
+    palette_section(fields(section)?, Format::NestedPadded)
+}

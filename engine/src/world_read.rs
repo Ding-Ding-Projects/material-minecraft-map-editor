@@ -522,3 +522,14 @@ mod tests {
         assert!(dimensions(&world.0).is_err());
     }
 }
+
+pub(crate) fn resolve_dimension(path: &Path, id: &str) -> nbt::Result<std::path::PathBuf> {
+    if !valid_id(id) {
+        return Err("invalid dimension identifier");
+    }
+    discover(path)?
+        .into_iter()
+        .find(|d| d.id == id)
+        .map(|d| d.path)
+        .ok_or("dimension unavailable")
+}

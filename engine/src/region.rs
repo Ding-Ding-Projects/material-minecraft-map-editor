@@ -57,6 +57,39 @@ pub fn decompress(kind: u8, data: &[u8], limit: usize) -> nbt::Result<Vec<u8>> {
     }
     Ok(output)
 }
+pub fn header_locations(header: &[u8], file_bytes: u64) -> nbt::Result<[Option<Location>; 1024]> {
+    if header.len() != 8192 || file_bytes < 8192 || file_bytes % 4096 != 0 {
+        return Err("invalid region length");
+    }
+    let mut locations = [None; 1024];
+    let mut ranges = Vec::new();
+    for (i, location) in locations.iter_mut().enumerate() {
+        let p = i * 4;
+        let sector = u32::from_be_bytes([0, header[p], header[p + 1], header[p + 2]]);
+        let count = header[p + 3];
+        if sector == 0 && count == 0 {
+            continue;
+        }
+        if sector < 2 || count == 0 {
+            return Err("invalid sector location");
+        }
+        let end = sector as usize + count as usize;
+        if end as u64 > file_bytes / 4096 {
+            return Err("sector outside file");
+        }
+        ranges.push((sector as usize, end));
+        *location = Some(Location {
+            sector,
+            count,
+            timestamp: u32::from_be_bytes(header[4096 + p..4100 + p].try_into().unwrap()),
+        });
+    }
+    ranges.sort_unstable();
+    if ranges.windows(2).any(|w| w[0].1 > w[1].0) {
+        return Err("overlapping sectors");
+    }
+    Ok(locations)
+}
 #[derive(Debug, Clone, Copy)]
 pub struct Location {
     pub sector: u32,
@@ -79,36 +112,10 @@ impl<'a> Region<'a> {
         &self.locations
     }
     pub fn parse(data: &'a [u8]) -> nbt::Result<Self> {
-        if data.len() < 8192 || data.len() % 4096 != 0 {
-            return Err("invalid region length");
-        }
-        let mut locations = [None; 1024];
-        let mut ranges = Vec::new();
-        for (i, location) in locations.iter_mut().enumerate() {
-            let p = i * 4;
-            let sector = u32::from_be_bytes([0, data[p], data[p + 1], data[p + 2]]);
-            let count = data[p + 3];
-            if sector == 0 && count == 0 {
-                continue;
-            }
-            if sector < 2 || count == 0 {
-                return Err("invalid sector location");
-            }
-            let end = sector as usize + count as usize;
-            if end > data.len() / 4096 {
-                return Err("sector outside file");
-            }
-            ranges.push((sector as usize, end));
-            *location = Some(Location {
-                sector,
-                count,
-                timestamp: u32::from_be_bytes(data[4096 + p..4100 + p].try_into().unwrap()),
-            });
-        }
-        ranges.sort_unstable();
-        if ranges.windows(2).any(|w| w[0].1 > w[1].0) {
-            return Err("overlapping sectors");
-        }
+        let locations = header_locations(
+            data.get(..8192).ok_or("invalid region length")?,
+            data.len() as u64,
+        )?;
         Ok(Self { data, locations })
     }
     pub fn chunk(&self, index: usize, limits: Limits) -> nbt::Result<Option<NamedTag>> {
@@ -202,3 +209,84 @@ mod tests {
 }
 mod write;
 pub use write::RegionEdit;
+
+/// Reserve the entire declared output allowance before decoding. The returned
+/// Vec never grows beyond this payload capacity; trailer completion is required.
+pub fn decompress_reserved(kind: u8, data: &[u8], limit: usize) -> nbt::Result<Vec<u8>> {
+    if limit > 16 * 1024 * 1024 {
+        return Err("decompression budget exceeded");
+    }
+    let mut output = Vec::new();
+    output
+        .try_reserve_exact(limit)
+        .map_err(|_| "allocation unavailable")?;
+    if output.capacity() > limit {
+        return Err("decompression allocation budget exceeded");
+    }
+    let mut block = [0u8; 8192];
+    if kind == 2 {
+        let mut decoder = flate2::Decompress::new(true);
+        loop {
+            let before = decoder.total_out();
+            let consumed = decoder.total_in() as usize;
+            let status = decoder
+                .decompress(&data[consumed..], &mut block, flate2::FlushDecompress::None)
+                .map_err(|_| "invalid compressed stream")?;
+            let n = (decoder.total_out() - before) as usize;
+            if output.len().checked_add(n).is_none_or(|n| n > limit) {
+                return Err("decompression budget exceeded");
+            }
+            output.extend_from_slice(&block[..n]);
+            if status == flate2::Status::StreamEnd {
+                if decoder.total_in() as usize != data.len() {
+                    return Err("trailing compressed bytes");
+                }
+                return Ok(output);
+            }
+            if n == 0 && decoder.total_in() as usize == consumed {
+                return Err("incomplete compressed stream");
+            }
+        }
+    }
+    if kind == 3 {
+        if data.len() > limit {
+            return Err("decompression budget exceeded");
+        }
+        output.extend_from_slice(data);
+        return Ok(output);
+    }
+    if kind != 1 {
+        return Err("unsupported compression");
+    }
+    let mut decoder = GzDecoder::new(Cursor::new(data));
+    loop {
+        let n = decoder
+            .read(&mut block)
+            .map_err(|_| "invalid compressed stream")?;
+        if n == 0 {
+            break;
+        }
+        if output.len().checked_add(n).is_none_or(|n| n > limit) {
+            return Err("decompression budget exceeded");
+        }
+        output.extend_from_slice(&block[..n]);
+    }
+    if decoder.into_inner().position() != data.len() as u64 {
+        return Err("trailing compressed bytes");
+    }
+    Ok(output)
+}
+#[cfg(test)]
+mod bounded_decoder_tests {
+    use super::*;
+    #[test]
+    fn reserved_output_and_header_validation() {
+        let raw = [10, 0, 0, 0];
+        let decoded = decompress_reserved(3, &raw, 4).unwrap();
+        assert_eq!(decoded, raw);
+        assert_eq!(decoded.capacity(), 4);
+        assert!(decompress_reserved(3, &raw, 3).is_err());
+        assert!(header_locations(&[0; 8192], 8193).is_err());
+        assert!(header_locations(&[0; 8192], 8192).is_ok());
+    }
+}

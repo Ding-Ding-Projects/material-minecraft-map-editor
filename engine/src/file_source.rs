@@ -31,6 +31,7 @@ pub(crate) enum Error {
     Changed,
     Identity,
     Io,
+    Timeout,
 }
 #[cfg(windows)]
 fn stamp(file: &File) -> Result<Stamp, Error> {
@@ -123,6 +124,22 @@ impl Source {
             return Err(Error::Escape);
         }
         let path = root.join(relative);
+        let mut parent = path.parent().ok_or(Error::Escape)?;
+        loop {
+            match fs::canonicalize(parent) {
+                Ok(actual) => {
+                    if !actual.starts_with(root) {
+                        return Err(Error::Escape);
+                    }
+                    break;
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    parent = parent.parent().ok_or(Error::Escape)?
+                }
+                Err(_) => return Err(Error::Io),
+            }
+        }
+
         let m = fs::symlink_metadata(&path).map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 Error::Missing
@@ -164,10 +181,24 @@ impl Source {
         }
         Ok(Self {
             root: root.into(),
-            relative: relative.into(),
+            relative: actual
+                .strip_prefix(root)
+                .map_err(|_| Error::Escape)?
+                .to_path_buf(),
             file,
             stamp,
         })
+    }
+    pub fn relative_path(&self) -> Result<String, Error> {
+        let text = self
+            .relative
+            .to_str()
+            .ok_or(Error::Escape)?
+            .replace('\\', "/");
+        if text.len() > 4096 {
+            return Err(Error::Escape);
+        }
+        Ok(text)
     }
     pub fn verify(&self) -> Result<(), Error> {
         if stamp(&self.file)? != self.stamp {
@@ -190,18 +221,23 @@ impl Source {
         self.file
             .seek(SeekFrom::Start(offset))
             .map_err(|_| Error::Io)?;
-        let mut bytes = vec![0; length];
+        let mut bytes = Vec::new();
+        bytes.try_reserve_exact(length).map_err(|_| Error::Budget)?;
+        bytes.resize(length, 0);
         self.file
             .read_exact(&mut bytes)
             .map_err(|_| Error::Changed)?;
         Ok(bytes)
     }
-    pub fn hash(&mut self) -> Result<[u8; 32], Error> {
+    pub fn hash(&mut self, deadline: Option<std::time::Instant>) -> Result<[u8; 32], Error> {
         self.file.seek(SeekFrom::Start(0)).map_err(|_| Error::Io)?;
         let mut hash = Sha256::new();
         let mut read = 0u64;
         let mut buffer = [0u8; 65536];
         loop {
+            if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
+                return Err(Error::Timeout);
+            }
             let n = self.file.read(&mut buffer).map_err(|_| Error::Io)?;
             if n == 0 {
                 break;
@@ -259,7 +295,7 @@ mod tests {
         assert_eq!(source.read_at(2, 3).unwrap(), b"cde");
         assert!(source.read_at(5, 2).is_err());
         assert_eq!(
-            source.hash().unwrap(),
+            source.hash(None).unwrap(),
             <[u8; 32]>::from(Sha256::digest(b"abcdef"))
         );
         fs::write(root.join("input"), b"changed").unwrap();
