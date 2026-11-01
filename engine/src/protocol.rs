@@ -37,14 +37,11 @@ pub fn dispatch(request: Value) -> Value {
         || !(id.is_string() || id.is_i64() || id.is_u64())
         || id.as_str().is_some_and(|v| v.len() > 128)
     {
-        return fail(
-            "invalid_request",
-            "Expected protocol version 1 and bounded string or integer id",
-        );
+        return json!({"version":1,"id":null,"error":{"code":"invalid_request","message":"Expected protocol version 1 and bounded string or integer id"}});
     }
     let result = match request.get("method").and_then(Value::as_str) {
         Some("engine.info") => {
-            json!({"name":"material-world-engine","version":env!("CARGO_PKG_VERSION"),"protocolVersion":1,"methods":["engine.info","world.probe"],"editingSupported":false,"formats":["java-nbt","java-region-structural"]})
+            json!({"name":"material-world-engine","version":env!("CARGO_PKG_VERSION"),"protocolVersion":1,"methods":["engine.info","world.probe","world.dimensions","world.chunk_summary"],"editingSupported":false,"formats":["java-nbt","java-region-structural"]})
         }
         Some("world.probe") => {
             let Some(path) = request.pointer("/params/path").and_then(Value::as_str) else {
@@ -58,9 +55,41 @@ pub fn dispatch(request: Value) -> Value {
                 Err(message) => return fail("probe_failed", message),
             }
         }
+        Some(method @ ("world.dimensions" | "world.chunk_summary")) => {
+            let Some(path) = request.pointer("/params/path").and_then(Value::as_str) else {
+                return fail("invalid_params", "Expected params.path");
+            };
+            if path.is_empty() || path.len() > 32768 || path.contains('\0') {
+                return fail("invalid_params", "Invalid path");
+            }
+            let result = if method == "world.dimensions" {
+                crate::world_read::dimensions(std::path::Path::new(path))
+            } else {
+                let Some(dimension) = request.pointer("/params/dimension").and_then(Value::as_str)
+                else {
+                    return fail("invalid_params", "Expected dimension identifier");
+                };
+                let x = request
+                    .pointer("/params/chunkX")
+                    .and_then(Value::as_i64)
+                    .and_then(|n| i32::try_from(n).ok());
+                let z = request
+                    .pointer("/params/chunkZ")
+                    .and_then(Value::as_i64)
+                    .and_then(|n| i32::try_from(n).ok());
+                let (Some(x), Some(z)) = (x, z) else {
+                    return fail("invalid_params", "Expected signed 32-bit chunk coordinates");
+                };
+                crate::world_read::chunk_summary(std::path::Path::new(path), dimension, x, z)
+            };
+            match result {
+                Ok(v) => v,
+                Err(message) => return fail("world_read_failed", message),
+            }
+        }
         _ => return fail("method_not_found", "Unsupported method"),
     };
-    json!({"version":1,"id":id,"result":result})
+    crate::world_read::bounded_response(json!({"version":1,"id":id,"result":result}), &id)
 }
 #[cfg(test)]
 mod tests {

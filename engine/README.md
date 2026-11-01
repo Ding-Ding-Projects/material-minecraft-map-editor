@@ -15,7 +15,7 @@ The executable reads binary stdin and writes only framed responses to binary std
 
 Request fields: `version: 1`, `id` (integer or string up to 128 UTF-8 bytes), `method`, optional `params`. Responses carry `version`, the unchanged `id`, and either `result` or `error` containing `code` and `message`. Unsupported methods return `method_not_found`; the engine never pretends that edits happened.
 
-- `engine.info`: returns version, methods, format scope and `editingSupported: false`.
+- `engine.info`: returns version, all four methods, format scope and `editingSupported: false`.
 - `world.probe`: requires `params.path` with the local Java world directory. Paths are caller-supplied local read authority, not an authentication boundary. Only `level.dat` is opened. Error responses use fixed messages, never OS diagnostics or paths.
 
 The process bridge must remain local and must not expose this protocol to untrusted network clients. Host permission handling, request cancellation and concurrency are not implemented.
@@ -48,3 +48,20 @@ Semantic tests cover continuous cross-word and padded word boundaries at five bi
 Region allocation metadata is exposed through a shared read-only `locations()` view. Chunk reads also recheck checked allocation ranges before slicing. A regression deliberately corrupts internal metadata and requires an error rather than a panic; a compile-fail documentation test proves external code cannot replace allocations.
 
 Semantic block states are limited to 64 properties each (`MAX_STATE_PROPERTIES`). Larger compounds produce `block property budget exceeded` before decoding keys or allocating the membership table. This is a conservative resource boundary, not a registry completeness claim; the raw NBT remains unchanged and accessible. Duplicate detection uses a randomized `HashSet` while the returned property vector preserves source order. The former linear search per property required `n*(n-1)/2` comparisons for distinct names (4,999,950,000 at 100,000 entries). A bounded 65-entry negative fixture was observed failing before the repair; regression coverage proves 64-entry acceptance/order, 65-entry rejection and duplicate rejection.
+
+## Read-only dimension and chunk protocol
+
+`world.dimensions` takes `params.path` and discovers existing dimension storage with a `region` directory. Standard identifiers map to the selected world root (`minecraft:overworld`), `DIM-1` (`minecraft:the_nether`) and `DIM1` (`minecraft:the_end`). Custom identifiers map under `dimensions/<namespace>/<path>`. Discovery returns sorted identifiers and read-only state, never filesystem paths. Empty dimensions without region storage are not listed. Custom traversal is limited to 4,096 entries, 64 dimensions and nine identifier components including namespace. Standard storage subtrees (`region`, `entities`, `poi`, `data`) below a custom dimension are not interpreted as nested dimension identifiers. Unknown, duplicate or cyclic mappings fail explicitly.
+
+`world.chunk_summary` requires `params.path`, a discovered `params.dimension`, and signed 32-bit `params.chunkX` / `params.chunkZ`. Identifiers use lowercase ASCII resource components; absolute paths, backslashes, empty components, `.` and `..` are rejected. Regions use Euclidean floor division and remainder: chunk `(-1,-1)` maps to `r.-1.-1.mca` at header index 1023; `(32,32)` maps to `r.1.1.mca` at index 0. The stored chunk coordinates must match the requested coordinates.
+
+Each existing dimension, region directory and region file resolves through canonical child containment before access. Symlinks and junctions that resolve outside the owning parent are rejected. The selected world root itself is resolved to its canonical target. This is a local read interface, not a sandbox for a hostile process concurrently replacing paths: it does not provide handle-bound race-proof containment, filesystem locking or coherent snapshots of an actively changing world. Use an owner-controlled stable snapshot until those capabilities exist. No files in a world are created or changed.
+
+Region files must be regular files and at most 256 MiB, checked both before and during bounded reading. Existing region allocation, compression, NBT and finite semantic DataVersion checks apply. A missing region file or unallocated requested chunk returns `available: false`, with no fabricated block data. An undiscovered dimension, malformed file, unsupported version or inconsistent coordinates returns a fixed structured error without operating-system diagnostics or filesystem paths.
+
+Available results contain actual section Y, minimum block Y, and all 4,096 block entries per section in `y-z-x` order. Numeric sections return `[numericId, metadata]` pairs. Palette sections return decoded names/properties plus exact palette indices. These are read-only observations; names are not registry-validated, missing sections are not synthesized, and lighting/biomes/mesh generation remain unavailable. The original parsed NBT is retained unmodified for semantic inspection but is not echoed over the protocol.
+
+Response frames are capped at the same 1 MiB as requests. Oversized successful results become `response_too_large` errors rather than being truncated. Invalid request ids return null ids, preventing oversized invalid-id error echoes. There is no pagination or streaming response protocol yet.
+
+Synthetic filesystem fixtures write real zlib `.mca` records and verify negative coordinates, 31/32 boundaries, nested custom discovery, missing regions/chunks, malformed region data, unknown versions, mismatched stored coordinates, region byte limits and response bounds. Canonical parent escape and a real outside junction were rejected on the current Windows test host. Unix symlink coverage is present but was not executed on this host. These tests do not constitute a real user-world or all-version acceptance corpus.
+
