@@ -19,3 +19,7 @@ Bedrock, snapshots, future versions and arbitrary mod-specific semantics are out
 ## Original registry producer receipt
 
 `java-1201-registry-producer-receipt.json` retains the original observed generation attestation as reviewed metadata only. Its explicit LF representation is 864 bytes; the original local 895-byte representation remains preserved. Neither this record nor matching report hashes claim that a later user executed the generator. The reference resolver requires exact pinned bytes and does not rewrite incoming files to force a match. Official report and client/server archive assets are not bundled here.
+
+## Prepare a native reference profile
+
+[Reference preparation](native-reference-preparation.md) documents the actual no-overwrite helper, exact input requirements, retained partial output and runtime-admission boundary. It prepares existing official reports and reviewed metadata; it does not acquire or execute upstream code.
