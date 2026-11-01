@@ -120,3 +120,43 @@ def test_zip_directory_budget_is_checked_before_member_parsing():
 def test_redirect_handler_rejects_unapproved_intermediate_target():
     with pytest.raises(reference.ReferenceError):
         reference.OfficialRedirects().redirect_request(None,None,302,"redirect",{},"https://example.invalid/server.jar")
+
+
+@pytest.mark.parametrize("release", ["1.14", "1.14.1", "1.14.2"])
+def test_historical_embedded_identity_requires_exact_name_and_build_grammar(release):
+    fields={"id":release+" / "+"a"*32,"name":release,"world_version":1952}
+    assert reference.version_fields(json.dumps(fields).encode(),release)["worldVersion"]==1952
+    for change in [{"name":"other"},{"id":release+" / unexpected"},{"id":"other / "+"a"*32}]:
+        with pytest.raises(reference.ReferenceError):
+            reference.version_fields(json.dumps({**fields,**change}).encode(),release)
+
+
+def test_forged_directory_count_is_bounded_before_zipfile_construction(monkeypatch):
+    data=bytearray(archive([("one",b"x"),("two",b"y"),("three",b"z")]))
+    end=data.rfind(b"PK\x05\x06")
+    reference.struct.pack_into("<H",data,end+8,1)
+    reference.struct.pack_into("<H",data,end+10,1)
+    monkeypatch.setattr(reference,"MAX_MEMBERS",2)
+    def forbidden_constructor(*args,**kwargs):
+        raise AssertionError("ZipFile constructed before actual directory count validation")
+    monkeypatch.setattr(reference.zipfile,"ZipFile",forbidden_constructor)
+    with pytest.raises(reference.ReferenceError):
+        reference.open_archive(bytes(data))
+
+
+def test_zip64_locator_is_rejected_before_construction(monkeypatch):
+    data=archive([("version.json",version())])
+    end=data.rfind(b"PK\x05\x06")
+    forged=data[:end]+b"PK\x06\x07"+bytes(16)+data[end:]
+    def forbidden_constructor(*args,**kwargs):
+        raise AssertionError("ZIP64 override reached ZipFile")
+    monkeypatch.setattr(reference.zipfile,"ZipFile",forbidden_constructor)
+    with pytest.raises(reference.ReferenceError,match="ZIP64"):
+        reference.open_archive(forged)
+
+
+def test_boolean_manifest_schema_version_is_not_an_integer(tmp_path):
+    manifest=tmp_path/"frozen.json"
+    manifest.write_text(json.dumps({"schemaVersion":True,"versions":[]}))
+    with pytest.raises(reference.ReferenceError,match="manifest"):
+        reference.acquire(manifest,tmp_path)

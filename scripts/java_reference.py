@@ -121,9 +121,13 @@ def read_member(archive: zipfile.ZipFile, name: str, limit: int) -> bytes:
 
 def version_fields(data: bytes, expected_id: str) -> dict:
     fields = parse_json(data, MAX_VERSION)
-    if fields.get("id") != expected_id or not isinstance(fields.get("id"), str) or type(fields.get("world_version")) is not int or not 0 <= fields["world_version"] <= 2**31-1:
+    embedded_id = fields.get("id")
+    identity_matches = embedded_id == expected_id and isinstance(embedded_id, str)
+    if expected_id in {"1.14", "1.14.1", "1.14.2"} and isinstance(embedded_id, str):
+        identity_matches = identity_matches or (fields.get("name") == expected_id and re.fullmatch(re.escape(expected_id) + r" / [0-9a-f]{32}", embedded_id) is not None)
+    if not identity_matches or type(fields.get("world_version")) is not int or not 0 <= fields["world_version"] <= 2**31-1:
         raise ReferenceError("Reference version identity or world version is invalid")
-    return {"id": fields["id"], "worldVersion": fields["world_version"], "versionJsonSha256": hashlib.sha256(data).hexdigest()}
+    return {"id": fields["id"], "worldVersion": fields["world_version"], "embeddedName": fields.get("name") if isinstance(fields.get("name"), str) else None, "versionJsonSha256": hashlib.sha256(data).hexdigest()}
 
 
 def open_archive(data: bytes) -> zipfile.ZipFile:
@@ -134,8 +138,39 @@ def open_archive(data: bytes) -> zipfile.ZipFile:
     if end < 0 or len(data) - end < 22:
         raise ReferenceError("ZIP directory is unavailable")
     _, disk, directory_disk, disk_count, count, size, offset, comment = struct.unpack_from("<4s4H2IH", data, end)
-    if disk != 0 or directory_disk != 0 or disk_count != count or count == 65535 or count > MAX_MEMBERS or size > MAX_MEMBERS * 512 or offset + size > end or end + 22 + comment != len(data):
+    if end >= 20 and data[end-20:end-16] == b"PK\x06\x07":
+        raise ReferenceError("ZIP64 metadata is unsupported")
+    if disk != 0 or directory_disk != 0 or disk_count != count or count == 65535 or count > MAX_MEMBERS or size == 0xffffffff or offset == 0xffffffff or size > MAX_MEMBERS * 512 or offset + size != end or end + 22 + comment != len(data):
         raise ReferenceError("Unsupported or oversized ZIP directory")
+    position, actual = offset, 0
+    while position < end:
+        if end - position < 46 or data[position:position+4] != b"PK\x01\x02":
+            raise ReferenceError("Invalid ZIP central directory record")
+        needed = struct.unpack_from("<H", data, position+6)[0]
+        compressed, uncompressed = struct.unpack_from("<II", data, position+20)
+        name_size, extra_size, comment_size, start_disk = struct.unpack_from("<4H", data, position+28)
+        local_offset = struct.unpack_from("<I", data, position+42)[0]
+        record_end = position + 46 + name_size + extra_size + comment_size
+        actual += 1
+        if actual > MAX_MEMBERS or record_end > end or not 1 <= name_size <= 4096 or start_disk != 0 or local_offset >= offset or local_offset + 30 + compressed > offset:
+            raise ReferenceError("Invalid or oversized ZIP directory record")
+        if needed >= 45 or 0xffffffff in (compressed, uncompressed, local_offset):
+            raise ReferenceError("ZIP64 metadata is unsupported")
+        extra_position = position + 46 + name_size
+        extra_end = extra_position + extra_size
+        while extra_position < extra_end:
+            if extra_end - extra_position < 4:
+                raise ReferenceError("Invalid ZIP extra field")
+            kind, length = struct.unpack_from("<HH", data, extra_position)
+            extra_position += 4
+            if kind == 1:
+                raise ReferenceError("ZIP64 metadata is unsupported")
+            if extra_position + length > extra_end:
+                raise ReferenceError("Invalid ZIP extra field")
+            extra_position += length
+        position = record_end
+    if position != end or actual != count:
+        raise ReferenceError("ZIP directory count mismatch")
     return zipfile.ZipFile(io.BytesIO(data))
 
 def inspect_server(data: bytes, expected_id: str) -> dict:
@@ -195,7 +230,7 @@ def acquire(manifest_path: Path, repo: Path, version: str = "1.20.1") -> dict:
     with manifest_path.open("rb") as stream:
         manifest = parse_json(stream.read(MAX_METADATA + 1), MAX_METADATA)
     entries = manifest.get("versions")
-    if manifest.get("schemaVersion") != 1 or not isinstance(entries, list) or len(entries) > 1000:
+    if type(manifest.get("schemaVersion")) is not int or manifest.get("schemaVersion") != 1 or not isinstance(entries, list) or len(entries) > 1000:
         raise ReferenceError("Invalid frozen release manifest")
     matches = [item for item in entries if isinstance(item, dict) and item.get("id") == version]
     if len(matches) != 1:
